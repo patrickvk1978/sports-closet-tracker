@@ -1,0 +1,316 @@
+// ─── Full Bracket (round-by-round game data per region) ───────────────────────
+//
+// Seed-pair ordering follows standard bracket format:
+//   R64: (1v16, 8v9), (5v12, 4v13), (6v11, 3v14), (7v10, 2v15)
+//   Each adjacent pair feeds into the next round in order.
+
+export const BRACKET = {
+  midwest: {
+    name: "Midwest", color: "#f97316",
+    rounds: {
+      R64: [
+        { t1: "Kentucky",    s1: 1,  t2: "Hampton",      s2: 16, winner: "Kentucky",    status: "final" },
+        { t1: "Cincinnati",  s1: 8,  t2: "Purdue",       s2: 9,  winner: "Purdue",      status: "final" },
+        { t1: "W. Virginia", s1: 5,  t2: "Buffalo",      s2: 12, winner: "W. Virginia", status: "final" },
+        { t1: "Maryland",    s1: 4,  t2: "Valparaiso",   s2: 13, winner: "Maryland",    status: "final" },
+        { t1: "Butler",      s1: 6,  t2: "Texas",        s2: 11, winner: "Butler",      status: "final" },
+        { t1: "Notre Dame",  s1: 3,  t2: "Northeastern", s2: 14, winner: "Notre Dame",  status: "final" },
+        { t1: "Wichita St",  s1: 7,  t2: "Indiana",      s2: 10, winner: "Wichita St",  status: "final" },
+        { t1: "Kansas",      s1: 2,  t2: "New Mex. St",  s2: 15, winner: "Kansas",      status: "final" },
+      ],
+      R32: [
+        { t1: "Kentucky",    s1: 1,  t2: "Purdue",       s2: 9,  winner: "Kentucky",    status: "final" },
+        { t1: "W. Virginia", s1: 5,  t2: "Maryland",     s2: 4,  winner: "Maryland",    status: "final" },
+        { t1: "Butler",      s1: 6,  t2: "Notre Dame",   s2: 3,  winner: "Notre Dame",  status: "final" },
+        { t1: "Wichita St",  s1: 7,  t2: "Kansas",       s2: 2,  winner: "Kansas",      status: "final" },
+      ],
+      S16: [
+        { t1: "Kentucky",    s1: 1,  t2: "Maryland",     s2: 4,  winner: "Kentucky",    status: "final" },
+        { t1: "Notre Dame",  s1: 3,  t2: "Kansas",       s2: 2,  winner: "Notre Dame",  status: "final" },
+      ],
+      E8: [
+        { t1: "Kentucky",    s1: 1,  t2: "Notre Dame",   s2: 3,  winner: "Kentucky",    status: "final" },
+      ],
+    },
+  },
+  west: {
+    name: "West", color: "#06b6d4",
+    rounds: {
+      R64: [
+        { t1: "Wisconsin",   s1: 1,  t2: "Coastal Car.", s2: 16, winner: "Wisconsin",   status: "final" },
+        { t1: "Oregon",      s1: 8,  t2: "Oklahoma St",  s2: 9,  winner: "Oregon",      status: "final" },
+        { t1: "Arkansas",    s1: 5,  t2: "Wofford",      s2: 12, winner: "Arkansas",    status: "final" },
+        { t1: "N. Carolina", s1: 4,  t2: "Harvard",      s2: 13, winner: "N. Carolina", status: "final" },
+        { t1: "Xavier",      s1: 6,  t2: "Ole Miss",     s2: 11, winner: "Xavier",      status: "final" },
+        { t1: "Baylor",      s1: 3,  t2: "Georgia St",   s2: 14, winner: "Baylor",      status: "final" },
+        { t1: "VCU",         s1: 7,  t2: "Ohio St",      s2: 10, winner: "VCU",         status: "final" },
+        { t1: "Arizona",     s1: 2,  t2: "Tex. Southern",s2: 15, winner: "Arizona",     status: "final" },
+      ],
+      R32: [
+        { t1: "Wisconsin",   s1: 1,  t2: "Oregon",       s2: 8,  winner: "Wisconsin",   status: "final" },
+        { t1: "Arkansas",    s1: 5,  t2: "N. Carolina",  s2: 4,  winner: "N. Carolina", status: "final" },
+        { t1: "Xavier",      s1: 6,  t2: "Baylor",       s2: 3,  winner: "Baylor",      status: "final" },
+        { t1: "VCU",         s1: 7,  t2: "Arizona",      s2: 2,  winner: "Arizona",     status: "final" },
+      ],
+      S16: [
+        { t1: "Wisconsin",   s1: 1,  t2: "N. Carolina",  s2: 4,  winner: "Wisconsin",   status: "final" },
+        { t1: "Baylor",      s1: 3,  t2: "Arizona",      s2: 2,  winner: "Arizona",     status: "final" },
+      ],
+      E8: [
+        { t1: "Wisconsin",   s1: 1,  t2: "Arizona",      s2: 2,  winner: "Wisconsin",   status: "final" },
+      ],
+    },
+  },
+  south: {
+    name: "South", color: "#a78bfa",
+    rounds: {
+      R64: [
+        { t1: "Duke",        s1: 1,  t2: "R. Morris",    s2: 16, winner: "Duke",        status: "final" },
+        { t1: "San Diego St",s1: 8,  t2: "St. John's",   s2: 9,  winner: "San Diego St",status: "final" },
+        { t1: "Utah",        s1: 5,  t2: "SF Austin",    s2: 12, winner: "Utah",        status: "final" },
+        { t1: "Georgetown",  s1: 4,  t2: "E. Washington",s2: 13, winner: "Georgetown",  status: "final" },
+        { t1: "SMU",         s1: 6,  t2: "UCLA",         s2: 11, winner: "SMU",         status: "final" },
+        { t1: "Iowa St",     s1: 3,  t2: "UAB",          s2: 14, winner: "Iowa St",     status: "final" },
+        { t1: "Iowa",        s1: 7,  t2: "Davidson",     s2: 10, winner: "Iowa",        status: "final" },
+        { t1: "Gonzaga",     s1: 2,  t2: "N. Dakota St", s2: 15, winner: "Gonzaga",     status: "final" },
+      ],
+      R32: [
+        { t1: "Duke",        s1: 1,  t2: "San Diego St", s2: 8,  winner: "Duke",        status: "final" },
+        { t1: "Utah",        s1: 5,  t2: "Georgetown",   s2: 4,  winner: "Georgetown",  status: "final" },
+        { t1: "SMU",         s1: 6,  t2: "Iowa St",      s2: 3,  winner: "Iowa St",     status: "final" },
+        { t1: "Iowa",        s1: 7,  t2: "Gonzaga",      s2: 2,  winner: "Gonzaga",     status: "final" },
+      ],
+      S16: [
+        { t1: "Duke",        s1: 1,  t2: "Georgetown",   s2: 4,  winner: "Duke",        status: "final" },
+        { t1: "Iowa St",     s1: 3,  t2: "Gonzaga",      s2: 2,  winner: "Gonzaga",     status: "final" },
+      ],
+      E8: [
+        { t1: "Duke",        s1: 1,  t2: "Gonzaga",      s2: 2,  winner: "Duke",        status: "final" },
+      ],
+    },
+  },
+  east: {
+    name: "East", color: "#22c55e",
+    rounds: {
+      R64: [
+        { t1: "Villanova",   s1: 1,  t2: "Lafayette",   s2: 16, winner: "Villanova",   status: "final" },
+        { t1: "NC State",    s1: 8,  t2: "LSU",          s2: 9,  winner: "NC State",    status: "final" },
+        { t1: "N. Iowa",     s1: 5,  t2: "Wyoming",      s2: 12, winner: "N. Iowa",     status: "final" },
+        { t1: "Louisville",  s1: 4,  t2: "UC Irvine",    s2: 13, winner: "Louisville",  status: "final" },
+        { t1: "Providence",  s1: 6,  t2: "Dayton",       s2: 11, winner: "Providence",  status: "final" },
+        { t1: "Oklahoma",    s1: 3,  t2: "Albany",       s2: 14, winner: "Oklahoma",    status: "final" },
+        { t1: "Michigan St", s1: 7,  t2: "Georgia",      s2: 10, winner: "Michigan St", status: "final" },
+        { t1: "Virginia",    s1: 2,  t2: "Belmont",      s2: 15, winner: "Virginia",    status: "final" },
+      ],
+      R32: [
+        { t1: "Villanova",   s1: 1,  t2: "NC State",     s2: 8,  winner: "Villanova",   status: "final" },
+        { t1: "N. Iowa",     s1: 5,  t2: "Louisville",   s2: 4,  winner: "Louisville",  status: "final" },
+        { t1: "Providence",  s1: 6,  t2: "Oklahoma",     s2: 3,  winner: "Oklahoma",    status: "final" },
+        { t1: "Michigan St", s1: 7,  t2: "Virginia",     s2: 2,  winner: "Michigan St", status: "final" },
+      ],
+      S16: [
+        { t1: "Villanova",   s1: 1,  t2: "Louisville",   s2: 4,  winner: "Louisville",  status: "final" },
+        { t1: "Oklahoma",    s1: 3,  t2: "Michigan St",  s2: 7,  winner: "Michigan St", status: "final" },
+      ],
+      E8: [
+        { t1: "Louisville",  s1: 4,  t2: "Michigan St",  s2: 7,  winner: "Michigan St", status: "final" },
+      ],
+    },
+  },
+};
+
+// ─── Tournament Regions ────────────────────────────────────────────────────────
+
+export const REGIONS = {
+  midwest: {
+    name: "Midwest",
+    color: "#f97316",
+    seeds: [
+      { seed: 1,  team: "Kentucky",       eliminated: false },
+      { seed: 16, team: "Hampton",         eliminated: true },
+      { seed: 8,  team: "Cincinnati",      eliminated: true },
+      { seed: 9,  team: "Purdue",          eliminated: true },
+      { seed: 5,  team: "West Virginia",   eliminated: true },
+      { seed: 12, team: "Buffalo",         eliminated: true },
+      { seed: 4,  team: "Maryland",        eliminated: true },
+      { seed: 13, team: "Valparaiso",      eliminated: true },
+      { seed: 6,  team: "Butler",          eliminated: true },
+      { seed: 11, team: "Texas",           eliminated: true },
+      { seed: 3,  team: "Notre Dame",      eliminated: true },
+      { seed: 14, team: "Northeastern",    eliminated: true },
+      { seed: 7,  team: "Wichita St",      eliminated: true },
+      { seed: 10, team: "Indiana",         eliminated: true },
+      { seed: 2,  team: "Kansas",          eliminated: true },
+      { seed: 15, team: "New Mexico St",   eliminated: true },
+    ],
+  },
+  west: {
+    name: "West",
+    color: "#06b6d4",
+    seeds: [
+      { seed: 1,  team: "Wisconsin",       eliminated: false },
+      { seed: 16, team: "Coastal Car.",    eliminated: true },
+      { seed: 8,  team: "Oregon",          eliminated: true },
+      { seed: 9,  team: "Oklahoma St",     eliminated: true },
+      { seed: 5,  team: "Arkansas",        eliminated: true },
+      { seed: 12, team: "Wofford",         eliminated: true },
+      { seed: 4,  team: "North Carolina",  eliminated: true },
+      { seed: 13, team: "Harvard",         eliminated: true },
+      { seed: 6,  team: "Xavier",          eliminated: true },
+      { seed: 11, team: "Ole Miss",        eliminated: true },
+      { seed: 3,  team: "Baylor",          eliminated: true },
+      { seed: 14, team: "Georgia St",      eliminated: true },
+      { seed: 7,  team: "VCU",             eliminated: true },
+      { seed: 10, team: "Ohio St",         eliminated: true },
+      { seed: 2,  team: "Arizona",         eliminated: true },
+      { seed: 15, team: "Texas Southern",  eliminated: true },
+    ],
+  },
+  south: {
+    name: "South",
+    color: "#a78bfa",
+    seeds: [
+      { seed: 1,  team: "Duke",            eliminated: false },
+      { seed: 16, team: "R. Morris",       eliminated: true },
+      { seed: 8,  team: "San Diego St",    eliminated: true },
+      { seed: 9,  team: "St. John's",      eliminated: true },
+      { seed: 5,  team: "Utah",            eliminated: true },
+      { seed: 12, team: "SF Austin",       eliminated: true },
+      { seed: 4,  team: "Georgetown",      eliminated: true },
+      { seed: 13, team: "E. Washington",   eliminated: true },
+      { seed: 6,  team: "SMU",             eliminated: true },
+      { seed: 11, team: "UCLA",            eliminated: true },
+      { seed: 3,  team: "Iowa St",         eliminated: true },
+      { seed: 14, team: "UAB",             eliminated: true },
+      { seed: 7,  team: "Iowa",            eliminated: true },
+      { seed: 10, team: "Davidson",        eliminated: true },
+      { seed: 2,  team: "Gonzaga",         eliminated: true },
+      { seed: 15, team: "N. Dakota St",    eliminated: true },
+    ],
+  },
+  east: {
+    name: "East",
+    color: "#22c55e",
+    seeds: [
+      { seed: 1,  team: "Villanova",       eliminated: true },
+      { seed: 16, team: "Lafayette",       eliminated: true },
+      { seed: 8,  team: "NC State",        eliminated: true },
+      { seed: 9,  team: "LSU",             eliminated: true },
+      { seed: 5,  team: "Northern Iowa",   eliminated: true },
+      { seed: 12, team: "Wyoming",         eliminated: true },
+      { seed: 4,  team: "Louisville",      eliminated: true },
+      { seed: 13, team: "UC Irvine",       eliminated: true },
+      { seed: 6,  team: "Providence",      eliminated: true },
+      { seed: 11, team: "Dayton",          eliminated: true },
+      { seed: 3,  team: "Oklahoma",        eliminated: true },
+      { seed: 14, team: "Albany",          eliminated: true },
+      { seed: 7,  team: "Michigan St",     eliminated: false },
+      { seed: 10, team: "Georgia",         eliminated: true },
+      { seed: 2,  team: "Virginia",        eliminated: true },
+      { seed: 15, team: "Belmont",         eliminated: true },
+    ],
+  },
+};
+
+// ─── Final Four & Championship ─────────────────────────────────────────────────
+
+export const FINAL_FOUR = [
+  { game: 1, team1: "Kentucky", seed1: 1, team2: "Wisconsin",   seed2: 1, winner: "Wisconsin",  status: "final" },
+  { game: 2, team1: "Duke",     seed1: 1, team2: "Michigan St", seed2: 7, winner: null,          status: "live"  },
+];
+
+export const CHAMPIONSHIP = {
+  team1: "Wisconsin",
+  team2: "TBD",
+  winner: null,
+  status: "pending",
+};
+
+// ─── Matrix Games ──────────────────────────────────────────────────────────────
+
+export const GAMES = [
+  { id: 1, round: "Elite 8",     matchup: "Kent vs ND",    team1: "Kentucky",    team2: "Notre Dame",   status: "final",   winner: "Kentucky"   },
+  { id: 2, round: "Elite 8",     matchup: "Wisc vs Ariz",  team1: "Wisconsin",   team2: "Arizona",      status: "final",   winner: "Wisconsin"  },
+  { id: 3, round: "Elite 8",     matchup: "MSU vs Lou",    team1: "Michigan St", team2: "Louisville",   status: "final",   winner: "Michigan St"},
+  { id: 4, round: "Elite 8",     matchup: "Duke vs Gonz",  team1: "Duke",        team2: "Gonzaga",      status: "final",   winner: "Duke"       },
+  { id: 5, round: "Final Four",  matchup: "Kent vs Wisc",  team1: "Kentucky",    team2: "Wisconsin",    status: "final",   winner: "Wisconsin"  },
+  { id: 6, round: "Final Four",  matchup: "Duke vs MSU",   team1: "Duke",        team2: "Michigan St",  status: "live",    winner: null         },
+  { id: 7, round: "Championship",matchup: "TBD vs TBD",    team1: null,          team2: null,           status: "pending", winner: null         },
+];
+
+export const ROUNDS = ["Elite 8", "Final Four", "Championship"];
+
+// ─── Players ───────────────────────────────────────────────────────────────────
+
+export const PLAYERS = [
+  { rank: 1,  name: "erika-lenhart",  points: 1370, ppr: 480, winProb: 23.4, champAlive: true,  trend: "up",   picks: ["Kentucky","Wisconsin","Virginia",   "Duke","Kentucky","Duke",     "Duke"    ] },
+  { rank: 2,  name: "PayThePlayers",  points: 1330, ppr: 480, winProb: 19.1, champAlive: true,  trend: "up",   picks: ["Kentucky","Wisconsin","Virginia",   "Duke","Kentucky","Duke",     "Duke"    ] },
+  { rank: 3,  name: "ewolfe9",        points: 1150, ppr: 640, winProb: 15.7, champAlive: true,  trend: "up",   picks: ["Kentucky","UNC",      "Villanova",  "Duke","Kentucky","Duke",     "Duke"    ] },
+  { rank: 4,  name: "Stefan G.",      points: 1130, ppr: 480, winProb: 8.2,  champAlive: false, trend: "down", picks: ["Kentucky","Wisconsin","Oklahoma",   "Duke","Wisconsin","Duke",    "Wisconsin"] },
+  { rank: 5,  name: "Roberto8464",    points: 1080, ppr: 320, winProb: 6.8,  champAlive: true,  trend: "same", picks: ["Kentucky","Wisconsin","Louisville", "Duke","Kentucky","Duke",     "Kentucky"] },
+  { rank: 5,  name: "DancingInDark",  points: 1080, ppr: 480, winProb: 6.1,  champAlive: true,  trend: "up",   picks: ["Kentucky","Wisconsin","Louisville", "Duke","Wisconsin","Duke",    "Kentucky"] },
+  { rank: 7,  name: "Eric4197",       points: 1030, ppr: 480, winProb: 5.3,  champAlive: false, trend: "down", picks: ["Kentucky","Wisconsin","Villanova",  "Duke","Wisconsin","Villanova","Villanova"] },
+  { rank: 8,  name: "dukesucks15",    points: 1020, ppr: 480, winProb: 4.9,  champAlive: true,  trend: "same", picks: ["Kentucky","Wisconsin","Virginia",   "Duke","Kentucky","Duke",     "Kentucky"] },
+  { rank: 9,  name: "josedavila",     points: 1010, ppr: 480, winProb: 3.2,  champAlive: true,  trend: "up",   picks: ["Kentucky","Wisconsin","Virginia",   "Duke","Kentucky","Duke",     "Kentucky"] },
+  { rank: 10, name: "MediocreBrckt",  points: 1000, ppr: 320, winProb: 2.8,  champAlive: true,  trend: "same", picks: ["Kentucky","Arizona",   "Villanova",  "Duke","Kentucky","Duke",     "Kentucky"] },
+  { rank: 10, name: "KicyMotley",     points: 1000, ppr: 320, winProb: 2.1,  champAlive: true,  trend: "same", picks: ["Kentucky","Arizona",   "Virginia",   "Duke","Kentucky","Duke",     "Kentucky"] },
+  { rank: 10, name: "on Paul Lupo",   points: 1000, ppr: 480, winProb: 1.9,  champAlive: true,  trend: "up",   picks: ["Kentucky","UNC",      "Michigan St","Duke","Kentucky","Duke",     "Kentucky"] },
+  { rank: 13, name: "Bing",           points: 970,  ppr: 320, winProb: 0.5,  champAlive: true,  trend: "down", picks: ["Kentucky","UNC",      "Louisville", "Duke","Kentucky","Duke",     "Kentucky"] },
+  { rank: 14, name: "jackiedee",      points: 960,  ppr: 480, winProb: 0.3,  champAlive: false, trend: "down", picks: ["Kentucky","Wisconsin","Villanova",  "Iowa St","Wisconsin","Villanova","Wisconsin"] },
+  { rank: 14, name: "Josh Gold",      points: 960,  ppr: 320, winProb: 0.1,  champAlive: true,  trend: "down", picks: ["Kentucky","Wisconsin","Virginia",   "Duke","Kentucky","Duke",     "Kentucky"] },
+];
+
+export const PLAYER_COLORS = {
+  "erika-lenhart": "#f97316",
+  "PayThePlayers":  "#06b6d4",
+  "ewolfe9":        "#a78bfa",
+  "Stefan G.":      "#f43f5e",
+  "Roberto8464":    "#22c55e",
+};
+
+// ─── Dashboard Data ────────────────────────────────────────────────────────────
+
+export const LEVERAGE_GAMES = [
+  {
+    matchup: "Duke vs Michigan St",
+    time: "LIVE — 2nd Half",
+    team1: "Duke",
+    team2: "Michigan St",
+    status: "live",
+    alerts: [
+      { player: "erika-lenhart", ifTeam1: 28.1, ifTeam2: 11.2, swing: 16.9 },
+      { player: "ewolfe9",       ifTeam1: 19.3, ifTeam2: 8.8,  swing: 10.5 },
+      { player: "PayThePlayers", ifTeam1: 22.7, ifTeam2: 14.1, swing: 8.6  },
+    ],
+  },
+  {
+    matchup: "Championship — TBD vs TBD",
+    time: "Monday 9:00 PM ET",
+    team1: "TBD",
+    team2: "TBD",
+    status: "upcoming",
+    alerts: [
+      { player: "ewolfe9",       ifTeam1: 31.2, ifTeam2: 4.1,  swing: 27.1 },
+      { player: "erika-lenhart", ifTeam1: 26.8, ifTeam2: 18.9, swing: 7.9  },
+    ],
+  },
+];
+
+export const CONSENSUS = [
+  { game: "Duke vs Michigan St", team1: "Duke", team2: "Michigan St", pct1: 78, pct2: 22 },
+];
+
+export const ELIMINATION_STATS = [
+  { label: "Champion Still Alive",    count: 9,  total: 15, icon: "🏆" },
+  { label: "Final Four Intact (3+)", count: 4,  total: 15, icon: "🎯" },
+  { label: "Mathematically Alive",   count: 12, total: 15, icon: "📊" },
+  { label: "Effectively Eliminated", count: 3,  total: 15, icon: "💀" },
+];
+
+export const WIN_PROB_HISTORY = [
+  { round: "R64", players: { "erika-lenhart": 5.2,  "PayThePlayers": 4.8,  "ewolfe9": 3.1,  "Stefan G.": 6.7,  "Roberto8464": 2.9 } },
+  { round: "R32", players: { "erika-lenhart": 8.4,  "PayThePlayers": 9.1,  "ewolfe9": 5.6,  "Stefan G.": 11.2, "Roberto8464": 3.4 } },
+  { round: "S16", players: { "erika-lenhart": 14.2, "PayThePlayers": 12.8, "ewolfe9": 9.3,  "Stefan G.": 13.5, "Roberto8464": 5.1 } },
+  { round: "E8",  players: { "erika-lenhart": 19.8, "PayThePlayers": 16.4, "ewolfe9": 12.1, "Stefan G.": 9.8,  "Roberto8464": 7.2 } },
+  { round: "F4",  players: { "erika-lenhart": 23.4, "PayThePlayers": 19.1, "ewolfe9": 15.7, "Stefan G.": 8.2,  "Roberto8464": 6.8 } },
+];
