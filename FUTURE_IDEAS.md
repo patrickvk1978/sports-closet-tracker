@@ -13,28 +13,6 @@ A shared space for the team to capture ideas as we think through where to take t
 
 ---
 
-## Planned Phases
-
-### Phase 2 — Backend + Real Data
-- Supabase database + auth (user accounts, pool creation)
-- Bracket submission UI — click to fill out picks before the tournament
-- Live scoring against real game results (ESPN API or NCAA data feed)
-- Pool admin tools — invite players, manage scoring settings
-
-### Phase 3 — Simulation Engine
-- Monte Carlo simulation (10,000+ runs) for win probability
-- Real leverage scores based on each player's actual bracket
-- Real-time recalculation after each game completes
-- Supabase real-time subscriptions to push updates to all connected clients
-
-### Phase 4 — Polish + PWA
-- Service worker for offline bracket viewing
-- Push notifications for high-leverage game alerts ("Duke just took the lead — your win prob is moving")
-- Add-to-homescreen flow for mobile
-- Performance optimization for pools with 50+ players
-
----
-
 ## Ideas Backlog
 
 ### Product / Features
