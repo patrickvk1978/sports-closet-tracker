@@ -69,6 +69,18 @@ export default function Dashboard() {
   const upcomingGames = LEVERAGE_GAMES.filter((g) => g.status !== "live");
   const playerLiveAlert = liveGame?.alerts.find((a) => a.player === player.name);
 
+  const contrarian = useMemo(() => {
+    return PLAYERS[0].picks.map((_, i) => {
+      const counts = {};
+      PLAYERS.forEach((p) => { if (p.picks[i]) counts[p.picks[i]] = (counts[p.picks[i]] || 0) + 1; });
+      const majority = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+      return player.picks[i] && player.picks[i] !== majority;
+    }).filter(Boolean).length;
+  }, [player]);
+
+  const championPick = player.picks[6] ?? "—";
+  const maxPossible  = player.points + player.ppr;
+
   const winProbColor =
     player.winProb > 15 ? "#34d399" : player.winProb > 8 ? "#fbbf24" : "#94a3b8";
   const hasSparkline = WIN_PROB_HISTORY[0].players[selectedName] !== undefined;
@@ -78,98 +90,91 @@ export default function Dashboard() {
 
       {/* ── 1. Hero — Personal Standing ─────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800/40 border border-slate-700/50 p-6">
-        {/* Decorative glow */}
         <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-orange-500/5 pointer-events-none" />
 
-        <div className="flex items-start gap-6 flex-wrap">
-
-          {/* Rank badge */}
-          <div className="flex flex-col items-center justify-center w-16 h-16 rounded-2xl bg-slate-800/60 border border-slate-700/40 shrink-0">
-            <span
-              className="text-2xl font-bold text-slate-300 leading-none tabular-nums"
-              style={{ fontFamily: "Space Mono, monospace" }}
-            >
-              #{player.rank}
-            </span>
-            <span className="text-[9px] text-slate-600 mt-1 uppercase tracking-wider">Rank</span>
-          </div>
-
-          {/* Player selector + status */}
-          <div className="flex-1 min-w-0">
+        {/* Top row: player selector + rank badge */}
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="min-w-0">
             <select
               value={selectedName}
               onChange={(e) => setSelectedName(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white cursor-pointer mb-2 max-w-xs w-full"
+              className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white cursor-pointer max-w-xs w-full"
             >
               {PLAYERS.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
+                <option key={p.name} value={p.name}>{p.name}</option>
               ))}
             </select>
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* Champion pick + status */}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className="text-[11px] text-slate-500">Champion pick:</span>
+              <span className="text-[11px] font-bold text-white">{championPick}</span>
               {player.champAlive ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-400 font-semibold border border-emerald-800/40">
-                  ♛ Champion Alive
-                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-400 font-semibold border border-emerald-800/40">♛ Alive</span>
               ) : (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 font-semibold border border-slate-700/40">
-                  Champion Eliminated
-                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-900/30 text-red-400 font-semibold border border-red-800/30">Eliminated</span>
               )}
-              <div className="flex items-center gap-1">
-                <TrendArrow trend={player.trend} />
-                <span className="text-[10px] text-slate-500 capitalize">{player.trend}</span>
-              </div>
             </div>
           </div>
 
-          {/* Stats row */}
-          <div className="flex items-center gap-5 flex-wrap ml-auto">
-            <div className="text-center">
-              <div
-                className="text-3xl font-bold text-white tabular-nums leading-none"
+          {/* Rank badge + trend */}
+          <div className="flex items-center gap-2 shrink-0">
+            <TrendArrow trend={player.trend} />
+            <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-center">
+              <span
+                className="text-xl font-bold text-white tabular-nums leading-none"
                 style={{ fontFamily: "Space Mono, monospace" }}
               >
-                {player.points.toLocaleString()}
-              </div>
-              <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">Points</div>
+                {player.rank}
+              </span>
+              <span className="text-xs text-slate-500"> of {PLAYERS.length}</span>
             </div>
-
-            <div className="w-px h-12 bg-slate-800" />
-
-            <div className="text-center">
-              <div
-                className="text-3xl font-bold text-slate-300 tabular-nums leading-none"
-                style={{ fontFamily: "Space Mono, monospace" }}
-              >
-                {player.ppr}
-              </div>
-              <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">PPR</div>
-            </div>
-
-            <div className="w-px h-12 bg-slate-800" />
-
-            <div className="text-center">
-              <div
-                className="text-3xl font-bold tabular-nums leading-none"
-                style={{ fontFamily: "Space Mono, monospace", color: winProbColor }}
-              >
-                {player.winProb}%
-              </div>
-              <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">Win Prob</div>
-            </div>
-
-            {hasSparkline && (
-              <div className="w-28 h-12 opacity-60">
-                <MiniChart
-                  data={WIN_PROB_HISTORY}
-                  playerKey={selectedName}
-                  color={PLAYER_COLORS[selectedName] ?? "#f97316"}
-                />
-              </div>
-            )}
           </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          {[
+            { label: "Points",        value: player.points.toLocaleString(), color: "text-white"    },
+            { label: "Pts Remaining", value: player.ppr.toLocaleString(),    color: "text-slate-300"},
+            { label: "Win Prob",      value: `${player.winProb}%`,           color: winProbColor,   style: true },
+            { label: "Max Possible",  value: maxPossible.toLocaleString(),   color: "text-slate-400"},
+          ].map(({ label, value, color, style }) => (
+            <div key={label} className="bg-slate-800/50 rounded-xl px-4 py-3">
+              <div
+                className={`text-2xl font-bold tabular-nums leading-none ${!style ? color : ""}`}
+                style={{ fontFamily: "Space Mono, monospace", ...(style ? { color } : {}) }}
+              >
+                {value}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom row: contrarian note + live swing + sparkline */}
+        <div className="flex items-center gap-4 flex-wrap">
+          {contrarian > 0 && (
+            <span className="text-[11px] text-slate-500">
+              <span className="text-orange-400 font-semibold">{contrarian} pick{contrarian !== 1 ? "s" : ""}</span> where most of the pool disagrees
+            </span>
+          )}
+          {playerLiveAlert && (
+            <div className="flex items-center gap-2 ml-auto">
+              <LivePing />
+              <span className="text-[11px] text-slate-400">
+                If <span className="font-semibold text-white">{liveGame.team1}</span> wins:
+                <span className="text-emerald-400 font-bold tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}> {playerLiveAlert.ifTeam1}%</span>
+                <span className="text-slate-600 mx-1">·</span>
+                If <span className="font-semibold text-white">{liveGame.team2}</span> wins:
+                <span className="text-red-400 font-bold tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}> {playerLiveAlert.ifTeam2}%</span>
+              </span>
+            </div>
+          )}
+          {hasSparkline && !playerLiveAlert && (
+            <div className="w-24 h-8 opacity-50 ml-auto">
+              <MiniChart data={WIN_PROB_HISTORY} playerKey={selectedName} color={PLAYER_COLORS[selectedName] ?? "#f97316"} />
+            </div>
+          )}
         </div>
       </div>
 
