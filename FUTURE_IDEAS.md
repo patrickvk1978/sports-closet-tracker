@@ -66,5 +66,5 @@ A shared space for the team to capture ideas as we think through where to take t
 
 *Add your ideas below — just put your name next to them so we know who to ask for context.*
 
-### Bracket Selection Ideas
+### Bracket Selection Interface
 - Clicking on team -> win probability imported from trusted site (DK Sportsbook? CBS?)
