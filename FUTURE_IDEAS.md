@@ -55,6 +55,29 @@ A shared space for the team to capture ideas as we think through where to take t
 
 ---
 
+## Bracket Archetype Personas
+
+Analyze each player's bracket picking style and assign them a college basketball persona based on famous characters and moments. Could show up on their profile, in the leaderboard, or as a fun onboarding result ("Your bracket style is...").
+
+| Style | Persona | Why It Works |
+|---|---|---|
+| Maximum chalk | **Coach K** | Blue blood royalty — always expects the best teams to win |
+| Upset chaos | **Sister Jean** | Pure faith, miracles happen, Loyola-Chicago energy |
+| One team carry | **Christian Laettner** | Everything rides on one moment, one team, one shot |
+| Contrarian | **The Gonzaga Believer** | Before they were a 1-seed, picking them was insane — nobody sees what you see |
+| Balanced / smart | **Jay Wright** | Villanova ran the most complete brackets — no weakness anywhere |
+| Cinderella believer | **UMBC** | The first 16-over-1 — you think the impossible is possible |
+| Heavy favorite lean | **Kentucky Blue** | Big programs, top seeds, recruiting rankings = championships |
+| Boom or bust | **Bo Kimble** | The left-handed free throw — all heart, all or nothing, legendary if it hits |
+| Hedge everything | **Jim Boeheim** | Syracuse zone — protect everything, concede nothing easy, grind out a top 10 |
+| Regional homer | **Dick Vitale** | "ARE YOU SERIOUS?!" Passion for your guys clouds all judgment |
+| Copycat / chalk consensus | **The Bracket Obama** | Remember when Obama filled out a bracket on ESPN? Safe, polished, very public |
+| Wildcard | **The Mascot** | Like a random mascot rushing the court — nobody knows what's coming or why |
+
+*Implementation idea: compute the archetype from each player's bracket data (seed distribution of picks, upset rate, chalk %) and display it as a badge. Could be funny and shareable.*
+
+---
+
 ## Wild Ideas (Longer Term)
 - **AI-generated pool recap** — end-of-day summary written in natural language ("Today was brutal for chalk pickers...")
 - **Confidence picks mode** — alternative scoring where you assign confidence points to each pick
