@@ -78,6 +78,33 @@ Analyze each player's bracket picking style and assign them a college basketball
 
 ---
 
+## Distinguishing Features
+
+Ideas that could set this apart from every other bracket app.
+
+### Hedge Bet Alert
+When your champion or Final Four pick is playing tonight and still alive, calculate the optimal hedge bet. "You have Duke to win it all. They're -180 tonight. Betting $47 on Michigan St locks in a net positive regardless of outcome." Pulls live odds from DraftKings/FanDuel, shows the exact dollar amount and guaranteed return. Nobody else does this.
+
+### The Reaper
+One team each round that, if eliminated, would simultaneously destroy the most players' championship hopes. "If Kentucky loses tonight, 9 of 15 players lose their champion pick." Creates a shared villain/hero dynamic — the whole pool watches the same game together. Could trigger a push notification when The Reaper plays.
+
+### Sweat Index
+A live leaderboard during games ranked by who's sweating most — calculated from leverage score × proximity to the lead. The person with the highest stake in a live game floats to the top. Fun to watch in real time during game nights together.
+
+### Chaos Meter
+A tournament-wide volatility score tracking how upset-heavy this year has been vs. historical averages. Updates after every game. Shows which players are positioned to benefit from continued chaos vs. which ones need chalk to run. Gives narrative context to the whole tournament.
+
+### Bracket Autopsy
+A personal post-mortem for each player after they're eliminated — the story of how their bracket died:
+- **The death moment** — the exact game and date their chances collapsed
+- **The fork in the road** — the single pick that, if corrected, would have kept them in contention
+- **Their peak** — "You were in 1st place after the Round of 32. Here's what happened after that."
+- **Points left on the table** — not against a perfect bracket, but against their own potential ("You correctly picked 11 of 12 Final Four teams through the Sweet 16 — your bracket was elite until that one miss")
+
+Shareable at the end of the tournament.
+
+---
+
 ## Wild Ideas (Longer Term)
 - **AI-generated pool recap** — end-of-day summary written in natural language ("Today was brutal for chalk pickers...")
 - **Confidence picks mode** — alternative scoring where you assign confidence points to each pick
