@@ -111,6 +111,7 @@ Shareable at the end of the tournament.
 - **Survivor pool mode** — different game type, pick one team per round, get it wrong and you're out
 - **Multi-sport** — generalize the engine for NFL playoffs, World Cup, etc.
 - **Slack/Discord bot** — post leverage alerts and score updates directly into a group chat
+- **Opportunity to edit brackets each week** — thinking about an alternative way of doing brackets that allows for making new selections every Monday through Thursday afternoon. Might engage folks who would otherwise be eliminated. Perhaps reward entries with more points for getting selections correct earlier. 
 
 ---
 
@@ -118,3 +119,4 @@ Shareable at the end of the tournament.
 
 ### Bracket Selection Interface
 - Clicking on team -> win probability imported from trusted site (DK Sportsbook? CBS?)
+- Information on game theory-based recommendations based on win probabilities and pool size
