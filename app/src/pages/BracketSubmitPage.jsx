@@ -104,23 +104,36 @@ function SubmitTeamRow({ team, seed, isPicked, isLocked, onClick }) {
     <button
       disabled={!team || isLocked}
       onClick={onClick}
-      className={`w-full flex items-center gap-1.5 px-2 py-[5px] text-left transition-colors
-        ${!team ? 'cursor-default opacity-30' : isLocked ? 'cursor-default' : 'cursor-pointer hover:bg-slate-700/50'}
-        ${isPicked ? 'bg-emerald-900/30' : ''}
-      `}
+      className={[
+        'w-full flex items-center gap-1.5 px-2 py-[6px] text-left transition-all',
+        !team
+          ? 'cursor-default opacity-30'
+          : isLocked
+            ? 'cursor-default'
+            : 'cursor-pointer hover:bg-slate-700/60',
+        isPicked
+          ? 'bg-orange-500/10 border-l-2 border-orange-500'
+          : 'border-l-2 border-transparent',
+      ].join(' ')}
     >
       <span
-        className="text-[10px] text-slate-600 w-3 text-center tabular-nums shrink-0"
+        className="text-[10px] text-slate-500 w-3 text-center tabular-nums shrink-0"
         style={{ fontFamily: 'Space Mono, monospace' }}
       >
         {seed ?? ''}
       </span>
       <span className={`text-[11px] truncate flex-1 ${
-        isPicked ? 'text-emerald-300 font-semibold' : team ? 'text-slate-300' : 'text-slate-600 italic'
+        isPicked
+          ? 'text-orange-300 font-semibold'
+          : team
+            ? 'text-slate-300'
+            : 'text-slate-600 italic'
       }`}>
         {team ?? 'TBD'}
       </span>
-      {isPicked && <span className="text-emerald-500 text-[10px] shrink-0">✓</span>}
+      {isPicked && (
+        <span className="text-orange-500 text-[10px] shrink-0">✓</span>
+      )}
     </button>
   )
 }
@@ -128,9 +141,18 @@ function SubmitTeamRow({ team, seed, isPicked, isLocked, onClick }) {
 function SubmitGameCard({ slot, picks, r64Seeds, isLocked, onPick }) {
   const { team1, seed1, team2, seed2 } = getGameTeams(slot, picks, r64Seeds)
   const currentPick = picks[slot]
+  const hasPick = !!currentPick
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800/60 rounded-lg overflow-hidden" style={{ width: 132 }}>
+    <div
+      className={[
+        'rounded-lg overflow-hidden transition-all',
+        hasPick
+          ? 'bg-slate-900/90 border border-orange-500/30 shadow-sm shadow-orange-900/20'
+          : 'bg-slate-900/80 border border-slate-800/60',
+      ].join(' ')}
+      style={{ width: 132 }}
+    >
       <SubmitTeamRow
         team={team1} seed={seed1}
         isPicked={currentPick === team1 && !!team1}
@@ -219,35 +241,134 @@ function RegionPickBracket({ regionIndex, picks, r64Seeds, isLocked, onPick }) {
 
 function FinalFourPicker({ picks, r64Seeds, isLocked, onPick }) {
   return (
-    <div className="py-8 flex flex-col items-center gap-8">
-      <div className="flex items-center gap-8 flex-wrap justify-center">
+    <div className="py-10 flex flex-col items-center gap-8">
+      {/* Section header */}
+      <div className="text-center">
+        <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1" style={{ fontFamily: 'Space Mono, monospace' }}>
+          Final Four &amp; Championship
+        </p>
+        <p className="text-xs text-slate-500">Pick the winners of each semifinal, then the champion.</p>
+      </div>
 
-        {/* SF1 */}
-        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 w-60">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-3 font-semibold">Semifinal 1</p>
-          <p className="text-[10px] text-slate-600 mb-2">Midwest vs West</p>
+      <div className="flex items-center gap-6 flex-wrap justify-center w-full">
+
+        {/* SF1 — Midwest vs West */}
+        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 flex-1 min-w-[200px] max-w-[240px]">
+          <p
+            className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
+            style={{ fontFamily: 'Space Mono, monospace' }}
+          >
+            Semifinal 1
+          </p>
+          <p className="text-[10px] text-slate-600 mb-3">Midwest · West</p>
           <SubmitGameCard slot={60} picks={picks} r64Seeds={r64Seeds} isLocked={isLocked} onPick={onPick} />
         </div>
 
+        {/* Connector → Championship */}
+        <div className="hidden sm:flex flex-col items-center gap-1 text-slate-700">
+          <div className="w-px h-8 bg-slate-700" />
+          <span className="text-[10px]" style={{ fontFamily: 'Space Mono, monospace' }}>→</span>
+          <div className="w-px h-8 bg-slate-700" />
+        </div>
+
         {/* Championship */}
-        <div className="bg-gradient-to-b from-amber-900/20 to-slate-900/60 border border-amber-700/30 rounded-2xl p-5 w-64 relative">
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-amber-600 to-orange-600 rounded-full whitespace-nowrap">
-            <span className="text-[10px] font-bold text-white tracking-widest uppercase" style={{ fontFamily: 'Space Mono, monospace' }}>
+        <div className="relative bg-gradient-to-b from-amber-950/40 via-slate-900/80 to-slate-900/60 border border-amber-600/30 rounded-2xl p-6 flex-1 min-w-[210px] max-w-[256px] shadow-lg shadow-amber-900/10">
+          {/* Crown badge */}
+          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-amber-600 to-orange-500 rounded-full whitespace-nowrap shadow-md">
+            <span
+              className="text-[10px] font-bold text-white tracking-widest uppercase"
+              style={{ fontFamily: 'Space Mono, monospace' }}
+            >
               Championship
             </span>
           </div>
           <div className="mt-4">
+            <p className="text-[10px] text-amber-600/70 text-center mb-3 font-medium">
+              {picks[60] && picks[61]
+                ? `${picks[60]} vs ${picks[61]}`
+                : 'Pick both semifinals first'}
+            </p>
             <SubmitGameCard slot={62} picks={picks} r64Seeds={r64Seeds} isLocked={isLocked} onPick={onPick} />
           </div>
         </div>
 
-        {/* SF2 */}
-        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 w-60">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-3 font-semibold">Semifinal 2</p>
-          <p className="text-[10px] text-slate-600 mb-2">South vs East</p>
+        {/* Connector ← SF2 */}
+        <div className="hidden sm:flex flex-col items-center gap-1 text-slate-700">
+          <div className="w-px h-8 bg-slate-700" />
+          <span className="text-[10px]" style={{ fontFamily: 'Space Mono, monospace' }}>←</span>
+          <div className="w-px h-8 bg-slate-700" />
+        </div>
+
+        {/* SF2 — South vs East */}
+        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 flex-1 min-w-[200px] max-w-[240px]">
+          <p
+            className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
+            style={{ fontFamily: 'Space Mono, monospace' }}
+          >
+            Semifinal 2
+          </p>
+          <p className="text-[10px] text-slate-600 mb-3">South · East</p>
           <SubmitGameCard slot={61} picks={picks} r64Seeds={r64Seeds} isLocked={isLocked} onPick={onPick} />
         </div>
+
       </div>
+
+      {/* Champion summary */}
+      {picks[62] && (
+        <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-amber-900/20 border border-amber-700/30">
+          <span className="text-amber-400 text-base">🏆</span>
+          <div>
+            <p className="text-[10px] text-amber-600/80 font-medium uppercase tracking-wide" style={{ fontFamily: 'Space Mono, monospace' }}>
+              Your Champion
+            </p>
+            <p className="text-sm font-bold text-amber-300">{picks[62]}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Progress bar ───────────────────────────────────────────────────────────────
+
+function ProgressBar({ filled, total }) {
+  const pct = total > 0 ? Math.round((filled / total) * 100) : 0
+  const isComplete = filled === total
+  return (
+    <div className="w-full">
+      <div className="flex justify-between items-baseline mb-1">
+        <span className="text-[10px] text-slate-500 uppercase tracking-wide" style={{ fontFamily: 'Space Mono, monospace' }}>
+          Progress
+        </span>
+        <span
+          className={`text-xs font-bold tabular-nums ${isComplete ? 'text-emerald-400' : 'text-amber-400'}`}
+          style={{ fontFamily: 'Space Mono, monospace' }}
+        >
+          {filled}/{total}
+        </span>
+      </div>
+      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${isComplete ? 'bg-emerald-500' : 'bg-gradient-to-r from-orange-500 to-amber-500'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ─── Toast notification ─────────────────────────────────────────────────────────
+
+function SavedToast({ visible }) {
+  return (
+    <div
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl
+        bg-slate-800 border border-emerald-700/40 shadow-2xl shadow-black/40
+        transition-all duration-300 pointer-events-none
+        ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+    >
+      <span className="text-emerald-400 text-sm font-bold">✓</span>
+      <span className="text-sm font-semibold text-emerald-300">Bracket saved!</span>
     </div>
   )
 }
@@ -328,6 +449,8 @@ export default function BracketSubmitPage() {
         )
       if (upsertError) throw upsertError
       setSaved(true)
+      // Auto-hide the saved indicator after 3 seconds
+      setTimeout(() => setSaved(false), 3000)
     } catch (e) {
       setError(e.message ?? 'Save failed')
     }
@@ -337,38 +460,43 @@ export default function BracketSubmitPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
 
+      {/* Locked banner */}
+      {isLocked && (
+        <div className="mb-5 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/60">
+          <span className="text-slate-400 text-base">🔒</span>
+          <div>
+            <p className="text-sm font-bold text-slate-300">Bracket Locked</p>
+            <p className="text-xs text-slate-500">The pool is locked — no further edits are allowed.</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div className="flex items-start justify-between mb-5 flex-wrap gap-4">
         <div>
-          <h2 className="text-base font-bold text-white">Submit Bracket</h2>
+          <h2 className="text-lg font-bold text-white">Submit Bracket</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Click a team to advance them. Picks cascade automatically.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {/* Progress */}
-          <div className="text-right">
-            <span
-              className={`text-sm font-bold tabular-nums ${isComplete ? 'text-emerald-400' : 'text-amber-400'}`}
-              style={{ fontFamily: 'Space Mono, monospace' }}
-            >
-              {filledCount}/63
-            </span>
-            <p className="text-[10px] text-slate-500">picks made</p>
+          <div className="w-36">
+            <ProgressBar filled={filledCount} total={63} />
           </div>
 
           {isLocked ? (
-            <span className="px-4 py-2 rounded-xl bg-slate-800 text-slate-500 text-xs font-medium border border-slate-700">
+            <span className="px-4 py-2 rounded-xl bg-slate-800 text-slate-500 text-xs font-medium border border-slate-700 whitespace-nowrap">
               Pool Locked
             </span>
           ) : (
             <button
               onClick={handleSave}
               disabled={saving || filledCount === 0}
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-bold hover:from-orange-400 hover:to-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-bold hover:from-orange-400 hover:to-amber-400 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-lg shadow-orange-900/30"
             >
-              {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save Bracket'}
+              {saving ? 'Saving…' : 'Save Bracket'}
             </button>
           )}
         </div>
@@ -387,11 +515,13 @@ export default function BracketSubmitPage() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-              activeTab === tab.key ? 'text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'
+              activeTab === tab.key
+                ? 'text-white'
+                : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
             style={
               activeTab === tab.key
-                ? { background: `${tab.color}22`, border: `1px solid ${tab.color}44`, color: tab.color }
+                ? { background: `${tab.color}22`, border: `1px solid ${tab.color}55`, color: tab.color }
                 : {}
             }
           >
@@ -418,13 +548,20 @@ export default function BracketSubmitPage() {
       </div>
 
       {/* Legend */}
-      <div className="mt-4 flex items-center gap-4 text-[11px] text-slate-600">
+      <div className="mt-4 flex items-center gap-6 flex-wrap text-[11px] text-slate-600">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm bg-emerald-900/50 border border-emerald-700/40" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-orange-500/15 border border-orange-500/30" />
           Your pick
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-0.5 h-3 bg-orange-500 rounded-full" />
+          Selected team
         </span>
         <span>Click any team to pick them as the winner of that game.</span>
       </div>
+
+      {/* Toast */}
+      <SavedToast visible={saved} />
     </div>
   )
 }

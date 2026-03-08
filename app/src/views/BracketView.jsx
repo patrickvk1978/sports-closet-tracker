@@ -102,6 +102,13 @@ function BracketConnectors({ leftCount }) {
 const GAME_COUNTS = { R64: 8, R32: 4, S16: 2, E8: 1 };
 
 function RegionBracket({ region }) {
+  if (!region) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <p className="text-sm text-slate-500">No bracket data for this region yet.</p>
+      </div>
+    );
+  }
   return (
     <div className="overflow-x-auto pb-4">
       <div className="flex" style={{ minWidth: 580 }}>
@@ -132,7 +139,7 @@ function RegionBracket({ region }) {
                   justifyContent: "space-around",
                 }}
               >
-                {(region.rounds[round] || []).map((game, gi) => (
+                {((region.rounds ?? {})[round] || []).map((game, gi) => (
                   <GameCard key={gi} game={game} />
                 ))}
               </div>
@@ -248,13 +255,19 @@ function FinalFourView() {
 // ─── Player Picks Summary ──────────────────────────────────────────────────────
 
 function PickCard({ label, pick, alive }) {
+  const hasPick = !!pick;
   return (
-    <div className={`rounded-xl px-4 py-3 ${alive ? "bg-slate-800/50 border border-slate-700/40" : "bg-slate-900/40 border border-slate-800/30"}`}>
+    <div className={`rounded-xl px-4 py-3 ${hasPick && alive ? "bg-slate-800/50 border border-slate-700/40" : "bg-slate-900/40 border border-slate-800/30"}`}>
       <p className="text-[10px] text-slate-500 mb-1 font-medium">{label}</p>
-      <p className={`text-sm font-bold ${alive ? "text-white" : "text-red-400 line-through opacity-60"}`}>{pick}</p>
-      {alive
-        ? <span className="text-[10px] text-emerald-400 mt-1 block">● Still alive</span>
-        : <span className="text-[10px] text-red-400 mt-1 block">✕ Eliminated</span>
+      <p className={`text-sm font-bold ${
+        !hasPick ? "text-slate-600 italic" :
+        alive ? "text-white" : "text-red-400 line-through opacity-60"
+      }`}>{pick ?? "—"}</p>
+      {hasPick
+        ? alive
+          ? <span className="text-[10px] text-emerald-400 mt-1 block">● Still alive</span>
+          : <span className="text-[10px] text-red-400 mt-1 block">✕ Eliminated</span>
+        : <span className="text-[10px] text-slate-600 mt-1 block">No pick</span>
       }
     </div>
   );
@@ -332,7 +345,7 @@ export default function BracketView() {
   const [activeTab,      setActiveTab]      = useState("midwest");
   const [selectedPlayer, setSelectedPlayer] = useState(() => PLAYER_NAMES[0] ?? "");
 
-  const playerData = PLAYERS.find((p) => p.name === selectedPlayer) ?? PLAYERS[0];
+  const playerData = PLAYERS.find((p) => p.name === selectedPlayer) ?? PLAYERS[0] ?? null;
   const keyPicks   = KEY_PICKS[selectedPlayer] ?? KEY_PICKS[PLAYER_NAMES[0]] ?? { champion: null, runnerUp: null, ff: [] };
 
   return (
@@ -355,34 +368,40 @@ export default function BracketView() {
 
       {/* Player picks summary strip */}
       <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 mb-5">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
-          <div className="flex items-center gap-4">
-            <div>
-              <p className="text-xs font-semibold text-slate-300">{selectedPlayer}</p>
-              <p className="text-[10px] text-slate-500">Key picks</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                  {playerData.points.toLocaleString()}
-                </p>
-                <p className="text-[10px] text-slate-500">Points</p>
+        {playerData ? (
+          <>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+              <div className="flex items-center gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-slate-300">{selectedPlayer}</p>
+                  <p className="text-[10px] text-slate-500">Key picks</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                      {playerData.points.toLocaleString()}
+                    </p>
+                    <p className="text-[10px] text-slate-500">Points</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-emerald-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                      {playerData.winProb}%
+                    </p>
+                    <p className="text-[10px] text-slate-500">Win Prob</p>
+                  </div>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-emerald-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                  {playerData.winProb}%
-                </p>
-                <p className="text-[10px] text-slate-500">Win Prob</p>
-              </div>
             </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <PickCard label="Champion"   pick={keyPicks.champion}  alive={ALIVE.has(keyPicks.champion)} />
-          <PickCard label="Runner-Up"  pick={keyPicks.runnerUp}  alive={ALIVE.has(keyPicks.runnerUp)} />
-          <PickCard label="Final Four" pick={keyPicks.ff[0]}     alive={ALIVE.has(keyPicks.ff[0])} />
-          <PickCard label="Final Four" pick={keyPicks.ff[1]}     alive={ALIVE.has(keyPicks.ff[1])} />
-        </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <PickCard label="Champion"   pick={keyPicks.champion}  alive={ALIVE.has(keyPicks.champion)} />
+              <PickCard label="Runner-Up"  pick={keyPicks.runnerUp}  alive={ALIVE.has(keyPicks.runnerUp)} />
+              <PickCard label="Final Four" pick={keyPicks.ff[0]}     alive={ALIVE.has(keyPicks.ff[0])} />
+              <PickCard label="Final Four" pick={keyPicks.ff[1]}     alive={ALIVE.has(keyPicks.ff[1])} />
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-slate-500 text-center py-2">No bracket data yet.</p>
+        )}
       </div>
 
       {/* Region / Final Four tabs */}

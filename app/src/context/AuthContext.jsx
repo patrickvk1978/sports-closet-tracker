@@ -56,7 +56,12 @@ export function AuthProvider({ children }) {
     const { error: profileError } = await supabase
       .from('profiles')
       .insert({ id: data.user.id, username })
-    if (profileError) return { error: profileError }
+    if (profileError) {
+      // Auth user was created but profile insert failed.
+      // Sign out to avoid a logged-in session with no profile row.
+      await supabase.auth.signOut()
+      return { error: profileError }
+    }
     return { data }
   }
 

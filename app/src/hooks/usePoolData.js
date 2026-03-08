@@ -61,7 +61,7 @@ function buildLiveBracket(dbGames) {
       for (let i = 0; i < count; i++) {
         const slot = base + start + i
         const g    = dbGames.find((r) => r.slot_index === slot)
-        if (!g) return
+        if (!g) continue  // skip missing slots; do not abort the whole round
         rounds[key].push({
           t1:     g.teams?.team1 ?? 'TBD',
           s1:     g.teams?.seed1 ?? null,
