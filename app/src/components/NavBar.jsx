@@ -70,6 +70,22 @@ export default function NavBar() {
                 Submit
               </NavLink>
             )}
+
+            {/* Admin link — only visible to admins */}
+            {profile?.is_admin && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    isActive
+                      ? "bg-cyan-600/30 text-cyan-300 shadow"
+                      : "text-cyan-500/60 hover:text-cyan-300"
+                  }`
+                }
+              >
+                Admin
+              </NavLink>
+            )}
           </nav>
 
           {/* Auth widget */}

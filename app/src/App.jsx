@@ -11,6 +11,7 @@ import LoginPage from "./pages/LoginPage";
 import JoinPoolPage from "./pages/JoinPoolPage";
 import CreatePoolPage from "./pages/CreatePoolPage";
 import BracketSubmitPage from "./pages/BracketSubmitPage";
+import AdminPage from "./pages/AdminPage";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
               <Route element={<ProtectedRoute />}>
                 <Route path="/join"        element={<JoinPoolPage />} />
                 <Route path="/create-pool" element={<CreatePoolPage />} />
+                <Route path="/admin"       element={<AdminPage />} />
 
                 {/* Requires pool membership */}
                 <Route element={<PoolGuard />}>
