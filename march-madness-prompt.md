@@ -117,28 +117,54 @@ Simulation_Result {
 
 ## Build Phases
 
-### Phase 1: Static Prototype (Start Here)
+### Phase 1: Static Prototype ✅ COMPLETE
 - Bracket input view with mock tournament data
-- Matrix view with mock player/pick data (use the 2015 NYC Madness data as a template)
+- Matrix view with mock player/pick data (2015 NYC Madness data as template)
 - Dashboard with static charts and mock leverage data
 - No backend — all hardcoded/mock data
 - Goal: validate the UX and get feedback from the group
 
-### Phase 2: Backend + Auth
-- Supabase setup with auth and database
-- User registration and pool creation
-- Bracket submission and storage
-- Live scoring against real game results
+### Phase 2: Backend + Auth ✅ COMPLETE (Mar 2026)
+**Deployed at: https://sports-closet-tracker.vercel.app**
 
-### Phase 3: Simulation Engine
-- Monte Carlo simulation service
-- Win probability calculations
-- Leverage score calculations
-- Real-time updates via Supabase subscriptions
+Completed:
+- Supabase project setup (xuttkfikpxorvelzquuu.supabase.co)
+- 6-table schema: profiles, pools, pool_members, games, brackets, scores
+- Row-Level Security on all tables
+- Supabase Realtime on games + scores tables
+- User sign-up / sign-in / sign-out (email + password)
+- Pool creation with 6-char invite codes
+- Join pool flow
+- Interactive bracket submission at /submit (cascading pick logic)
+- All 3 views (Dashboard, Matrix, Bracket) migrated from mock → live data
+- usePoolData adapter hook — views fall back to mock data gracefully
+- ESPN unofficial API polling (admin browser, 60s/30s interval)
+- Live in-game scores displayed in Matrix and Bracket views
+- NavBar with auth state, pool name, Submit link, sign-out
+- ProtectedRoute + PoolGuard route guards
+- Selection Sunday admin UI at /admin:
+  - R64 team name editor (32 matchups across 4 regions)
+  - Pool lock toggle with confirmation
+  - ESPN ID mapping table for all 63 slots
+- ESPN attribution ("Scores via ESPN") throughout app
+- 5 crash bugs fixed in BracketView and usePoolData
 
-### Phase 4: Polish + PWA
-- Service worker for offline support
-- Push notifications for leverage alerts
+Remaining Phase 2 loose ends (pre-tournament):
+- [ ] Score calculation trigger — wire scoring.js to fire when a game goes `final`
+- [ ] Bracket lock automation — auto-lock submissions at tip-off or via admin toggle
+
+### Phase 3: Simulation Engine (Planned — post Selection Sunday)
+- Python FastAPI service
+- Monte Carlo simulation (10,000+ runs per recalculation)
+- Win probability per player replaces mock stubs in Dashboard
+- Leverage score calculations replace mock stubs
+- Real-time updates pushed via Supabase after each game goes final
+- Win probability history chart goes live (currently mock)
+- Data source for win probs: KenPom, Vegas lines, or ESPN BPI
+
+### Phase 4: Polish + PWA (Planned)
+- Service worker for offline bracket viewing
+- Push notifications for high-leverage game alerts
 - Performance optimization for matrix view with 50+ players
 - Add-to-homescreen flow
 
