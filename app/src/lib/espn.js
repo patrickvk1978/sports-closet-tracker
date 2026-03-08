@@ -48,6 +48,28 @@ export function transformEspnGame(event) {
       : (home.team?.displayName ?? null)
   }
 
+  // Live score extraction
+  const score1Raw = away?.score
+  const score2Raw = home?.score
+  const score1 = score1Raw != null && score1Raw !== '' ? parseInt(score1Raw, 10) : null
+  const score2 = score2Raw != null && score2Raw !== '' ? parseInt(score2Raw, 10) : null
+
+  // Game note: "2nd Half 12:34", "Final", or null if not started
+  let gameNote = null
+  if (status === 'final') {
+    gameNote = 'Final'
+  } else if (status === 'live') {
+    const shortDetail  = event.status?.type?.shortDetail ?? ''
+    const displayClock = comp.status?.displayClock ?? ''
+    const period       = comp.status?.period ?? null
+    if (shortDetail) {
+      gameNote = shortDetail
+    } else if (period && displayClock) {
+      const half = period === 1 ? '1st Half' : '2nd Half'
+      gameNote = `${half} ${displayClock}`
+    }
+  }
+
   return {
     espn_id: event.id,
     teams: {
@@ -60,6 +82,9 @@ export function transformEspnGame(event) {
       team1: parseInt(away?.score ?? 0, 10),
       team2: parseInt(home?.score ?? 0, 10),
     },
+    score1,
+    score2,
+    gameNote,
     winner,
     status,
   }

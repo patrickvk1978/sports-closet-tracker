@@ -30,13 +30,16 @@ function buildLiveGames(dbGames) {
     const g = dbGames.find((r) => r.slot_index === slot)
     if (!g) return null
     return {
-      id:      idx + 1,
-      round:   KEY_ROUND_NAMES[idx],
-      matchup: `${shortTeam(g.teams?.team1)} vs ${shortTeam(g.teams?.team2)}`,
-      team1:   g.teams?.team1 ?? null,
-      team2:   g.teams?.team2 ?? null,
-      status:  g.status,
-      winner:  g.winner,
+      id:       idx + 1,
+      round:    KEY_ROUND_NAMES[idx],
+      matchup:  `${shortTeam(g.teams?.team1)} vs ${shortTeam(g.teams?.team2)}`,
+      team1:    g.teams?.team1 ?? null,
+      team2:    g.teams?.team2 ?? null,
+      status:   g.status,
+      winner:   g.winner,
+      score1:   g.teams?.score1 ?? null,
+      score2:   g.teams?.score2 ?? null,
+      gameNote: g.teams?.gameNote ?? null,
     }
   }).filter(Boolean)
 }
@@ -63,12 +66,15 @@ function buildLiveBracket(dbGames) {
         const g    = dbGames.find((r) => r.slot_index === slot)
         if (!g) continue  // skip missing slots; do not abort the whole round
         rounds[key].push({
-          t1:     g.teams?.team1 ?? 'TBD',
-          s1:     g.teams?.seed1 ?? null,
-          t2:     g.teams?.team2 ?? 'TBD',
-          s2:     g.teams?.seed2 ?? null,
-          winner: g.winner,
-          status: g.status,
+          t1:       g.teams?.team1 ?? 'TBD',
+          s1:       g.teams?.seed1 ?? null,
+          t2:       g.teams?.team2 ?? 'TBD',
+          s2:       g.teams?.seed2 ?? null,
+          winner:   g.winner,
+          status:   g.status,
+          score1:   g.teams?.score1 ?? null,
+          score2:   g.teams?.score2 ?? null,
+          gameNote: g.teams?.gameNote ?? null,
         })
       }
     })

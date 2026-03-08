@@ -166,6 +166,35 @@ export default function MatrixView() {
                     <StatusBadge status={game.status} />
                     <span className="text-[11px] text-slate-300 font-semibold leading-tight">{game.matchup}</span>
                     <span className="text-[10px] text-slate-600">{game.round}</span>
+                    {/* Live score display */}
+                    {game.status === "live" && game.score1 != null && game.score2 != null && (
+                      <div className="flex flex-col items-center gap-0.5">
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="text-[11px] font-bold text-amber-400 tabular-nums"
+                            style={{ fontFamily: "Space Mono, monospace" }}
+                          >
+                            {game.score1}–{game.score2}
+                          </span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                        </div>
+                        {game.gameNote && (
+                          <span className="text-[9px] text-slate-500 leading-tight">{game.gameNote}</span>
+                        )}
+                        <span className="text-[9px] text-slate-600">ESPN</span>
+                      </div>
+                    )}
+                    {game.status === "final" && game.score1 != null && game.score2 != null && (
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span
+                          className="text-[11px] text-slate-500 tabular-nums"
+                          style={{ fontFamily: "Space Mono, monospace" }}
+                        >
+                          {game.score1}–{game.score2}
+                        </span>
+                        <span className="text-[9px] text-slate-600">ESPN</span>
+                      </div>
+                    )}
                   </div>
                 </th>
               ))}

@@ -19,29 +19,34 @@ export default function App() {
       <AuthProvider>
         <PoolProvider>
           <div
-            className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white"
+            className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col"
             style={{ fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif" }}
           >
             <NavBar />
-            <Routes>
-              {/* Public */}
-              <Route path="/login" element={<LoginPage />} />
+            <div className="flex-1">
+              <Routes>
+                {/* Public */}
+                <Route path="/login" element={<LoginPage />} />
 
-              {/* Requires auth */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/join"        element={<JoinPoolPage />} />
-                <Route path="/create-pool" element={<CreatePoolPage />} />
-                <Route path="/admin"       element={<AdminPage />} />
+                {/* Requires auth */}
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/join"        element={<JoinPoolPage />} />
+                  <Route path="/create-pool" element={<CreatePoolPage />} />
+                  <Route path="/admin"       element={<AdminPage />} />
 
-                {/* Requires pool membership */}
-                <Route element={<PoolGuard />}>
-                  <Route path="/"       element={<Dashboard />} />
-                  <Route path="/matrix" element={<MatrixView />} />
-                  <Route path="/bracket"element={<BracketView />} />
-                  <Route path="/submit" element={<BracketSubmitPage />} />
+                  {/* Requires pool membership */}
+                  <Route element={<PoolGuard />}>
+                    <Route path="/"       element={<Dashboard />} />
+                    <Route path="/matrix" element={<MatrixView />} />
+                    <Route path="/bracket"element={<BracketView />} />
+                    <Route path="/submit" element={<BracketSubmitPage />} />
+                  </Route>
                 </Route>
-              </Route>
-            </Routes>
+              </Routes>
+            </div>
+            <footer className="text-slate-600 text-xs text-center py-3 border-t border-slate-800/40">
+              Scores via ESPN
+            </footer>
           </div>
         </PoolProvider>
       </AuthProvider>

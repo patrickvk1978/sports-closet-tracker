@@ -40,7 +40,12 @@ export function useEspnPoller(slotMapping = {}) {
             {
               espn_id:    transformed.espn_id,
               slot_index: slotIndex,
-              teams:      transformed.teams,
+              teams: {
+                ...transformed.teams,
+                score1:   transformed.score1,
+                score2:   transformed.score2,
+                gameNote: transformed.gameNote,
+              },
               winner:     transformed.winner,
               status:     transformed.status,
               updated_at: new Date().toISOString(),

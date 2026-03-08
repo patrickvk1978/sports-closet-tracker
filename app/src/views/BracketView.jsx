@@ -18,7 +18,7 @@ const LABEL_H     = 28;
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
-function TeamRow({ team, seed, isWinner, status }) {
+function TeamRow({ team, seed, isWinner, status, score, isLive }) {
   let textCls = "text-slate-400";
   let bgCls   = "";
 
@@ -43,6 +43,22 @@ function TeamRow({ team, seed, isWinner, status }) {
         {seed}
       </span>
       <span className={`text-[11px] truncate flex-1 ${textCls}`}>{team || "TBD"}</span>
+      {score != null && status === "live" && (
+        <span
+          className="text-[11px] font-bold text-amber-400 tabular-nums shrink-0"
+          style={{ fontFamily: "Space Mono, monospace" }}
+        >
+          {score}
+        </span>
+      )}
+      {score != null && status === "final" && (
+        <span
+          className="text-[11px] text-slate-500 tabular-nums shrink-0"
+          style={{ fontFamily: "Space Mono, monospace" }}
+        >
+          {score}
+        </span>
+      )}
       {isWinner && status === "final" && (
         <span className="text-emerald-500 text-[10px] shrink-0">✓</span>
       )}
@@ -51,12 +67,33 @@ function TeamRow({ team, seed, isWinner, status }) {
 }
 
 function GameCard({ game }) {
-  const { t1, s1, t2, s2, winner, status } = game;
+  const { t1, s1, t2, s2, winner, status, score1, score2, gameNote } = game;
+  const borderCls = status === "live"
+    ? "border-amber-700/40"
+    : "border-slate-800/60";
+
   return (
-    <div className="bg-slate-900/80 border border-slate-800/60 rounded-lg overflow-hidden" style={{ width: 128 }}>
-      <TeamRow team={t1} seed={s1} isWinner={winner === t1} status={status} />
-      <div className="h-px bg-slate-800/80" />
-      <TeamRow team={t2} seed={s2} isWinner={winner === t2} status={status} />
+    <div className="flex flex-col">
+      <div
+        className={`bg-slate-900/80 border ${borderCls} rounded-lg overflow-hidden`}
+        style={{ width: 128 }}
+      >
+        <TeamRow team={t1} seed={s1} isWinner={winner === t1} status={status} score={score1} />
+        <div className="h-px bg-slate-800/80" />
+        <TeamRow team={t2} seed={s2} isWinner={winner === t2} status={status} score={score2} />
+      </div>
+      {status === "live" && gameNote && (
+        <div className="flex items-center gap-1 mt-0.5 px-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span className="text-[9px] text-amber-500 leading-tight truncate">{gameNote}</span>
+          <span className="text-[9px] text-slate-600 ml-auto shrink-0">ESPN</span>
+        </div>
+      )}
+      {status === "final" && score1 != null && score2 != null && (
+        <div className="flex items-center justify-end mt-0.5 px-1">
+          <span className="text-[9px] text-slate-600">ESPN</span>
+        </div>
+      )}
     </div>
   );
 }
