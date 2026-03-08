@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { BRACKET, PLAYERS } from "../data/mockData";
+import { useState, useMemo } from "react";
+import { usePoolData } from "../hooks/usePoolData";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const REGION_KEYS = ["midwest", "west", "south", "east"];
-const ROUND_KEYS  = ["R64", "R32", "S16", "E8"];
+const REGION_KEYS  = ["midwest", "west", "south", "east"];
+const ROUND_KEYS   = ["R64", "R32", "S16", "E8"];
 const ROUND_LABELS = { R64: "R64", R32: "R32", S16: "Sweet 16", E8: "Elite 8" };
 
 // Height of the game area (excluding round labels). With 8 R64 games this gives
@@ -14,27 +14,7 @@ const LABEL_H     = 28;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-const PLAYER_NAMES = PLAYERS.map((p) => p.name);
-
-const KEY_PICKS = {
-  "erika-lenhart": { champion: "Duke",      runnerUp: "Kentucky",  ff: ["Wisconsin", "Virginia"]   },
-  "PayThePlayers":  { champion: "Duke",      runnerUp: "Kentucky",  ff: ["Wisconsin", "Virginia"]   },
-  "ewolfe9":        { champion: "Duke",      runnerUp: "Kentucky",  ff: ["UNC",       "Villanova"]   },
-  "Stefan G.":      { champion: "Wisconsin", runnerUp: "Duke",      ff: ["Kentucky",  "Oklahoma"]    },
-  "Roberto8464":    { champion: "Kentucky",  runnerUp: "Duke",      ff: ["Wisconsin", "Louisville"]  },
-  "DancingInDark":  { champion: "Kentucky",  runnerUp: "Duke",      ff: ["Wisconsin", "Louisville"]  },
-  "Eric4197":       { champion: "Villanova", runnerUp: "Wisconsin", ff: ["Kentucky",  "Villanova"]   },
-  "dukesucks15":    { champion: "Kentucky",  runnerUp: "Duke",      ff: ["Wisconsin", "Virginia"]    },
-  "josedavila":     { champion: "Kentucky",  runnerUp: "Duke",      ff: ["Wisconsin", "Virginia"]    },
-  "MediocreBrckt":  { champion: "Kentucky",  runnerUp: "Duke",      ff: ["Arizona",   "Villanova"]   },
-  "KicyMotley":     { champion: "Kentucky",  runnerUp: "Duke",      ff: ["Arizona",   "Virginia"]    },
-  "on Paul Lupo":   { champion: "Kentucky",  runnerUp: "Duke",      ff: ["UNC",       "Michigan St"] },
-  "Bing":           { champion: "Kentucky",  runnerUp: "Duke",      ff: ["UNC",       "Louisville"]  },
-  "jackiedee":      { champion: "Wisconsin", runnerUp: "Villanova", ff: ["Kentucky",  "Iowa St"]     },
-  "Josh Gold":      { champion: "Kentucky",  runnerUp: "Duke",      ff: ["Wisconsin", "Virginia"]    },
-};
-
-const ALIVE = new Set(["Kentucky", "Wisconsin", "Duke", "Michigan St"]);
+// KEY_PICKS and ALIVE are computed inside the component from live data (see below).
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
@@ -291,11 +271,69 @@ const TABS = [
 ];
 
 export default function BracketView() {
-  const [activeTab,      setActiveTab]      = useState("midwest");
-  const [selectedPlayer, setSelectedPlayer] = useState(PLAYER_NAMES[0]);
+  const { BRACKET, PLAYERS, GAMES } = usePoolData();
 
-  const playerData = PLAYERS.find((p) => p.name === selectedPlayer) || PLAYERS[0];
-  const keyPicks   = KEY_PICKS[selectedPlayer] || KEY_PICKS[PLAYER_NAMES[0]];
+  // Compute KEY_PICKS from live PLAYERS data
+  // picks[]: [e8_midwest, e8_west, e8_east, e8_south, f4_sf1, f4_sf2, champ]
+  const KEY_PICKS = useMemo(() => {
+    const result = {};
+    PLAYERS.forEach((player) => {
+      const [e8mw, e8w, e8e, e8s, sf1, sf2, champ] = player.picks;
+      const runnerUp  = sf1 === champ ? (sf2 ?? null) : (sf1 ?? null);
+      const sf1Loser  = e8mw === sf1  ? e8w : e8mw;
+      const sf2Loser  = e8s  === sf2  ? e8e : e8s;
+      result[player.name] = {
+        champion: champ   ?? null,
+        runnerUp: runnerUp ?? null,
+        ff: [sf1Loser, sf2Loser].filter(Boolean),
+      };
+    });
+    return result;
+  }, [PLAYERS]);
+
+  // Compute ALIVE: teams not yet eliminated in any final game
+  const ALIVE = useMemo(() => {
+    const eliminated = new Set();
+    for (const regionKey of REGION_KEYS) {
+      const region = BRACKET[regionKey];
+      if (!region) continue;
+      for (const games of Object.values(region.rounds ?? {})) {
+        for (const game of games) {
+          if (game.status === "final" && game.winner) {
+            const loser = game.t1 === game.winner ? game.t2 : game.t1;
+            if (loser) eliminated.add(loser);
+          }
+        }
+      }
+    }
+    GAMES.forEach((game) => {
+      if (game.status === "final" && game.winner) {
+        const loser = game.team1 === game.winner ? game.team2 : game.team1;
+        if (loser) eliminated.add(loser);
+      }
+    });
+    // Collect all team names from bracket, minus eliminated
+    const alive = new Set();
+    for (const regionKey of REGION_KEYS) {
+      const region = BRACKET[regionKey];
+      if (!region) continue;
+      for (const games of Object.values(region.rounds ?? {})) {
+        for (const game of games) {
+          if (game.t1 && !eliminated.has(game.t1)) alive.add(game.t1);
+          if (game.t2 && !eliminated.has(game.t2)) alive.add(game.t2);
+        }
+      }
+    }
+    return alive;
+  }, [BRACKET, GAMES]);
+
+  const PLAYER_NAMES = PLAYERS.map((p) => p.name);
+
+  const [activeTab,      setActiveTab]      = useState("midwest");
+  const [selectedPlayer, setSelectedPlayer] = useState(() => PLAYER_NAMES[0] ?? "");
+
+  const playerData = PLAYERS.find((p) => p.name === selectedPlayer) ?? PLAYERS[0];
+  const keyPicks   = KEY_PICKS[selectedPlayer] ?? KEY_PICKS[PLAYER_NAMES[0]] ?? { champion: null, runnerUp: null, ff: [] };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">

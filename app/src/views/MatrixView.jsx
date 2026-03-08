@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { PLAYERS, GAMES, ROUNDS } from "../data/mockData";
+import { usePoolData } from "../hooks/usePoolData";
 
 const SORT_OPTIONS = [
   { key: "rank",    label: "Rank"    },
@@ -31,6 +31,7 @@ function StatusBadge({ status }) {
 }
 
 export default function MatrixView() {
+  const { PLAYERS, GAMES, ROUNDS } = usePoolData();
   const [sortBy, setSortBy]             = useState("rank");
   const [selectedRound, setSelectedRound] = useState("All");
   const [hoveredGame, setHoveredGame]   = useState(null);

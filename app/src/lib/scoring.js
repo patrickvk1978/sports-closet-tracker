@@ -1,0 +1,115 @@
+// ─── Scoring constants ─────────────────────────────────────────────────────────
+
+export const ROUND_POINTS = { R64: 10, R32: 20, S16: 40, E8: 80, F4: 160, Champ: 320 }
+
+// Map slot index (0-62) → round key
+export const SLOT_ROUND = {}
+;[0, 15, 30, 45].forEach((base) => {
+  for (let i = 0; i < 8; i++)  SLOT_ROUND[base + i]      = 'R64'
+  for (let i = 8; i < 12; i++) SLOT_ROUND[base + i]      = 'R32'
+  for (let i = 12; i < 14; i++) SLOT_ROUND[base + i]     = 'S16'
+  SLOT_ROUND[base + 14]                                   = 'E8'
+})
+SLOT_ROUND[60] = 'F4'
+SLOT_ROUND[61] = 'F4'
+SLOT_ROUND[62] = 'Champ'
+
+// The 7 "key" slots that existing views (Matrix, Bracket) display in order:
+//   [0]=Midwest E8, [1]=West E8, [2]=East E8, [3]=South E8,
+//   [4]=F4 SF1 (MidW vs West), [5]=F4 SF2 (South vs East), [6]=Championship
+export const KEY_SLOTS = [14, 29, 59, 44, 60, 61, 62]
+
+// ─── Score calculation ─────────────────────────────────────────────────────────
+
+/**
+ * Calculate total score for a 63-slot picks array against completed games.
+ * @param {(string|null)[]} picks  - 63-element array of team name picks
+ * @param {object[]}        games  - rows from DB: { slot_index, winner, status }
+ */
+export function calculateScore(picks, games) {
+  let points = 0
+  for (const game of games) {
+    if (
+      game.status === 'final' &&
+      game.winner &&
+      picks[game.slot_index] === game.winner
+    ) {
+      points += ROUND_POINTS[SLOT_ROUND[game.slot_index]] ?? 0
+    }
+  }
+  return points
+}
+
+/**
+ * Calculate points-possible-remaining (PPR): max future points a player can still earn.
+ * A pick is still eligible if the team has not been eliminated in any completed game.
+ */
+export function calculatePPR(picks, games) {
+  const eliminated = new Set()
+  for (const game of games) {
+    if (game.status === 'final' && game.winner) {
+      const teams = game.teams || {}
+      const loser = teams.team1 === game.winner ? teams.team2 : teams.team1
+      if (loser) eliminated.add(loser)
+    }
+  }
+
+  let ppr = 0
+  for (const game of games) {
+    if (game.status !== 'final') {
+      const pick = picks[game.slot_index]
+      if (pick && !eliminated.has(pick)) {
+        ppr += ROUND_POINTS[SLOT_ROUND[game.slot_index]] ?? 0
+      }
+    }
+  }
+  return ppr
+}
+
+/**
+ * Returns true if the player's championship pick has not been eliminated yet.
+ */
+function isChampAlive(picks, games) {
+  const champTeam = picks[62]
+  if (!champTeam) return false
+  for (const game of games) {
+    if (game.status === 'final' && game.winner && game.winner !== champTeam) {
+      const teams = game.teams || {}
+      if (teams.team1 === champTeam || teams.team2 === champTeam) return false
+    }
+  }
+  return true
+}
+
+/**
+ * Transform DB rows into the PLAYERS array shape consumed by all views.
+ *
+ * @param {object[]} members   - pool_members rows joined with profiles: { user_id, profiles: { username } }
+ * @param {object[]} brackets  - brackets rows: { user_id, picks: [...63] }
+ * @param {object[]} games     - all 63 game rows from DB
+ */
+export function buildPlayersArray(members, brackets, games) {
+  const bracketsByUser = {}
+  brackets.forEach((b) => { bracketsByUser[b.user_id] = b })
+
+  const result = members.map((member) => {
+    const bracket  = bracketsByUser[member.user_id]
+    const picks63  = bracket?.picks || Array(63).fill(null)
+    const points   = games.length > 0 ? calculateScore(picks63, games) : 0
+    const ppr      = games.length > 0 ? calculatePPR(picks63, games) : 0
+    const picks7   = KEY_SLOTS.map((slot) => picks63[slot] || null)
+
+    return {
+      name:       member.profiles?.username ?? `user_${member.user_id.slice(0, 6)}`,
+      points,
+      ppr,
+      winProb:    0,     // Phase 3 Monte Carlo
+      champAlive: isChampAlive(picks63, games),
+      trend:      'same', // Phase 3
+      picks:      picks7,
+    }
+  })
+
+  result.sort((a, b) => b.points - a.points)
+  return result.map((p, i) => ({ ...p, rank: i + 1 }))
+}

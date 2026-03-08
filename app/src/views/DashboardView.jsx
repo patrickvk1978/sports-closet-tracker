@@ -1,12 +1,5 @@
 import { useState, useMemo } from "react";
-import {
-  PLAYERS,
-  PLAYER_COLORS,
-  LEVERAGE_GAMES,
-  CONSENSUS,
-  ELIMINATION_STATS,
-  WIN_PROB_HISTORY,
-} from "../data/mockData";
+import { usePoolData } from "../hooks/usePoolData";
 
 const MAX_PROB = 35;
 
@@ -48,9 +41,15 @@ function TrendArrow({ trend }) {
 }
 
 export default function Dashboard() {
-  const [selectedName, setSelectedName] = useState(PLAYERS[0].name);
+  const { PLAYERS, PLAYER_COLORS, LEVERAGE_GAMES, CONSENSUS, ELIMINATION_STATS, WIN_PROB_HISTORY } = usePoolData();
+  const [selectedName, setSelectedName] = useState(() => PLAYERS[0]?.name ?? "");
 
-  const player = useMemo(() => PLAYERS.find((p) => p.name === selectedName), [selectedName]);
+  const player = useMemo(
+    () => PLAYERS.find((p) => p.name === selectedName) ?? PLAYERS[0] ?? null,
+    [selectedName, PLAYERS]
+  );
+
+  if (!player) return null;
 
   const closestRival = useMemo(() => {
     return PLAYERS.filter((p) => p.name !== player.name).reduce((best, rival) => {
@@ -83,7 +82,7 @@ export default function Dashboard() {
 
   const winProbColor =
     player.winProb > 15 ? "#34d399" : player.winProb > 8 ? "#fbbf24" : "#94a3b8";
-  const hasSparkline = WIN_PROB_HISTORY[0].players[selectedName] !== undefined;
+  const hasSparkline = WIN_PROB_HISTORY[0]?.players?.[selectedName] !== undefined;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-5">
