@@ -18,31 +18,67 @@ const LABEL_H     = 28;
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
-function TeamRow({ team, seed, isWinner, status, score, isLive }) {
-  let textCls = "text-slate-400";
-  let bgCls   = "";
+// TeamRow renders one team inside a game card.
+// When userPickedThis is true, pick-specific styling overrides the default winner/loser coloring.
+// correctAnswer is only non-null when userPickedThis && they picked wrong (game is final).
+function TeamRow({ team, seed, isWinner, status, score, userPickedThis, correctAnswer }) {
+  // Determine pick state
+  const pickedCorrect = userPickedThis && status === "final" && isWinner;
+  const pickedWrong   = userPickedThis && status === "final" && !isWinner && !!correctAnswer;
+  const pickedLive    = userPickedThis && status === "live";
 
-  if (status === "live") {
+  // Border accent (left edge) for pick rows
+  let borderAccent = "";
+  if (pickedCorrect) borderAccent = "border-l-2 border-emerald-500";
+  else if (pickedWrong) borderAccent = "border-l-2 border-red-600";
+  else if (pickedLive) borderAccent = "border-l-2 border-amber-500";
+
+  // Row background tint
+  let bgCls = "";
+  if (pickedCorrect) bgCls = "bg-emerald-900/20";
+  else if (pickedWrong) bgCls = "bg-red-900/10";
+  else if (pickedLive) bgCls = "bg-amber-900/10";
+  else if (status === "live") bgCls = "bg-amber-900/10";
+  else if (status === "final" && isWinner) bgCls = "bg-emerald-900/20";
+
+  // Team name text styling
+  let textCls = "text-slate-400";
+  if (pickedCorrect) {
+    textCls = "text-emerald-300 font-semibold";
+  } else if (pickedWrong) {
+    textCls = "text-red-400 line-through";
+  } else if (pickedLive) {
     textCls = "text-amber-200";
-    bgCls   = "bg-amber-900/10";
+  } else if (status === "live") {
+    textCls = "text-amber-200";
   } else if (status === "final") {
-    if (isWinner) {
-      textCls = "text-emerald-300 font-semibold";
-      bgCls   = "bg-emerald-900/20";
-    } else {
-      textCls = "text-slate-600 line-through";
-    }
+    textCls = isWinner ? "text-emerald-300 font-semibold" : "text-slate-600 line-through";
   }
 
   return (
-    <div className={`flex items-center gap-1.5 px-2 py-[5px] ${bgCls}`}>
+    <div className={`flex items-center gap-1.5 px-2 ${pickedWrong ? "pt-[3px] pb-[3px]" : "py-[5px]"} ${bgCls} ${borderAccent}`}>
       <span
         className="text-[10px] text-slate-600 w-3 text-center tabular-nums shrink-0"
         style={{ fontFamily: "Space Mono, monospace" }}
       >
         {seed}
       </span>
-      <span className={`text-[11px] truncate flex-1 ${textCls}`}>{team || "TBD"}</span>
+
+      {/* Name / double-line for wrong pick */}
+      <span className="flex-1 min-w-0">
+        {pickedWrong ? (
+          <>
+            {/* Correct answer shown above in muted grey */}
+            <span className="block text-slate-400 text-[10px] italic truncate">{correctAnswer}</span>
+            {/* User's wrong pick struck through in red */}
+            <span className={`block text-[11px] ${textCls} truncate`}>{team || "TBD"}</span>
+          </>
+        ) : (
+          <span className={`text-[11px] truncate block ${textCls}`}>{team || "TBD"}</span>
+        )}
+      </span>
+
+      {/* Live score */}
       {score != null && status === "live" && (
         <span
           className="text-[11px] font-bold text-amber-400 tabular-nums shrink-0"
@@ -51,7 +87,8 @@ function TeamRow({ team, seed, isWinner, status, score, isLive }) {
           {score}
         </span>
       )}
-      {score != null && status === "final" && (
+      {/* Final score */}
+      {score != null && status === "final" && !pickedWrong && (
         <span
           className="text-[11px] text-slate-500 tabular-nums shrink-0"
           style={{ fontFamily: "Space Mono, monospace" }}
@@ -59,108 +96,59 @@ function TeamRow({ team, seed, isWinner, status, score, isLive }) {
           {score}
         </span>
       )}
-      {isWinner && status === "final" && (
+
+      {/* Pulsing dot for live pick */}
+      {pickedLive && (
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+      )}
+      {/* Checkmark for correct winner (pick or plain winner) */}
+      {(pickedCorrect || (!userPickedThis && isWinner && status === "final")) && (
         <span className="text-emerald-500 text-[10px] shrink-0">✓</span>
       )}
     </div>
   );
 }
 
-// Renders the user's personal pick for a single game slot.
-function UserPickSlot({ userPick, game }) {
-  if (!userPick) {
-    return (
-      <div className="px-2 py-[5px]">
-        <span className="text-[10px] italic text-slate-600">No pick</span>
-      </div>
-    );
-  }
-
-  const { winner, status } = game;
-
-  // Game live
-  if (status === "live") {
-    return (
-      <div className="px-2 py-[5px] flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
-        <span className="text-[11px] text-amber-300 truncate">{userPick}</span>
-      </div>
-    );
-  }
-
-  // Game finished
-  if (status === "final" && winner) {
-    if (userPick === winner) {
-      // Correct pick
-      return (
-        <div className="px-2 py-[5px] flex items-center gap-1.5">
-          <span className="text-emerald-400 text-[10px] shrink-0">✓</span>
-          <span className="text-[11px] text-emerald-300 font-semibold truncate">{userPick}</span>
-        </div>
-      );
-    } else {
-      // Wrong pick — show actual winner above in green, user's pick struck through in red
-      return (
-        <div className="px-2 py-[4px]">
-          <div className="flex items-center gap-1 mb-0.5">
-            <span className="text-emerald-400 text-[9px] shrink-0">→</span>
-            <span className="text-[10px] text-emerald-400 italic truncate">{winner}</span>
-          </div>
-          <span className="text-[11px] text-red-400 line-through truncate block">{userPick}</span>
-        </div>
-      );
-    }
-  }
-
-  // Pending — tournament not started or game not yet played
-  return (
-    <div className="px-2 py-[5px]">
-      <span className="text-[11px] text-slate-400 truncate block">{userPick}</span>
-    </div>
-  );
-}
-
-function GameCard({ game, userPick, showPersonal }) {
+// GameCard — one unified card per game. Pick color coding lives inside TeamRow.
+// userPick: string | null — the team name the selected player picked for this slot.
+function GameCard({ game, userPick }) {
   const { t1, s1, t2, s2, winner, status, score1, score2, gameNote } = game;
+
+  // Determine pick outcome for card border
+  const hasPick       = !!userPick;
+  const pickCorrect   = hasPick && status === "final" && winner && userPick === winner;
+  const pickWrong     = hasPick && status === "final" && winner && userPick !== winner;
 
   const borderCls = status === "live"
     ? "border-amber-700/40"
-    : showPersonal && userPick
-      ? winner && userPick === winner
-        ? "border-emerald-700/40"
-        : winner && userPick !== winner
-          ? "border-red-800/40"
-          : "border-slate-800/60"
-      : "border-slate-800/60";
+    : pickCorrect
+      ? "border-emerald-700/40"
+      : pickWrong
+        ? "border-red-800/40"
+        : "border-slate-800/60";
+
+  // correctAnswer for each row: only supply it when the user picked THAT row and it was wrong
+  const t1CorrectAnswer = userPick === t1 && pickWrong ? winner : null;
+  const t2CorrectAnswer = userPick === t2 && pickWrong ? winner : null;
 
   return (
     <div className="flex flex-col">
-      {/* Personal picks panel */}
-      {showPersonal && (
-        <div
-          className={`bg-slate-950/60 border ${borderCls} rounded-t-lg border-b-0 overflow-hidden`}
-          style={{ width: 128 }}
-        >
-          <div className="px-2 pt-[3px] pb-0">
-            <span
-              className="text-[9px] font-bold text-slate-600 uppercase tracking-widest"
-              style={{ fontFamily: "Space Mono, monospace" }}
-            >
-              Your Pick
-            </span>
-          </div>
-          <UserPickSlot userPick={userPick} game={game} />
-        </div>
-      )}
-
-      {/* Main game card */}
+      {/* Unified game card — no separate pick panel */}
       <div
-        className={`bg-slate-900/80 border ${borderCls} ${showPersonal ? "rounded-b-lg border-t-0" : "rounded-lg"} overflow-hidden`}
+        className={`bg-slate-900/80 border ${borderCls} rounded-lg overflow-hidden`}
         style={{ width: 128 }}
       >
-        <TeamRow team={t1} seed={s1} isWinner={winner === t1} status={status} score={score1} />
+        <TeamRow
+          team={t1} seed={s1} isWinner={winner === t1} status={status} score={score1}
+          userPickedThis={userPick === t1}
+          correctAnswer={t1CorrectAnswer}
+        />
         <div className="h-px bg-slate-800/80" />
-        <TeamRow team={t2} seed={s2} isWinner={winner === t2} status={status} score={score2} />
+        <TeamRow
+          team={t2} seed={s2} isWinner={winner === t2} status={status} score={score2}
+          userPickedThis={userPick === t2}
+          correctAnswer={t2CorrectAnswer}
+        />
       </div>
       {status === "live" && gameNote && (
         <div className="flex items-center gap-1 mt-0.5 px-1">
@@ -218,7 +206,7 @@ function BracketConnectors({ leftCount }) {
 
 const GAME_COUNTS = { R64: 8, R32: 4, S16: 2, E8: 1 };
 
-function RegionBracket({ region, userPicks, showPersonal }) {
+function RegionBracket({ region, userPicks }) {
   if (!region) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -260,8 +248,7 @@ function RegionBracket({ region, userPicks, showPersonal }) {
                   <GameCard
                     key={gi}
                     game={game}
-                    userPick={showPersonal && game.slotIndex != null ? (userPicks[game.slotIndex] ?? null) : null}
-                    showPersonal={showPersonal}
+                    userPick={game.slotIndex != null ? (userPicks[game.slotIndex] ?? null) : null}
                   />
                 ))}
               </div>
@@ -529,12 +516,10 @@ export default function BracketView() {
 
       {/* Personal picks banner — shown when user has a submitted bracket */}
       {showPersonal && (
-        <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-orange-500/10 border border-orange-500/20 rounded-xl">
-          <span className="text-[11px] font-bold text-orange-400 uppercase tracking-widest" style={{ fontFamily: "Space Mono, monospace" }}>
-            Your Picks
-          </span>
-          <span className="text-[11px] text-slate-400">
-            — each game slot shows your pick with live results below the actual matchup.
+        <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-slate-900/60 border border-slate-800/60 rounded-xl">
+          <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+          <span className="text-[11px] text-slate-400" style={{ fontFamily: "Space Mono, monospace" }}>
+            Showing your picks
           </span>
         </div>
       )}
@@ -623,7 +608,6 @@ export default function BracketView() {
             <RegionBracket
               region={BRACKET[activeTab]}
               userPicks={userPicks}
-              showPersonal={showPersonal}
             />
           </div>
         )}
