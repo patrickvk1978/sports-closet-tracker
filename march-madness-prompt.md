@@ -152,6 +152,11 @@ Completed:
 Remaining Phase 2 loose ends (pre-tournament):
 - [ ] Score calculation trigger — wire scoring.js to fire when a game goes `final`
 - [ ] Bracket lock automation — auto-lock submissions at tip-off or via admin toggle
+- [ ] Auto-redirect to /submit after joining or creating a pool (currently user must navigate manually)
+- [ ] NavBar button: show "Create Bracket" before user has submitted picks, "Edit Bracket" after
+- [ ] BracketView personal picks: when viewing your own bracket, show your picks throughout;
+      once tournament starts, cross out wrong picks in red with the actual winner shown above,
+      advancing the correct winner into the next round automatically
 
 ### Phase 3: Simulation Engine (Planned — post Selection Sunday)
 - Python FastAPI service
