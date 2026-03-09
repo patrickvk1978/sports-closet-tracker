@@ -50,10 +50,10 @@ export default function CreatePoolPage() {
           </div>
 
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/submit')}
             className="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-bold hover:from-orange-400 hover:to-amber-400 transition-all"
           >
-            Go to Dashboard
+            Create My Bracket
           </button>
         </div>
       </div>

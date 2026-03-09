@@ -19,7 +19,7 @@ export default function JoinPoolPage() {
     const { pool, error } = await joinPool(code)
     setLoading(false)
     if (error) { setError(error); return }
-    navigate('/')
+    navigate('/submit')
   }
 
   return (

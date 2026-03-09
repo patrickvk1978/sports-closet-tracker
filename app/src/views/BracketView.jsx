@@ -66,16 +66,96 @@ function TeamRow({ team, seed, isWinner, status, score, isLive }) {
   );
 }
 
-function GameCard({ game }) {
+// Renders the user's personal pick for a single game slot.
+function UserPickSlot({ userPick, game }) {
+  if (!userPick) {
+    return (
+      <div className="px-2 py-[5px]">
+        <span className="text-[10px] italic text-slate-600">No pick</span>
+      </div>
+    );
+  }
+
+  const { winner, status } = game;
+
+  // Game live
+  if (status === "live") {
+    return (
+      <div className="px-2 py-[5px] flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+        <span className="text-[11px] text-amber-300 truncate">{userPick}</span>
+      </div>
+    );
+  }
+
+  // Game finished
+  if (status === "final" && winner) {
+    if (userPick === winner) {
+      // Correct pick
+      return (
+        <div className="px-2 py-[5px] flex items-center gap-1.5">
+          <span className="text-emerald-400 text-[10px] shrink-0">✓</span>
+          <span className="text-[11px] text-emerald-300 font-semibold truncate">{userPick}</span>
+        </div>
+      );
+    } else {
+      // Wrong pick — show actual winner above in green, user's pick struck through in red
+      return (
+        <div className="px-2 py-[4px]">
+          <div className="flex items-center gap-1 mb-0.5">
+            <span className="text-emerald-400 text-[9px] shrink-0">→</span>
+            <span className="text-[10px] text-emerald-400 italic truncate">{winner}</span>
+          </div>
+          <span className="text-[11px] text-red-400 line-through truncate block">{userPick}</span>
+        </div>
+      );
+    }
+  }
+
+  // Pending — tournament not started or game not yet played
+  return (
+    <div className="px-2 py-[5px]">
+      <span className="text-[11px] text-slate-400 truncate block">{userPick}</span>
+    </div>
+  );
+}
+
+function GameCard({ game, userPick, showPersonal }) {
   const { t1, s1, t2, s2, winner, status, score1, score2, gameNote } = game;
+
   const borderCls = status === "live"
     ? "border-amber-700/40"
-    : "border-slate-800/60";
+    : showPersonal && userPick
+      ? winner && userPick === winner
+        ? "border-emerald-700/40"
+        : winner && userPick !== winner
+          ? "border-red-800/40"
+          : "border-slate-800/60"
+      : "border-slate-800/60";
 
   return (
     <div className="flex flex-col">
+      {/* Personal picks panel */}
+      {showPersonal && (
+        <div
+          className={`bg-slate-950/60 border ${borderCls} rounded-t-lg border-b-0 overflow-hidden`}
+          style={{ width: 128 }}
+        >
+          <div className="px-2 pt-[3px] pb-0">
+            <span
+              className="text-[9px] font-bold text-slate-600 uppercase tracking-widest"
+              style={{ fontFamily: "Space Mono, monospace" }}
+            >
+              Your Pick
+            </span>
+          </div>
+          <UserPickSlot userPick={userPick} game={game} />
+        </div>
+      )}
+
+      {/* Main game card */}
       <div
-        className={`bg-slate-900/80 border ${borderCls} rounded-lg overflow-hidden`}
+        className={`bg-slate-900/80 border ${borderCls} ${showPersonal ? "rounded-b-lg border-t-0" : "rounded-lg"} overflow-hidden`}
         style={{ width: 128 }}
       >
         <TeamRow team={t1} seed={s1} isWinner={winner === t1} status={status} score={score1} />
@@ -138,7 +218,7 @@ function BracketConnectors({ leftCount }) {
 
 const GAME_COUNTS = { R64: 8, R32: 4, S16: 2, E8: 1 };
 
-function RegionBracket({ region }) {
+function RegionBracket({ region, userPicks, showPersonal }) {
   if (!region) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -177,7 +257,12 @@ function RegionBracket({ region }) {
                 }}
               >
                 {((region.rounds ?? {})[round] || []).map((game, gi) => (
-                  <GameCard key={gi} game={game} />
+                  <GameCard
+                    key={gi}
+                    game={game}
+                    userPick={showPersonal && game.slotIndex != null ? (userPicks[game.slotIndex] ?? null) : null}
+                    showPersonal={showPersonal}
+                  />
                 ))}
               </div>
             </div>
@@ -198,7 +283,39 @@ function RegionBracket({ region }) {
 
 // ─── Final Four Tab ────────────────────────────────────────────────────────────
 
-function FinalFourView() {
+// Slot indices for Final Four: SF1=60, SF2=61, Champ=62
+function FinalFourPickBadge({ userPick, winner, status }) {
+  if (!userPick) {
+    return <span className="text-[10px] italic text-slate-600">No pick</span>;
+  }
+  if (status === "live") {
+    return (
+      <span className="flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+        <span className="text-[10px] text-amber-300">{userPick}</span>
+      </span>
+    );
+  }
+  if (status === "final" && winner) {
+    if (userPick === winner) {
+      return <span className="text-[10px] text-emerald-400">✓ {userPick}</span>;
+    }
+    return (
+      <span className="flex flex-col leading-tight">
+        <span className="text-[9px] text-emerald-400 italic">→ {winner}</span>
+        <span className="text-[10px] text-red-400 line-through">{userPick}</span>
+      </span>
+    );
+  }
+  return <span className="text-[10px] text-slate-400">{userPick}</span>;
+}
+
+function FinalFourView({ userPicks, showPersonal }) {
+  // Extract picks for F4 slots
+  const sf1Pick   = showPersonal ? (userPicks[60] ?? null) : null;
+  const sf2Pick   = showPersonal ? (userPicks[61] ?? null) : null;
+  const champPick = showPersonal ? (userPicks[62] ?? null) : null;
+
   return (
     <div className="py-8 flex flex-col items-center gap-8">
 
@@ -211,6 +328,12 @@ function FinalFourView() {
             <span className="px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 text-[10px] font-medium">Final</span>
             <span className="text-[10px] text-slate-600">Semifinal 1</span>
           </div>
+          {showPersonal && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-slate-800/40 border border-slate-700/30">
+              <p className="text-[9px] text-slate-600 uppercase tracking-widest mb-1" style={{ fontFamily: "Space Mono, monospace" }}>Your Pick</p>
+              <FinalFourPickBadge userPick={sf1Pick} winner={null} status="pending" />
+            </div>
+          )}
           {[
             { seed: 1, team: "Kentucky",  winner: false },
             { seed: 1, team: "Wisconsin", winner: true  },
@@ -241,7 +364,13 @@ function FinalFourView() {
               Championship
             </span>
           </div>
-          <div className="mt-3 space-y-2">
+          {showPersonal && (
+            <div className="mt-3 mb-3 px-3 py-2 rounded-lg bg-slate-800/40 border border-slate-700/30">
+              <p className="text-[9px] text-slate-600 uppercase tracking-widest mb-1" style={{ fontFamily: "Space Mono, monospace" }}>Your Pick</p>
+              <FinalFourPickBadge userPick={champPick} winner={null} status="pending" />
+            </div>
+          )}
+          <div className={showPersonal ? "mt-0 space-y-2" : "mt-3 space-y-2"}>
             <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-slate-800/50 border border-slate-700/40">
               <span className="text-sm font-bold text-white">Wisconsin</span>
               <span className="text-[10px] text-slate-500">West · #1</span>
@@ -267,6 +396,12 @@ function FinalFourView() {
             </span>
             <span className="text-[10px] text-slate-600">Semifinal 2</span>
           </div>
+          {showPersonal && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-slate-800/40 border border-slate-700/30">
+              <p className="text-[9px] text-slate-600 uppercase tracking-widest mb-1" style={{ fontFamily: "Space Mono, monospace" }}>Your Pick</p>
+              <FinalFourPickBadge userPick={sf2Pick} winner={null} status="live" />
+            </div>
+          )}
           {[
             { seed: 1, team: "Duke",        score: 54 },
             { seed: 7, team: "Michigan St",  score: 48 },
@@ -321,7 +456,11 @@ const TABS = [
 ];
 
 export default function BracketView() {
-  const { BRACKET, PLAYERS, GAMES } = usePoolData();
+  const { BRACKET, PLAYERS, GAMES, userPicks } = usePoolData();
+
+  // Whether to show the personal picks overlay.
+  // True when the user has at least one pick filled in.
+  const showPersonal = userPicks.length > 0 && userPicks.some(Boolean);
 
   // Compute KEY_PICKS from live PLAYERS data
   // picks[]: [e8_midwest, e8_west, e8_east, e8_south, f4_sf1, f4_sf2, champ]
@@ -387,6 +526,18 @@ export default function BracketView() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
+
+      {/* Personal picks banner — shown when user has a submitted bracket */}
+      {showPersonal && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+          <span className="text-[11px] font-bold text-orange-400 uppercase tracking-widest" style={{ fontFamily: "Space Mono, monospace" }}>
+            Your Picks
+          </span>
+          <span className="text-[11px] text-slate-400">
+            — each game slot shows your pick with live results below the actual matchup.
+          </span>
+        </div>
+      )}
 
       {/* Player selector */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
@@ -466,10 +617,14 @@ export default function BracketView() {
       {/* Bracket content */}
       <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl overflow-hidden">
         {activeTab === "finalfour" ? (
-          <FinalFourView />
+          <FinalFourView userPicks={userPicks} showPersonal={showPersonal} />
         ) : (
           <div className="p-4">
-            <RegionBracket region={BRACKET[activeTab]} />
+            <RegionBracket
+              region={BRACKET[activeTab]}
+              userPicks={userPicks}
+              showPersonal={showPersonal}
+            />
           </div>
         )}
       </div>

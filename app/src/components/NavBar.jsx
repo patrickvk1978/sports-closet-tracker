@@ -10,7 +10,11 @@ const NAV_LINKS = [
 
 export default function NavBar() {
   const { profile, signOut } = useAuth();
-  const { pool } = usePool();
+  const { pool, brackets } = usePool();
+
+  const userBracket = profile && brackets
+    ? brackets.find((b) => b.user_id === profile.id)
+    : null;
 
   return (
     <div className="border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-sm sticky top-0 z-30">
@@ -67,7 +71,7 @@ export default function NavBar() {
                   }`
                 }
               >
-                Submit
+                {userBracket ? "Edit Bracket" : "Create Bracket"}
               </NavLink>
             )}
 

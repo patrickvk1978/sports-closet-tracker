@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { usePool } from './usePool'
+import { useAuth } from './useAuth'
 import { KEY_SLOTS } from '../lib/scoring'
 import {
   PLAYERS       as MOCK_PLAYERS,
@@ -12,6 +13,35 @@ import {
   ELIMINATION_STATS as MOCK_ELIMINATION_STATS,
   WIN_PROB_HISTORY  as MOCK_WIN_PROB_HISTORY,
 } from '../data/mockData'
+
+// Slot layout constants
+const REGION_SLOT_BASES = { midwest: 0, west: 15, south: 30, east: 45 }
+const ROUND_SLOT_START  = { R64: 0, R32: 8, S16: 12, E8: 14 }
+
+/**
+ * Annotate a bracket object (mock or live) by adding slotIndex to each game.
+ * Operates on the shape { regionKey: { rounds: { roundKey: [game, ...] } } }.
+ */
+function annotateBracket(bracket) {
+  const annotated = {}
+  for (const [regionKey, region] of Object.entries(bracket)) {
+    const base = REGION_SLOT_BASES[regionKey]
+    if (base == null) { annotated[regionKey] = region; continue }
+    const rounds = {}
+    for (const [roundKey, games] of Object.entries(region.rounds ?? {})) {
+      const start = ROUND_SLOT_START[roundKey] ?? 0
+      rounds[roundKey] = games.map((game, i) => ({
+        ...game,
+        slotIndex: base + start + i,
+      }))
+    }
+    annotated[regionKey] = { ...region, rounds }
+  }
+  return annotated
+}
+
+// Pre-annotated mock bracket (computed once at module load)
+const ANNOTATED_MOCK_BRACKET = annotateBracket(MOCK_BRACKET)
 
 // Round name by KEY_SLOTS position
 const KEY_ROUND_NAMES = [
@@ -66,6 +96,7 @@ function buildLiveBracket(dbGames) {
         const g    = dbGames.find((r) => r.slot_index === slot)
         if (!g) continue  // skip missing slots; do not abort the whole round
         rounds[key].push({
+          slotIndex: slot,
           t1:       g.teams?.team1 ?? 'TBD',
           s1:       g.teams?.seed1 ?? null,
           t2:       g.teams?.team2 ?? 'TBD',
@@ -127,7 +158,8 @@ function computeConsensus(players, liveGames) {
  * loading or when no pool is active.
  */
 export function usePoolData() {
-  const { pool, PLAYERS_LIVE, games, isLoading } = usePool()
+  const { pool, PLAYERS_LIVE, games, brackets, isLoading } = usePool()
+  const { profile } = useAuth()
 
   const liveGames = useMemo(
     () => (games.length > 0 ? buildLiveGames(games) : []),
@@ -149,16 +181,24 @@ export function usePoolData() {
   // Fall back to mock data when: loading, no active pool, or no live data yet
   const useLive = !isLoading && pool && PLAYERS_LIVE && PLAYERS_LIVE.length > 0
 
+  // Current user's 63-slot picks array (null entries where they made no pick)
+  const userPicks = useMemo(() => {
+    if (!profile || !brackets) return []
+    const userBracket = brackets.find((b) => b.user_id === profile.id)
+    return userBracket?.picks ?? []
+  }, [profile, brackets])
+
   return {
     PLAYERS:           useLive ? PLAYERS_LIVE      : MOCK_PLAYERS,
     GAMES:             useLive && liveGames.length >= 7 ? liveGames : MOCK_GAMES,
     ROUNDS:            MOCK_ROUNDS,
-    BRACKET:           useLive && liveBracket ? liveBracket : MOCK_BRACKET,
+    BRACKET:           useLive && liveBracket ? liveBracket : ANNOTATED_MOCK_BRACKET,
     PLAYER_COLORS:     MOCK_PLAYER_COLORS,
     LEVERAGE_GAMES:    MOCK_LEVERAGE_GAMES,   // Phase 3
     CONSENSUS:         useLive && liveConsensus ? liveConsensus : MOCK_CONSENSUS,
     ELIMINATION_STATS: useLive && liveElimStats  ? liveElimStats  : MOCK_ELIMINATION_STATS,
     WIN_PROB_HISTORY:  MOCK_WIN_PROB_HISTORY, // Phase 3
+    userPicks,
     isLoading,
   }
 }
