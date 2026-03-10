@@ -77,12 +77,10 @@ export function PoolProvider({ children }) {
   }
 
   async function joinPool(inviteCode) {
-    const { data: targetPool, error } = await supabase
-      .from('pools')
-      .select('id, name')
-      .eq('invite_code', inviteCode.trim().toUpperCase())
-      .single()
+    const { data: rows, error } = await supabase
+      .rpc('get_pool_by_invite_code', { code: inviteCode.trim() })
 
+    const targetPool = rows?.[0] ?? null
     if (error || !targetPool) return { error: 'Invalid invite code' }
 
     const { error: joinError } = await supabase
