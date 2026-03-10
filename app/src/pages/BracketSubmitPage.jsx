@@ -382,7 +382,7 @@ const TABS = [
 
 export default function BracketSubmitPage() {
   const { session } = useAuth()
-  const { pool, games: dbGames } = usePool()
+  const { pool, games: dbGames, refreshPool } = usePool()
   const navigate = useNavigate()
 
   const [activeTab, setActiveTab] = useState('midwest')
@@ -448,9 +448,14 @@ export default function BracketSubmitPage() {
           { onConflict: 'user_id,pool_id' }
         )
       if (upsertError) throw upsertError
+      // Reload brackets in PoolContext so BracketView shows updated picks
+      await refreshPool()
       setSaved(true)
-      // Auto-hide the saved indicator after 3 seconds
-      setTimeout(() => setSaved(false), 3000)
+      // Auto-hide the saved indicator after 3 seconds, then navigate to bracket view
+      setTimeout(() => {
+        setSaved(false)
+        navigate('/bracket')
+      }, 3000)
     } catch (e) {
       setError(e.message ?? 'Save failed')
     }

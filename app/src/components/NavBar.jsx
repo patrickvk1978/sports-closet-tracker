@@ -3,9 +3,8 @@ import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 
 const NAV_LINKS = [
-  { to: "/",        label: "Dashboard" },
-  { to: "/matrix",  label: "Matrix"    },
-  { to: "/bracket", label: "Bracket"   },
+  { to: "/",       label: "Dashboard" },
+  { to: "/matrix", label: "Matrix"    },
 ];
 
 export default function NavBar() {
@@ -59,8 +58,8 @@ export default function NavBar() {
               </NavLink>
             ))}
 
-            {/* Submit bracket link — only when pool is active and not locked */}
-            {pool && !pool.locked && (
+            {/* Bracket nav: "Create Bracket" → /submit when no bracket; "Bracket" → /bracket when bracket exists */}
+            {pool && !userBracket && (
               <NavLink
                 to="/submit"
                 className={({ isActive }) =>
@@ -71,7 +70,21 @@ export default function NavBar() {
                   }`
                 }
               >
-                {userBracket ? "Edit Bracket" : "Create Bracket"}
+                Create Bracket
+              </NavLink>
+            )}
+            {pool && userBracket && (
+              <NavLink
+                to="/bracket"
+                className={({ isActive }) =>
+                  `px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    isActive
+                      ? "bg-slate-700 text-white shadow"
+                      : "text-slate-400 hover:text-white"
+                  }`
+                }
+              >
+                Bracket
               </NavLink>
             )}
 

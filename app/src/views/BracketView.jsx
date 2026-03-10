@@ -1,5 +1,8 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { usePoolData } from "../hooks/usePoolData";
+import { usePool } from "../hooks/usePool";
+import { useAuth } from "../hooks/useAuth";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -444,6 +447,12 @@ const TABS = [
 
 export default function BracketView() {
   const { BRACKET, PLAYERS, GAMES, userPicks } = usePoolData();
+  const { pool } = usePool();
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+
+  // Pool locked state — when false, restrict to own picks only
+  const isLocked = pool?.locked === true;
 
   // Whether to show the personal picks overlay.
   // True when the user has at least one pick filled in.
@@ -508,8 +517,15 @@ export default function BracketView() {
   const [activeTab,      setActiveTab]      = useState("midwest");
   const [selectedPlayer, setSelectedPlayer] = useState(() => PLAYER_NAMES[0] ?? "");
 
-  const playerData = PLAYERS.find((p) => p.name === selectedPlayer) ?? PLAYERS[0] ?? null;
-  const keyPicks   = KEY_PICKS[selectedPlayer] ?? KEY_PICKS[PLAYER_NAMES[0]] ?? { champion: null, runnerUp: null, ff: [] };
+  // When not locked, always view the current user's own data
+  const effectivePlayer = isLocked
+    ? selectedPlayer
+    : (profile?.username && PLAYER_NAMES.includes(profile.username)
+        ? profile.username
+        : (PLAYER_NAMES[0] ?? ""));
+
+  const playerData = PLAYERS.find((p) => p.name === effectivePlayer) ?? PLAYERS[0] ?? null;
+  const keyPicks   = KEY_PICKS[effectivePlayer] ?? KEY_PICKS[PLAYER_NAMES[0]] ?? { champion: null, runnerUp: null, ff: [] };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -524,19 +540,33 @@ export default function BracketView() {
         </div>
       )}
 
-      {/* Player selector */}
+      {/* Header row: title + edit button + player selector */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <h2 className="text-base font-bold text-white">Bracket View</h2>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-slate-500">Viewing:</label>
-          <select
-            value={selectedPlayer}
-            onChange={(e) => setSelectedPlayer(e.target.value)}
-            className="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-orange-500 cursor-pointer"
-          >
-            {PLAYER_NAMES.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+        <div className="flex items-center gap-3">
+          <h2 className="text-base font-bold text-white">Bracket View</h2>
+          {/* Edit Bracket button — only when pool is not locked */}
+          {!isLocked && (
+            <button
+              onClick={() => navigate("/submit")}
+              className="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Edit Bracket
+            </button>
+          )}
         </div>
+        {/* Player selector — only shown after pool locks */}
+        {isLocked && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-slate-500">Viewing:</label>
+            <select
+              value={selectedPlayer}
+              onChange={(e) => setSelectedPlayer(e.target.value)}
+              className="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-orange-500 cursor-pointer"
+            >
+              {PLAYER_NAMES.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Player picks summary strip */}
@@ -546,7 +576,7 @@ export default function BracketView() {
             <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
               <div className="flex items-center gap-4">
                 <div>
-                  <p className="text-xs font-semibold text-slate-300">{selectedPlayer}</p>
+                  <p className="text-xs font-semibold text-slate-300">{effectivePlayer}</p>
                   <p className="text-[10px] text-slate-500">Key picks</p>
                 </div>
                 <div className="flex items-center gap-3">

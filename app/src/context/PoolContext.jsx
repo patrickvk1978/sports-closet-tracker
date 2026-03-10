@@ -59,12 +59,17 @@ export function PoolProvider({ children }) {
       .single()
     setPool(poolData ?? null)
 
-    // 3. Members with profiles
+    // 3. Members with profiles — use security-definer RPC to bypass RLS
+    //    which would otherwise restrict each user to seeing only their own row.
     const { data: membersData } = await supabase
-      .from('pool_members')
-      .select('user_id, profiles(username, is_admin)')
-      .eq('pool_id', poolId)
-    setMembers(membersData ?? [])
+      .rpc('get_pool_members', { p_pool_id: poolId })
+    // Reshape to match expected format: { user_id, joined_at, profiles: { username, is_admin } }
+    const members = (membersData ?? []).map((m) => ({
+      user_id:   m.user_id,
+      joined_at: m.joined_at,
+      profiles:  { username: m.username, is_admin: m.is_admin },
+    }))
+    setMembers(members)
 
     // 4. All brackets in this pool
     const { data: bracketsData } = await supabase

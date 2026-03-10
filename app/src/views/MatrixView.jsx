@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { usePoolData } from "../hooks/usePoolData";
+import { usePool } from "../hooks/usePool";
+import { useAuth } from "../hooks/useAuth";
 
 const SORT_OPTIONS = [
   { key: "rank",    label: "Rank"    },
@@ -32,10 +34,15 @@ function StatusBadge({ status }) {
 
 export default function MatrixView() {
   const { PLAYERS, GAMES, ROUNDS } = usePoolData();
+  const { pool } = usePool();
+  const { profile } = useAuth();
   const [sortBy, setSortBy]             = useState("rank");
   const [selectedRound, setSelectedRound] = useState("All");
   const [hoveredGame, setHoveredGame]   = useState(null);
   const [hoveredRow, setHoveredRow]     = useState(null);
+
+  // When pool is not locked, each user sees only their own picks
+  const isLocked = pool?.locked === true;
 
   const sortedPlayers = useMemo(() => {
     return [...PLAYERS].sort((a, b) => {
@@ -101,6 +108,16 @@ export default function MatrixView() {
           ))}
         </div>
       </div>
+
+      {/* Pre-lock privacy banner */}
+      {!isLocked && (
+        <div className="shrink-0 flex items-center gap-2.5 px-4 py-2 bg-amber-950/30 border-b border-amber-800/20">
+          <span className="text-amber-500 text-[11px]">&#x1F512;</span>
+          <span className="text-[11px] text-amber-400/80" style={{ fontFamily: "Space Mono, monospace" }}>
+            Picks are hidden until the pool locks at tip-off
+          </span>
+        </div>
+      )}
 
       {/* Pick distribution tooltip */}
       {hoveredGame !== null && (
@@ -259,13 +276,18 @@ export default function MatrixView() {
 
                 {filteredGames.map((game) => {
                   const gameIdx = GAMES.indexOf(game);
-                  const pick = player.picks[gameIdx];
+                  // Before pool locks, show picks only for the current user's own row
+                  const isOwnRow = player.name === profile?.username;
+                  const pick = (!isLocked && !isOwnRow) ? null : player.picks[gameIdx];
+                  const hidden = !isLocked && !isOwnRow;
                   return (
                     <td
                       key={game.id}
-                      className={`px-2 py-2.5 text-center text-[11px] font-semibold border-l border-slate-800/30 ${getCellStyle(pick, game)}`}
+                      className={`px-2 py-2.5 text-center text-[11px] font-semibold border-l border-slate-800/30 ${
+                        hidden ? "bg-slate-900/40 text-slate-700" : getCellStyle(pick, game)
+                      }`}
                     >
-                      {pick || "—"}
+                      {hidden ? "—" : (pick || "—")}
                     </td>
                   );
                 })}
