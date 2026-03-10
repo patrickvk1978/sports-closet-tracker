@@ -15,6 +15,35 @@ const ROUND_LABELS = { R64: "R64", R32: "R32", S16: "Sweet 16", E8: "Elite 8" };
 const GAME_AREA_H = 520;
 const LABEL_H     = 28;
 
+// ─── Feeder map ────────────────────────────────────────────────────────────────
+// For each slot index, which two slots feed into it?
+// Used to derive team names for pending rounds from user's picks.
+function buildFeederMap() {
+  const map = {}
+  const BASES = [0, 15, 30, 45]
+  BASES.forEach((base) => {
+    for (let i = 0; i < 4; i++) map[base + 8  + i] = [base + i * 2,      base + i * 2 + 1]
+    for (let i = 0; i < 2; i++) map[base + 12 + i] = [base + 8 + i * 2,  base + 8 + i * 2 + 1]
+    map[base + 14] = [base + 12, base + 13]
+  })
+  map[60] = [14, 29]; map[61] = [44, 59]; map[62] = [60, 61]
+  return map
+}
+const FEEDER_MAP = buildFeederMap()
+
+// Return the teams to display for a game slot.
+// For pending rounds with no DB teams, derive from userPicks at feeder slots.
+function getDisplayTeams(game, userPicks) {
+  const { t1, s1, t2, s2, slotIndex, status } = game
+  if (status === "live" || status === "final") return { dt1: t1, ds1: s1, dt2: t2, ds2: s2 }
+  if (t1 && t1 !== "TBD" && t2 && t2 !== "TBD") return { dt1: t1, ds1: s1, dt2: t2, ds2: s2 }
+  const feeders = FEEDER_MAP[slotIndex]
+  if (feeders && userPicks?.length > 0) {
+    return { dt1: userPicks[feeders[0]] ?? "TBD", ds1: null, dt2: userPicks[feeders[1]] ?? "TBD", ds2: null }
+  }
+  return { dt1: t1 ?? "TBD", ds1: s1, dt2: t2 ?? "TBD", ds2: s2 }
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 // KEY_PICKS and ALIVE are computed inside the component from live data (see below).
@@ -114,8 +143,12 @@ function TeamRow({ team, seed, isWinner, status, score, userPickedThis, correctA
 
 // GameCard — one unified card per game. Pick color coding lives inside TeamRow.
 // userPick: string | null — the team name the selected player picked for this slot.
-function GameCard({ game, userPick }) {
-  const { t1, s1, t2, s2, winner, status, score1, score2, gameNote } = game;
+// allUserPicks: full 63-item picks array — used to derive teams for pending rounds.
+function GameCard({ game, userPick, allUserPicks }) {
+  const { winner, status, score1, score2, gameNote } = game;
+
+  // For pending rounds, derive displayed teams from user's picks at feeder slots
+  const { dt1, ds1, dt2, ds2 } = getDisplayTeams(game, allUserPicks);
 
   // Determine pick outcome for card border
   const hasPick       = !!userPick;
@@ -128,11 +161,13 @@ function GameCard({ game, userPick }) {
       ? "border-emerald-700/40"
       : pickWrong
         ? "border-red-800/40"
-        : "border-slate-800/60";
+        : hasPick && status === "pending"
+          ? "border-orange-800/40"
+          : "border-slate-800/60";
 
   // correctAnswer for each row: only supply it when the user picked THAT row and it was wrong
-  const t1CorrectAnswer = userPick === t1 && pickWrong ? winner : null;
-  const t2CorrectAnswer = userPick === t2 && pickWrong ? winner : null;
+  const t1CorrectAnswer = userPick === dt1 && pickWrong ? winner : null;
+  const t2CorrectAnswer = userPick === dt2 && pickWrong ? winner : null;
 
   return (
     <div className="flex flex-col">
@@ -142,14 +177,14 @@ function GameCard({ game, userPick }) {
         style={{ width: 128 }}
       >
         <TeamRow
-          team={t1} seed={s1} isWinner={winner === t1} status={status} score={score1}
-          userPickedThis={userPick === t1}
+          team={dt1} seed={ds1} isWinner={winner === dt1} status={status} score={score1}
+          userPickedThis={userPick === dt1}
           correctAnswer={t1CorrectAnswer}
         />
         <div className="h-px bg-slate-800/80" />
         <TeamRow
-          team={t2} seed={s2} isWinner={winner === t2} status={status} score={score2}
-          userPickedThis={userPick === t2}
+          team={dt2} seed={ds2} isWinner={winner === dt2} status={status} score={score2}
+          userPickedThis={userPick === dt2}
           correctAnswer={t2CorrectAnswer}
         />
       </div>
@@ -252,6 +287,7 @@ function RegionBracket({ region, userPicks }) {
                     key={gi}
                     game={game}
                     userPick={game.slotIndex != null ? (userPicks[game.slotIndex] ?? null) : null}
+                    allUserPicks={userPicks}
                   />
                 ))}
               </div>
