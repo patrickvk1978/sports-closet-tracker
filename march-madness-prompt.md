@@ -152,20 +152,84 @@ Completed:
 Remaining Phase 2 loose ends (pre-tournament):
 - [ ] Score calculation trigger — wire scoring.js to fire when a game goes `final`
 - [ ] Bracket lock automation — auto-lock submissions at tip-off or via admin toggle
-- [ ] Auto-redirect to /submit after joining or creating a pool (currently user must navigate manually)
-- [ ] NavBar button: show "Create Bracket" before user has submitted picks, "Edit Bracket" after
-- [ ] BracketView personal picks: when viewing your own bracket, show your picks throughout;
-      once tournament starts, cross out wrong picks in red with the actual winner shown above,
-      advancing the correct winner into the next round automatically
+- [x] Auto-redirect to /submit after joining or creating a pool
+- [x] NavBar button: "Create Bracket" before picks submitted, "Edit Bracket" after
+- [x] BracketView: CBS Sports style inline pick color coding
+- [x] Members can't see each other — fixed via security-definer RPC `get_pool_members`
+- [x] Bracket view shows TBD — fixed: pending R32+ slots now derive teams from user's
+      picks at feeder slots (same logic as a filled-out paper bracket)
+- [x] Final Four tab was hardcoded mock data — fully rewritten with live data + pick logic
+- [x] Nav routing: "Create Bracket" → /submit (no bracket); "Bracket" → /bracket (has bracket)
+      with "Edit Bracket" button on bracket page (hidden when pool is locked)
+- [x] Picks visibility: matrix hides other players' picks before lock; bracket view hides
+      player selector before lock; amber banner shown to explain
 
-### Phase 3: Simulation Engine (Planned — post Selection Sunday)
-- Python FastAPI service
-- Monte Carlo simulation (10,000+ runs per recalculation)
-- Win probability per player replaces mock stubs in Dashboard
-- Leverage score calculations replace mock stubs
-- Real-time updates pushed via Supabase after each game goes final
-- Win probability history chart goes live (currently mock)
-- Data source for win probs: KenPom, Vegas lines, or ESPN BPI
+### Phase 3: Win Probability Engine (Planned — post Selection Sunday, Mar 15 2026)
+
+Full technical spec defined. Summary below; see probability-spec in repo for detail.
+
+**Architecture**
+```
+Market Odds → Team Strength (Bradley-Terry) → Matchup Probability Matrix
+→ Monte Carlo Simulations → Bracket Scoring → Pool Win Probabilities → Leverage
+```
+
+**Simulation matrix**
+- Shape: [200,000 × 63], dtype uint8
+- Each cell = winning team_id (0–63) for that game in that simulation
+- Generated once, reused across all pools — O(players × simulations) per pool eval
+- Memory: ~12.6MB; generation time: ~1s
+- Stored in Redis for fast reuse; recomputed when odds change significantly
+
+**Game indexing (sim_index — different from frontend slot_index)**
+```
+sim_index 0–31:  R64  (round-based, all regions interleaved)
+sim_index 32–47: R32
+sim_index 48–55: S16
+sim_index 56–59: E8
+sim_index 60–61: F4
+sim_index 62:    Champ
+```
+Action required: add `sim_index int` column to `games` table before Phase 3.
+The frontend uses `slot_index` (region-based); Python uses `sim_index` (round-based).
+A one-time mapping is set in the admin UI alongside ESPN ID mapping.
+
+**Pick storage — recommendation: keep team name strings in Postgres**
+The spec uses uint8 team IDs in the simulation matrix. Our brackets store team name
+strings (e.g. "Duke"). Recommended approach: keep strings in DB (human-readable,
+no migration needed), convert names → team IDs in the Python service at query time
+using a `teams` lookup table. No bracket schema changes required.
+
+**Scoring weights**
+Spec uses 1/2/4/8/16/32; app uses 10/20/40/80/160/320 (×10 scale, mathematically
+equivalent for ranking). Python service uses spec weights internally.
+
+**Leverage calculation**
+- Partition simulations by game outcome (S_A vs S_B)
+- Pool importance = 0.5 × Σ|P_A - P_B| (Total Variation Distance)
+- Per-player impact = |P_A[i] - P_B[i]|
+- Tie equity: fractional win share split equally among tied players
+
+**Infrastructure**
+- Python FastAPI service (separate from React frontend)
+- Postgres: pools, players, brackets (existing schema)
+- Redis: simulation_matrix, pool_winner_matrix, cached odds
+- Target server: AWS c6i.large (~$20-40/month)
+
+**API endpoints to build**
+```
+GET /pool/{pool_id}/odds     → [{player, win_prob}]
+GET /pool/{pool_id}/games    → [{game, leverage, impacts: {player: value}}]
+```
+
+**Data sources for win probabilities**
+- Primary: Vegas moneyline / futures odds (most accurate)
+- Fallback: KenPom ratings or ESPN BPI
+- Convert implied odds → probabilities, remove vig, apply Bradley-Terry transform
+
+**Scaling**
+- simulation_matrix is global (not per-pool) — reused across 10k+ pools
+- Per-pool compute: O(players × simulations) ≈ 0.2s for 20 players
 
 ### Phase 4: Polish + PWA (Planned)
 - Service worker for offline bracket viewing
