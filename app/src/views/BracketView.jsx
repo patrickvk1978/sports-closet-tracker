@@ -336,113 +336,129 @@ function FinalFourPickBadge({ userPick, winner, status }) {
   return <span className="text-[10px] text-slate-400">{userPick}</span>;
 }
 
-function FinalFourView({ userPicks, showPersonal }) {
-  // Extract picks for F4 slots
+// Renders one team row inside a F4/Champ card using the same CBS-style pick logic.
+function F4TeamRow({ team, isWinner, status, score, userPickedThis }) {
+  const pickedCorrect = userPickedThis && status === "final" && isWinner;
+  const pickedWrong   = userPickedThis && status === "final" && !isWinner;
+  const pickedLive    = userPickedThis && status === "live";
+
+  let textCls = "text-slate-300 font-semibold";
+  let bgCls   = "bg-slate-800/50 border border-slate-700/40";
+  let borderAccent = "";
+
+  if (pickedCorrect) {
+    textCls = "text-emerald-300 font-bold"; bgCls = "bg-emerald-900/30 border border-emerald-700/30"; borderAccent = "border-l-2 border-l-emerald-500";
+  } else if (pickedWrong) {
+    textCls = "text-red-400 line-through"; bgCls = "bg-red-900/10 border border-red-900/30"; borderAccent = "border-l-2 border-l-red-600";
+  } else if (pickedLive) {
+    textCls = "text-amber-200 font-semibold"; bgCls = "bg-amber-900/10 border border-amber-800/30"; borderAccent = "border-l-2 border-l-amber-500";
+  } else if (status === "final" && isWinner) {
+    textCls = "text-emerald-300 font-semibold"; bgCls = "bg-emerald-900/30 border border-emerald-700/30";
+  } else if (status === "final" && !isWinner) {
+    textCls = "text-slate-600 line-through";
+  }
+
+  return (
+    <div className={`flex items-center justify-between px-3 py-3 rounded-xl mb-2 ${bgCls} ${borderAccent}`}>
+      <span className={`text-sm ${textCls}`}>{team || "TBD"}</span>
+      <div className="flex items-center gap-2">
+        {score != null && <span className="text-sm font-bold tabular-nums text-slate-300" style={{ fontFamily: "Space Mono, monospace" }}>{score}</span>}
+        {pickedCorrect && <span className="text-[10px] text-emerald-500">✓</span>}
+        {pickedLive && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
+      </div>
+    </div>
+  );
+}
+
+function FinalFourView({ userPicks, showPersonal, games }) {
+  // Derive teams for each F4/Champ slot from user picks at feeder slots
+  // SF1 (slot 60): Midwest E8 pick [14] vs West E8 pick [29]
+  // SF2 (slot 61): South E8 pick [44] vs East E8 pick [59]
+  // Champ (slot 62): SF1 pick [60] vs SF2 pick [61]
+  function getF4Teams(slot) {
+    const feeders = FEEDER_MAP[slot];
+    const dbGame  = games.find((g) => g.slot_index === slot);
+    const status  = dbGame?.status ?? "pending";
+    const winner  = dbGame?.winner ?? null;
+    // Use actual DB teams if live/final, otherwise derive from picks
+    let t1 = dbGame?.teams?.team1 ?? null;
+    let t2 = dbGame?.teams?.team2 ?? null;
+    if ((!t1 || !t2) && feeders && userPicks?.length > 0) {
+      t1 = userPicks[feeders[0]] ?? null;
+      t2 = userPicks[feeders[1]] ?? null;
+    }
+    const score1 = dbGame?.teams?.score1 ?? null;
+    const score2 = dbGame?.teams?.score2 ?? null;
+    const gameNote = dbGame?.teams?.gameNote ?? null;
+    return { t1, t2, status, winner, score1, score2, gameNote };
+  }
+
+  const sf1   = getF4Teams(60);
+  const sf2   = getF4Teams(61);
+  const champ = getF4Teams(62);
+
   const sf1Pick   = showPersonal ? (userPicks[60] ?? null) : null;
   const sf2Pick   = showPersonal ? (userPicks[61] ?? null) : null;
   const champPick = showPersonal ? (userPicks[62] ?? null) : null;
 
+  function statusBadge(status) {
+    if (status === "live") return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" style={{ animationDuration: "1.5s" }} />
+        LIVE
+      </span>
+    );
+    if (status === "final") return <span className="px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 text-[10px] font-medium">Final</span>;
+    return <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 text-[10px]">Upcoming</span>;
+  }
+
+  function cardBorder(status) {
+    if (status === "live")  return "border-amber-700/40";
+    if (status === "final") return "border-slate-700/60";
+    return "border-slate-800/60";
+  }
+
   return (
     <div className="py-8 flex flex-col items-center gap-8">
+      <div className="flex items-center gap-6 flex-wrap justify-center">
 
-      {/* Semis */}
-      <div className="flex items-center gap-8 flex-wrap justify-center">
-
-        {/* SF1 — Final */}
-        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 w-60">
+        {/* SF1 */}
+        <div className={`bg-slate-900/60 border ${cardBorder(sf1.status)} rounded-2xl p-5 w-60`}>
           <div className="flex items-center gap-2 mb-4">
-            <span className="px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 text-[10px] font-medium">Final</span>
+            {statusBadge(sf1.status)}
             <span className="text-[10px] text-slate-600">Semifinal 1</span>
           </div>
-          {showPersonal && (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-slate-800/40 border border-slate-700/30">
-              <p className="text-[9px] text-slate-600 uppercase tracking-widest mb-1" style={{ fontFamily: "Space Mono, monospace" }}>Your Pick</p>
-              <FinalFourPickBadge userPick={sf1Pick} winner={null} status="pending" />
-            </div>
-          )}
-          {[
-            { seed: 1, team: "Kentucky",  winner: false },
-            { seed: 1, team: "Wisconsin", winner: true  },
-          ].map(({ seed, team, winner }) => (
-            <div
-              key={team}
-              className={`flex items-center justify-between px-3 py-3 rounded-xl mb-2 ${
-                winner
-                  ? "bg-emerald-900/30 border border-emerald-700/30"
-                  : "bg-slate-800/40 border border-slate-700/30"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-500 font-bold" style={{ fontFamily: "Space Mono, monospace" }}>{seed}</span>
-                <span className={`text-sm font-semibold ${winner ? "text-emerald-300" : "text-red-400 line-through opacity-60"}`}>
-                  {team}
-                </span>
-              </div>
-              {winner && <span className="text-[10px] text-emerald-500">✓</span>}
-            </div>
-          ))}
+          <F4TeamRow team={sf1.t1} isWinner={sf1.winner === sf1.t1} status={sf1.status} score={sf1.score1} userPickedThis={showPersonal && sf1Pick === sf1.t1} />
+          <F4TeamRow team={sf1.t2} isWinner={sf1.winner === sf1.t2} status={sf1.status} score={sf1.score2} userPickedThis={showPersonal && sf1Pick === sf1.t2} />
+          {sf1.gameNote && <p className="text-center text-[10px] text-amber-400 mt-1">{sf1.gameNote}</p>}
         </div>
 
         {/* Championship */}
         <div className="bg-gradient-to-b from-amber-900/20 to-slate-900/60 border border-amber-700/30 rounded-2xl p-5 w-64 relative">
           <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-amber-600 to-orange-600 rounded-full whitespace-nowrap">
-            <span className="text-[10px] font-bold text-white tracking-widest uppercase" style={{ fontFamily: "Space Mono, monospace" }}>
-              Championship
-            </span>
+            <span className="text-[10px] font-bold text-white tracking-widest uppercase" style={{ fontFamily: "Space Mono, monospace" }}>Championship</span>
           </div>
-          {showPersonal && (
-            <div className="mt-3 mb-3 px-3 py-2 rounded-lg bg-slate-800/40 border border-slate-700/30">
-              <p className="text-[9px] text-slate-600 uppercase tracking-widest mb-1" style={{ fontFamily: "Space Mono, monospace" }}>Your Pick</p>
-              <FinalFourPickBadge userPick={champPick} winner={null} status="pending" />
-            </div>
+          <div className="mt-3">
+            {statusBadge(champ.status)}
+          </div>
+          <div className="mt-3">
+            <F4TeamRow team={champ.t1} isWinner={champ.winner === champ.t1} status={champ.status} score={champ.score1} userPickedThis={showPersonal && champPick === champ.t1} />
+            <F4TeamRow team={champ.t2} isWinner={champ.winner === champ.t2} status={champ.status} score={champ.score2} userPickedThis={showPersonal && champPick === champ.t2} />
+          </div>
+          {champ.status === "final" && champ.winner && (
+            <p className="text-center text-[11px] text-amber-400 font-semibold mt-2">🏆 {champ.winner}</p>
           )}
-          <div className={showPersonal ? "mt-0 space-y-2" : "mt-3 space-y-2"}>
-            <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-slate-800/50 border border-slate-700/40">
-              <span className="text-sm font-bold text-white">Wisconsin</span>
-              <span className="text-[10px] text-slate-500">West · #1</span>
-            </div>
-            <div className="flex items-center justify-center">
-              <span className="text-xs text-slate-600 font-medium">vs</span>
-            </div>
-            <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-slate-800/50 border border-amber-700/20 animate-pulse" style={{ animationDuration: "3s" }}>
-              <span className="text-sm font-bold text-amber-300">TBD</span>
-              <span className="text-[10px] text-slate-500">South/East</span>
-            </div>
-          </div>
-          <p className="text-center text-[11px] text-slate-500 mt-3">Monday · 9:00 PM ET</p>
         </div>
 
-        {/* SF2 — Live */}
-        <div className="bg-slate-900/60 border border-red-800/30 rounded-2xl p-5 w-60 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-red-500 animate-pulse" />
+        {/* SF2 */}
+        <div className={`bg-slate-900/60 border ${cardBorder(sf2.status)} rounded-2xl p-5 w-60`}>
           <div className="flex items-center gap-2 mb-4">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" style={{ animationDuration: "1.5s" }} />
-              LIVE
-            </span>
+            {statusBadge(sf2.status)}
             <span className="text-[10px] text-slate-600">Semifinal 2</span>
           </div>
-          {showPersonal && (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-slate-800/40 border border-slate-700/30">
-              <p className="text-[9px] text-slate-600 uppercase tracking-widest mb-1" style={{ fontFamily: "Space Mono, monospace" }}>Your Pick</p>
-              <FinalFourPickBadge userPick={sf2Pick} winner={null} status="live" />
-            </div>
-          )}
-          {[
-            { seed: 1, team: "Duke",        score: 54 },
-            { seed: 7, team: "Michigan St",  score: 48 },
-          ].map(({ seed, team, score }) => (
-            <div key={team} className="flex items-center justify-between px-3 py-3 rounded-xl bg-slate-800/60 border border-slate-700/40 mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-500 font-bold" style={{ fontFamily: "Space Mono, monospace" }}>{seed}</span>
-                <span className="text-sm font-semibold text-white">{team}</span>
-              </div>
-              <span className="text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>{score}</span>
-            </div>
-          ))}
-          <p className="text-center text-[10px] text-red-400 font-medium mt-1" style={{ fontFamily: "Space Mono, monospace" }}>
-            2nd Half — 8:42
-          </p>
+          <F4TeamRow team={sf2.t1} isWinner={sf2.winner === sf2.t1} status={sf2.status} score={sf2.score1} userPickedThis={showPersonal && sf2Pick === sf2.t1} />
+          <F4TeamRow team={sf2.t2} isWinner={sf2.winner === sf2.t2} status={sf2.status} score={sf2.score2} userPickedThis={showPersonal && sf2Pick === sf2.t2} />
+          {sf2.gameNote && <p className="text-center text-[10px] text-amber-400 mt-1">{sf2.gameNote}</p>}
         </div>
 
       </div>
@@ -483,7 +499,7 @@ const TABS = [
 
 export default function BracketView() {
   const { BRACKET, PLAYERS, GAMES, userPicks } = usePoolData();
-  const { pool } = usePool();
+  const { pool, games } = usePool();
   const { profile } = useAuth();
   const navigate = useNavigate();
 
@@ -668,7 +684,7 @@ export default function BracketView() {
       {/* Bracket content */}
       <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl overflow-hidden">
         {activeTab === "finalfour" ? (
-          <FinalFourView userPicks={userPicks} showPersonal={showPersonal} />
+          <FinalFourView userPicks={userPicks} showPersonal={showPersonal} games={games} />
         ) : (
           <div className="p-4">
             <RegionBracket
