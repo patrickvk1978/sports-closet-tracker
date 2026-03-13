@@ -230,26 +230,26 @@ export default function NavBar() {
             </NavLink>
           )}
 
-          {/* Admin link */}
-          {profile?.is_admin && (
-            <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  isActive
-                    ? "bg-cyan-600/30 text-cyan-300 shadow"
-                    : "text-cyan-500/60 hover:text-cyan-300"
-                }`
-              }
-            >
-              Admin
-            </NavLink>
-          )}
         </nav>
 
         {/* Auth widget — pushed to right */}
         {profile && (
           <div className="ml-auto flex items-center gap-2 shrink-0">
+            {/* Admin link — app-level, lives near account controls */}
+            {profile.is_admin && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+                    isActive
+                      ? "bg-cyan-600/30 text-cyan-300"
+                      : "text-cyan-500/60 hover:text-cyan-400"
+                  }`
+                }
+              >
+                Admin
+              </NavLink>
+            )}
             <span className="text-xs text-slate-400 hidden sm:block max-w-[96px] truncate">
               {profile.username}
             </span>
