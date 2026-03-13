@@ -163,6 +163,16 @@ Remaining Phase 2 loose ends (pre-tournament):
       with "Edit Bracket" button on bracket page (hidden when pool is locked)
 - [x] Picks visibility: matrix hides other players' picks before lock; bracket view hides
       player selector before lock; amber banner shown to explain
+- [x] Multi-pool support — PoolContext loads all memberships; active pool stored in
+      localStorage; switchPool() function; nav pool switcher dropdown with all pools
+      + "Join a Pool" + "Create a Pool" options
+- [x] Password reset — "Forgot password?" on login page triggers Supabase reset email;
+      /reset-password page handles token + new password entry; admin reset tool in /admin
+- [x] Orphaned accounts fixed — DB trigger auto-creates profile on auth user creation;
+      sign-in detects missing profile and auto-creates fallback; better "email already
+      in use" error message with one-click switch to Sign In tab
+- [x] Invite code join flow — security-definer RPC bypasses RLS for pool lookup
+- [x] Pool creation RLS — fixed pools_select + pools_insert policies
 
 ### Phase 3: Win Probability Engine (Planned — post Selection Sunday, Mar 15 2026)
 
