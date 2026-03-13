@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePool } from '../hooks/usePool'
+import { useEspnPoller } from '../hooks/useEspnPoller'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -502,6 +503,18 @@ export default function AdminPage() {
   const [savingEspn, setSavingEspn] = useState(false)
   const { toast, showToast } = useToast()
 
+  // Build inverted mapping { [espn_id]: slot_index } for the poller
+  const slotMapping = useMemo(() => {
+    const mapping = {}
+    Object.entries(espnIds).forEach(([slotIndex, espnId]) => {
+      if (espnId) mapping[espnId] = Number(slotIndex)
+    })
+    return mapping
+  }, [espnIds])
+
+  const { isPolling } = useEspnPoller(slotMapping)
+  const mappedCount = Object.keys(slotMapping).length
+
   // ── Load all games on mount ─────────────────────────────────────────────────
   useEffect(() => {
     async function loadGames() {
@@ -672,12 +685,38 @@ export default function AdminPage() {
             Selection Sunday team editor · pool lock · ESPN ID mapping
           </p>
         </div>
-        {pool && (
-          <div className="text-xs text-slate-500 bg-slate-800/60 border border-slate-700/60 rounded-xl px-3 py-1.5">
-            Pool: <span className="text-slate-300 font-semibold">{pool.name}</span>
-            <span className="ml-3 text-slate-600">#{pool.invite_code}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* ESPN polling status */}
+          <div className="flex items-center gap-2 text-xs bg-slate-800/60 border border-slate-700/60 rounded-xl px-3 py-1.5">
+            <span className="relative flex h-2 w-2 shrink-0">
+              {isPolling ? (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </>
+              ) : (
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${mappedCount > 0 ? 'bg-slate-500' : 'bg-amber-500'}`} />
+              )}
+            </span>
+            <span className="text-slate-400">
+              ESPN{' '}
+              {isPolling
+                ? <span className="text-emerald-400 font-medium">polling…</span>
+                : <span className="text-slate-500">idle</span>
+              }
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className={mappedCount === 63 ? 'text-emerald-400 font-medium' : mappedCount > 0 ? 'text-amber-400' : 'text-slate-500'}>
+              {mappedCount}/63 IDs mapped
+            </span>
           </div>
-        )}
+          {pool && (
+            <div className="text-xs text-slate-500 bg-slate-800/60 border border-slate-700/60 rounded-xl px-3 py-1.5">
+              Pool: <span className="text-slate-300 font-semibold">{pool.name}</span>
+              <span className="ml-3 text-slate-600">#{pool.invite_code}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Lock toggle */}
