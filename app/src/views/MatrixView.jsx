@@ -119,8 +119,8 @@ export default function MatrixView() {
         </div>
       )}
 
-      {/* Pick distribution tooltip */}
-      {hoveredGame !== null && (
+      {/* Pick distribution tooltip — only after pool locks */}
+      {hoveredGame !== null && isLocked && (
         <div className="fixed top-24 right-4 z-50 bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-2xl min-w-52 pointer-events-none">
           <p className="text-[10px] text-slate-400 mb-1 font-medium">Pick Distribution</p>
           <p className="text-sm font-bold text-white mb-3">
@@ -174,9 +174,9 @@ export default function MatrixView() {
               {filteredGames.map((game) => (
                 <th
                   key={game.id}
-                  onMouseEnter={() => setHoveredGame(game.id)}
+                  onMouseEnter={() => isLocked && setHoveredGame(game.id)}
                   onMouseLeave={() => setHoveredGame(null)}
-                  className="sticky top-0 z-20 bg-slate-900 border-b border-slate-800 px-3 py-2 text-center cursor-pointer hover:bg-slate-800 transition-colors border-l border-slate-800/30"
+                  className={`sticky top-0 z-20 bg-slate-900 border-b border-slate-800 px-3 py-2 text-center transition-colors border-l border-slate-800/30 ${isLocked ? "cursor-pointer hover:bg-slate-800" : ""}`}
                   style={{ minWidth: 108 }}
                 >
                   <div className="flex flex-col items-center gap-1">
