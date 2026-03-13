@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { usePool } from '../hooks/usePool'
 import { useAuth } from '../hooks/useAuth'
 
@@ -7,8 +7,9 @@ export default function JoinPoolPage() {
   const { joinPool, createPool } = usePool()
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
-  const [code,    setCode]    = useState('')
+  const [code,    setCode]    = useState(() => searchParams.get('code')?.toUpperCase() ?? '')
   const [error,   setError]   = useState(null)
   const [loading, setLoading] = useState(false)
 

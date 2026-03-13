@@ -20,7 +20,16 @@ function PoolIcon() {
 function PoolSwitcher({ pool, allPools, switchPool, isLoading }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
   const ref = useRef(null);
+
+  function copyInvite(e, p) {
+    e.stopPropagation();
+    const url = `${window.location.origin}/join?code=${p.invite_code}`;
+    navigator.clipboard.writeText(url);
+    setCopiedId(p.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  }
 
   // Close on outside click
   useEffect(() => {
@@ -91,29 +100,34 @@ function PoolSwitcher({ pool, allPools, switchPool, isLoading }) {
             Your Pools
           </div>
           {allPools.map(p => (
-            <button
-              key={p.id}
-              onClick={() => {
-                switchPool(p.id);
-                setOpen(false);
-              }}
-              className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white flex items-center justify-between transition-colors"
-            >
-              <span className="truncate">{p.name}</span>
-              {pool?.id === p.id && (
-                <svg
-                  className="w-4 h-4 text-orange-500 shrink-0 ml-2"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-            </button>
+            <div key={p.id} className="flex items-center gap-1 hover:bg-slate-700 transition-colors">
+              <button
+                onClick={() => { switchPool(p.id); setOpen(false); }}
+                className="flex-1 px-3 py-2 text-sm text-slate-300 hover:text-white flex items-center gap-2 text-left min-w-0"
+              >
+                <span className="truncate">{p.name}</span>
+                {pool?.id === p.id && (
+                  <svg className="w-4 h-4 text-orange-500 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+              {/* Copy invite link for this pool */}
+              <button
+                onClick={(e) => copyInvite(e, p)}
+                className="shrink-0 px-2 py-2 text-slate-500 hover:text-orange-400 transition-colors"
+                title="Copy invite link"
+              >
+                {copiedId === p.id ? (
+                  <span className="text-[10px] text-orange-400 font-medium">Copied!</span>
+                ) : (
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" />
+                    <path d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           ))}
 
           <div className="border-t border-slate-700 my-1" />

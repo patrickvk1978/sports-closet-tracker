@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePoolData } from "../hooks/usePoolData";
+import { usePool } from "../hooks/usePool";
+import { useAuth } from "../hooks/useAuth";
 
 const MAX_PROB = 35;
 
@@ -42,14 +44,37 @@ function TrendArrow({ trend }) {
 
 export default function Dashboard() {
   const { PLAYERS, PLAYER_COLORS, LEVERAGE_GAMES, CONSENSUS, ELIMINATION_STATS, WIN_PROB_HISTORY } = usePoolData();
-  const [selectedName, setSelectedName] = useState(() => PLAYERS[0]?.name ?? "");
+  const { pool } = usePool();
+  const { profile } = useAuth();
 
-  const player = useMemo(
-    () => PLAYERS.find((p) => p.name === selectedName) ?? PLAYERS[0] ?? null,
-    [selectedName, PLAYERS]
-  );
+  const isLocked = pool?.locked === true;
+
+  const [selectedName, setSelectedName] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  // Default to current user when profile/PLAYERS loads
+  useEffect(() => {
+    if (profile?.username && PLAYERS.find(p => p.name === profile.username)) {
+      setSelectedName(profile.username);
+    } else if (PLAYERS.length > 0 && !selectedName) {
+      setSelectedName(PLAYERS[0].name);
+    }
+  }, [profile?.username, PLAYERS]);
+
+  // Before lock, always show current user's data regardless of selector
+  const player = useMemo(() => {
+    const name = isLocked ? selectedName : (profile?.username ?? selectedName);
+    return PLAYERS.find(p => p.name === name) ?? PLAYERS[0] ?? null;
+  }, [selectedName, PLAYERS, isLocked, profile?.username]);
 
   if (!player) return null;
+
+  function copyInviteLink() {
+    const url = `${window.location.origin}/join?code=${pool.invite_code}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   const closestRival = useMemo(() => {
     return PLAYERS.filter((p) => p.name !== player.name).reduce((best, rival) => {
@@ -62,9 +87,9 @@ export default function Dashboard() {
     }, null);
   }, [player]);
 
-  const leaderboard = useMemo(() => [...PLAYERS].sort((a, b) => a.rank - b.rank), []);
+  const leaderboard = useMemo(() => [...PLAYERS].sort((a, b) => a.rank - b.rank), [PLAYERS]);
 
-  const liveGame    = LEVERAGE_GAMES.find((g) => g.status === "live");
+  const liveGame      = LEVERAGE_GAMES.find((g) => g.status === "live");
   const upcomingGames = LEVERAGE_GAMES.filter((g) => g.status !== "live");
   const playerLiveAlert = liveGame?.alerts.find((a) => a.player === player.name);
 
@@ -87,24 +112,60 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-5">
 
+      {/* ── 0. Pool Header ───────────────────────────────────────────────────── */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-3 flex items-center gap-4 flex-wrap">
+        {/* Pool identity */}
+        <div className="flex items-center gap-3 min-w-0">
+          <h2 className="text-sm font-bold text-white truncate">{pool?.name ?? "Pool"}</h2>
+          <span className="text-xs text-slate-500 shrink-0">{PLAYERS.length} {PLAYERS.length === 1 ? "entry" : "entries"}</span>
+        </div>
+
+        <div className="ml-auto flex items-center gap-3 shrink-0 flex-wrap">
+          {/* Viewing selector */}
+          {isLocked ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Viewing:</span>
+              <select
+                value={selectedName}
+                onChange={(e) => setSelectedName(e.target.value)}
+                className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold text-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-orange-500"
+              >
+                {PLAYERS.map((p) => (
+                  <option key={p.name} value={p.name}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <span className="text-xs text-slate-500">
+              Viewing: <span className="text-white font-semibold">{profile?.username}</span>
+            </span>
+          )}
+
+          {/* Invite link — hidden when locked */}
+          {!isLocked && pool?.invite_code && (
+            <button
+              onClick={copyInviteLink}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-semibold hover:bg-orange-500/20 transition-all"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" />
+                <path d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" />
+              </svg>
+              {copied ? "Copied!" : "Invite Friends"}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* ── 1. Hero — Personal Standing ─────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800/40 border border-slate-700/50 p-6">
         <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-orange-500/5 pointer-events-none" />
 
-        {/* Top row: player selector + rank badge */}
+        {/* Top row: player name + champion pick + rank badge */}
         <div className="flex items-start justify-between gap-4 mb-5">
           <div className="min-w-0">
-            <select
-              value={selectedName}
-              onChange={(e) => setSelectedName(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white cursor-pointer max-w-xs w-full"
-            >
-              {PLAYERS.map((p) => (
-                <option key={p.name} value={p.name}>{p.name}</option>
-              ))}
-            </select>
-            {/* Champion pick + status */}
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <p className="text-lg font-bold text-white leading-tight">{player.name}</p>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <span className="text-[11px] text-slate-500">Champion pick:</span>
               <span className="text-[11px] font-bold text-white">{championPick}</span>
               {player.champAlive ? (
@@ -197,29 +258,20 @@ export default function Dashboard() {
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center justify-between bg-emerald-900/20 border border-emerald-800/20 rounded-xl px-4 py-2.5">
                       <span className="text-sm text-slate-300">If <span className="font-bold text-white">{liveGame.team1}</span> wins</span>
-                      <span
-                        className="text-sm font-bold tabular-nums text-emerald-400"
-                        style={{ fontFamily: "Space Mono, monospace" }}
-                      >
+                      <span className="text-sm font-bold tabular-nums text-emerald-400" style={{ fontFamily: "Space Mono, monospace" }}>
                         → {playerLiveAlert.ifTeam1}%
                       </span>
                     </div>
                     <div className="flex items-center justify-between bg-red-900/20 border border-red-800/20 rounded-xl px-4 py-2.5">
                       <span className="text-sm text-slate-300">If <span className="font-bold text-white">{liveGame.team2}</span> wins</span>
-                      <span
-                        className="text-sm font-bold tabular-nums text-red-400"
-                        style={{ fontFamily: "Space Mono, monospace" }}
-                      >
+                      <span className="text-sm font-bold tabular-nums text-red-400" style={{ fontFamily: "Space Mono, monospace" }}>
                         → {playerLiveAlert.ifTeam2}%
                       </span>
                     </div>
                   </div>
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5 flex items-center justify-between">
                     <span className="text-xs text-amber-300 font-medium">Win probability swing</span>
-                    <span
-                      className="text-base font-bold text-amber-400 tabular-nums"
-                      style={{ fontFamily: "Space Mono, monospace" }}
-                    >
+                    <span className="text-base font-bold text-amber-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                       ±{playerLiveAlert.swing}%
                     </span>
                   </div>
@@ -250,8 +302,8 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mb-5">
                 <div>
                   <button
-                    onClick={() => setSelectedName(closestRival.name)}
-                    className="text-base font-bold text-white hover:text-orange-400 transition-colors text-left"
+                    onClick={() => isLocked && setSelectedName(closestRival.name)}
+                    className={`text-base font-bold text-white transition-colors text-left ${isLocked ? "hover:text-orange-400 cursor-pointer" : "cursor-default"}`}
                   >
                     {closestRival.name}
                   </button>
@@ -264,12 +316,7 @@ export default function Dashboard() {
                     className="text-2xl font-bold tabular-nums"
                     style={{
                       fontFamily: "Space Mono, monospace",
-                      color:
-                        closestRival.winProb > 15
-                          ? "#34d399"
-                          : closestRival.winProb > 8
-                          ? "#fbbf24"
-                          : "#94a3b8",
+                      color: closestRival.winProb > 15 ? "#34d399" : closestRival.winProb > 8 ? "#fbbf24" : "#94a3b8",
                     }}
                   >
                     {closestRival.winProb}%
@@ -281,10 +328,7 @@ export default function Dashboard() {
               <div className="bg-slate-800/50 rounded-xl p-3 mb-3">
                 <div className="flex items-center justify-between text-xs mb-2">
                   <span className="text-slate-400">Bracket similarity</span>
-                  <span
-                    className="font-bold text-white tabular-nums"
-                    style={{ fontFamily: "Space Mono, monospace" }}
-                  >
+                  <span className="font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                     {closestRival.matches}/{player.picks.length} picks match
                   </span>
                 </div>
@@ -327,10 +371,7 @@ export default function Dashboard() {
                     </span>
                     <span className="text-sm font-bold text-white">{game.matchup}</span>
                     {playerUpAlert && (
-                      <span
-                        className="ml-auto text-xs font-bold text-amber-400 tabular-nums"
-                        style={{ fontFamily: "Space Mono, monospace" }}
-                      >
+                      <span className="ml-auto text-xs font-bold text-amber-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                         Your swing: ±{playerUpAlert.swing}%
                       </span>
                     )}
@@ -345,38 +386,21 @@ export default function Dashboard() {
                             : "bg-slate-800/30"
                         }`}
                       >
-                        <span className="text-xs font-medium text-slate-300 w-28 truncate">
-                          {alert.player}
-                        </span>
+                        <span className="text-xs font-medium text-slate-300 w-28 truncate">{alert.player}</span>
                         <div className="flex-1 flex items-center gap-2">
-                          <span
-                            className="text-[10px] text-emerald-400 tabular-nums w-10 text-right"
-                            style={{ fontFamily: "Space Mono, monospace" }}
-                          >
+                          <span className="text-[10px] text-emerald-400 tabular-nums w-10 text-right" style={{ fontFamily: "Space Mono, monospace" }}>
                             {alert.ifTeam1}%
                           </span>
                           <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden relative">
-                            <div
-                              className="absolute left-0 h-full bg-emerald-500/60 rounded-full"
-                              style={{ width: `${Math.min(alert.ifTeam1 * 3, 100)}%` }}
-                            />
-                            <div
-                              className="absolute right-0 h-full bg-red-500/60 rounded-full"
-                              style={{ width: `${Math.min(alert.ifTeam2 * 3, 100)}%` }}
-                            />
+                            <div className="absolute left-0 h-full bg-emerald-500/60 rounded-full" style={{ width: `${Math.min(alert.ifTeam1 * 3, 100)}%` }} />
+                            <div className="absolute right-0 h-full bg-red-500/60 rounded-full" style={{ width: `${Math.min(alert.ifTeam2 * 3, 100)}%` }} />
                           </div>
-                          <span
-                            className="text-[10px] text-red-400 tabular-nums w-10"
-                            style={{ fontFamily: "Space Mono, monospace" }}
-                          >
+                          <span className="text-[10px] text-red-400 tabular-nums w-10" style={{ fontFamily: "Space Mono, monospace" }}>
                             {alert.ifTeam2}%
                           </span>
                         </div>
                         <div className="bg-amber-500/10 px-2 py-0.5 rounded-lg">
-                          <span
-                            className="text-[10px] font-bold text-amber-400 tabular-nums"
-                            style={{ fontFamily: "Space Mono, monospace" }}
-                          >
+                          <span className="text-[10px] font-bold text-amber-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                             ±{alert.swing}%
                           </span>
                         </div>
@@ -400,16 +424,10 @@ export default function Dashboard() {
         </p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {ELIMINATION_STATS.map((stat) => (
-            <div
-              key={stat.label}
-              className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4"
-            >
+            <div key={stat.label} className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-lg">{stat.icon}</span>
-                <span
-                  className="text-2xl font-bold tabular-nums"
-                  style={{ fontFamily: "Space Mono, monospace" }}
-                >
+                <span className="text-2xl font-bold tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                   {stat.count}
                   <span className="text-sm text-slate-600">/{stat.total}</span>
                 </span>
@@ -444,11 +462,11 @@ export default function Dashboard() {
               {leaderboard.map((p) => (
                 <button
                   key={p.name}
-                  onClick={() => setSelectedName(p.name)}
+                  onClick={() => isLocked && setSelectedName(p.name)}
                   className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${
-                    p.name === selectedName
+                    p.name === player.name
                       ? "bg-orange-500/10"
-                      : "hover:bg-slate-800/20"
+                      : isLocked ? "hover:bg-slate-800/20 cursor-pointer" : "cursor-default"
                   }`}
                 >
                   <span
@@ -459,24 +477,15 @@ export default function Dashboard() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span
-                        className={`text-sm font-semibold truncate ${
-                          p.name === selectedName ? "text-orange-400" : "text-white"
-                        }`}
-                      >
+                      <span className={`text-sm font-semibold truncate ${p.name === player.name ? "text-orange-400" : "text-white"}`}>
                         {p.name}
                       </span>
                       {p.champAlive && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400 font-medium shrink-0">
-                          ♛
-                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400 font-medium shrink-0">♛</span>
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
-                      <span
-                        className="text-xs text-slate-500"
-                        style={{ fontFamily: "Space Mono, monospace" }}
-                      >
+                      <span className="text-xs text-slate-500" style={{ fontFamily: "Space Mono, monospace" }}>
                         {p.points.toLocaleString()} pts
                       </span>
                       <span className="text-xs text-slate-600">PPR: {p.ppr}</span>
@@ -487,12 +496,7 @@ export default function Dashboard() {
                       className="text-sm font-bold tabular-nums"
                       style={{
                         fontFamily: "Space Mono, monospace",
-                        color:
-                          p.winProb > 15
-                            ? "#34d399"
-                            : p.winProb > 8
-                            ? "#fbbf24"
-                            : "#94a3b8",
+                        color: p.winProb > 15 ? "#34d399" : p.winProb > 8 ? "#fbbf24" : "#94a3b8",
                       }}
                     >
                       {p.winProb}%
@@ -502,12 +506,7 @@ export default function Dashboard() {
                         className="h-full rounded-full transition-all"
                         style={{
                           width: `${Math.min(p.winProb * 4, 100)}%`,
-                          background:
-                            p.winProb > 15
-                              ? "#34d399"
-                              : p.winProb > 8
-                              ? "#fbbf24"
-                              : "#64748b",
+                          background: p.winProb > 15 ? "#34d399" : p.winProb > 8 ? "#fbbf24" : "#64748b",
                         }}
                       />
                     </div>
@@ -539,25 +538,18 @@ export default function Dashboard() {
             </div>
             <div className="p-5">
               <div className="relative h-52 bg-slate-800/30 rounded-xl overflow-hidden">
-                {/* Y-axis */}
                 <div className="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between py-2 pointer-events-none">
                   {[30, 20, 10, 0].map((v) => (
-                    <span
-                      key={v}
-                      className="text-[10px] text-slate-600 text-right pr-1"
-                      style={{ fontFamily: "Space Mono, monospace" }}
-                    >
+                    <span key={v} className="text-[10px] text-slate-600 text-right pr-1" style={{ fontFamily: "Space Mono, monospace" }}>
                       {v}%
                     </span>
                   ))}
                 </div>
-                {/* Grid lines */}
                 <div className="absolute left-8 right-0 top-2 bottom-6 flex flex-col justify-between pointer-events-none">
                   {[0, 1, 2, 3].map((i) => (
                     <div key={i} className="border-t border-slate-700/30 w-full" />
                   ))}
                 </div>
-                {/* Chart lines */}
                 <div className="absolute left-8 right-2 top-2 bottom-6">
                   {Object.entries(PLAYER_COLORS).map(([name, color]) => (
                     <div key={name} className="absolute inset-0">
@@ -565,14 +557,9 @@ export default function Dashboard() {
                     </div>
                   ))}
                 </div>
-                {/* X-axis labels */}
                 <div className="absolute bottom-0 left-8 right-2 flex justify-between px-1">
                   {WIN_PROB_HISTORY.map((d) => (
-                    <span
-                      key={d.round}
-                      className="text-[10px] text-slate-600"
-                      style={{ fontFamily: "Space Mono, monospace" }}
-                    >
+                    <span key={d.round} className="text-[10px] text-slate-600" style={{ fontFamily: "Space Mono, monospace" }}>
                       {d.round}
                     </span>
                   ))}
@@ -600,10 +587,7 @@ export default function Dashboard() {
                   className="h-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-end pr-2 transition-all"
                   style={{ width: `${c.pct1}%` }}
                 >
-                  <span
-                    className="text-[10px] font-bold text-white"
-                    style={{ fontFamily: "Space Mono, monospace" }}
-                  >
+                  <span className="text-[10px] font-bold text-white" style={{ fontFamily: "Space Mono, monospace" }}>
                     {c.pct1}%
                   </span>
                 </div>
@@ -611,10 +595,7 @@ export default function Dashboard() {
                   className="h-full bg-gradient-to-r from-cyan-600 to-cyan-500 flex items-center justify-start pl-2 transition-all"
                   style={{ width: `${c.pct2}%` }}
                 >
-                  <span
-                    className="text-[10px] font-bold text-white"
-                    style={{ fontFamily: "Space Mono, monospace" }}
-                  >
+                  <span className="text-[10px] font-bold text-white" style={{ fontFamily: "Space Mono, monospace" }}>
                     {c.pct2}%
                   </span>
                 </div>
