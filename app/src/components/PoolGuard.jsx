@@ -2,7 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { usePool } from '../hooks/usePool'
 
 export default function PoolGuard() {
-  const { pool, isLoading } = usePool()
+  const { allPools, isLoading } = usePool()
 
   if (isLoading) {
     return (
@@ -14,7 +14,7 @@ export default function PoolGuard() {
     )
   }
 
-  if (!pool) return <Navigate to="/join" replace />
+  if (allPools.length === 0) return <Navigate to="/join" replace />
 
   return <Outlet />
 }

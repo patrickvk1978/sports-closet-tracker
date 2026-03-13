@@ -19,14 +19,16 @@ export function PoolProvider({ children }) {
   const { session } = useAuth()
   const games = useGames()
 
-  const [pool,     setPool]     = useState(null)
-  const [members,  setMembers]  = useState([])
-  const [brackets, setBrackets] = useState([])
+  const [pool,      setPool]      = useState(null)
+  const [allPools,  setAllPools]  = useState([])
+  const [members,   setMembers]   = useState([])
+  const [brackets,  setBrackets]  = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     if (!session) {
       setPool(null)
+      setAllPools([])
       setMembers([])
       setBrackets([])
       setIsLoading(false)
@@ -35,43 +37,61 @@ export function PoolProvider({ children }) {
     loadPoolData()
   }, [session])
 
-  async function loadPoolData() {
+  async function loadPoolData(overrideActiveId) {
     setIsLoading(true)
 
-    // 1. Find this user's pool membership (take first pool if multiple)
+    // 1. Get ALL memberships
     const { data: memberships } = await supabase
       .from('pool_members')
       .select('pool_id')
       .eq('user_id', session.user.id)
-      .limit(1)
 
-    if (!memberships || memberships.length === 0) {
+    if (!memberships?.length) {
+      setAllPools([])
+      setPool(null)
+      setMembers([])
+      setBrackets([])
       setIsLoading(false)
       return
     }
-    const poolId = memberships[0].pool_id
 
-    // 2. Pool details
-    const { data: poolData } = await supabase
+    // 2. Load all pool details
+    const poolIds = memberships.map(m => m.pool_id)
+    const { data: allPoolsData } = await supabase
       .from('pools')
       .select('*')
-      .eq('id', poolId)
-      .single()
-    setPool(poolData ?? null)
+      .in('id', poolIds)
+    setAllPools(allPoolsData ?? [])
 
-    // 3. Members with profiles — use security-definer RPC to bypass RLS
-    //    which would otherwise restrict each user to seeing only their own row.
+    // 3. Determine active pool
+    const savedId = overrideActiveId ?? localStorage.getItem('activePoolId')
+    const active = allPoolsData?.find(p => p.id === savedId) ?? allPoolsData?.[0]
+    if (!active) {
+      setPool(null)
+      setMembers([])
+      setBrackets([])
+      setIsLoading(false)
+      return
+    }
+    setPool(active)
+    localStorage.setItem('activePoolId', active.id)
+
+    await loadActivePoolDetails(active.id)
+  }
+
+  async function loadActivePoolDetails(poolId) {
+    // Members with profiles — use security-definer RPC to bypass RLS
     const { data: membersData } = await supabase
       .rpc('get_pool_members', { p_pool_id: poolId })
     // Reshape to match expected format: { user_id, joined_at, profiles: { username, is_admin } }
-    const members = (membersData ?? []).map((m) => ({
+    const reshapedMembers = (membersData ?? []).map((m) => ({
       user_id:   m.user_id,
       joined_at: m.joined_at,
       profiles:  { username: m.username, is_admin: m.is_admin },
     }))
-    setMembers(members)
+    setMembers(reshapedMembers)
 
-    // 4. All brackets in this pool
+    // All brackets in this pool
     const { data: bracketsData } = await supabase
       .from('brackets')
       .select('*')
@@ -79,6 +99,17 @@ export function PoolProvider({ children }) {
     setBrackets(bracketsData ?? [])
 
     setIsLoading(false)
+  }
+
+  function switchPool(poolId) {
+    const target = allPools.find(p => p.id === poolId)
+    if (!target) return
+    localStorage.setItem('activePoolId', poolId)
+    setPool(target)
+    setMembers([])
+    setBrackets([])
+    setIsLoading(true)
+    loadActivePoolDetails(poolId)
   }
 
   async function joinPool(inviteCode) {
@@ -94,7 +125,9 @@ export function PoolProvider({ children }) {
 
     if (joinError) return { error: joinError.message }
 
-    await loadPoolData()
+    // Set the newly joined pool as active
+    localStorage.setItem('activePoolId', targetPool.id)
+    await loadPoolData(targetPool.id)
     return { pool: targetPool }
   }
 
@@ -119,7 +152,9 @@ export function PoolProvider({ children }) {
       .from('pool_members')
       .insert({ pool_id: newPool.id, user_id: session.user.id })
 
-    await loadPoolData()
+    // Set the newly created pool as active
+    localStorage.setItem('activePoolId', newPool.id)
+    await loadPoolData(newPool.id)
     return { pool: newPool }
   }
 
@@ -132,6 +167,8 @@ export function PoolProvider({ children }) {
   return (
     <PoolContext.Provider value={{
       pool,
+      allPools,
+      activePoolId: pool?.id ?? null,
       members,
       brackets,
       games,
@@ -139,6 +176,7 @@ export function PoolProvider({ children }) {
       isLoading,
       joinPool,
       createPool,
+      switchPool,
       refreshPool: loadPoolData,
     }}>
       {children}
