@@ -8,7 +8,16 @@ const NAV_LINKS = [
   { to: "/matrix", label: "Matrix"    },
 ];
 
-function PoolSwitcher({ pool, allPools, switchPool }) {
+// Trophy icon for pool context
+function PoolIcon() {
+  return (
+    <svg className="w-3.5 h-3.5 text-orange-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75a.75.75 0 010 1.5h-.544l-.553 3.322A3.751 3.751 0 0115 11.5a.75.75 0 01-1.5 0 2.25 2.25 0 00-2.006-2.236l-.244 1.465A2.5 2.5 0 0110 15.25a2.5 2.5 0 01-1.25-4.721l-.244-1.465A2.25 2.25 0 006.5 11.5a.75.75 0 01-1.5 0 3.751 3.751 0 012.597-3.428L7.044 4.75H6.5a.75.75 0 010-1.5h2.75V1.75A.75.75 0 0110 1z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function PoolSwitcher({ pool, allPools, switchPool, isLoading }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -25,24 +34,38 @@ function PoolSwitcher({ pool, allPools, switchPool }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  // 0 pools
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50">
+        <PoolIcon />
+        <span className="text-xs text-slate-500">Loading…</span>
+      </div>
+    );
+  }
+
+  // No pools
   if (!allPools.length) {
     return (
       <button
         onClick={() => navigate("/join")}
-        className="text-[11px] text-orange-400 hover:text-orange-300 transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50 hover:border-orange-500/50 hover:bg-slate-800 transition-all"
       >
-        Join or Create a Pool
+        <PoolIcon />
+        <span className="text-xs text-orange-400 hover:text-orange-300">Join or Create a Pool</span>
       </button>
     );
   }
 
-  // 1 pool — plain text, no dropdown
+  // 1 pool — badge with no dropdown
   if (allPools.length === 1) {
     return (
-      <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-        {pool ? pool.name : allPools[0].name}
-      </p>
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50">
+        <PoolIcon />
+        <span className="text-xs font-medium text-slate-200 max-w-[140px] truncate">
+          {pool ? pool.name : allPools[0].name}
+        </span>
+      </div>
     );
   }
 
@@ -51,14 +74,18 @@ function PoolSwitcher({ pool, allPools, switchPool }) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
-        className="text-sm text-slate-300 flex items-center gap-1 cursor-pointer hover:text-white transition-colors"
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+          open
+            ? "bg-slate-700 border-slate-600 text-white"
+            : "bg-slate-800/60 border-slate-700/50 hover:border-orange-500/40 hover:bg-slate-800 text-slate-200"
+        }`}
       >
-        <span className="text-[11px] text-slate-400 truncate max-w-[160px]">
+        <PoolIcon />
+        <span className="text-xs font-medium max-w-[140px] truncate">
           {pool ? pool.name : "Select a pool"}
         </span>
-        {/* Chevron down */}
         <svg
-          className={`w-3 h-3 text-slate-500 transition-transform shrink-0 ${open ? "rotate-180" : ""}`}
+          className={`w-3 h-3 text-slate-400 transition-transform shrink-0 ${open ? "rotate-180" : ""}`}
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -71,7 +98,10 @@ function PoolSwitcher({ pool, allPools, switchPool }) {
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50 min-w-48 py-1">
+        <div className="absolute top-full mt-1 left-0 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50 min-w-52 py-1">
+          <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+            Your Pools
+          </div>
           {allPools.map(p => (
             <button
               key={p.id}
@@ -79,7 +109,7 @@ function PoolSwitcher({ pool, allPools, switchPool }) {
                 switchPool(p.id);
                 setOpen(false);
               }}
-              className="w-full px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white flex items-center justify-between transition-colors"
+              className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white flex items-center justify-between transition-colors"
             >
               <span className="truncate">{p.name}</span>
               {pool?.id === p.id && (
@@ -98,19 +128,24 @@ function PoolSwitcher({ pool, allPools, switchPool }) {
             </button>
           ))}
 
-          {/* Divider */}
           <div className="border-t border-slate-700 my-1" />
 
           <button
             onClick={() => { navigate("/join"); setOpen(false); }}
-            className="w-full px-4 py-2 text-sm text-orange-400 hover:bg-slate-700 text-left transition-colors"
+            className="w-full px-3 py-2 text-sm text-orange-400 hover:bg-slate-700 text-left transition-colors flex items-center gap-2"
           >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+            </svg>
             Join a Pool
           </button>
           <button
             onClick={() => { navigate("/create-pool"); setOpen(false); }}
-            className="w-full px-4 py-2 text-sm text-orange-400 hover:bg-slate-700 text-left transition-colors"
+            className="w-full px-3 py-2 text-sm text-orange-400 hover:bg-slate-700 text-left transition-colors flex items-center gap-2"
           >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M1 2.75A.75.75 0 011.75 2h10.5a.75.75 0 010 1.5H12v13.75a.75.75 0 01-.75.75h-1.5a.75.75 0 01-.75-.75v-2.5a.75.75 0 00-.75-.75h-2.5a.75.75 0 00-.75.75v2.5a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h.25V3.5H1.75A.75.75 0 011 2.75zM4 3.5v13h1v-2.5A2.25 2.25 0 017.25 11.5h2.5A2.25 2.25 0 0112 13.75v2.5h1V3.5H4zm2 3.25a.75.75 0 01.75-.75h2.5a.75.75 0 010 1.5h-2.5A.75.75 0 016 6.75zm0 3a.75.75 0 01.75-.75h2.5a.75.75 0 010 1.5h-2.5A.75.75 0 016 9.75z" clipRule="evenodd" />
+            </svg>
             Create a Pool
           </button>
         </div>
@@ -121,7 +156,7 @@ function PoolSwitcher({ pool, allPools, switchPool }) {
 
 export default function NavBar() {
   const { profile, signOut } = useAuth();
-  const { pool, allPools, brackets, switchPool } = usePool();
+  const { pool, allPools, brackets, switchPool, isLoading } = usePool();
 
   const userBracket = profile && brackets
     ? brackets.find((b) => b.user_id === profile.id)
@@ -129,111 +164,115 @@ export default function NavBar() {
 
   return (
     <div className="border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-sm sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center gap-3">
 
         {/* Brand */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           <div
-            className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center font-bold text-white text-sm shrink-0"
+            className="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center font-bold text-white text-xs shrink-0"
             style={{ fontFamily: "Space Mono, monospace" }}
           >
             SC
           </div>
-          <div className="min-w-0">
-            <h1 className="text-base font-bold tracking-tight text-white leading-none truncate">
-              Sports Closet Tournament Tracker
-            </h1>
-            <PoolSwitcher
-              pool={pool}
-              allPools={allPools}
-              switchPool={switchPool}
-            />
-          </div>
+          <span className="text-sm font-bold tracking-tight text-white hidden md:block leading-none">
+            Sports Closet
+          </span>
         </div>
 
-        {/* Right side */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Nav tabs */}
-          <nav className="flex items-center gap-1 bg-slate-800/50 rounded-xl p-1">
-            {NAV_LINKS.map(({ to, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={to === "/"}
-                className={({ isActive }) =>
-                  `px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    isActive
-                      ? "bg-slate-700 text-white shadow"
-                      : "text-slate-400 hover:text-white"
-                  }`
-                }
-              >
-                {label}
-              </NavLink>
-            ))}
+        {/* Divider */}
+        <div className="w-px h-5 bg-slate-700/80 shrink-0" />
 
-            {/* Bracket nav: "Create Bracket" → /submit when no bracket; "Bracket" → /bracket when bracket exists */}
-            {pool && !userBracket && (
-              <NavLink
-                to="/submit"
-                className={({ isActive }) =>
-                  `px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    isActive
-                      ? "bg-orange-600/40 text-orange-300 shadow"
-                      : "text-orange-400/70 hover:text-orange-300"
-                  }`
-                }
-              >
-                Create Bracket
-              </NavLink>
-            )}
-            {pool && userBracket && (
-              <NavLink
-                to="/bracket"
-                className={({ isActive }) =>
-                  `px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    isActive
-                      ? "bg-slate-700 text-white shadow"
-                      : "text-slate-400 hover:text-white"
-                  }`
-                }
-              >
-                Bracket
-              </NavLink>
-            )}
+        {/* Pool context switcher — distinct tier from page tabs */}
+        <PoolSwitcher
+          pool={pool}
+          allPools={allPools}
+          switchPool={switchPool}
+          isLoading={isLoading}
+        />
 
-            {/* Admin link — only visible to admins */}
-            {profile?.is_admin && (
-              <NavLink
-                to="/admin"
-                className={({ isActive }) =>
-                  `px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    isActive
-                      ? "bg-cyan-600/30 text-cyan-300 shadow"
-                      : "text-cyan-500/60 hover:text-cyan-300"
-                  }`
-                }
-              >
-                Admin
-              </NavLink>
-            )}
-          </nav>
+        {/* Divider */}
+        <div className="w-px h-5 bg-slate-700/80 shrink-0" />
 
-          {/* Auth widget */}
-          {profile && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 hidden sm:block max-w-[96px] truncate">
-                {profile.username}
-              </span>
-              <button
-                onClick={signOut}
-                className="text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-all"
-              >
-                Sign out
-              </button>
-            </div>
+        {/* Page nav tabs */}
+        <nav className="flex items-center gap-1 bg-slate-800/50 rounded-xl p-1">
+          {NAV_LINKS.map(({ to, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  isActive
+                    ? "bg-slate-700 text-white shadow"
+                    : "text-slate-400 hover:text-white"
+                }`
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
+
+          {/* Bracket nav: "Create Bracket" → /submit; "Bracket" → /bracket */}
+          {pool && !userBracket && (
+            <NavLink
+              to="/submit"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  isActive
+                    ? "bg-orange-600/40 text-orange-300 shadow"
+                    : "text-orange-400/70 hover:text-orange-300"
+                }`
+              }
+            >
+              Create Bracket
+            </NavLink>
           )}
-        </div>
+          {pool && userBracket && (
+            <NavLink
+              to="/bracket"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  isActive
+                    ? "bg-slate-700 text-white shadow"
+                    : "text-slate-400 hover:text-white"
+                }`
+              }
+            >
+              Bracket
+            </NavLink>
+          )}
+
+          {/* Admin link */}
+          {profile?.is_admin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  isActive
+                    ? "bg-cyan-600/30 text-cyan-300 shadow"
+                    : "text-cyan-500/60 hover:text-cyan-300"
+                }`
+              }
+            >
+              Admin
+            </NavLink>
+          )}
+        </nav>
+
+        {/* Auth widget — pushed to right */}
+        {profile && (
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            <span className="text-xs text-slate-400 hidden sm:block max-w-[96px] truncate">
+              {profile.username}
+            </span>
+            <button
+              onClick={signOut}
+              className="text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-all"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
