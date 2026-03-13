@@ -284,6 +284,128 @@ function RegionEditor({ region, teamData, onChange, onSave, saving }) {
   )
 }
 
+// ─── Members section ───────────────────────────────────────────────────────────
+
+function MembersSection({ showToast }) {
+  const [members,       setMembers]       = useState([])
+  const [loadingMembers,setLoadingMembers] = useState(true)
+  const [resetEmail,    setResetEmail]    = useState('')
+  const [sendingReset,  setSendingReset]  = useState(false)
+  const { pool } = usePool()
+
+  useEffect(() => {
+    if (!pool?.id) return
+    async function loadMembers() {
+      setLoadingMembers(true)
+      const { data, error } = await supabase
+        .rpc('get_pool_members', { p_pool_id: pool.id })
+      if (error) {
+        showToast('Failed to load members: ' + error.message, 'error')
+      } else {
+        setMembers(data ?? [])
+      }
+      setLoadingMembers(false)
+    }
+    loadMembers()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pool?.id])
+
+  async function handleSendReset(e) {
+    e.preventDefault()
+    if (!resetEmail.trim()) return
+    setSendingReset(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+      redirectTo: window.location.origin + '/reset-password',
+    })
+    setSendingReset(false)
+    if (error) {
+      showToast('Failed to send reset: ' + error.message, 'error')
+    } else {
+      showToast('Password reset email sent!')
+      setResetEmail('')
+    }
+  }
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 space-y-5">
+      <div>
+        <p className="text-sm font-bold text-white mb-0.5">Members</p>
+        <p className="text-xs text-slate-400">
+          All participants currently in the pool.
+        </p>
+      </div>
+
+      {/* Members table */}
+      {loadingMembers ? (
+        <p className="text-xs text-slate-500" style={{ fontFamily: 'Space Mono, monospace' }}>Loading members…</p>
+      ) : members.length === 0 ? (
+        <p className="text-xs text-slate-500">No members found.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-800/60">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-800/80 bg-slate-900/80">
+                <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest" style={{ fontFamily: 'Space Mono, monospace' }}>
+                  Username
+                </th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest" style={{ fontFamily: 'Space Mono, monospace' }}>
+                  Role
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((m, i) => (
+                <tr
+                  key={m.user_id ?? m.username ?? i}
+                  className={`border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-900/20'}`}
+                >
+                  <td className="px-4 py-2.5 text-slate-300 font-medium">{m.username ?? '—'}</td>
+                  <td className="px-4 py-2.5">
+                    {m.is_admin ? (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-900/40 text-orange-400" style={{ fontFamily: 'Space Mono, monospace' }}>
+                        Admin
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500" style={{ fontFamily: 'Space Mono, monospace' }}>
+                        Member
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Send password reset */}
+      <div className="border-t border-slate-800/60 pt-4">
+        <p className="text-xs font-semibold text-slate-300 mb-1">Send password reset email</p>
+        <p className="text-xs text-slate-500 mb-3">
+          Enter a member's email address to send them a password reset link.
+        </p>
+        <form onSubmit={handleSendReset} className="flex gap-2 flex-wrap">
+          <input
+            type="email"
+            value={resetEmail}
+            onChange={(e) => setResetEmail(e.target.value)}
+            placeholder="member@example.com"
+            required
+            className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-orange-500"
+          />
+          <button
+            type="submit"
+            disabled={sendingReset || !resetEmail.trim()}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {sendingReset ? 'Sending…' : 'Send Reset Email'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ─── ESPN ID table ─────────────────────────────────────────────────────────────
 
 function EspnIdSection({ espnIds, teamData, onEspnChange, onEspnSave, saving }) {
@@ -621,6 +743,9 @@ export default function AdminPage() {
           />
         )}
       </div>
+
+      {/* Members + send reset email */}
+      <MembersSection showToast={showToast} />
 
       {/* ESPN ID mapping */}
       <EspnIdSection

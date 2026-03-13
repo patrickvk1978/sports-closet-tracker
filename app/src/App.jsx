@@ -12,6 +12,7 @@ import JoinPoolPage from "./pages/JoinPoolPage";
 import CreatePoolPage from "./pages/CreatePoolPage";
 import BracketSubmitPage from "./pages/BracketSubmitPage";
 import AdminPage from "./pages/AdminPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 export default function App() {
   return (
@@ -26,7 +27,8 @@ export default function App() {
             <div className="flex-1">
               <Routes>
                 {/* Public */}
-                <Route path="/login" element={<LoginPage />} />
+                <Route path="/login"          element={<LoginPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
 
                 {/* Requires auth */}
                 <Route element={<ProtectedRoute />}>
