@@ -3,56 +3,401 @@ import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
 
-const MAX_PROB = 35;
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-function MiniChart({ data, playerKey, color }) {
-  const points = data
-    .map((d, i) => {
-      const x = (i / (data.length - 1)) * 100;
-      const y = 100 - (d.players[playerKey] / MAX_PROB) * 100;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  return (
-    <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+function computeStatusMessage(player) {
+  if (!player) return null;
+  const { winProb, rank } = player;
+  if (winProb > 40) return { text: "Strong position. Defend your lead and let the bracket play out.", sentiment: "good" };
+  if (winProb > 20) return { text: "In the mix. A few key results this weekend could make your bracket shine.", sentiment: "good" };
+  if (winProb > 10) return { text: "In striking distance. You likely need 2–3 key breaks this weekend.", sentiment: "neutral" };
+  if (winProb > 5)  return { text: "Needs help. Still alive but counting on upsets and some luck.", sentiment: "neutral" };
+  return { text: "Long shot. You need multiple upsets and a collapse from the leaders.", sentiment: "danger" };
 }
 
 function LivePing() {
   return (
-    <span className="relative flex h-2.5 w-2.5 shrink-0">
+    <span className="relative flex h-2 w-2 shrink-0">
       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
     </span>
   );
 }
 
-function TrendArrow({ trend }) {
-  if (trend === "up")   return <span className="text-emerald-400 text-sm font-bold">↑</span>;
-  if (trend === "down") return <span className="text-red-400 text-sm font-bold">↓</span>;
-  return <span className="text-slate-500 text-sm font-bold">→</span>;
+// ─── Stat Strip ─────────────────────────────────────────────────────────────
+
+function StatStrip({ player, poolSize }) {
+  if (!player) return null;
+  const maxPossible = player.points + player.ppr;
+  const winProbColor = player.winProb > 15 ? "text-emerald-400" : player.winProb > 8 ? "text-amber-400" : "text-slate-400";
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-4">
+      <div className="flex items-center gap-4 flex-wrap">
+        {/* Rank — largest element */}
+        <div className="flex items-baseline gap-1.5 shrink-0">
+          <span className="text-3xl font-bold text-white tabular-nums leading-none" style={{ fontFamily: "Space Mono, monospace" }}>
+            #{player.rank}
+          </span>
+          <span className="text-xs text-slate-500">of {poolSize}</span>
+        </div>
+
+        <div className="w-px h-8 bg-slate-700/60 shrink-0 hidden sm:block" />
+
+        {/* Stats row */}
+        <div className="flex items-center gap-5 flex-wrap">
+          <div>
+            <div className="text-lg font-bold text-white tabular-nums leading-none" style={{ fontFamily: "Space Mono, monospace" }}>
+              {player.points.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">Points</div>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-slate-300 tabular-nums leading-none" style={{ fontFamily: "Space Mono, monospace" }}>
+              {player.ppr.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">Possible</div>
+          </div>
+          <div>
+            <div className={`text-lg font-bold tabular-nums leading-none ${winProbColor}`} style={{ fontFamily: "Space Mono, monospace" }}>
+              {player.winProb}%
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">Win Prob</div>
+          </div>
+        </div>
+
+        <div className="w-px h-8 bg-slate-700/60 shrink-0 hidden sm:block" />
+
+        {/* Status pills */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {player.champAlive ? (
+            <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-900/40 text-emerald-400 font-semibold border border-emerald-800/40">
+              ♛ Champion Alive
+            </span>
+          ) : (
+            <span className="text-[11px] px-2.5 py-1 rounded-full bg-red-900/30 text-red-400 font-semibold border border-red-800/30">
+              Champion Eliminated
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
+// ─── Overview Tab ────────────────────────────────────────────────────────────
+
+function OverviewTab({ player, players, bestPath, isLocked, onSelectPlayer }) {
+  const status = computeStatusMessage(player);
+  const leaderboard = useMemo(() => [...players].sort((a, b) => a.rank - b.rank), [players]);
+
+  const closestRival = useMemo(() => {
+    return players
+      .filter(p => p.name !== player.name)
+      .reduce((best, rival) => {
+        const matches = player.picks.reduce((acc, pick, i) => pick === rival.picks[i] ? acc + 1 : acc, 0);
+        return !best || matches > best.matches ? { ...rival, matches, divergences: player.picks.length - matches } : best;
+      }, null);
+  }, [player, players]);
+
+  const myPath = bestPath[player.name] ?? bestPath._default ?? [];
+
+  return (
+    <div className="space-y-5">
+      {/* Status message */}
+      {status && (
+        <div className={`rounded-2xl px-5 py-4 border ${
+          status.sentiment === "good"    ? "bg-emerald-950/40 border-emerald-800/30" :
+          status.sentiment === "danger"  ? "bg-red-950/40 border-red-800/30" :
+                                           "bg-slate-900/60 border-slate-800/60"
+        }`}>
+          <p className="text-sm font-medium text-slate-200 leading-relaxed">{status.text}</p>
+          <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
+            Based on current standings · Win probability engine coming soon
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Best path to win */}
+        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-800/60 flex items-center justify-between">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
+              Best Path to Win
+            </p>
+            <span className="text-[9px] text-slate-600 bg-slate-800/60 px-2 py-0.5 rounded-full">Phase 3 preview</span>
+          </div>
+          <div className="p-5 space-y-2.5">
+            {myPath.map((item, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <span className={`mt-0.5 shrink-0 w-1.5 h-1.5 rounded-full ${item.type === "good" ? "bg-emerald-400" : "bg-slate-500"}`} />
+                <span className="text-sm text-slate-300">{item.text}</span>
+              </div>
+            ))}
+            {myPath.length === 0 && (
+              <p className="text-sm text-slate-500">Path calculation available after Phase 3 launch.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Biggest rival */}
+        {closestRival && (
+          <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-800/60">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
+                Biggest Rival
+              </p>
+            </div>
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <button
+                    onClick={() => isLocked && onSelectPlayer(closestRival.name)}
+                    className={`text-base font-bold text-white text-left ${isLocked ? "hover:text-orange-400 cursor-pointer" : "cursor-default"}`}
+                  >
+                    {closestRival.name}
+                  </button>
+                  <p className="text-xs text-slate-500 mt-0.5">Rank #{closestRival.rank} · {closestRival.points.toLocaleString()} pts</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold tabular-nums text-slate-300" style={{ fontFamily: "Space Mono, monospace" }}>
+                    {closestRival.winProb}%
+                  </div>
+                  <div className="text-[10px] text-slate-500">win prob</div>
+                </div>
+              </div>
+              <div className="bg-slate-800/50 rounded-xl p-3">
+                <div className="flex items-center justify-between text-xs mb-2">
+                  <span className="text-slate-400">Bracket overlap</span>
+                  <span className="font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                    {closestRival.matches}/{player.picks.length} picks match
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-orange-500 rounded-full" style={{ width: `${(closestRival.matches / player.picks.length) * 100}%` }} />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-2">
+                  {closestRival.divergences} pick{closestRival.divergences !== 1 ? "s" : ""} differ — those games separate you
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Leaderboard */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-800/60">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
+            Leaderboard
+          </p>
+        </div>
+        <div className="divide-y divide-slate-800/40">
+          {leaderboard.map(p => (
+            <button
+              key={p.name}
+              onClick={() => isLocked && onSelectPlayer(p.name)}
+              className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${
+                p.name === player.name ? "bg-orange-500/10" :
+                isLocked ? "hover:bg-slate-800/20 cursor-pointer" : "cursor-default"
+              }`}
+            >
+              <span className="text-xs text-slate-600 w-5 text-right tabular-nums shrink-0" style={{ fontFamily: "Space Mono, monospace" }}>
+                {p.rank}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-semibold truncate ${p.name === player.name ? "text-orange-400" : "text-white"}`}>
+                    {p.name}
+                  </span>
+                  {p.champAlive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400 font-medium shrink-0">♛</span>}
+                </div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="text-xs text-slate-500" style={{ fontFamily: "Space Mono, monospace" }}>{p.points.toLocaleString()} pts</span>
+                  <span className="text-xs text-slate-600">PPR: {p.ppr}</span>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <span
+                  className="text-sm font-bold tabular-nums"
+                  style={{
+                    fontFamily: "Space Mono, monospace",
+                    color: p.winProb > 15 ? "#34d399" : p.winProb > 8 ? "#fbbf24" : "#94a3b8",
+                  }}
+                >
+                  {p.winProb}%
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Leverage Game Card ──────────────────────────────────────────────────────
+
+function LeverageGameCard({ game, player }) {
+  const myImpact = game.playerImpacts.find(p => p.player === player?.name);
+  const rootFor  = myImpact
+    ? (myImpact.ifTeam1 >= myImpact.ifTeam2 ? game.team1 : game.team2)
+    : null;
+
+  const isLive = game.status === "live";
+
+  return (
+    <div className={`bg-slate-900/60 border rounded-2xl overflow-hidden ${isLive ? "border-red-800/40" : "border-slate-800/60"}`}>
+      {/* Header */}
+      <div className={`px-4 py-3 border-b flex items-center gap-2 ${isLive ? "border-red-800/30 bg-red-950/20" : "border-slate-800/60"}`}>
+        {isLive && <LivePing />}
+        <span className={`text-xs font-bold ${isLive ? "text-red-300" : "text-slate-300"}`}>
+          {game.team1} vs {game.team2}
+        </span>
+        <span className="text-[10px] text-slate-500 ml-auto">{game.time}</span>
+        {/* Leverage badge */}
+        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+          game.leverage >= 75 ? "bg-red-500/20 text-red-400" :
+          game.leverage >= 50 ? "bg-amber-500/20 text-amber-400" :
+                                "bg-slate-700/60 text-slate-400"
+        }`} style={{ fontFamily: "Space Mono, monospace" }}>
+          {game.leverage >= 75 ? "HIGH" : game.leverage >= 50 ? "MED" : "LOW"}
+        </span>
+      </div>
+
+      <div className="p-4 space-y-3">
+        {/* Live score */}
+        {isLive && game.score1 != null && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-amber-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+              {game.score1}–{game.score2}
+            </span>
+            {game.gameNote && <span className="text-xs text-slate-500">{game.gameNote}</span>}
+          </div>
+        )}
+
+        {/* Root for (player-specific) */}
+        {rootFor && rootFor !== "TBD" ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider">Root for:</span>
+            <span className="text-xs font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-lg">
+              {rootFor}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-600 uppercase tracking-wider">Root for:</span>
+            <span className="text-xs text-slate-600 italic">TBD (Phase 3)</span>
+          </div>
+        )}
+
+        {/* My win prob impact */}
+        {myImpact ? (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-emerald-900/20 border border-emerald-800/20 rounded-xl px-3 py-2 text-center">
+              <div className="text-[10px] text-slate-500 mb-0.5">If {game.team1} wins</div>
+              <div className="text-sm font-bold text-emerald-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                {myImpact.ifTeam1 >= myImpact.ifTeam2 ? "+" : ""}{(myImpact.ifTeam1 - (myImpact.ifTeam1 + myImpact.ifTeam2) / 2).toFixed(1)}%
+              </div>
+            </div>
+            <div className="bg-red-900/20 border border-red-800/20 rounded-xl px-3 py-2 text-center">
+              <div className="text-[10px] text-slate-500 mb-0.5">If {game.team2} wins</div>
+              <div className="text-sm font-bold text-red-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                {myImpact.ifTeam2 >= myImpact.ifTeam1 ? "+" : ""}{(myImpact.ifTeam2 - (myImpact.ifTeam1 + myImpact.ifTeam2) / 2).toFixed(1)}%
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-600 italic">This game doesn't directly affect your win probability.</p>
+        )}
+
+        {/* Pick distribution */}
+        {game.team1 !== "TBD" && (
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
+              <span>{game.team1}</span>
+              <span className="text-slate-600 uppercase tracking-wider">Pool picks</span>
+              <span>{game.team2}</span>
+            </div>
+            <div className="flex h-2 rounded-full overflow-hidden bg-slate-800">
+              <div className="bg-orange-500/70 h-full transition-all" style={{ width: `${game.pickPct1}%` }} />
+              <div className="bg-cyan-600/70 h-full transition-all" style={{ width: `${game.pickPct2}%` }} />
+            </div>
+            <div className="flex items-center justify-between text-[10px] mt-0.5" style={{ fontFamily: "Space Mono, monospace" }}>
+              <span className="text-orange-400">{game.pickPct1}%</span>
+              <span className="text-cyan-400">{game.pickPct2}%</span>
+            </div>
+          </div>
+        )}
+
+        {/* Affects N players */}
+        <p className="text-[10px] text-slate-600">
+          Affects {game.playerImpacts.length} of {game.playerImpacts.length}+ players in the pool
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Game Impact Tab ─────────────────────────────────────────────────────────
+
+function GameImpactTab({ player, leverageGames, threshold }) {
+  const keyGames = useMemo(() => {
+    return [...leverageGames]
+      .filter(g => g.leverage >= threshold)
+      .sort((a, b) => {
+        // Live games first, then by leverage desc
+        if (a.status === "live" && b.status !== "live") return -1;
+        if (b.status === "live" && a.status !== "live") return 1;
+        return b.leverage - a.leverage;
+      });
+  }, [leverageGames, threshold]);
+
+  if (keyGames.length === 0) {
+    return (
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-8 text-center">
+        <p className="text-slate-500 text-sm">No high-leverage games right now.</p>
+        <p className="text-slate-600 text-xs mt-1">Check back when games are underway.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-slate-500 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
+          {keyGames.length} key game{keyGames.length !== 1 ? "s" : ""} · leverage ≥ {threshold}% swing
+        </p>
+        <p className="text-[10px] text-slate-600">Sorted by impact</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {keyGames.map(game => (
+          <LeverageGameCard key={game.id} game={game} player={player} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Dashboard ──────────────────────────────────────────────────────────
+
 export default function Dashboard() {
-  const { PLAYERS, PLAYER_COLORS, LEVERAGE_GAMES, CONSENSUS, ELIMINATION_STATS, WIN_PROB_HISTORY } = usePoolData();
+  const {
+    PLAYERS,
+    LEVERAGE_GAMES,
+    LEVERAGE_THRESHOLD,
+    BEST_PATH,
+    ELIMINATION_STATS,
+  } = usePoolData();
   const { pool } = usePool();
   const { profile } = useAuth();
 
   const isLocked = pool?.locked === true;
-
   const [selectedName, setSelectedName] = useState("");
+  const [activeTab, setActiveTab] = useState("overview");
   const [copied, setCopied] = useState(false);
 
-  // Default to current user when profile/PLAYERS loads
+  // Default to current user
   useEffect(() => {
     if (profile?.username && PLAYERS.find(p => p.name === profile.username)) {
       setSelectedName(profile.username);
@@ -61,7 +406,6 @@ export default function Dashboard() {
     }
   }, [profile?.username, PLAYERS]);
 
-  // Before lock, always show current user's data regardless of selector
   const player = useMemo(() => {
     const name = isLocked ? selectedName : (profile?.username ?? selectedName);
     return PLAYERS.find(p => p.name === name) ?? PLAYERS[0] ?? null;
@@ -70,69 +414,33 @@ export default function Dashboard() {
   if (!player) return null;
 
   function copyInviteLink() {
-    const url = `${window.location.origin}/join?code=${pool.invite_code}`;
+    const url = `${window.location.origin}/join?code=${pool?.invite_code}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const closestRival = useMemo(() => {
-    return PLAYERS.filter((p) => p.name !== player.name).reduce((best, rival) => {
-      const matches = player.picks.reduce(
-        (acc, pick, i) => (pick === rival.picks[i] ? acc + 1 : acc),
-        0
-      );
-      const divergences = player.picks.length - matches;
-      return !best || matches > best.matches ? { ...rival, matches, divergences } : best;
-    }, null);
-  }, [player]);
-
-  const leaderboard = useMemo(() => [...PLAYERS].sort((a, b) => a.rank - b.rank), [PLAYERS]);
-
-  const liveGame      = LEVERAGE_GAMES.find((g) => g.status === "live");
-  const upcomingGames = LEVERAGE_GAMES.filter((g) => g.status !== "live");
-  const playerLiveAlert = liveGame?.alerts.find((a) => a.player === player.name);
-
-  const contrarian = useMemo(() => {
-    return PLAYERS[0].picks.map((_, i) => {
-      const counts = {};
-      PLAYERS.forEach((p) => { if (p.picks[i]) counts[p.picks[i]] = (counts[p.picks[i]] || 0) + 1; });
-      const majority = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
-      return player.picks[i] && player.picks[i] !== majority;
-    }).filter(Boolean).length;
-  }, [player]);
-
-  const championPick = player.picks[6] ?? "—";
-  const maxPossible  = player.points + player.ppr;
-
-  const winProbColor =
-    player.winProb > 15 ? "#34d399" : player.winProb > 8 ? "#fbbf24" : "#94a3b8";
-  const hasSparkline = WIN_PROB_HISTORY[0]?.players?.[selectedName] !== undefined;
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
 
-      {/* ── 0. Pool Header ───────────────────────────────────────────────────── */}
+      {/* ── Pool Header ────────────────────────────────────────────────────── */}
       <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-3 flex items-center gap-4 flex-wrap">
-        {/* Pool identity */}
         <div className="flex items-center gap-3 min-w-0">
           <h2 className="text-sm font-bold text-white truncate">{pool?.name ?? "Pool"}</h2>
-          <span className="text-xs text-slate-500 shrink-0">{PLAYERS.length} {PLAYERS.length === 1 ? "entry" : "entries"}</span>
+          <span className="text-xs text-slate-500 shrink-0">
+            {PLAYERS.length} {PLAYERS.length === 1 ? "entry" : "entries"}
+          </span>
         </div>
-
         <div className="ml-auto flex items-center gap-3 shrink-0 flex-wrap">
-          {/* Viewing selector */}
           {isLocked ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500">Viewing:</span>
               <select
                 value={selectedName}
-                onChange={(e) => setSelectedName(e.target.value)}
+                onChange={e => setSelectedName(e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold text-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-orange-500"
               >
-                {PLAYERS.map((p) => (
-                  <option key={p.name} value={p.name}>{p.name}</option>
-                ))}
+                {PLAYERS.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
               </select>
             </div>
           ) : (
@@ -140,8 +448,6 @@ export default function Dashboard() {
               Viewing: <span className="text-white font-semibold">{profile?.username}</span>
             </span>
           )}
-
-          {/* Invite link — hidden when locked */}
           {!isLocked && pool?.invite_code && (
             <button
               onClick={copyInviteLink}
@@ -157,454 +463,48 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── 1. Hero — Personal Standing ─────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800/40 border border-slate-700/50 p-6">
-        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-orange-500/5 pointer-events-none" />
+      {/* ── Stat Strip ─────────────────────────────────────────────────────── */}
+      <StatStrip player={player} poolSize={PLAYERS.length} />
 
-        {/* Top row: player name + champion pick + rank badge */}
-        <div className="flex items-start justify-between gap-4 mb-5">
-          <div className="min-w-0">
-            <p className="text-lg font-bold text-white leading-tight">{player.name}</p>
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span className="text-[11px] text-slate-500">Champion pick:</span>
-              <span className="text-[11px] font-bold text-white">{championPick}</span>
-              {player.champAlive ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-400 font-semibold border border-emerald-800/40">♛ Alive</span>
-              ) : (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-900/30 text-red-400 font-semibold border border-red-800/30">Eliminated</span>
-              )}
-            </div>
-          </div>
-
-          {/* Rank badge + trend */}
-          <div className="flex items-center gap-2 shrink-0">
-            <TrendArrow trend={player.trend} />
-            <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-center">
-              <span
-                className="text-xl font-bold text-white tabular-nums leading-none"
-                style={{ fontFamily: "Space Mono, monospace" }}
-              >
-                {player.rank}
-              </span>
-              <span className="text-xs text-slate-500"> of {PLAYERS.length}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          {[
-            { label: "Points",        value: player.points.toLocaleString(), color: "text-white"    },
-            { label: "Pts Remaining", value: player.ppr.toLocaleString(),    color: "text-slate-300"},
-            { label: "Win Prob",      value: `${player.winProb}%`,           color: winProbColor,   style: true },
-            { label: "Max Possible",  value: maxPossible.toLocaleString(),   color: "text-slate-400"},
-          ].map(({ label, value, color, style }) => (
-            <div key={label} className="bg-slate-800/50 rounded-xl px-4 py-3">
-              <div
-                className={`text-2xl font-bold tabular-nums leading-none ${!style ? color : ""}`}
-                style={{ fontFamily: "Space Mono, monospace", ...(style ? { color } : {}) }}
-              >
-                {value}
-              </div>
-              <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">{label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Bottom row: contrarian note + live swing + sparkline */}
-        <div className="flex items-center gap-4 flex-wrap">
-          {contrarian > 0 && (
-            <span className="text-[11px] text-slate-500">
-              <span className="text-orange-400 font-semibold">{contrarian} pick{contrarian !== 1 ? "s" : ""}</span> where most of the pool disagrees
-            </span>
-          )}
-          {playerLiveAlert && (
-            <div className="flex items-center gap-2 ml-auto">
-              <LivePing />
-              <span className="text-[11px] text-slate-400">
-                If <span className="font-semibold text-white">{liveGame.team1}</span> wins:
-                <span className="text-emerald-400 font-bold tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}> {playerLiveAlert.ifTeam1}%</span>
-                <span className="text-slate-600 mx-1">·</span>
-                If <span className="font-semibold text-white">{liveGame.team2}</span> wins:
-                <span className="text-red-400 font-bold tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}> {playerLiveAlert.ifTeam2}%</span>
-              </span>
-            </div>
-          )}
-          {hasSparkline && !playerLiveAlert && (
-            <div className="w-24 h-8 opacity-50 ml-auto">
-              <MiniChart data={WIN_PROB_HISTORY} playerKey={selectedName} color={PLAYER_COLORS[selectedName] ?? "#f97316"} />
-            </div>
-          )}
-        </div>
+      {/* ── Toggle ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 bg-slate-800/50 rounded-xl p-1 w-fit">
+        {[
+          { key: "overview",    label: "Overview"    },
+          { key: "gameimpact",  label: "Game Impact" },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-5 py-2 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === tab.key
+                ? "bg-slate-700 text-white shadow"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            {tab.label}
+            {tab.key === "gameimpact" && LEVERAGE_GAMES.some(g => g.status === "live") && (
+              <span className="ml-1.5 inline-flex h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* ── 2. Critical Intelligence — Live Game + Closest Rival ────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-        {/* Live game card */}
-        {liveGame && (
-          <div className="bg-slate-900/60 border border-red-800/30 rounded-2xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-red-800/20 bg-red-950/20 flex items-center gap-2">
-              <LivePing />
-              <span className="text-xs font-bold text-red-300">{liveGame.matchup}</span>
-              <span className="text-[10px] text-slate-500 ml-auto">{liveGame.time}</span>
-            </div>
-            <div className="p-5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-3">
-                Your bracket impact
-              </p>
-              {playerLiveAlert ? (
-                <>
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center justify-between bg-emerald-900/20 border border-emerald-800/20 rounded-xl px-4 py-2.5">
-                      <span className="text-sm text-slate-300">If <span className="font-bold text-white">{liveGame.team1}</span> wins</span>
-                      <span className="text-sm font-bold tabular-nums text-emerald-400" style={{ fontFamily: "Space Mono, monospace" }}>
-                        → {playerLiveAlert.ifTeam1}%
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between bg-red-900/20 border border-red-800/20 rounded-xl px-4 py-2.5">
-                      <span className="text-sm text-slate-300">If <span className="font-bold text-white">{liveGame.team2}</span> wins</span>
-                      <span className="text-sm font-bold tabular-nums text-red-400" style={{ fontFamily: "Space Mono, monospace" }}>
-                        → {playerLiveAlert.ifTeam2}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5 flex items-center justify-between">
-                    <span className="text-xs text-amber-300 font-medium">Win probability swing</span>
-                    <span className="text-base font-bold text-amber-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                      ±{playerLiveAlert.swing}%
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="bg-slate-800/40 rounded-xl px-4 py-3">
-                  <p className="text-sm text-slate-500">
-                    This game doesn't directly affect your win probability.
-                  </p>
-                </div>
-              )}
-              <p className="text-[10px] text-slate-600 mt-3">
-                Affects {liveGame.alerts.length} of {PLAYERS.length} players in the pool
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Closest rival card */}
-        {closestRival && (
-          <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-800/60">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-                Closest Rival
-              </p>
-            </div>
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <button
-                    onClick={() => isLocked && setSelectedName(closestRival.name)}
-                    className={`text-base font-bold text-white transition-colors text-left ${isLocked ? "hover:text-orange-400 cursor-pointer" : "cursor-default"}`}
-                  >
-                    {closestRival.name}
-                  </button>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Rank #{closestRival.rank} · {closestRival.points.toLocaleString()} pts
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div
-                    className="text-2xl font-bold tabular-nums"
-                    style={{
-                      fontFamily: "Space Mono, monospace",
-                      color: closestRival.winProb > 15 ? "#34d399" : closestRival.winProb > 8 ? "#fbbf24" : "#94a3b8",
-                    }}
-                  >
-                    {closestRival.winProb}%
-                  </div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">win probability</div>
-                </div>
-              </div>
-
-              <div className="bg-slate-800/50 rounded-xl p-3 mb-3">
-                <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="text-slate-400">Bracket similarity</span>
-                  <span className="font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                    {closestRival.matches}/{player.picks.length} picks match
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-orange-500 rounded-full"
-                    style={{ width: `${(closestRival.matches / player.picks.length) * 100}%` }}
-                  />
-                </div>
-              </div>
-
-              <p className="text-[10px] text-slate-500">
-                {closestRival.divergences} pick{closestRival.divergences !== 1 ? "s" : ""} differ —
-                those games separate you
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── 3. Upcoming High-Leverage Games ─────────────────────────────────── */}
-      {upcomingGames.length > 0 && (
-        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-800/60">
-            <h2
-              className="text-[11px] font-bold text-slate-300 tracking-widest uppercase"
-              style={{ fontFamily: "Space Mono, monospace" }}
-            >
-              Upcoming High-Leverage Games
-            </h2>
-          </div>
-          <div className="divide-y divide-slate-800/40">
-            {upcomingGames.map((game, gi) => {
-              const playerUpAlert = game.alerts.find((a) => a.player === player.name);
-              return (
-                <div key={gi} className="p-5">
-                  <div className="flex items-center gap-3 mb-3 flex-wrap">
-                    <span className="px-2 py-1 rounded-full bg-slate-800 text-slate-400 text-xs font-medium whitespace-nowrap">
-                      {game.time}
-                    </span>
-                    <span className="text-sm font-bold text-white">{game.matchup}</span>
-                    {playerUpAlert && (
-                      <span className="ml-auto text-xs font-bold text-amber-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                        Your swing: ±{playerUpAlert.swing}%
-                      </span>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    {game.alerts.map((alert, ai) => (
-                      <div
-                        key={ai}
-                        className={`flex items-center gap-3 rounded-xl px-4 py-2.5 ${
-                          alert.player === player.name
-                            ? "bg-orange-500/10 border border-orange-500/20"
-                            : "bg-slate-800/30"
-                        }`}
-                      >
-                        <span className="text-xs font-medium text-slate-300 w-28 truncate">{alert.player}</span>
-                        <div className="flex-1 flex items-center gap-2">
-                          <span className="text-[10px] text-emerald-400 tabular-nums w-10 text-right" style={{ fontFamily: "Space Mono, monospace" }}>
-                            {alert.ifTeam1}%
-                          </span>
-                          <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden relative">
-                            <div className="absolute left-0 h-full bg-emerald-500/60 rounded-full" style={{ width: `${Math.min(alert.ifTeam1 * 3, 100)}%` }} />
-                            <div className="absolute right-0 h-full bg-red-500/60 rounded-full" style={{ width: `${Math.min(alert.ifTeam2 * 3, 100)}%` }} />
-                          </div>
-                          <span className="text-[10px] text-red-400 tabular-nums w-10" style={{ fontFamily: "Space Mono, monospace" }}>
-                            {alert.ifTeam2}%
-                          </span>
-                        </div>
-                        <div className="bg-amber-500/10 px-2 py-0.5 rounded-lg">
-                          <span className="text-[10px] font-bold text-amber-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                            ±{alert.swing}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      {/* ── Content Area ───────────────────────────────────────────────────── */}
+      {activeTab === "overview" ? (
+        <OverviewTab
+          player={player}
+          players={PLAYERS}
+          bestPath={BEST_PATH}
+          isLocked={isLocked}
+          onSelectPlayer={setSelectedName}
+        />
+      ) : (
+        <GameImpactTab
+          player={player}
+          leverageGames={LEVERAGE_GAMES}
+          threshold={LEVERAGE_THRESHOLD}
+        />
       )}
-
-      {/* ── 4. Tournament Pulse ─────────────────────────────────────────────── */}
-      <div>
-        <p
-          className="text-[10px] text-slate-600 uppercase tracking-widest font-semibold mb-3 px-1"
-          style={{ fontFamily: "Space Mono, monospace" }}
-        >
-          Tournament Pulse
-        </p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {ELIMINATION_STATS.map((stat) => (
-            <div key={stat.label} className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-lg">{stat.icon}</span>
-                <span className="text-2xl font-bold tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                  {stat.count}
-                  <span className="text-sm text-slate-600">/{stat.total}</span>
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 font-medium">{stat.label}</p>
-              <div className="w-full h-1.5 bg-slate-800 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full"
-                  style={{ width: `${(stat.count / stat.total) * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── 5. Leaderboard + Race Chart ─────────────────────────────────────── */}
-      <div className="grid grid-cols-12 gap-5">
-
-        {/* Leaderboard */}
-        <div className="col-span-12 lg:col-span-5">
-          <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden h-full">
-            <div className="px-5 py-4 border-b border-slate-800/60">
-              <h2
-                className="text-[11px] font-bold text-slate-300 tracking-widest uppercase"
-                style={{ fontFamily: "Space Mono, monospace" }}
-              >
-                Leaderboard
-              </h2>
-            </div>
-            <div className="divide-y divide-slate-800/40">
-              {leaderboard.map((p) => (
-                <button
-                  key={p.name}
-                  onClick={() => isLocked && setSelectedName(p.name)}
-                  className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${
-                    p.name === player.name
-                      ? "bg-orange-500/10"
-                      : isLocked ? "hover:bg-slate-800/20 cursor-pointer" : "cursor-default"
-                  }`}
-                >
-                  <span
-                    className="text-xs text-slate-600 w-5 text-right tabular-nums shrink-0"
-                    style={{ fontFamily: "Space Mono, monospace" }}
-                  >
-                    {p.rank}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-semibold truncate ${p.name === player.name ? "text-orange-400" : "text-white"}`}>
-                        {p.name}
-                      </span>
-                      {p.champAlive && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400 font-medium shrink-0">♛</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-xs text-slate-500" style={{ fontFamily: "Space Mono, monospace" }}>
-                        {p.points.toLocaleString()} pts
-                      </span>
-                      <span className="text-xs text-slate-600">PPR: {p.ppr}</span>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span
-                      className="text-sm font-bold tabular-nums"
-                      style={{
-                        fontFamily: "Space Mono, monospace",
-                        color: p.winProb > 15 ? "#34d399" : p.winProb > 8 ? "#fbbf24" : "#94a3b8",
-                      }}
-                    >
-                      {p.winProb}%
-                    </span>
-                    <div className="w-16 h-1 bg-slate-800 rounded-full mt-1">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${Math.min(p.winProb * 4, 100)}%`,
-                          background: p.winProb > 15 ? "#34d399" : p.winProb > 8 ? "#fbbf24" : "#64748b",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Race Chart */}
-        <div className="col-span-12 lg:col-span-7">
-          <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden h-full">
-            <div className="px-5 py-4 border-b border-slate-800/60 flex items-center justify-between flex-wrap gap-3">
-              <h2
-                className="text-[11px] font-bold text-slate-300 tracking-widest uppercase"
-                style={{ fontFamily: "Space Mono, monospace" }}
-              >
-                Win Probability — Race Chart
-              </h2>
-              <div className="flex items-center gap-3 flex-wrap">
-                {Object.entries(PLAYER_COLORS).map(([name, color]) => (
-                  <div key={name} className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-                    <span className="text-[10px] text-slate-500">{name.split("-")[0]}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="p-5">
-              <div className="relative h-52 bg-slate-800/30 rounded-xl overflow-hidden">
-                <div className="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between py-2 pointer-events-none">
-                  {[30, 20, 10, 0].map((v) => (
-                    <span key={v} className="text-[10px] text-slate-600 text-right pr-1" style={{ fontFamily: "Space Mono, monospace" }}>
-                      {v}%
-                    </span>
-                  ))}
-                </div>
-                <div className="absolute left-8 right-0 top-2 bottom-6 flex flex-col justify-between pointer-events-none">
-                  {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="border-t border-slate-700/30 w-full" />
-                  ))}
-                </div>
-                <div className="absolute left-8 right-2 top-2 bottom-6">
-                  {Object.entries(PLAYER_COLORS).map(([name, color]) => (
-                    <div key={name} className="absolute inset-0">
-                      <MiniChart data={WIN_PROB_HISTORY} playerKey={name} color={color} />
-                    </div>
-                  ))}
-                </div>
-                <div className="absolute bottom-0 left-8 right-2 flex justify-between px-1">
-                  {WIN_PROB_HISTORY.map((d) => (
-                    <span key={d.round} className="text-[10px] text-slate-600" style={{ fontFamily: "Space Mono, monospace" }}>
-                      {d.round}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 6. Pool Consensus ───────────────────────────────────────────────── */}
-      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">
-        <h2
-          className="text-[11px] font-bold text-slate-300 tracking-widest uppercase mb-4"
-          style={{ fontFamily: "Space Mono, monospace" }}
-        >
-          Pool Consensus — Remaining Games
-        </h2>
-        <div className="space-y-3">
-          {CONSENSUS.map((c, i) => (
-            <div key={i} className="flex items-center gap-4">
-              <span className="text-sm font-bold text-slate-300 w-28 text-right">{c.team1}</span>
-              <div className="flex-1 flex h-7 rounded-full overflow-hidden bg-slate-800">
-                <div
-                  className="h-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-end pr-2 transition-all"
-                  style={{ width: `${c.pct1}%` }}
-                >
-                  <span className="text-[10px] font-bold text-white" style={{ fontFamily: "Space Mono, monospace" }}>
-                    {c.pct1}%
-                  </span>
-                </div>
-                <div
-                  className="h-full bg-gradient-to-r from-cyan-600 to-cyan-500 flex items-center justify-start pl-2 transition-all"
-                  style={{ width: `${c.pct2}%` }}
-                >
-                  <span className="text-[10px] font-bold text-white" style={{ fontFamily: "Space Mono, monospace" }}>
-                    {c.pct2}%
-                  </span>
-                </div>
-              </div>
-              <span className="text-sm font-bold text-slate-300 w-28">{c.team2}</span>
-            </div>
-          ))}
-        </div>
-      </div>
 
     </div>
   );

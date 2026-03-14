@@ -12,6 +12,8 @@ import {
   CONSENSUS        as MOCK_CONSENSUS,
   ELIMINATION_STATS as MOCK_ELIMINATION_STATS,
   WIN_PROB_HISTORY  as MOCK_WIN_PROB_HISTORY,
+  BEST_PATH        as MOCK_BEST_PATH,
+  LEVERAGE_THRESHOLD as MOCK_LEVERAGE_THRESHOLD,
 } from '../data/mockData'
 
 // Slot layout constants
@@ -189,15 +191,17 @@ export function usePoolData() {
   }, [profile, brackets])
 
   return {
-    PLAYERS:           useLive ? PLAYERS_LIVE      : MOCK_PLAYERS,
-    GAMES:             useLive && liveGames.length >= 7 ? liveGames : MOCK_GAMES,
-    ROUNDS:            MOCK_ROUNDS,
-    BRACKET:           useLive && liveBracket ? liveBracket : ANNOTATED_MOCK_BRACKET,
-    PLAYER_COLORS:     MOCK_PLAYER_COLORS,
-    LEVERAGE_GAMES:    MOCK_LEVERAGE_GAMES,   // Phase 3
-    CONSENSUS:         useLive && liveConsensus ? liveConsensus : MOCK_CONSENSUS,
-    ELIMINATION_STATS: useLive && liveElimStats  ? liveElimStats  : MOCK_ELIMINATION_STATS,
-    WIN_PROB_HISTORY:  MOCK_WIN_PROB_HISTORY, // Phase 3
+    PLAYERS:            useLive ? PLAYERS_LIVE      : MOCK_PLAYERS,
+    GAMES:              useLive && liveGames.length >= 7 ? liveGames : MOCK_GAMES,
+    ROUNDS:             MOCK_ROUNDS,
+    BRACKET:            useLive && liveBracket ? liveBracket : ANNOTATED_MOCK_BRACKET,
+    PLAYER_COLORS:      MOCK_PLAYER_COLORS,
+    LEVERAGE_GAMES:     MOCK_LEVERAGE_GAMES,        // Phase 3
+    CONSENSUS:          useLive && liveConsensus ? liveConsensus : MOCK_CONSENSUS,
+    ELIMINATION_STATS:  useLive && liveElimStats  ? liveElimStats  : MOCK_ELIMINATION_STATS,
+    WIN_PROB_HISTORY:   MOCK_WIN_PROB_HISTORY,      // Phase 3
+    BEST_PATH:          MOCK_BEST_PATH,             // Phase 3: replace with simulation output
+    LEVERAGE_THRESHOLD: MOCK_LEVERAGE_THRESHOLD,
     userPicks,
     isLoading,
   }

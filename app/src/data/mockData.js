@@ -272,26 +272,99 @@ export const PLAYER_COLORS = {
 
 export const LEVERAGE_GAMES = [
   {
+    id: 1,
     matchup: "Duke vs Michigan St",
     time: "LIVE — 2nd Half",
     team1: "Duke",
     team2: "Michigan St",
     status: "live",
-    alerts: [
+    score1: 34,
+    score2: 29,
+    gameNote: "2nd Half 8:42",
+    leverage: 85,
+    pickPct1: 78,
+    pickPct2: 22,
+    playerImpacts: [
       { player: "erika-lenhart", ifTeam1: 28.1, ifTeam2: 11.2, swing: 16.9 },
       { player: "ewolfe9",       ifTeam1: 19.3, ifTeam2: 8.8,  swing: 10.5 },
       { player: "PayThePlayers", ifTeam1: 22.7, ifTeam2: 14.1, swing: 8.6  },
+      { player: "Stefan G.",     ifTeam1: 6.1,  ifTeam2: 9.4,  swing: 3.3  },
     ],
   },
   {
+    id: 2,
+    matchup: "Kentucky vs Notre Dame",
+    time: "Today 7:09 PM ET",
+    team1: "Kentucky",
+    team2: "Notre Dame",
+    status: "upcoming",
+    score1: null,
+    score2: null,
+    gameNote: null,
+    leverage: 62,
+    pickPct1: 55,
+    pickPct2: 45,
+    playerImpacts: [
+      { player: "ewolfe9",       ifTeam1: 22.1, ifTeam2: 9.4,  swing: 12.7 },
+      { player: "PayThePlayers", ifTeam1: 18.3, ifTeam2: 11.2, swing: 7.1  },
+      { player: "erika-lenhart", ifTeam1: 21.8, ifTeam2: 17.6, swing: 4.2  },
+    ],
+  },
+  {
+    id: 3,
+    matchup: "Wisconsin vs Arizona",
+    time: "Today 9:39 PM ET",
+    team1: "Wisconsin",
+    team2: "Arizona",
+    status: "upcoming",
+    score1: null,
+    score2: null,
+    gameNote: null,
+    leverage: 58,
+    pickPct1: 62,
+    pickPct2: 38,
+    playerImpacts: [
+      { player: "Stefan G.",     ifTeam1: 11.4, ifTeam2: 5.2,  swing: 6.2  },
+      { player: "erika-lenhart", ifTeam1: 24.1, ifTeam2: 19.3, swing: 4.8  },
+      { player: "ewolfe9",       ifTeam1: 16.7, ifTeam2: 13.1, swing: 3.6  },
+    ],
+  },
+  {
+    id: 4,
+    matchup: "Villanova vs Louisville",
+    time: "Tomorrow 7:00 PM ET",
+    team1: "Villanova",
+    team2: "Louisville",
+    status: "upcoming",
+    score1: null,
+    score2: null,
+    gameNote: null,
+    leverage: 41,
+    pickPct1: 44,
+    pickPct2: 56,
+    playerImpacts: [
+      { player: "ewolfe9",       ifTeam1: 18.9, ifTeam2: 12.4, swing: 6.5  },
+      { player: "KicyMotley",    ifTeam1: 3.8,  ifTeam2: 1.1,  swing: 2.7  },
+      { player: "erika-lenhart", ifTeam1: 22.9, ifTeam2: 21.4, swing: 1.5  },
+    ],
+  },
+  {
+    id: 5,
     matchup: "Championship — TBD vs TBD",
     time: "Monday 9:00 PM ET",
     team1: "TBD",
     team2: "TBD",
     status: "upcoming",
-    alerts: [
+    score1: null,
+    score2: null,
+    gameNote: null,
+    leverage: 92,
+    pickPct1: 50,
+    pickPct2: 50,
+    playerImpacts: [
       { player: "ewolfe9",       ifTeam1: 31.2, ifTeam2: 4.1,  swing: 27.1 },
       { player: "erika-lenhart", ifTeam1: 26.8, ifTeam2: 18.9, swing: 7.9  },
+      { player: "PayThePlayers", ifTeam1: 21.3, ifTeam2: 14.7, swing: 6.6  },
     ],
   },
 ];
@@ -314,3 +387,26 @@ export const WIN_PROB_HISTORY = [
   { round: "E8",  players: { "erika-lenhart": 19.8, "PayThePlayers": 16.4, "ewolfe9": 12.1, "Stefan G.": 9.8,  "Roberto8464": 7.2 } },
   { round: "F4",  players: { "erika-lenhart": 23.4, "PayThePlayers": 19.1, "ewolfe9": 15.7, "Stefan G.": 8.2,  "Roberto8464": 6.8 } },
 ];
+
+// ─── Phase 3 placeholders (replaced by Monte Carlo output) ────────────────────
+
+export const LEVERAGE_THRESHOLD = 15 // min swing % to surface a game as "key"
+
+// Best path bullets — keyed by player name; Phase 3 derives these from simulations
+export const BEST_PATH = {
+  "erika-lenhart": [
+    { text: "Duke wins the championship", type: "good" },
+    { text: "Michigan St eliminated before Final Four", type: "good" },
+    { text: "Maintain lead over PayThePlayers", type: "neutral" },
+  ],
+  "ewolfe9": [
+    { text: "Duke wins the championship", type: "good" },
+    { text: "Villanova upsets the field", type: "good" },
+    { text: "erika-lenhart's champion eliminated", type: "neutral" },
+  ],
+  _default: [
+    { text: "Your champion keeps winning", type: "good" },
+    { text: "Top seed eliminated in your region", type: "neutral" },
+    { text: "Pool leader's picks go cold", type: "neutral" },
+  ],
+}
