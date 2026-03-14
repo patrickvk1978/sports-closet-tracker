@@ -131,13 +131,11 @@ Elite Eight
 Final Four
 Title game
 Champion
-
-2. Public pick rates
+- 2. Public pick rates
 How often users are picking each team to reach each round.
 Not just champion pick rate. Also:
 Final Four pick rate
 regional winner pick rate
 Sweet 16 pick rate
-
-3. Pool size
+- 3. Pool size
 This determines how much uniqueness the algorithm should reward.
