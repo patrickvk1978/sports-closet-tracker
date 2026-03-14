@@ -25,6 +25,7 @@ A shared space for the team to capture ideas as we think through where to take t
 - **Player profile pages** — click any player to see their full bracket, pick history, and win prob over time
 - **Pick entry deadline enforcement** — lock brackets at tip-off of the first game
 - **Tiebreaker** — championship game total score tiebreaker for end-of-pool ties
+- **Confidence pick scoring** — Option for users to rank the games in each round based on level of confidence, e.g., in round one, I assign Duke beating the 16-seed 32 points, and SMU beating the 8-seed 1 point.  
 
 ### Dashboard
 - **Biggest movers card** — who gained/lost the most win probability today
