@@ -123,3 +123,21 @@ Shareable at the end of the tournament.
 ### Bracket Selection Interface
 - Clicking on team -> win probability imported from trusted site (DK Sportsbook? CBS?)
 - Information on game theory-based recommendations based on win probabilities and pool size
+- 1. Team win probabilities
+Not just championship odds - probabilities to reach:
+Round of 32
+Sweet 16
+Elite Eight
+Final Four
+Title game
+Champion
+
+2. Public pick rates
+How often users are picking each team to reach each round.
+Not just champion pick rate. Also:
+Final Four pick rate
+regional winner pick rate
+Sweet 16 pick rate
+
+3. Pool size
+This determines how much uniqueness the algorithm should reward.
