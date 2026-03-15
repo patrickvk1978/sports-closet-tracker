@@ -2,6 +2,7 @@ import { createContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useGames } from '../hooks/useGames'
+import { useSimResults } from '../hooks/useSimResults'
 import { buildPlayersArray } from '../lib/scoring'
 
 export const PoolContext = createContext(null)
@@ -24,6 +25,8 @@ export function PoolProvider({ children }) {
   const [members,   setMembers]   = useState([])
   const [brackets,  setBrackets]  = useState([])
   const [isLoading, setIsLoading] = useState(true)
+
+  const simResult = useSimResults(pool?.id)
 
   useEffect(() => {
     if (!session) {
@@ -173,6 +176,7 @@ export function PoolProvider({ children }) {
       brackets,
       games,
       PLAYERS_LIVE,
+      simResult,
       isLoading,
       joinPool,
       createPool,

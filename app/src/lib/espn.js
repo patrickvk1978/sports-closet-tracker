@@ -1,9 +1,55 @@
 // ─── ESPN unofficial API ───────────────────────────────────────────────────────
 // No API key required. Admin's browser polls this every 60-30s during the
 // tournament and upserts results to the Supabase games table.
+//
+// Phase 3: also polls the ESPN Core probabilities endpoint for live games to
+// populate games.win_prob_home (float 0–1, probability that home/team2 wins).
 
 const ESPN_SCOREBOARD_URL =
   'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100&limit=50'
+
+// ESPN Core API — probabilities endpoint (only available for live games)
+const ESPN_CORE_BASE =
+  'https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball'
+
+/**
+ * Fetch live win probability for a game from the ESPN Core API.
+ * Only available while a game is live — returns null for pending/final games.
+ *
+ * ESPN convention: "home" = team2 in our schema.
+ * The returned float is win_prob_home (probability that home/team2 wins).
+ *
+ * @param {string} espnId - ESPN event ID
+ * @returns {Promise<number|null>} win probability for home team (0–1), or null
+ */
+export async function fetchEspnWinProb(espnId) {
+  if (!espnId) return null
+  try {
+    const url = `${ESPN_CORE_BASE}/events/${espnId}/competitions/${espnId}/probabilities`
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const data = await res.json()
+
+    // Response is a paginated items list; each item has a $ref link
+    const items = data.items ?? []
+    if (!items.length) return null
+
+    // Follow the $ref of the last item (most recent probability)
+    const lastRef = items[items.length - 1]?.$ref
+    if (!lastRef) return null
+
+    const refRes = await fetch(lastRef)
+    if (!refRes.ok) return null
+    const prob = await refRes.json()
+
+    // homeTeamOdds.winPercentage is on a 0–100 scale
+    const winPct = prob?.homeTeamOdds?.winPercentage
+    if (winPct == null) return null
+    return winPct / 100
+  } catch {
+    return null
+  }
+}
 
 /**
  * Fetch today's (or a specific date's) NCAA tournament games from ESPN.

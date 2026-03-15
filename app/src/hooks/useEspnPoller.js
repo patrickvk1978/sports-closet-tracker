@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { fetchEspnGames, transformEspnGame } from '../lib/espn'
+import { fetchEspnGames, transformEspnGame, fetchEspnWinProb } from '../lib/espn'
 import { useAuth } from './useAuth'
 import { usePool } from './usePool'
 
@@ -36,22 +36,32 @@ export function useEspnPoller(slotMapping = {}) {
           const slotIndex = slotMapping[transformed.espn_id]
           if (slotIndex === undefined) continue
 
-          await supabase.from('games').upsert(
-            {
-              espn_id:    transformed.espn_id,
-              slot_index: slotIndex,
-              teams: {
-                ...transformed.teams,
-                score1:   transformed.score1,
-                score2:   transformed.score2,
-                gameNote: transformed.gameNote,
-              },
-              winner:     transformed.winner,
-              status:     transformed.status,
-              updated_at: new Date().toISOString(),
+          const upsertPayload = {
+            espn_id:    transformed.espn_id,
+            slot_index: slotIndex,
+            teams: {
+              ...transformed.teams,
+              score1:   transformed.score1,
+              score2:   transformed.score2,
+              gameNote: transformed.gameNote,
             },
-            { onConflict: 'espn_id' }
-          )
+            winner:     transformed.winner,
+            status:     transformed.status,
+            updated_at: new Date().toISOString(),
+          }
+
+          // Phase 3: fetch live win probability for live games
+          if (transformed.status === 'live') {
+            const winProbHome = await fetchEspnWinProb(transformed.espn_id)
+            if (winProbHome !== null) {
+              upsertPayload.win_prob_home = winProbHome
+            }
+          } else if (transformed.status === 'final') {
+            // Clear win prob once game is over
+            upsertPayload.win_prob_home = null
+          }
+
+          await supabase.from('games').upsert(upsertPayload, { onConflict: 'espn_id' })
         }
       } catch (err) {
         console.error('[useEspnPoller] poll error:', err)

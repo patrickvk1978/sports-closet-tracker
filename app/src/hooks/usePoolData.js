@@ -160,7 +160,7 @@ function computeConsensus(players, liveGames) {
  * loading or when no pool is active.
  */
 export function usePoolData() {
-  const { pool, PLAYERS_LIVE, games, brackets, isLoading } = usePool()
+  const { pool, PLAYERS_LIVE, games, brackets, simResult, isLoading } = usePool()
   const { profile } = useAuth()
 
   const liveGames = useMemo(
@@ -190,18 +190,41 @@ export function usePoolData() {
     return userBracket?.picks ?? []
   }, [profile, brackets])
 
+  // ── Phase 3: merge simulation results ────────────────────────────────────────
+
+  // 1. Win probabilities: merge player_probs from simResult into PLAYERS_LIVE
+  const PLAYERS_WITH_PROBS = useMemo(() => {
+    const base = useLive ? PLAYERS_LIVE : MOCK_PLAYERS
+    if (!simResult?.player_probs) return base
+    return base.map((p) => ({
+      ...p,
+      winProb: parseFloat(((simResult.player_probs[p.name] ?? 0) * 100).toFixed(1)),
+    }))
+  }, [useLive, PLAYERS_LIVE, simResult])
+
+  // 2. Leverage games: use sim result if available, else mock
+  const LEVERAGE_GAMES_LIVE = useLive && simResult?.leverage_games?.length
+    ? simResult.leverage_games
+    : MOCK_LEVERAGE_GAMES
+
+  // 3. Best paths: use sim result if available, else mock
+  const BEST_PATH_LIVE = useLive && simResult?.best_paths
+    ? simResult.best_paths
+    : MOCK_BEST_PATH
+
   return {
-    PLAYERS:            useLive ? PLAYERS_LIVE      : MOCK_PLAYERS,
+    PLAYERS:            PLAYERS_WITH_PROBS,
     GAMES:              useLive && liveGames.length >= 7 ? liveGames : MOCK_GAMES,
     ROUNDS:             MOCK_ROUNDS,
     BRACKET:            useLive && liveBracket ? liveBracket : ANNOTATED_MOCK_BRACKET,
     PLAYER_COLORS:      MOCK_PLAYER_COLORS,
-    LEVERAGE_GAMES:     MOCK_LEVERAGE_GAMES,        // Phase 3
+    LEVERAGE_GAMES:     LEVERAGE_GAMES_LIVE,
     CONSENSUS:          useLive && liveConsensus ? liveConsensus : MOCK_CONSENSUS,
     ELIMINATION_STATS:  useLive && liveElimStats  ? liveElimStats  : MOCK_ELIMINATION_STATS,
-    WIN_PROB_HISTORY:   MOCK_WIN_PROB_HISTORY,      // Phase 3
-    BEST_PATH:          MOCK_BEST_PATH,             // Phase 3: replace with simulation output
+    WIN_PROB_HISTORY:   MOCK_WIN_PROB_HISTORY,
+    BEST_PATH:          BEST_PATH_LIVE,
     LEVERAGE_THRESHOLD: MOCK_LEVERAGE_THRESHOLD,
+    simResult,
     userPicks,
     isLoading,
   }

@@ -1,7 +1,109 @@
 import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
+
+// ─── Pre-game gate ────────────────────────────────────────────────────────────
+// Update FIRST_TIPOFF if the schedule changes. Countdown is display-only;
+// the gate lifts when the admin locks the pool (pool.locked = true).
+const FIRST_TIPOFF = new Date("2026-03-19T12:15:00-04:00"); // 12:15 PM ET — verify on ESPN
+
+function useCountdown(target) {
+  const [timeLeft, setTimeLeft] = useState(() => Math.max(0, target - Date.now()));
+  useEffect(() => {
+    const id = setInterval(() => setTimeLeft(Math.max(0, target - Date.now())), 1000);
+    return () => clearInterval(id);
+  }, [target]);
+  return {
+    days:  Math.floor(timeLeft / 86_400_000),
+    hours: Math.floor((timeLeft % 86_400_000) / 3_600_000),
+    mins:  Math.floor((timeLeft % 3_600_000)  / 60_000),
+    secs:  Math.floor((timeLeft % 60_000)     / 1_000),
+    done:  timeLeft === 0,
+  };
+}
+
+function CountdownUnit({ value, label }) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span
+        className="text-4xl font-bold text-white tabular-nums leading-none"
+        style={{ fontFamily: "Space Mono, monospace" }}
+      >
+        {String(value).padStart(2, "0")}
+      </span>
+      <span className="text-[10px] uppercase tracking-widest text-slate-500">{label}</span>
+    </div>
+  );
+}
+
+function PreGameScreen({ pool, playerCount }) {
+  const { days, hours, mins, secs, done } = useCountdown(FIRST_TIPOFF);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
+      {/* Pool header — mirrors locked dashboard */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-3 flex items-center gap-4">
+        <h2 className="text-sm font-bold text-white truncate">{pool?.name ?? "Pool"}</h2>
+        <span className="text-xs text-slate-500 shrink-0">
+          {playerCount} {playerCount === 1 ? "entry" : "entries"}
+        </span>
+      </div>
+
+      {/* Main holding card */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-10 flex flex-col items-center text-center gap-8">
+        <div className="space-y-2">
+          <div className="text-4xl">🏀</div>
+          <h1 className="text-2xl font-bold text-white">Dashboard Goes Live When Games Start</h1>
+          <p className="text-sm text-slate-400">
+            Win probabilities, leverage games, and leaderboard unlock on tip-off.
+          </p>
+        </div>
+
+        {/* Countdown */}
+        {done ? (
+          <p className="text-orange-400 font-semibold">Games are underway — check back shortly!</p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-widest text-slate-500">First tip-off · Thu Mar 19</p>
+            <div className="flex items-start gap-5">
+              <CountdownUnit value={days}  label="days"    />
+              <span className="text-2xl font-bold text-slate-600 mt-1">:</span>
+              <CountdownUnit value={hours} label="hours"   />
+              <span className="text-2xl font-bold text-slate-600 mt-1">:</span>
+              <CountdownUnit value={mins}  label="minutes" />
+              <span className="text-2xl font-bold text-slate-600 mt-1">:</span>
+              <CountdownUnit value={secs}  label="seconds" />
+            </div>
+          </div>
+        )}
+
+        {/* CTAs */}
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <Link
+            to="/submit"
+            className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            Submit Your Bracket →
+          </Link>
+          <Link
+            to="/bracket"
+            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors"
+          >
+            View Bracket
+          </Link>
+          <Link
+            to="/matrix"
+            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors"
+          >
+            View Pick Matrix
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -392,7 +494,8 @@ export default function Dashboard() {
   const { pool } = usePool();
   const { profile } = useAuth();
 
-  const isLocked = pool?.locked === true;
+  const isLocked  = pool?.locked === true;
+  const isAdmin   = profile?.is_admin === true;
   const [selectedName, setSelectedName] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [copied, setCopied] = useState(false);
@@ -410,6 +513,11 @@ export default function Dashboard() {
     const name = isLocked ? selectedName : (profile?.username ?? selectedName);
     return PLAYERS.find(p => p.name === name) ?? PLAYERS[0] ?? null;
   }, [selectedName, PLAYERS, isLocked, profile?.username]);
+
+  // Gate: non-admins see the holding screen until the pool is locked
+  if (!isLocked && !isAdmin) {
+    return <PreGameScreen pool={pool} playerCount={PLAYERS.length} />;
+  }
 
   if (!player) return null;
 

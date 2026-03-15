@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePool } from '../hooks/usePool'
 import { useEspnPoller } from '../hooks/useEspnPoller'
+import { useSimResults } from '../hooks/useSimResults'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -489,6 +490,128 @@ function EspnIdSection({ espnIds, teamData, onEspnChange, onEspnSave, saving }) 
   )
 }
 
+// ─── Simulation section ────────────────────────────────────────────────────────
+
+function SimulationSection() {
+  const { pool } = usePool()
+  const simResult = useSimResults(pool?.id)
+  const [copied, setCopied] = useState(false)
+
+  const command = pool ? `python api/simulate.py --pool-id ${pool.id}` : ''
+
+  function handleCopy() {
+    if (!command) return
+    navigator.clipboard.writeText(command).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const topPlayers = useMemo(() => {
+    if (!simResult?.player_probs) return []
+    return Object.entries(simResult.player_probs)
+      .map(([name, prob]) => ({ name, prob }))
+      .sort((a, b) => b.prob - a.prob)
+      .slice(0, 5)
+  }, [simResult])
+
+  const runAt = simResult?.run_at
+    ? new Date(simResult.run_at).toLocaleString(undefined, {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      })
+    : null
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 space-y-5">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-sm font-bold text-white mb-0.5">Monte Carlo Simulation</p>
+          <p className="text-xs text-slate-400 max-w-lg">
+            Run this command from your terminal after each round to update win probabilities,
+            leverage games, and best paths. Results push to all players' browsers via Realtime.
+          </p>
+        </div>
+        {runAt && (
+          <div className="text-[11px] text-slate-500" style={{ fontFamily: 'Space Mono, monospace' }}>
+            Last run: <span className="text-slate-400">{runAt}</span>
+            {simResult?.iterations && (
+              <span className="ml-2 text-slate-600">
+                · {simResult.iterations.toLocaleString()} iters
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Terminal command */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <code
+          className="flex-1 min-w-0 text-[11px] bg-slate-950 border border-slate-800 rounded-xl
+            px-4 py-2.5 text-emerald-400 font-mono truncate"
+        >
+          {command || 'Select a pool to see the command'}
+        </code>
+        <button
+          onClick={handleCopy}
+          disabled={!command}
+          className="px-4 py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap
+            disabled:opacity-40 disabled:cursor-not-allowed
+            border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+
+      {/* Optional flags hint */}
+      <div className="text-[11px] text-slate-600 space-y-0.5" style={{ fontFamily: 'Space Mono, monospace' }}>
+        <p>Optional flags:</p>
+        <p className="pl-4 text-slate-700">--iterations 10000 &nbsp; (default; reduce to 2000 for speed)</p>
+        <p className="pl-4 text-slate-700">--dry-run &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (print results without writing to DB)</p>
+      </div>
+
+      {/* Win probability results */}
+      {topPlayers.length > 0 ? (
+        <div>
+          <p className="text-xs font-semibold text-slate-400 mb-2">
+            Current Win Probabilities (top 5)
+          </p>
+          <div className="space-y-2">
+            {topPlayers.map(({ name, prob }, i) => (
+              <div key={name} className="flex items-center gap-3">
+                <span
+                  className="text-[10px] text-slate-600 w-4 text-right tabular-nums shrink-0"
+                  style={{ fontFamily: 'Space Mono, monospace' }}
+                >
+                  {i + 1}
+                </span>
+                <span className="text-xs text-slate-300 w-28 truncate shrink-0">{name}</span>
+                <div className="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all"
+                    style={{ width: `${Math.max(prob * 100, 1)}%` }}
+                  />
+                </div>
+                <span
+                  className={`text-[11px] tabular-nums w-12 text-right shrink-0 font-semibold ${
+                    prob > 0.2 ? 'text-emerald-400' : prob > 0.1 ? 'text-amber-400' : 'text-slate-500'
+                  }`}
+                  style={{ fontFamily: 'Space Mono, monospace' }}
+                >
+                  {(prob * 100).toFixed(1)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-slate-600 italic">
+          No simulation results yet. Run the command above to generate win probabilities.
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -785,6 +908,9 @@ export default function AdminPage() {
 
       {/* Members + send reset email */}
       <MembersSection showToast={showToast} />
+
+      {/* Monte Carlo simulation */}
+      <SimulationSection />
 
       {/* ESPN ID mapping */}
       <EspnIdSection

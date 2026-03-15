@@ -1,0 +1,633 @@
+#!/usr/bin/env python3
+"""
+Sports Closet Tournament Tracker — Monte Carlo Win Probability Simulator
+Phase 3
+
+Usage:
+  python api/simulate.py --pool-id <UUID> [--iterations 10000] [--dry-run]
+
+Requirements:
+  pip install -r api/requirements.txt
+  cp api/.env.example api/.env   # fill in SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+
+Win probability model (Version 1):
+  p_final = sigmoid(w_seed * logit(p_seed) + w_rating * (bpi_A - bpi_B) / SCALE)
+
+  Weights are determined by historical sample size for the seed matchup:
+    n >= 20 : w_seed=0.55, w_rating=0.45
+    n  8-19 : w_seed=0.55, w_rating=0.45
+    n  4-7  : w_seed=0.275, w_rating=0.725  (sparse — shrink toward rating)
+    n  < 4  : w_seed=0.0,  w_rating=1.0     (unseen — rating only)
+    no BPI  : seed-only or 50/50
+
+  Version 2 (one-line upgrade): add w_market * logit(p_market) to the score.
+"""
+
+import argparse
+import json
+import math
+import os
+import random
+import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
+from supabase import create_client
+
+# ─── Load environment ──────────────────────────────────────────────────────────
+
+_script_dir = Path(__file__).parent
+load_dotenv(_script_dir / '.env')
+load_dotenv(_script_dir.parent / '.env')
+
+SUPABASE_URL              = os.environ.get('SUPABASE_URL', '')
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+
+# ─── Bracket topology ─────────────────────────────────────────────────────────
+#
+# BRACKET_TREE maps each slot to its two feeder slots.
+# R64 leaves have feeders (None, None) — teams come directly from the games table.
+#
+# Slot layout:
+#   Midwest: 0–14  · West: 15–29  · South: 30–44  · East: 45–59
+#   F4 SF1 (Midwest/West):  60
+#   F4 SF2 (South/East):    61
+#   Championship:            62
+
+def _build_bracket_tree():
+    tree = {}
+    for base in (0, 15, 30, 45):
+        for i in range(8):
+            tree[base + i] = (None, None)
+        tree[base + 8]  = (base + 0,  base + 1)
+        tree[base + 9]  = (base + 2,  base + 3)
+        tree[base + 10] = (base + 4,  base + 5)
+        tree[base + 11] = (base + 6,  base + 7)
+        tree[base + 12] = (base + 8,  base + 9)
+        tree[base + 13] = (base + 10, base + 11)
+        tree[base + 14] = (base + 12, base + 13)
+    tree[60] = (14, 29)
+    tree[61] = (44, 59)
+    tree[62] = (60, 61)
+    return tree
+
+BRACKET_TREE = _build_bracket_tree()
+
+# ─── Round metadata ────────────────────────────────────────────────────────────
+
+SLOT_ROUND = {}
+for _base in (0, 15, 30, 45):
+    for _i in range(8):  SLOT_ROUND[_base + _i]      = 'R64'
+    for _i in range(4):  SLOT_ROUND[_base + 8 + _i]  = 'R32'
+    for _i in range(2):  SLOT_ROUND[_base + 12 + _i] = 'S16'
+    SLOT_ROUND[_base + 14] = 'E8'
+SLOT_ROUND[60] = 'F4'
+SLOT_ROUND[61] = 'F4'
+SLOT_ROUND[62] = 'Champ'
+
+ROUND_POINTS = {'R64': 10, 'R32': 20, 'S16': 40, 'E8': 80, 'F4': 160, 'Champ': 320}
+LEVERAGE_THRESHOLD = 15  # min max-swing % to surface a game
+
+# ─── Seed-round win rate table ────────────────────────────────────────────────
+#
+# Key: (round, lower_seed, higher_seed)  — lower number = better team
+# Value: { 'rate': P(lower_seed wins), 'n': historical sample size }
+#
+# R64: ~40 years × 4 games/matchup = solid data
+# R32: approximate — verify against BracketOdds (bracketodds.com) before tournament
+# S16+: not included — BPI dominates via shrinkage when n is small
+#
+# Shrinkage rules (applied in compute_win_prob_blended):
+#   n >= 20 → trust seed history normally (w_seed=0.55)
+#   n  8-19 → normal blend
+#   n  4-7  → halve seed weight (w_seed=0.275)
+#   n  < 4  → ignore seed history, use BPI only
+
+SEED_ROUND_RATES = {
+    # ── Round of 64 ────────────────────────────────────────────────────────────
+    ('R64',  1, 16): {'rate': 0.993, 'n': 159},
+    ('R64',  2, 15): {'rate': 0.945, 'n': 159},
+    ('R64',  3, 14): {'rate': 0.850, 'n': 159},
+    ('R64',  4, 13): {'rate': 0.793, 'n': 159},
+    ('R64',  5, 12): {'rate': 0.647, 'n': 159},
+    ('R64',  6, 11): {'rate': 0.622, 'n': 159},
+    ('R64',  7, 10): {'rate': 0.613, 'n': 159},
+    ('R64',  8,  9): {'rate': 0.509, 'n': 159},
+
+    # ── Round of 32 ─────────────────────────────────────────────────────────────
+    # Approximate historical rates — cross-check against BracketOdds before use.
+    # Only matchups that occur with meaningful frequency are listed.
+    # Rare upsets (e.g. 16 vs 9 in R32) have n < 4 and fall back to BPI.
+    ('R32',  1,  8): {'rate': 0.764, 'n': 118},
+    ('R32',  1,  9): {'rate': 0.797, 'n': 41},
+    ('R32',  2,  7): {'rate': 0.711, 'n': 112},
+    ('R32',  2, 10): {'rate': 0.756, 'n': 41},
+    ('R32',  3,  6): {'rate': 0.644, 'n': 108},
+    ('R32',  3, 11): {'rate': 0.763, 'n': 38},
+    ('R32',  4,  5): {'rate': 0.561, 'n': 96},
+    ('R32',  4, 12): {'rate': 0.725, 'n': 44},
+    # Upset-generated matchups — small n, weight shifts heavily to BPI
+    ('R32',  1, 16): {'rate': 0.900, 'n': 1},   # 16-seed upset in R64 (rare)
+    ('R32',  2, 15): {'rate': 0.870, 'n': 3},
+    ('R32',  5, 13): {'rate': 0.650, 'n': 12},
+    ('R32',  6, 14): {'rate': 0.760, 'n': 8},
+    ('R32',  7, 15): {'rate': 0.560, 'n': 6},
+
+    # ── Sweet 16 and beyond ────────────────────────────────────────────────────
+    # Not included — BPI dominates for these rounds due to high matchup variety
+    # and smaller sample sizes. Add entries here if you want seed history blended in.
+}
+
+# ─── Win probability model ────────────────────────────────────────────────────
+
+SCALE = 10   # AdjEM / BPI scale factor (10 = a 10-pt BPI gap ≈ 1.0 log-odds unit)
+
+
+def _logit(p):
+    p = max(0.001, min(0.999, p))
+    return math.log(p / (1 - p))
+
+
+def _sigmoid(x):
+    return 1.0 / (1.0 + math.exp(-x))
+
+
+def compute_win_prob_blended(seed1, seed2, bpi1, bpi2, round_name, win_prob_home=None):
+    """
+    P(team1 wins) for a matchup.
+
+    team1 / seed1 / bpi1 = away team in our schema
+    team2 / seed2 / bpi2 = home team
+
+    win_prob_home: ESPN live probability that home/team2 wins (float 0-1, or None)
+
+    Version 2 upgrade: add `+ w_market * _logit(p_market)` to the score line.
+    """
+    # Live game with ESPN probability — use it directly
+    if win_prob_home is not None:
+        return max(0.02, min(0.98, 1.0 - win_prob_home))
+
+    has_bpi = bpi1 is not None and bpi2 is not None
+    bpi_diff = (bpi1 or 0.0) - (bpi2 or 0.0)
+
+    # Look up seed-based historical rate
+    p_seed = 0.5
+    n_seed = 0
+    if seed1 and seed2 and seed1 != seed2:
+        low, high = min(seed1, seed2), max(seed1, seed2)
+        data = SEED_ROUND_RATES.get((round_name, low, high))
+        if data:
+            n_seed = data['n']
+            rate_for_low = data['rate']           # P(lower_seed / better team wins)
+            p_seed = rate_for_low if seed1 < seed2 else (1.0 - rate_for_low)
+
+    # Determine blend weights based on historical sample size (shrinkage)
+    if n_seed >= 20:
+        w_seed, w_rating = 0.55, 0.45
+    elif n_seed >= 8:
+        w_seed, w_rating = 0.55, 0.45
+    elif n_seed >= 4:
+        w_seed, w_rating = 0.275, 0.725   # sparse — halve seed weight
+    else:
+        w_seed, w_rating = 0.0, 1.0       # unseen matchup — rating only
+
+    if not has_bpi:
+        # No BPI available: fall back to seed rate, or 50/50 if no seed data either
+        if n_seed >= 4:
+            return max(0.02, min(0.98, p_seed))
+        return 0.5
+
+    score = w_seed * _logit(p_seed) + w_rating * (bpi_diff / SCALE)
+    # ── Version 2 line (add market odds when available): ──────────────────────
+    # score += w_market * _logit(p_market)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    return max(0.02, min(0.98, _sigmoid(score)))
+
+
+# ─── Single tournament simulation ─────────────────────────────────────────────
+
+def simulate_tournament(games_by_slot, team_seeds, bpi_ratings, forced_outcomes=None):
+    """
+    Simulate one full tournament.
+
+    Win probabilities are computed on-the-fly as teams advance, using the
+    blended seed + BPI model. This means late-round matchups automatically
+    use the actual teams that advanced rather than pre-assigned seeds.
+
+    forced_outcomes: { slot_index: team_name } — forces specific game results.
+    Used for conditional leverage simulations.
+
+    Returns { slot_index: winning_team_name }.
+    """
+    forced = forced_outcomes or {}
+    memo   = {}
+
+    def resolve(slot):
+        if slot in memo:
+            return memo[slot]
+
+        # Forced outcome (leverage conditional sims)
+        if slot in forced:
+            memo[slot] = forced[slot]
+            return forced[slot]
+
+        game    = games_by_slot.get(slot)
+        feeders = BRACKET_TREE[slot]
+
+        # Game already decided
+        if game and game.get('status') == 'final' and game.get('winner'):
+            memo[slot] = game['winner']
+            return memo[slot]
+
+        # Determine the two competing teams
+        if feeders == (None, None):
+            teams = (game or {}).get('teams') or {}
+            team1 = teams.get('team1') or 'TBD'
+            team2 = teams.get('team2') or 'TBD'
+        else:
+            team1 = resolve(feeders[0])
+            team2 = resolve(feeders[1])
+
+        if not team1 or not team2 or 'TBD' in (team1, team2):
+            memo[slot] = None
+            return None
+
+        # Compute win probability using blended model
+        prob = compute_win_prob_blended(
+            seed1        = team_seeds.get(team1),
+            seed2        = team_seeds.get(team2),
+            bpi1         = bpi_ratings.get(team1) if bpi_ratings else None,
+            bpi2         = bpi_ratings.get(team2) if bpi_ratings else None,
+            round_name   = SLOT_ROUND.get(slot, 'R64'),
+            win_prob_home= (game or {}).get('win_prob_home'),
+        )
+
+        winner      = team1 if random.random() < prob else team2
+        memo[slot]  = winner
+        return winner
+
+    for s in range(63):
+        resolve(s)
+    return memo
+
+
+# ─── Scoring ──────────────────────────────────────────────────────────────────
+
+def score_additional(picks, sim_outcomes, games_by_slot):
+    """Count points from future (non-final) games in one simulation outcome."""
+    total = 0
+    for slot, winner in sim_outcomes.items():
+        if not winner:
+            continue
+        if (games_by_slot.get(slot) or {}).get('status') == 'final':
+            continue
+        pick = picks[slot] if slot < len(picks) else None
+        if pick and pick == winner:
+            total += ROUND_POINTS.get(SLOT_ROUND.get(slot, 'R64'), 0)
+    return total
+
+
+# ─── Main simulation loop ──────────────────────────────────────────────────────
+
+def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
+                   iterations=10_000, forced_outcomes=None):
+    """
+    Run Monte Carlo simulation.
+
+    players: list of { username, picks (list[str|None]), current_points (int) }
+    Returns: (player_probs dict, win_counts dict, all_outcomes list)
+    """
+    win_counts  = {p['username']: 0.0 for p in players}
+    all_outcomes = []
+
+    for _ in range(iterations):
+        sim = simulate_tournament(games_by_slot, team_seeds, bpi_ratings, forced_outcomes)
+        all_outcomes.append(sim)
+
+        scores = {
+            p['username']: p['current_points'] + score_additional(p['picks'], sim, games_by_slot)
+            for p in players
+        }
+        if not scores:
+            continue
+
+        max_score = max(scores.values())
+        winners   = [name for name, s in scores.items() if s == max_score]
+        share     = 1.0 / len(winners)
+        for name in winners:
+            win_counts[name] += share
+
+    player_probs = {name: count / iterations for name, count in win_counts.items()}
+    return player_probs, win_counts, all_outcomes
+
+
+# ─── Leverage calculation ──────────────────────────────────────────────────────
+
+def calculate_leverage(players, games_by_slot, team_seeds, bpi_ratings,
+                       base_probs, conditional_iters=2_000):
+    """
+    For each pending/live game with known teams, run conditional simulations
+    (force team1 wins, force team2 wins) to measure per-player swing.
+
+    Returns leverage_games list in the LEVERAGE_GAMES mock shape.
+    """
+    leverage_games = []
+    n_players      = len(players)
+    if n_players == 0:
+        return leverage_games
+
+    pending_slots = sorted([
+        slot for slot, game in games_by_slot.items()
+        if (game or {}).get('status') in ('pending', 'live')
+    ])
+
+    for slot in pending_slots:
+        game  = games_by_slot[slot]
+        teams = (game or {}).get('teams') or {}
+        team1 = teams.get('team1') or 'TBD'
+        team2 = teams.get('team2') or 'TBD'
+
+        if team1 == 'TBD' or team2 == 'TBD':
+            continue
+
+        # Conditional simulations — force each team to win slot
+        result_if_t1, _, _ = run_simulation(
+            players, games_by_slot, team_seeds, bpi_ratings,
+            iterations=conditional_iters, forced_outcomes={slot: team1}
+        )
+        result_if_t2, _, _ = run_simulation(
+            players, games_by_slot, team_seeds, bpi_ratings,
+            iterations=conditional_iters, forced_outcomes={slot: team2}
+        )
+
+        # Per-player swings
+        player_impacts = []
+        max_swing = 0.0
+        for p in players:
+            name  = p['username']
+            p1    = result_if_t1.get(name, 0.0) * 100
+            p2    = result_if_t2.get(name, 0.0) * 100
+            swing = abs(p1 - p2)
+            max_swing = max(max_swing, swing)
+            player_impacts.append({
+                'player':  name,
+                'ifTeam1': round(p1, 1),
+                'ifTeam2': round(p2, 1),
+                'swing':   round(swing, 1),
+                'rootFor': team1 if p1 >= p2 else team2,
+            })
+
+        if max_swing < LEVERAGE_THRESHOLD:
+            continue
+
+        n   = n_players or 1
+        pct1 = round(
+            sum(1 for p in players
+                if (p['picks'][slot] if slot < len(p['picks']) else None) == team1)
+            / n * 100
+        )
+
+        leverage_games.append({
+            'id':            slot,
+            'round':         SLOT_ROUND.get(slot, 'R64'),
+            'matchup':       f"{team1.split()[-1]} vs {team2.split()[-1]}",
+            'team1':         team1,
+            'team2':         team2,
+            'status':        game.get('status', 'pending'),
+            'score1':        (game.get('teams') or {}).get('score1'),
+            'score2':        (game.get('teams') or {}).get('score2'),
+            'gameNote':      (game.get('teams') or {}).get('gameNote'),
+            'leverage':      round(max_swing),
+            'pickPct1':      pct1,
+            'pickPct2':      100 - pct1,
+            'playerImpacts': sorted(player_impacts, key=lambda x: -x['swing']),
+        })
+
+    leverage_games.sort(key=lambda g: (0 if g['status'] == 'live' else 1, -g['leverage']))
+    return leverage_games
+
+
+# ─── Best path derivation ──────────────────────────────────────────────────────
+
+def derive_best_paths(players, games_by_slot, all_outcomes, player_probs):
+    """
+    For each player, derive the key upcoming picks they still need to win.
+    Returns best_paths dict in BEST_PATH mock shape, with '_default' key.
+    """
+    best_paths = {
+        '_default': [
+            {'text': 'Your champion keeps winning', 'type': 'good'},
+            {'text': 'Top seed eliminated in your region', 'type': 'neutral'},
+            {'text': "Pool leader's picks go cold", 'type': 'neutral'},
+        ]
+    }
+
+    KEY_SLOTS_ORDERED = [62, 60, 61, 14, 29, 44, 59]
+    KEY_ROUND_NAMES   = {
+        62: 'wins the Championship',
+        60: 'reaches the Final Four',
+        61: 'reaches the Final Four',
+        14: 'wins the Midwest',
+        29: 'wins the West',
+        44: 'wins the South',
+        59: 'wins the East',
+    }
+
+    for player in players:
+        name   = player['username']
+        picks  = player['picks']
+        bullets = []
+
+        for slot in KEY_SLOTS_ORDERED:
+            if slot >= len(picks):
+                continue
+            pick = picks[slot]
+            if not pick:
+                continue
+            game   = games_by_slot.get(slot)
+            winner = (game or {}).get('winner')
+            if winner and winner != pick:
+                continue  # already eliminated
+
+            if (game or {}).get('status') == 'final':
+                continue  # already resolved
+
+            btype = 'critical' if slot == 62 else 'important' if slot in (60, 61) else 'helpful'
+            bullets.append({'text': f"{pick} {KEY_ROUND_NAMES[slot]}", 'type': btype})
+            if len(bullets) >= 4:
+                break
+
+        if not bullets:
+            prob = player_probs.get(name, 0)
+            bullets = [
+                {'text': 'Maintain your lead through the weekend', 'type': 'neutral'}
+                if prob > 0.15
+                else {'text': 'Need some upsets to go your way', 'type': 'neutral'}
+            ]
+
+        best_paths[name] = bullets
+
+    return best_paths
+
+
+# ─── Ratings loader ────────────────────────────────────────────────────────────
+
+def load_ratings():
+    """
+    Load BPI ratings from api/ratings.json.
+    Returns { team_name: bpi_value } or empty dict if file not found.
+    Generate ratings.json by running: python api/parse_bpi.py
+    """
+    ratings_path = _script_dir / 'ratings.json'
+    if not ratings_path.exists():
+        print('NOTE: api/ratings.json not found — win prob will use seed history only.')
+        print('      Run: python api/parse_bpi.py  (after pasting ESPN BPI into api/bpi_raw.txt)')
+        return {}
+    with open(ratings_path, encoding='utf-8') as f:
+        ratings = json.load(f)
+    print(f'Loaded BPI ratings for {len(ratings)} teams from ratings.json.')
+    return ratings
+
+
+# ─── Database helpers ──────────────────────────────────────────────────────────
+
+def load_pool_data(client, pool_id):
+    """
+    Load all data needed for simulation.
+    Returns (players, games_by_slot, team_seeds).
+    """
+    # Games
+    resp         = client.table('games').select('*').execute()
+    games_raw    = resp.data or []
+    games_by_slot = {g['slot_index']: g for g in games_raw}
+
+    # Build team_seeds from R64 game data (slots 0-7, 15-22, 30-37, 45-52)
+    team_seeds = {}
+    for slot, game in games_by_slot.items():
+        if BRACKET_TREE.get(slot) == (None, None):          # R64 leaf
+            t = (game or {}).get('teams') or {}
+            if t.get('team1') and t.get('seed1'):
+                team_seeds[t['team1']] = t['seed1']
+            if t.get('team2') and t.get('seed2'):
+                team_seeds[t['team2']] = t['seed2']
+
+    # Pool members
+    resp       = client.rpc('get_pool_members', {'p_pool_id': pool_id}).execute()
+    member_map = {m['user_id']: m['username'] for m in (resp.data or [])}
+
+    # Brackets
+    resp         = client.table('brackets').select('*').eq('pool_id', pool_id).execute()
+    brackets_raw = resp.data or []
+
+    # Current scores
+    resp       = client.table('scores').select('bracket_id, points').execute()
+    scores_map = {s['bracket_id']: s['points'] for s in (resp.data or [])}
+
+    # Build players list
+    players = []
+    for bracket in brackets_raw:
+        uid      = bracket['user_id']
+        username = member_map.get(uid, uid)
+        picks    = bracket.get('picks') or []
+        picks    = (picks + [None] * 63)[:63] if isinstance(picks, list) else [None] * 63
+        players.append({
+            'username':       username,
+            'picks':          picks,
+            'current_points': scores_map.get(bracket['id'], 0),
+        })
+
+    return players, games_by_slot, team_seeds
+
+
+def upsert_sim_results(client, pool_id, player_probs, leverage_games,
+                       best_paths, iterations, dry_run):
+    payload = {
+        'pool_id':        pool_id,
+        'iterations':     iterations,
+        'player_probs':   player_probs,
+        'leverage_games': leverage_games,
+        'best_paths':     best_paths,
+    }
+    if dry_run:
+        print('\n[DRY RUN] Would upsert to sim_results:')
+        print(json.dumps(payload, indent=2, default=str))
+        return
+    client.table('sim_results').upsert(payload, on_conflict='pool_id').execute()
+    print('Sim results written to Supabase.')
+
+
+# ─── Entry point ──────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(description='Run Monte Carlo win probability simulation.')
+    parser.add_argument('--pool-id',    required=True)
+    parser.add_argument('--iterations', type=int, default=10_000)
+    parser.add_argument('--cond-iters', type=int, default=2_000)
+    parser.add_argument('--dry-run',    action='store_true')
+    args = parser.parse_args()
+
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        print('ERROR: Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in api/.env', file=sys.stderr)
+        sys.exit(1)
+
+    client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    bpi_ratings = load_ratings()
+
+    print(f'Loading pool data for pool {args.pool_id}…')
+    players, games_by_slot, team_seeds = load_pool_data(client, args.pool_id)
+
+    if not players:
+        print('ERROR: No brackets found for this pool.', file=sys.stderr)
+        sys.exit(1)
+
+    n_final = sum(1 for g in games_by_slot.values() if g.get('status') == 'final')
+    n_live  = sum(1 for g in games_by_slot.values() if g.get('status') == 'live')
+    n_pend  = sum(1 for g in games_by_slot.values() if g.get('status') == 'pending')
+    n_rated = sum(1 for p in players
+                  if any(bpi_ratings.get(t) is not None
+                         for t in (p['picks'] or []) if t))
+    print(f'  {len(players)} brackets · '
+          f'{n_final} final / {n_live} live / {n_pend} pending · '
+          f'{len(team_seeds)} seeds known · '
+          f'{len(bpi_ratings)} BPI ratings loaded')
+
+    # Warn about tournament teams missing BPI ratings
+    all_teams = {t for g in games_by_slot.values()
+                 for t in [(g.get('teams') or {}).get('team1'),
+                            (g.get('teams') or {}).get('team2')] if t}
+    missing = [t for t in sorted(all_teams) if t not in bpi_ratings]
+    if missing:
+        print(f'\n  NOTE: {len(missing)} tournament team(s) have no BPI rating '
+              f'(will use seed-only model):')
+        for t in missing:
+            print(f'    - {t}')
+
+    print(f'\nRunning {args.iterations:,} simulations…')
+    player_probs, _, all_outcomes = run_simulation(
+        players, games_by_slot, team_seeds, bpi_ratings, iterations=args.iterations
+    )
+
+    print('\nWin probabilities:')
+    for name, prob in sorted(player_probs.items(), key=lambda x: -x[1]):
+        bar = '█' * max(1, int(prob * 40))
+        print(f'  {name:<20} {prob * 100:5.1f}%  {bar}')
+
+    print(f'\nCalculating leverage ({args.cond_iters:,} conditional iters per game)…')
+    leverage_games = calculate_leverage(
+        players, games_by_slot, team_seeds, bpi_ratings,
+        player_probs, conditional_iters=args.cond_iters
+    )
+    print(f'  {len(leverage_games)} game(s) above {LEVERAGE_THRESHOLD}% threshold')
+
+    best_paths = derive_best_paths(players, games_by_slot, all_outcomes, player_probs)
+
+    upsert_sim_results(
+        client, args.pool_id, player_probs, leverage_games, best_paths,
+        iterations=args.iterations, dry_run=args.dry_run
+    )
+    print('\nDone.')
+
+
+if __name__ == '__main__':
+    main()
