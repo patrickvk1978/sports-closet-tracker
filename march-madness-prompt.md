@@ -6,14 +6,21 @@ Build a Progressive Web App (PWA) for a March Madness bracket pool with a strate
 
 The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") that tracks ~60 players' bracket picks in a matrix format. We're modernizing this into an interactive, real-time app with simulation-powered strategic insights.
 
+**Live URL:** https://sports-closet-tracker.vercel.app
+**Supabase project:** xuttkfikpxorvelzquuu.supabase.co
+**GitHub:** patrickvk1978/sports-closet-tracker
+
+---
+
 ## Core Views
 
 ### 1. Bracket View
 - Classic 64-team NCAA tournament bracket visualization
 - Users fill out their picks interactively by clicking/tapping matchups
 - After submission, bracket is viewable with color-coded results (correct = green, eliminated = red, pending = neutral)
-- Ability to view any other player's bracket
-- Mobile-responsive — must work well on phones since users will check during games
+- Ability to view any other player's bracket (hidden before pool is locked)
+- TBD slots in R32+ derive teams from the user's own picks at feeder slots (paper bracket logic)
+- Mobile-responsive
 
 ### 2. Matrix View (The Signature Feature)
 - Interactive table: rows = players (sorted by rank/points), columns = games (grouped by round)
@@ -22,224 +29,229 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 - Column headers show the matchup (e.g., "Duke vs Kentucky")
 - Key data columns: Rank, Points, PPR (Points Possible Remaining), Win Probability %
 - Sortable by any column
-- Filterable by round (Round of 64, 32, Sweet 16, Elite 8, Final Four, Championship)
-- Click a game column to see pick distribution (e.g., "72% picked Duke, 28% picked Kentucky")
-- Sticky header row and sticky player name column for scrolling
-- Round scoring: Round of 64 = 10pts, Round of 32 = 20pts, Sweet 16 = 40pts, Elite 8 = 80pts, Final Four = 160pts, Championship = 320pts
+- Filterable by round (R64, R32, S16, E8, Final Four, Championship)
+- Click a game column to see pick distribution
+- Sticky header row and sticky player name column
+- Other players' picks hidden before pool is locked (amber banner explains)
 
 ### 3. Dashboard
+- **Pre-game gate:** Non-admins see a countdown screen until the pool is locked (tip-off)
 - **Leaderboard** with current standings, points, PPR, and win probability
-- **Win Probability Chart** — line or bar chart showing top contenders' win probability over time (updates after each game)
-- **Leverage Alerts** — "Tonight's Games That Matter Most" section highlighting high-leverage games with explanations (e.g., "If Duke beats Kentucky, PlayerX's win probability jumps from 12% to 31%")
-- **Consensus Picks** — for upcoming games, show what % of the pool picked each team
-- **Elimination Tracker** — how many players still have their champion alive, Final Four teams alive, etc.
-- **Contrarian Report** — highlight players with unique picks that could vault them up the standings
+- **Leverage Alerts** — high-leverage upcoming games with per-player impact
+- **Biggest Rival** card — player with most bracket overlap and how you diverge
+- **Best Path to Win** — simulation-powered path from Phase 3
+- **Win probability** per player, updated after each Monte Carlo run
+- Admins can view the full dashboard before pool is locked
+
+---
 
 ## Technical Architecture
 
 ### Frontend
-- **Framework**: React (Next.js or Vite)
-- **Styling**: Tailwind CSS
-- **State Management**: React Context or Zustand for lightweight state
-- **Charts**: Recharts or Chart.js for win probability visualizations
-- **PWA**: Service worker for offline bracket viewing, add-to-homescreen support
+- **Framework:** Vite + React
+- **Styling:** Tailwind CSS v3
+- **Routing:** react-router-dom (BrowserRouter, nested routes)
+- **State:** React Context (AuthContext, PoolContext)
+- **Backend client:** @supabase/supabase-js (React talks directly to Supabase via RLS)
+- **Deployment:** Vercel (`app/vercel.json` has SPA rewrites)
 
 ### Backend
-- **API**: Python FastAPI
-- **Database**: Supabase (PostgreSQL + real-time subscriptions + auth)
-- **Simulation Engine**: Python-based Monte Carlo simulation
-  - Inputs: all players' brackets, current tournament state, win probabilities per remaining game
-  - Process: simulate remaining tournament 10,000+ times
-  - Outputs: each player's probability of winning the pool, leverage scores per upcoming game
-- **Data Sources**: 
-  - Game results: ESPN API or NCAA live data feed
-  - Win probabilities: KenPom ratings, Vegas lines, or ESPN BPI
-  - Update frequency: real-time during games, batch recalculation after each game completes
+- **Database + Auth + Realtime:** Supabase (Postgres + RLS + Realtime subscriptions)
+- **Game data:** ESPN unofficial API polled by admin browser client (useEspnPoller)
+- **Simulation:** Python Monte Carlo script (`api/simulate.py`) — run from terminal, pushes results to Supabase Realtime
 
-### Data Model
+### Data Model (Supabase schema)
 
 ```
-User {
-  id, username, email, pool_id, created_at
-}
-
-Pool {
-  id, name, admin_id, scoring_system, created_at
-}
-
-Bracket {
-  id, user_id, pool_id, picks (JSON — array of 63 game predictions), submitted_at
-}
-
-Game {
-  id, round, region, team1, team2, team1_seed, team2_seed, 
-  winner, score, status (pending/live/final), 
-  win_probability_team1, scheduled_time
-}
-
-Simulation_Result {
-  id, pool_id, calculated_at, 
-  player_probabilities (JSON — {user_id: win_probability}),
-  leverage_scores (JSON — {game_id: {team1_win_impact, team2_win_impact}})
-}
+profiles     — id (FK auth.users), username, is_admin
+pools        — id, name, invite_code (6 char), admin_id, locked (bool)
+pool_members — pool_id, user_id, joined_at
+games        — slot_index (0–62), round, region, teams (JSONB), espn_id,
+               status (pending/live/final), winner, win_prob_home, updated_at
+brackets     — id, pool_id, user_id, picks (JSONB array[63]), submitted_at
+scores       — pool_id, user_id, points, ppr, rank, updated_at
+sim_results  — id, pool_id, run_at, iterations, player_probs (JSONB),
+               leverage_games (JSONB), best_paths (JSONB)
 ```
 
-### Key Algorithms
+### App File Structure
 
-**Points Calculation:**
-- Compare each user's bracket picks against actual game results
-- Award points based on round: R64=10, R32=20, S16=40, E8=80, F4=160, Champ=320
+```
+app/src/
+  data/mockData.js          ← Phase 1 mock data; views fall back when no live data
+  lib/
+    supabase.js             ← Supabase client (reads VITE_SUPABASE_URL/ANON_KEY)
+    scoring.js              ← calculateScore, calculatePPR, buildPlayersArray, KEY_SLOTS
+    espn.js                 ← fetchEspnGames, fetchEspnWinProb, transformEspnGame
+  context/
+    AuthContext.jsx         ← session, profile, signIn/signUp/signOut
+    PoolContext.jsx         ← pool, members, brackets, PLAYERS_LIVE, joinPool,
+                               createPool, switchPool, simResult (via useSimResults)
+  hooks/
+    useAuth.js / usePool.js ← context accessors (throw if used outside provider)
+    useGames.js             ← Realtime subscription on games table
+    useScores.js            ← Realtime subscription on scores table
+    useEspnPoller.js        ← admin-only ESPN poll every 60s/30s, upserts to games;
+                               also fetches win_prob_home for live games
+    usePoolData.js          ← adapter: returns mockData shape; merges sim results;
+                               falls back to mock when no pool
+    useSimResults.js        ← Realtime subscription on sim_results table
+  components/
+    NavBar.jsx              ← sticky nav + pool switcher dropdown + Submit/Edit link
+    ProtectedRoute.jsx      ← <Outlet /> or redirect to /login
+    PoolGuard.jsx           ← <Outlet /> or redirect to /join
+  views/
+    DashboardView.jsx       ← PreGameScreen (countdown + CTAs) for non-admins pre-lock;
+                               full dashboard when locked or admin; Leave Pool button
+    MatrixView.jsx          ← const { PLAYERS, GAMES, ROUNDS } = usePoolData()
+    BracketView.jsx         ← KEY_PICKS + ALIVE computed with useMemo from live data
+  pages/
+    LoginPage.jsx           ← /login — email/password + Google OAuth, sign-in + sign-up tabs
+    JoinPoolPage.jsx        ← /join — enter 6-char invite code (pre-filled from URL ?code=)
+    CreatePoolPage.jsx      ← /create-pool — admin creates pool, shows invite code
+    BracketSubmitPage.jsx   ← /submit — interactive 63-slot bracket picker + save
+    AdminPage.jsx           ← /admin — 4 sub-tabs (see Admin section below)
+    ResetPasswordPage.jsx   ← /reset-password — token + new password entry
+  App.jsx                   ← AuthProvider > PoolProvider > BrowserRouter + nested routes
+  main.jsx / index.css
 
-**Points Possible Remaining (PPR):**
-- For each remaining game, check if the user's picked team is still alive
-- Sum the point values for all remaining correct-eligible picks
+api/
+  simulate.py               ← Monte Carlo script; run: python api/simulate.py --pool-id UUID
+  requirements.txt
+  .env.example              ← needs SUPABASE_SERVICE_ROLE_KEY
 
-**Win Probability (Monte Carlo):**
-- For each simulation run:
-  1. Simulate each remaining game using win probabilities (weighted coin flip)
-  2. Calculate final points for every player given simulated outcomes
-  3. Record who wins the pool
-- After N simulations, each player's win probability = (times they won) / N
+supabase/
+  schema.sql                ← Full 6-table schema with RLS policies + triggers
+  phase3_migration.sql      ← Adds win_prob_home column + sim_results table + RLS + Realtime
+```
 
-**Leverage Score:**
-- For a given upcoming game, run simulations twice: once assuming Team A wins, once assuming Team B wins
-- Leverage for a player = |P(win pool | Team A wins) - P(win pool | Team B wins)|
-- High leverage = this game's outcome dramatically affects this player's chances
+### Routes
 
-## Design Direction
+```
+/login          → LoginPage (public)
+/reset-password → ResetPasswordPage (public)
+/join           → JoinPoolPage (auth required)
+/create-pool    → CreatePoolPage (auth required)
+/               → Dashboard (auth + pool required)
+/matrix         → Matrix View (auth + pool required)
+/bracket        → Bracket View (auth + pool required)
+/submit         → BracketSubmitPage (auth + pool required)
+/admin          → AdminPage (auth + pool + is_admin required)
+```
 
-- **Tone**: Sports data intelligence meets clean modern UI — think ESPN meets Bloomberg Terminal for brackets
-- **Dark mode default** with option for light mode (people watch games at night/in bars)
-- **Typography**: Bold, sporty but not cheesy. Something with weight for headers, clean sans-serif for data
-- **Color palette**: Dark navy/charcoal base, bright accent colors for team matchups, green/red for correct/eliminated
-- **Key interaction**: The matrix view should feel powerful — like a trading floor dashboard for your bracket pool
-- **Mobile-first**: Most users will check this on their phones during games
+### Bracket Slot Layout (63 slots)
+
+```
+Midwest: slots 0–14  (R64: 0-7, R32: 8-11, S16: 12-13, E8: 14)
+West:    slots 15–29
+South:   slots 30–44
+East:    slots 45–59
+F4 SF1 (Midwest vs West):  slot 60
+F4 SF2 (South vs East):    slot 61
+Championship:              slot 62
+KEY_SLOTS = [14, 29, 44, 59, 60, 61, 62]  — maps 63-slot picks → 7-slot summary
+```
+
+### Scoring
+R64=10, R32=20, S16=40, E8=80, F4=160, Champ=320 pts
+
+---
+
+## Admin Page (`/admin`)
+
+Four sub-tabs. Header bar (Pre-fill 2026 Bracket button + ESPN polling badge) always visible above tabs.
+
+### Bracket tab
+- **R64 Team Editor** — 4-region tabbed interface, edit 8 matchups per region, save per-region or all at once
+- **Pre-fill 2026 Bracket** button — fills all 32 R64 team names + ESPN IDs from Selection Sunday data
+- **ESPN ID Mapping** table — all 63 slots; enter ESPN event IDs for the live score poller
+
+### Members tab
+- Table of all pool members with username + role badge
+- **Remove Member** button per row (hidden for own row) — deletes from pool_members
+- **Send Password Reset Email** form — triggers Supabase reset email for any member
+
+### Pool tab
+- **Pool Lock toggle** — lock/unlock submissions with confirmation dialog
+- **Invite Link** — shows full join URL (`{origin}/join?code={invite_code}`), copy button
+- **Danger Zone** — Delete Pool button with confirmation modal; cascades to members + brackets
+
+### Simulation tab
+- Copy-to-clipboard command: `python api/simulate.py --pool-id {uuid}`
+- Last-run timestamp + iteration count
+- Top-5 win probabilities with bar visualization
+
+---
+
+## Environment Variables
+
+```
+# app/.env.local
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+
+# api/.env
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+---
 
 ## Build Phases
 
 ### Phase 1: Static Prototype ✅ COMPLETE
-- Bracket input view with mock tournament data
-- Matrix view with mock player/pick data (2015 NYC Madness data as template)
-- Dashboard with static charts and mock leverage data
-- No backend — all hardcoded/mock data
-- Goal: validate the UX and get feedback from the group
+- Bracket, Matrix, and Dashboard views with mock data (2015 NYC Madness data)
+- No backend — all hardcoded
+- Goal: validate UX
 
 ### Phase 2: Backend + Auth ✅ COMPLETE (Mar 2026)
-**Deployed at: https://sports-closet-tracker.vercel.app**
 
-Completed:
-- Supabase project setup (xuttkfikpxorvelzquuu.supabase.co)
-- 6-table schema: profiles, pools, pool_members, games, brackets, scores
-- Row-Level Security on all tables
+- Supabase project setup, 6-table schema, RLS on all tables
 - Supabase Realtime on games + scores tables
-- User sign-up / sign-in / sign-out (email + password)
-- Pool creation with 6-char invite codes
-- Join pool flow
+- User auth: email/password + Google OAuth; sign-up, sign-in, sign-out
+- Password reset flow: "Forgot password?" on login → Supabase email → /reset-password page
+- Pool creation with 6-char invite codes; join pool flow
 - Interactive bracket submission at /submit (cascading pick logic)
-- All 3 views (Dashboard, Matrix, Bracket) migrated from mock → live data
-- usePoolData adapter hook — views fall back to mock data gracefully
+- All 3 views migrated from mock → live data via `usePoolData` adapter hook
 - ESPN unofficial API polling (admin browser, 60s/30s interval)
-- Live in-game scores displayed in Matrix and Bracket views
-- NavBar with auth state, pool name, Submit link, sign-out
+- Live in-game scores in Matrix and Bracket views
+- NavBar: auth state, pool switcher dropdown, Submit/Edit bracket link
 - ProtectedRoute + PoolGuard route guards
-- Selection Sunday admin UI at /admin:
-  - R64 team name editor (32 matchups across 4 regions)
-  - Pool lock toggle with confirmation
-  - ESPN ID mapping table for all 63 slots
-- ESPN attribution ("Scores via ESPN") throughout app
-- 5 crash bugs fixed in BracketView and usePoolData
+- Multi-pool support: PoolContext loads all memberships, active pool in localStorage, switchPool()
+- Admin UI at /admin: R64 team editor, pool lock toggle, ESPN ID mapping
+- Security-definer RPC `get_pool_members` — members can see pool roster without RLS bypass
+- DB trigger auto-creates profile on auth user creation
+- Picks visibility: matrix and bracket view hide other players' picks pre-lock
+- BracketView: TBD slots derive from user's own picks at feeder slots
+- NavBar link: "Create Bracket" before submission, "Edit Bracket" after
+- Pre-game dashboard gate: non-admins see countdown screen until pool is locked
+- ESPN attribution throughout app
 
-Remaining Phase 2 loose ends (pre-tournament):
-- [ ] Score calculation trigger — wire scoring.js to fire when a game goes `final`
-- [ ] Bracket lock automation — auto-lock submissions at tip-off or via admin toggle
-- [x] Auto-redirect to /submit after joining or creating a pool
-- [x] NavBar button: "Create Bracket" before picks submitted, "Edit Bracket" after
-- [x] BracketView: CBS Sports style inline pick color coding
-- [x] Members can't see each other — fixed via security-definer RPC `get_pool_members`
-- [x] Bracket view shows TBD — fixed: pending R32+ slots now derive teams from user's
-      picks at feeder slots (same logic as a filled-out paper bracket)
-- [x] Final Four tab was hardcoded mock data — fully rewritten with live data + pick logic
-- [x] Nav routing: "Create Bracket" → /submit (no bracket); "Bracket" → /bracket (has bracket)
-      with "Edit Bracket" button on bracket page (hidden when pool is locked)
-- [x] Picks visibility: matrix hides other players' picks before lock; bracket view hides
-      player selector before lock; amber banner shown to explain
-- [x] Multi-pool support — PoolContext loads all memberships; active pool stored in
-      localStorage; switchPool() function; nav pool switcher dropdown with all pools
-      + "Join a Pool" + "Create a Pool" options
-- [x] Password reset — "Forgot password?" on login page triggers Supabase reset email;
-      /reset-password page handles token + new password entry; admin reset tool in /admin
-- [x] Orphaned accounts fixed — DB trigger auto-creates profile on auth user creation;
-      sign-in detects missing profile and auto-creates fallback; better "email already
-      in use" error message with one-click switch to Sign In tab
-- [x] Invite code join flow — security-definer RPC bypasses RLS for pool lookup
-- [x] Pool creation RLS — fixed pools_select + pools_insert policies
+### Phase 3: Win Probability Engine ✅ COMPLETE (Mar 2026)
 
-### Phase 3: Win Probability Engine (Planned — post Selection Sunday, Mar 15 2026)
+Simplified from original Redis/FastAPI spec to a terminal script + Supabase Realtime:
 
-Full technical spec defined. Summary below; see probability-spec in repo for detail.
+- `supabase/phase3_migration.sql` — adds `win_prob_home` column to games + `sim_results` table
+- `api/simulate.py` — Python Monte Carlo; run after each round batch completes
+- `api/requirements.txt`, `api/.env.example`
+- `useSimResults.js` — Realtime hook; sim results push live to all browsers
+- `useEspnPoller.js` — fetches `win_prob_home` for live games via ESPN Core probabilities
+- `usePoolData.js` — merges simResult: winProb into PLAYERS; exposes leverage_games, best_paths
+- Admin Simulation tab: copy command, last-run timestamp, top-5 win probs with bar chart
 
-**Architecture**
-```
-Market Odds → Team Strength (Bradley-Terry) → Matchup Probability Matrix
-→ Monte Carlo Simulations → Bracket Scoring → Pool Win Probabilities → Leverage
-```
+**Operational steps before/during tournament:**
+1. Run `supabase/phase3_migration.sql` in Supabase SQL editor
+2. `cp api/.env.example api/.env` → fill in SUPABASE_SERVICE_ROLE_KEY
+3. `pip install -r api/requirements.txt`
+4. After brackets locked: `python api/simulate.py --pool-id UUID`
+5. Re-run after each round batch completes
 
-**Simulation matrix**
-- Shape: [200,000 × 63], dtype uint8
-- Each cell = winning team_id (0–63) for that game in that simulation
-- Generated once, reused across all pools — O(players × simulations) per pool eval
-- Memory: ~12.6MB; generation time: ~1s
-- Stored in Redis for fast reuse; recomputed when odds change significantly
+### Phase 3.5: Admin UX + Pool Management ✅ COMPLETE (Mar 16 2026)
 
-**Game indexing (sim_index — different from frontend slot_index)**
-```
-sim_index 0–31:  R64  (round-based, all regions interleaved)
-sim_index 32–47: R32
-sim_index 48–55: S16
-sim_index 56–59: E8
-sim_index 60–61: F4
-sim_index 62:    Champ
-```
-Action required: add `sim_index int` column to `games` table before Phase 3.
-The frontend uses `slot_index` (region-based); Python uses `sim_index` (round-based).
-A one-time mapping is set in the admin UI alongside ESPN ID mapping.
-
-**Pick storage — recommendation: keep team name strings in Postgres**
-The spec uses uint8 team IDs in the simulation matrix. Our brackets store team name
-strings (e.g. "Duke"). Recommended approach: keep strings in DB (human-readable,
-no migration needed), convert names → team IDs in the Python service at query time
-using a `teams` lookup table. No bracket schema changes required.
-
-**Scoring weights**
-Spec uses 1/2/4/8/16/32; app uses 10/20/40/80/160/320 (×10 scale, mathematically
-equivalent for ranking). Python service uses spec weights internally.
-
-**Leverage calculation**
-- Partition simulations by game outcome (S_A vs S_B)
-- Pool importance = 0.5 × Σ|P_A - P_B| (Total Variation Distance)
-- Per-player impact = |P_A[i] - P_B[i]|
-- Tie equity: fractional win share split equally among tied players
-
-**Infrastructure**
-- Python FastAPI service (separate from React frontend)
-- Postgres: pools, players, brackets (existing schema)
-- Redis: simulation_matrix, pool_winner_matrix, cached odds
-- Target server: AWS c6i.large (~$20-40/month)
-
-**API endpoints to build**
-```
-GET /pool/{pool_id}/odds     → [{player, win_prob}]
-GET /pool/{pool_id}/games    → [{game, leverage, impacts: {player: value}}]
-```
-
-**Data sources for win probabilities**
-- Primary: Vegas moneyline / futures odds (most accurate)
-- Fallback: KenPom ratings or ESPN BPI
-- Convert implied odds → probabilities, remove vig, apply Bradley-Terry transform
-
-**Scaling**
-- simulation_matrix is global (not per-pool) — reused across 10k+ pools
-- Per-pool compute: O(players × simulations) ≈ 0.2s for 20 players
+- AdminPage reorganized into 4 sub-tabs: Bracket | Members | Pool | Simulation
+- Remove Member per row in Members tab (hidden for self)
+- Pool tab: LockToggle + Invite Link copy + Delete Pool danger zone (with confirmation)
+- Dashboard pre-game CTA: "Edit Your Bracket" when bracket already saved, "Submit Your Bracket" when not
+- Leave Pool: button in pre-game CTAs + locked dashboard header (non-admins only); confirm modal deletes from pool_members + navigates to /join
 
 ### Phase 4: Polish + PWA (Planned)
 - Service worker for offline bracket viewing
@@ -247,9 +259,10 @@ GET /pool/{pool_id}/games    → [{game, leverage, impacts: {player: value}}]
 - Performance optimization for matrix view with 50+ players
 - Add-to-homescreen flow
 
+---
+
 ## Notes for Development
-- Start with Phase 1 — get the views working with mock data
-- The matrix view is the most complex UI component — prioritize getting this right
-- Use responsive design but optimize for mobile-first
-- The simulation engine can start simple (uniform win probabilities) and add sophistication later
-- Consider using Web Workers for client-side simulation calculations to keep the UI responsive
+- The matrix view is the most complex UI component
+- Use responsive design, optimize for mobile-first
+- Mock data falls back gracefully when no live pool is active (dev mode)
+- Score calculation trigger (wire scoring.js to fire when game goes `final`) is still a loose end
