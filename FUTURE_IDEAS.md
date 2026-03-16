@@ -15,6 +15,12 @@ A shared space for the team to capture ideas as we think through where to take t
 
 ## Ideas Backlog
 
+### Email
+- **Pool owner → members email** — "Email Members" button in the Admin Pool tab; pool owner writes a message, a Supabase Edge Function looks up member emails server-side (auth.users is not exposed to the client) and sends via Resend or SendGrid. Good V4 candidate, ~1-2 days of work.
+- **Automated round-update emails** — after each round batch completes and the sim reruns, send all pool members a summary: current standings, biggest movers, leverage games for the next round. Could be triggered by a `--email` flag on the existing `simulate.py` script (lowest lift) or a scheduled Edge Function.
+- **High-leverage game alerts** — opt-in push or email alert when a game that heavily affects your win probability is about to tip off.
+- **Bracket submission confirmation** — transactional email when a member submits or edits their bracket, with a summary of their key picks.
+
 ### Product / Features
 - **Multiple pools** — support running more than one pool (e.g., office pool vs. friend group)
 - **Custom scoring systems** — let the pool admin configure points per round (upsets worth more, etc.)
