@@ -813,11 +813,20 @@ export default function AdminPage() {
 
     const updates = Object.entries(espnIds)
       .filter(([, v]) => v !== '' && v != null)
-      .map(([slotIndex, espnId]) => ({
-        slot_index: parseInt(slotIndex, 10),
-        espn_id: espnId.trim() || null,
-        updated_at: new Date().toISOString(),
-      }))
+      .map(([slotIndex, espnId]) => {
+        const idx  = parseInt(slotIndex, 10)
+        const meta = ALL_SLOTS.find((s) => s.slotIndex === idx)
+        const td   = teamData[idx]
+        return {
+          slot_index:  idx,
+          espn_id:     espnId.trim() || null,
+          round:       meta?.round  ?? 'R64',
+          region:      meta?.region ?? '',
+          status:      'pending',
+          teams:       td ? { team1: td.team1, seed1: td.seed1, team2: td.team2, seed2: td.seed2 } : {},
+          updated_at:  new Date().toISOString(),
+        }
+      })
 
     if (updates.length === 0) {
       setSavingEspn(false)
