@@ -26,6 +26,49 @@ const SEED_MATCHUPS = [
   [2, 15],
 ]
 
+// ─── 2026 Tournament pre-fill data ────────────────────────────────────────────
+// Sourced from ESPN API on Selection Sunday March 16 2026.
+// team1 = lower seed, team2 = higher seed (matches AdminPage convention).
+// "TBD" = First Four winner; poller will fill the name once that game finishes.
+const PREFILLED_R64 = {
+  // ── Midwest ──────────────────────────────────────────────────────────────
+   0: { espnId: '401856486', team1: 'Michigan Wolverines',      seed1:  1, team2: 'TBD',                         seed2: 16 },
+   1: { espnId: '401856487', team1: 'Georgia Bulldogs',         seed1:  8, team2: 'Saint Louis Billikens',        seed2:  9 },
+   2: { espnId: '401856520', team1: 'Texas Tech Red Raiders',   seed1:  5, team2: 'Akron Zips',                  seed2: 12 },
+   3: { espnId: '401856521', team1: 'Alabama Crimson Tide',     seed1:  4, team2: 'Hofstra Pride',               seed2: 13 },
+   4: { espnId: '401856527', team1: 'Tennessee Volunteers',     seed1:  6, team2: 'TBD',                         seed2: 11 },
+   5: { espnId: '401856526', team1: 'Virginia Cavaliers',       seed1:  3, team2: 'Wright State Raiders',        seed2: 14 },
+   6: { espnId: '401856525', team1: 'Kentucky Wildcats',        seed1:  7, team2: 'Santa Clara Broncos',         seed2: 10 },
+   7: { espnId: '401856524', team1: 'Iowa State Cyclones',      seed1:  2, team2: 'Tennessee State Tigers',      seed2: 15 },
+  // ── West ─────────────────────────────────────────────────────────────────
+  15: { espnId: '401856529', team1: 'Arizona Wildcats',         seed1:  1, team2: 'Long Island University Sharks',seed2: 16 },
+  16: { espnId: '401856528', team1: 'Villanova Wildcats',       seed1:  8, team2: 'Utah State Aggies',           seed2:  9 },
+  17: { espnId: '401856480', team1: 'Wisconsin Badgers',        seed1:  5, team2: 'High Point Panthers',         seed2: 12 },
+  18: { espnId: '401856481', team1: 'Arkansas Razorbacks',      seed1:  4, team2: "Hawai'i Rainbow Warriors",    seed2: 13 },
+  19: { espnId: '401856484', team1: 'BYU Cougars',              seed1:  6, team2: 'TBD',                         seed2: 11 },
+  20: { espnId: '401856485', team1: 'Gonzaga Bulldogs',         seed1:  3, team2: 'Kennesaw State Owls',         seed2: 14 },
+  21: { espnId: '401856518', team1: 'Miami Hurricanes',         seed1:  7, team2: 'Missouri Tigers',             seed2: 10 },
+  22: { espnId: '401856519', team1: 'Purdue Boilermakers',      seed1:  2, team2: 'Queens University Royals',    seed2: 15 },
+  // ── South ────────────────────────────────────────────────────────────────
+  30: { espnId: '401856523', team1: 'Florida Gators',           seed1:  1, team2: 'TBD',                         seed2: 16 },
+  31: { espnId: '401856522', team1: 'Clemson Tigers',           seed1:  8, team2: 'Iowa Hawkeyes',               seed2:  9 },
+  32: { espnId: '401856488', team1: 'Vanderbilt Commodores',    seed1:  5, team2: 'McNeese Cowboys',             seed2: 12 },
+  33: { espnId: '401856489', team1: 'Nebraska Cornhuskers',     seed1:  4, team2: 'Troy Trojans',                seed2: 13 },
+  34: { espnId: '401856490', team1: 'North Carolina Tar Heels', seed1:  6, team2: 'VCU Rams',                    seed2: 11 },
+  35: { espnId: '401856491', team1: 'Illinois Fighting Illini', seed1:  3, team2: 'Pennsylvania Quakers',        seed2: 14 },
+  36: { espnId: '401856492', team1: "Saint Mary's Gaels",       seed1:  7, team2: 'Texas A&M Aggies',            seed2: 10 },
+  37: { espnId: '401856493', team1: 'Houston Cougars',          seed1:  2, team2: 'Idaho Vandals',               seed2: 15 },
+  // ── East ─────────────────────────────────────────────────────────────────
+  45: { espnId: '401856478', team1: 'Duke Blue Devils',         seed1:  1, team2: 'Siena Saints',                seed2: 16 },
+  46: { espnId: '401856479', team1: 'Ohio State Buckeyes',      seed1:  8, team2: 'TCU Horned Frogs',            seed2:  9 },
+  47: { espnId: '401856494', team1: "St. John's Red Storm",     seed1:  5, team2: 'Northern Iowa Panthers',      seed2: 12 },
+  48: { espnId: '401856495', team1: 'Kansas Jayhawks',          seed1:  4, team2: 'California Baptist Lancers',  seed2: 13 },
+  49: { espnId: '401856482', team1: 'Louisville Cardinals',     seed1:  6, team2: 'South Florida Bulls',         seed2: 11 },
+  50: { espnId: '401856483', team1: 'Michigan State Spartans',  seed1:  3, team2: 'North Dakota State Bison',    seed2: 14 },
+  51: { espnId: '401856496', team1: 'UCLA Bruins',              seed1:  7, team2: 'UCF Knights',                 seed2: 10 },
+  52: { espnId: '401856497', team1: 'UConn Huskies',            seed1:  2, team2: 'Furman Paladins',             seed2: 15 },
+}
+
 // All 63 slots meta for the ESPN ID table
 const ROUND_BY_OFFSET = [
   ...Array(8).fill('R64'),
@@ -676,6 +719,25 @@ export default function AdminPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── Pre-fill 2026 bracket ────────────────────────────────────────────────────
+  function prefillBracket() {
+    setTeamData((prev) => {
+      const next = { ...prev }
+      Object.entries(PREFILLED_R64).forEach(([slot, d]) => {
+        next[Number(slot)] = { team1: d.team1, seed1: d.seed1, team2: d.team2, seed2: d.seed2 }
+      })
+      return next
+    })
+    setEspnIds((prev) => {
+      const next = { ...prev }
+      Object.entries(PREFILLED_R64).forEach(([slot, d]) => {
+        next[Number(slot)] = d.espnId
+      })
+      return next
+    })
+    showToast('Pre-filled 32 R64 games — click Save to persist.')
+  }
+
   // ── Handle team name input changes ──────────────────────────────────────────
   function handleTeamChange(slotIndex, field, value) {
     setTeamData((prev) => ({
@@ -809,6 +871,13 @@ export default function AdminPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Pre-fill button */}
+          <button
+            onClick={prefillBracket}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all whitespace-nowrap shadow-lg shadow-emerald-900/20"
+          >
+            Pre-fill 2026 Bracket
+          </button>
           {/* ESPN polling status */}
           <div className="flex items-center gap-2 text-xs bg-slate-800/60 border border-slate-700/60 rounded-xl px-3 py-1.5">
             <span className="relative flex h-2 w-2 shrink-0">
