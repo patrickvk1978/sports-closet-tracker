@@ -40,14 +40,21 @@ function CountdownUnit({ value, label }) {
   );
 }
 
-function PreGameScreen({ pool, playerCount, hasBracket, onLeavePool }) {
+function PreGameScreen({ pool, playerCount, hasBracket, ownerName, onLeavePool }) {
   const { days, hours, mins, secs, done } = useCountdown(FIRST_TIPOFF);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
       {/* Pool header — mirrors locked dashboard */}
       <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-3 flex items-center gap-4">
-        <h2 className="text-sm font-bold text-white truncate">{pool?.name ?? "Pool"}</h2>
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold text-white truncate">{pool?.name ?? "Pool"}</h2>
+          {ownerName && (
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Commissioner: <span className="text-slate-400">{ownerName}</span>
+            </p>
+          )}
+        </div>
         <span className="text-xs text-slate-500 shrink-0">
           {playerCount} {playerCount === 1 ? "entry" : "entries"}
         </span>
@@ -501,13 +508,14 @@ export default function Dashboard() {
     ELIMINATION_STATS,
     userPicks,
   } = usePoolData();
-  const { pool } = usePool();
+  const { pool, members } = usePool();
   const { profile } = useAuth();
   const navigate = useNavigate();
 
-  const isLocked  = pool?.locked === true;
-  const isAdmin   = profile?.is_admin === true;
+  const isLocked   = pool?.locked === true;
+  const isAdmin    = profile?.is_admin === true;
   const hasBracket = userPicks.length > 0 && userPicks.some(p => p != null);
+  const ownerName  = members.find(m => m.user_id === pool?.admin_id)?.profiles?.username ?? null;
   const [selectedName, setSelectedName] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [copied, setCopied] = useState(false);
@@ -548,6 +556,7 @@ export default function Dashboard() {
         pool={pool}
         playerCount={PLAYERS.length}
         hasBracket={hasBracket}
+        ownerName={ownerName}
         onLeavePool={() => setShowLeaveConfirm(true)}
       />
     );
@@ -567,11 +576,18 @@ export default function Dashboard() {
 
       {/* ── Pool Header ────────────────────────────────────────────────────── */}
       <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-3 flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-3 min-w-0">
-          <h2 className="text-sm font-bold text-white truncate">{pool?.name ?? "Pool"}</h2>
-          <span className="text-xs text-slate-500 shrink-0">
-            {PLAYERS.length} {PLAYERS.length === 1 ? "entry" : "entries"}
-          </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-bold text-white truncate">{pool?.name ?? "Pool"}</h2>
+            <span className="text-xs text-slate-500 shrink-0">
+              {PLAYERS.length} {PLAYERS.length === 1 ? "entry" : "entries"}
+            </span>
+          </div>
+          {ownerName && (
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Commissioner: <span className="text-slate-400">{ownerName}</span>
+            </p>
+          )}
         </div>
         <div className="ml-auto flex items-center gap-3 shrink-0 flex-wrap">
           {isLocked ? (
