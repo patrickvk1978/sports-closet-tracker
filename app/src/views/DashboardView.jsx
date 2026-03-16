@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { KEY_SLOTS } from "../lib/scoring";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../lib/supabase";
 
 // ─── Pre-game gate ────────────────────────────────────────────────────────────
 // Update FIRST_TIPOFF if the schedule changes. Countdown is display-only;
@@ -39,7 +40,7 @@ function CountdownUnit({ value, label }) {
   );
 }
 
-function PreGameScreen({ pool, playerCount }) {
+function PreGameScreen({ pool, playerCount, hasBracket, onLeavePool }) {
   const { days, hours, mins, secs, done } = useCountdown(FIRST_TIPOFF);
 
   return (
@@ -86,7 +87,7 @@ function PreGameScreen({ pool, playerCount }) {
             to="/submit"
             className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold rounded-xl transition-colors"
           >
-            Submit Your Bracket →
+            {hasBracket ? "Edit Your Bracket" : "Submit Your Bracket"} →
           </Link>
           <Link
             to="/bracket"
@@ -100,6 +101,12 @@ function PreGameScreen({ pool, playerCount }) {
           >
             View Pick Matrix
           </Link>
+          <button
+            onClick={onLeavePool}
+            className="px-5 py-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-slate-500 hover:text-red-400 text-sm font-semibold rounded-xl transition-colors"
+          >
+            Leave Pool
+          </button>
         </div>
       </div>
     </div>
@@ -492,15 +499,33 @@ export default function Dashboard() {
     LEVERAGE_THRESHOLD,
     BEST_PATH,
     ELIMINATION_STATS,
+    userPicks,
   } = usePoolData();
   const { pool } = usePool();
   const { profile } = useAuth();
+  const navigate = useNavigate();
 
   const isLocked  = pool?.locked === true;
   const isAdmin   = profile?.is_admin === true;
+  const hasBracket = userPicks.length > 0 && userPicks.some(p => p != null);
   const [selectedName, setSelectedName] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [copied, setCopied] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  async function handleLeavePool() {
+    setLeaving(true);
+    const { error } = await supabase
+      .from("pool_members")
+      .delete()
+      .eq("pool_id", pool.id)
+      .eq("user_id", profile.id);
+    setLeaving(false);
+    if (!error) {
+      navigate("/join");
+    }
+  }
 
   // Default to current user
   useEffect(() => {
@@ -518,7 +543,14 @@ export default function Dashboard() {
 
   // Gate: non-admins see the holding screen until the pool is locked
   if (!isLocked && !isAdmin) {
-    return <PreGameScreen pool={pool} playerCount={PLAYERS.length} />;
+    return (
+      <PreGameScreen
+        pool={pool}
+        playerCount={PLAYERS.length}
+        hasBracket={hasBracket}
+        onLeavePool={() => setShowLeaveConfirm(true)}
+      />
+    );
   }
 
   if (!player) return null;
@@ -570,6 +602,14 @@ export default function Dashboard() {
               {copied ? "Copied!" : "Invite Friends"}
             </button>
           )}
+          {!isAdmin && (
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              className="px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-slate-500 hover:text-red-400 hover:border-red-900/40 text-xs font-semibold transition-all"
+            >
+              Leave Pool
+            </button>
+          )}
         </div>
       </div>
 
@@ -614,6 +654,35 @@ export default function Dashboard() {
           leverageGames={LEVERAGE_GAMES}
           threshold={LEVERAGE_THRESHOLD}
         />
+      )}
+
+      {/* Leave pool confirm modal */}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <p className="text-sm font-bold text-white mb-2">Leave this pool?</p>
+            <p className="text-xs text-slate-400 mb-1">
+              You'll be removed from <span className="text-white font-semibold">{pool?.name}</span> and your bracket will be deleted.
+            </p>
+            <p className="text-xs text-red-400 mb-5">This cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowLeaveConfirm(false)}
+                disabled={leaving}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLeavePool}
+                disabled={leaving}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {leaving ? "Leaving…" : "Yes, Leave Pool"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

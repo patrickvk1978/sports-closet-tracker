@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePool } from '../hooks/usePool'
@@ -152,7 +153,6 @@ function LockToggle({ pool, onLockChange }) {
 
   function handleClick() {
     if (!locked) {
-      // about to lock — show confirm dialog
       setConfirm(true)
     } else {
       doToggle(false)
@@ -173,7 +173,6 @@ function LockToggle({ pool, onLockChange }) {
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Toggle switch */}
         <button
           onClick={handleClick}
           disabled={saving || !pool}
@@ -192,7 +191,6 @@ function LockToggle({ pool, onLockChange }) {
         </span>
       </div>
 
-      {/* Confirm dialog */}
       {confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
@@ -235,7 +233,6 @@ function MatchupRow({ offset, regionBase, teamData, onChange }) {
 
   return (
     <div className="flex items-center gap-3 py-2 border-b border-slate-800/60 last:border-0">
-      {/* Slot badge */}
       <span
         className="text-[10px] text-slate-600 w-6 text-right shrink-0 tabular-nums"
         style={{ fontFamily: 'Space Mono, monospace' }}
@@ -243,7 +240,6 @@ function MatchupRow({ offset, regionBase, teamData, onChange }) {
         {slotIndex}
       </span>
 
-      {/* Team 1 */}
       <div className="flex items-center gap-1.5 flex-1">
         <span
           className="text-[11px] text-slate-500 w-5 text-center tabular-nums shrink-0"
@@ -261,7 +257,6 @@ function MatchupRow({ offset, regionBase, teamData, onChange }) {
         />
       </div>
 
-      {/* vs */}
       <span
         className="text-[10px] text-slate-600 shrink-0 select-none"
         style={{ fontFamily: 'Space Mono, monospace' }}
@@ -269,7 +264,6 @@ function MatchupRow({ offset, regionBase, teamData, onChange }) {
         vs
       </span>
 
-      {/* Team 2 */}
       <div className="flex items-center gap-1.5 flex-1">
         <span
           className="text-[11px] text-slate-500 w-5 text-center tabular-nums shrink-0"
@@ -308,7 +302,6 @@ function RegionEditor({ region, teamData, onChange, onSave, saving }) {
         </button>
       </div>
 
-      {/* Column headers */}
       <div className="flex items-center gap-3 mb-1 text-[10px] text-slate-600 uppercase tracking-widest" style={{ fontFamily: 'Space Mono, monospace' }}>
         <span className="w-6" />
         <span className="flex-1 pl-6">Team 1</span>
@@ -331,12 +324,14 @@ function RegionEditor({ region, teamData, onChange, onSave, saving }) {
 
 // ─── Members section ───────────────────────────────────────────────────────────
 
-function MembersSection({ showToast }) {
-  const [members,       setMembers]       = useState([])
-  const [loadingMembers,setLoadingMembers] = useState(true)
-  const [resetEmail,    setResetEmail]    = useState('')
-  const [sendingReset,  setSendingReset]  = useState(false)
+function MembersSection({ showToast, onRemove, membersKey }) {
+  const [members,        setMembers]        = useState([])
+  const [loadingMembers, setLoadingMembers] = useState(true)
+  const [resetEmail,     setResetEmail]     = useState('')
+  const [sendingReset,   setSendingReset]   = useState(false)
+  const [removingId,     setRemovingId]     = useState(null)
   const { pool } = usePool()
+  const { profile } = useAuth()
 
   useEffect(() => {
     if (!pool?.id) return
@@ -353,7 +348,13 @@ function MembersSection({ showToast }) {
     }
     loadMembers()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool?.id])
+  }, [pool?.id, membersKey])
+
+  async function handleRemove(userId) {
+    setRemovingId(userId)
+    await onRemove(userId)
+    setRemovingId(null)
+  }
 
   async function handleSendReset(e) {
     e.preventDefault()
@@ -380,7 +381,6 @@ function MembersSection({ showToast }) {
         </p>
       </div>
 
-      {/* Members table */}
       {loadingMembers ? (
         <p className="text-xs text-slate-500" style={{ fontFamily: 'Space Mono, monospace' }}>Loading members…</p>
       ) : members.length === 0 ? (
@@ -395,6 +395,9 @@ function MembersSection({ showToast }) {
                 </th>
                 <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest" style={{ fontFamily: 'Space Mono, monospace' }}>
                   Role
+                </th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-bold text-slate-500 uppercase tracking-widest" style={{ fontFamily: 'Space Mono, monospace' }}>
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -414,6 +417,17 @@ function MembersSection({ showToast }) {
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500" style={{ fontFamily: 'Space Mono, monospace' }}>
                         Member
                       </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    {m.user_id !== profile?.id && (
+                      <button
+                        onClick={() => handleRemove(m.user_id)}
+                        disabled={removingId === m.user_id}
+                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-red-900/30 text-red-400 hover:bg-red-900/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {removingId === m.user_id ? 'Removing…' : 'Remove'}
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -447,6 +461,122 @@ function MembersSection({ showToast }) {
           </button>
         </form>
       </div>
+    </div>
+  )
+}
+
+// ─── Pool section ──────────────────────────────────────────────────────────────
+
+function PoolSection({ pool, onLockChange, navigate, showToast }) {
+  const [copiedInvite,  setCopiedInvite]  = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting,      setDeleting]      = useState(false)
+
+  const inviteUrl = pool
+    ? `${window.location.origin}/join?code=${pool.invite_code}`
+    : ''
+
+  function handleCopyInvite() {
+    if (!inviteUrl) return
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopiedInvite(true)
+      setTimeout(() => setCopiedInvite(false), 2000)
+    })
+  }
+
+  async function handleDeletePool() {
+    setDeleting(true)
+    const { error } = await supabase
+      .from('pools')
+      .delete()
+      .eq('id', pool.id)
+    setDeleting(false)
+    if (error) {
+      showToast('Delete failed: ' + error.message, 'error')
+      setConfirmDelete(false)
+    } else {
+      navigate('/join')
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Lock toggle */}
+      <LockToggle pool={pool} onLockChange={onLockChange} />
+
+      {/* Invite link */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">
+        <p className="text-sm font-bold text-white mb-0.5">Invite Link</p>
+        <p className="text-xs text-slate-400 mb-3">
+          Share this link with participants to let them join the pool directly.
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <code
+            className="flex-1 min-w-0 text-[11px] bg-slate-950 border border-slate-800 rounded-xl
+              px-4 py-2.5 text-cyan-400 font-mono truncate"
+          >
+            {inviteUrl || 'No pool selected'}
+          </code>
+          <button
+            onClick={handleCopyInvite}
+            disabled={!inviteUrl}
+            className="px-4 py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap
+              disabled:opacity-40 disabled:cursor-not-allowed
+              border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+          >
+            {copiedInvite ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+        {pool && (
+          <p className="mt-2 text-[11px] text-slate-600" style={{ fontFamily: 'Space Mono, monospace' }}>
+            Code: <span className="text-slate-400">{pool.invite_code}</span>
+          </p>
+        )}
+      </div>
+
+      {/* Danger zone */}
+      <div className="bg-slate-900/60 border border-red-900/40 rounded-2xl p-5">
+        <p className="text-sm font-bold text-red-400 mb-0.5">Danger Zone</p>
+        <p className="text-xs text-slate-400 mb-4">
+          Permanently delete this pool along with all members and brackets. This cannot be undone.
+        </p>
+        <button
+          onClick={() => setConfirmDelete(true)}
+          disabled={!pool}
+          className="px-4 py-2 rounded-xl text-xs font-bold bg-red-900/40 hover:bg-red-900/60 border border-red-800/60 text-red-400 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Delete Pool
+        </button>
+      </div>
+
+      {/* Delete confirm modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <p className="text-sm font-bold text-white mb-2">Delete pool?</p>
+            <p className="text-xs text-slate-400 mb-1">
+              This will permanently delete <span className="text-white font-semibold">{pool?.name}</span> along with all members and brackets.
+            </p>
+            <p className="text-xs text-red-400 mb-5">This action cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeletePool}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleting ? 'Deleting…' : 'Yes, Delete Pool'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -586,7 +716,6 @@ function SimulationSection() {
         )}
       </div>
 
-      {/* Terminal command */}
       <div className="flex items-center gap-2 flex-wrap">
         <code
           className="flex-1 min-w-0 text-[11px] bg-slate-950 border border-slate-800 rounded-xl
@@ -605,14 +734,12 @@ function SimulationSection() {
         </button>
       </div>
 
-      {/* Optional flags hint */}
       <div className="text-[11px] text-slate-600 space-y-0.5" style={{ fontFamily: 'Space Mono, monospace' }}>
         <p>Optional flags:</p>
         <p className="pl-4 text-slate-700">--iterations 10000 &nbsp; (default; reduce to 2000 for speed)</p>
         <p className="pl-4 text-slate-700">--dry-run &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (print results without writing to DB)</p>
       </div>
 
-      {/* Win probability results */}
       {topPlayers.length > 0 ? (
         <div>
           <p className="text-xs font-semibold text-slate-400 mb-2">
@@ -655,21 +782,52 @@ function SimulationSection() {
   )
 }
 
+// ─── Admin tab bar ─────────────────────────────────────────────────────────────
+
+const ADMIN_TABS = [
+  { key: 'bracket',    label: 'Bracket' },
+  { key: 'members',   label: 'Members' },
+  { key: 'pool',      label: 'Pool' },
+  { key: 'simulation', label: 'Simulation' },
+]
+
+function AdminTabBar({ activeTab, onTabChange }) {
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto pb-1">
+      {ADMIN_TABS.map((tab) => (
+        <button
+          key={tab.key}
+          onClick={() => onTabChange(tab.key)}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            activeTab === tab.key
+              ? 'bg-orange-500/15 border border-orange-500/40 text-orange-400'
+              : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
   const { profile } = useAuth()
   const { pool, refreshPool } = usePool()
+  const navigate = useNavigate()
 
+  const [adminTab,   setAdminTab]   = useState('bracket')
   const [activeTab,  setActiveTab]  = useState('midwest')
-  const [teamData,   setTeamData]   = useState({})   // { [slotIndex]: { team1, seed1, team2, seed2 } }
-  const [espnIds,    setEspnIds]    = useState({})   // { [slotIndex]: espnId }
+  const [teamData,   setTeamData]   = useState({})
+  const [espnIds,    setEspnIds]    = useState({})
   const [loading,    setLoading]    = useState(true)
   const [savingTeam, setSavingTeam] = useState(false)
   const [savingEspn, setSavingEspn] = useState(false)
+  const [membersKey, setMembersKey] = useState(0)
   const { toast, showToast } = useToast()
 
-  // Build inverted mapping { [espn_id]: slot_index } for the poller
   const slotMapping = useMemo(() => {
     const mapping = {}
     Object.entries(espnIds).forEach(([slotIndex, espnId]) => {
@@ -781,7 +939,6 @@ export default function AdminPage() {
     if (error) {
       showToast('Save failed: ' + error.message, 'error')
     } else {
-      // Reflect seed values back into local state
       setTeamData((prev) => {
         const next = { ...prev }
         upserts.forEach(({ slot_index, teams }) => {
@@ -847,6 +1004,21 @@ export default function AdminPage() {
     }
   }
 
+  // ── Remove member ────────────────────────────────────────────────────────────
+  async function removeMember(userId) {
+    const { error } = await supabase
+      .from('pool_members')
+      .delete()
+      .eq('pool_id', pool.id)
+      .eq('user_id', userId)
+    if (error) {
+      showToast('Failed to remove member: ' + error.message, 'error')
+    } else {
+      showToast('Member removed.')
+      setMembersKey((k) => k + 1)
+    }
+  }
+
   // ── Access denied ───────────────────────────────────────────────────────────
   if (!profile?.is_admin) {
     return (
@@ -871,7 +1043,7 @@ export default function AdminPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
 
-      {/* Page header */}
+      {/* Page header — always visible */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-lg font-bold text-white">Admin Panel</h2>
@@ -920,84 +1092,101 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Lock toggle */}
-      <LockToggle
-        pool={pool}
-        onLockChange={(locked) => {
-          showToast(locked ? 'Pool locked.' : 'Pool unlocked.')
-          refreshPool()
-        }}
-      />
+      {/* Admin tab bar */}
+      <AdminTabBar activeTab={adminTab} onTabChange={setAdminTab} />
 
-      {/* Team editor card */}
-      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <div>
-            <p className="text-sm font-bold text-white mb-0.5">R64 Team Editor</p>
-            <p className="text-xs text-slate-400">
-              Enter the 64 team names after the bracket is announced on Selection Sunday.
-              Seeds are fixed — only team names need to be updated.
-            </p>
+      {/* Tab: Bracket */}
+      {adminTab === 'bracket' && (
+        <>
+          <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <div>
+                <p className="text-sm font-bold text-white mb-0.5">R64 Team Editor</p>
+                <p className="text-xs text-slate-400">
+                  Enter the 64 team names after the bracket is announced on Selection Sunday.
+                  Seeds are fixed — only team names need to be updated.
+                </p>
+              </div>
+              <button
+                onClick={() => saveRegions(REGIONS.map((r) => r.key))}
+                disabled={savingTeam}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500
+                  hover:from-orange-400 hover:to-amber-400 text-white transition-all
+                  disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-lg shadow-orange-900/20"
+              >
+                {savingTeam ? 'Saving…' : 'Save All Regions'}
+              </button>
+            </div>
+
+            {/* Region tabs */}
+            <div className="flex items-center gap-1 mb-5 overflow-x-auto pb-1">
+              {REGIONS.map((region) => (
+                <button
+                  key={region.key}
+                  onClick={() => setActiveTab(region.key)}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                    activeTab === region.key
+                      ? 'text-white'
+                      : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                  style={
+                    activeTab === region.key
+                      ? { background: `${region.color}22`, border: `1px solid ${region.color}55`, color: region.color }
+                      : {}
+                  }
+                >
+                  {region.label}
+                </button>
+              ))}
+            </div>
+
+            {activeRegion && (
+              <RegionEditor
+                region={activeRegion}
+                teamData={teamData}
+                onChange={handleTeamChange}
+                onSave={saveRegions}
+                saving={savingTeam}
+              />
+            )}
           </div>
-          <button
-            onClick={() => saveRegions(REGIONS.map((r) => r.key))}
-            disabled={savingTeam}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500
-              hover:from-orange-400 hover:to-amber-400 text-white transition-all
-              disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-lg shadow-orange-900/20"
-          >
-            {savingTeam ? 'Saving…' : 'Save All Regions'}
-          </button>
-        </div>
 
-        {/* Region tabs */}
-        <div className="flex items-center gap-1 mb-5 overflow-x-auto pb-1">
-          {REGIONS.map((region) => (
-            <button
-              key={region.key}
-              onClick={() => setActiveTab(region.key)}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                activeTab === region.key
-                  ? 'text-white'
-                  : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-              style={
-                activeTab === region.key
-                  ? { background: `${region.color}22`, border: `1px solid ${region.color}55`, color: region.color }
-                  : {}
-              }
-            >
-              {region.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Active region editor */}
-        {activeRegion && (
-          <RegionEditor
-            region={activeRegion}
+          <EspnIdSection
+            espnIds={espnIds}
             teamData={teamData}
-            onChange={handleTeamChange}
-            onSave={saveRegions}
-            saving={savingTeam}
+            onEspnChange={handleEspnChange}
+            onEspnSave={saveEspnIds}
+            saving={savingEspn}
           />
-        )}
-      </div>
+        </>
+      )}
 
-      {/* Members + send reset email */}
-      <MembersSection showToast={showToast} />
+      {/* Tab: Members */}
+      {adminTab === 'members' && (
+        <MembersSection
+          showToast={showToast}
+          onRemove={removeMember}
+          membersKey={membersKey}
+        />
+      )}
 
-      {/* Monte Carlo simulation */}
-      <SimulationSection />
+      {/* Tab: Pool */}
+      {adminTab === 'pool' && (
+        <PoolSection
+          pool={pool}
+          onLockChange={(locked) => {
+            showToast(locked ? 'Pool locked.' : 'Pool unlocked.')
+            refreshPool()
+          }}
+          navigate={navigate}
+          showToast={showToast}
+        />
+      )}
 
-      {/* ESPN ID mapping */}
-      <EspnIdSection
-        espnIds={espnIds}
-        teamData={teamData}
-        onEspnChange={handleEspnChange}
-        onEspnSave={saveEspnIds}
-        saving={savingEspn}
-      />
+      {/* Tab: Simulation */}
+      {adminTab === 'simulation' && (
+        <SimulationSection />
+      )}
 
       {/* Toast */}
       <Toast message={toast.message} type={toast.type} visible={toast.visible} />
