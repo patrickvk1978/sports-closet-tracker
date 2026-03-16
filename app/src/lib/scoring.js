@@ -97,7 +97,6 @@ export function buildPlayersArray(members, brackets, games) {
     const picks63  = bracket?.picks || Array(63).fill(null)
     const points   = games.length > 0 ? calculateScore(picks63, games) : 0
     const ppr      = games.length > 0 ? calculatePPR(picks63, games) : 0
-    const picks7   = KEY_SLOTS.map((slot) => picks63[slot] || null)
 
     return {
       name:       member.profiles?.username ?? `user_${member.user_id.slice(0, 6)}`,
@@ -106,7 +105,7 @@ export function buildPlayersArray(members, brackets, games) {
       winProb:    0,     // Phase 3 Monte Carlo
       champAlive: isChampAlive(picks63, games),
       trend:      'same', // Phase 3
-      picks:      picks7,
+      picks:      picks63,
     }
   })
 

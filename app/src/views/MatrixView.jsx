@@ -10,11 +10,19 @@ const SORT_OPTIONS = [
   { key: "winProb", label: "Win %"   },
 ];
 
+const COL_WIDTHS = { R64: 76, R32: 88, S16: 96, E8: 106, F4: 112, Champ: 120 }
+
 function getCellStyle(pick, game) {
   if (!pick || game.status === "pending") return "bg-slate-800/50 text-slate-400";
   if (game.status === "live")             return "bg-amber-900/30 text-amber-200";
   if (game.winner === pick)               return "bg-emerald-900/40 text-emerald-300";
   return "bg-red-900/30 text-red-400 line-through opacity-60";
+}
+
+function seedLabel(seed1, seed2) {
+  if (!seed1 || !seed2) return null;
+  const lo = Math.min(seed1, seed2), hi = Math.max(seed1, seed2);
+  return `${lo}v${hi}`;
 }
 
 function StatusBadge({ status }) {
@@ -60,10 +68,9 @@ export default function MatrixView() {
   const getPickDistribution = (gameId) => {
     const game = GAMES.find((g) => g.id === gameId);
     if (!game) return [];
-    const gameIdx = GAMES.indexOf(game);
     const counts = {};
     PLAYERS.forEach((p) => {
-      const pick = p.picks[gameIdx];
+      const pick = p.picks[game.slot_index];
       if (pick) counts[pick] = (counts[pick] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -171,21 +178,71 @@ export default function MatrixView() {
               ))}
 
               {/* Game columns */}
-              {filteredGames.map((game) => (
-                <th
-                  key={game.id}
-                  onMouseEnter={() => isLocked && setHoveredGame(game.id)}
-                  onMouseLeave={() => setHoveredGame(null)}
-                  className={`sticky top-0 z-20 bg-slate-900 border-b border-slate-800 px-3 py-2 text-center transition-colors border-l border-slate-800/30 ${isLocked ? "cursor-pointer hover:bg-slate-800" : ""}`}
-                  style={{ minWidth: 108 }}
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <StatusBadge status={game.status} />
-                    <span className="text-[11px] text-slate-300 font-semibold leading-tight">{game.matchup}</span>
-                    <span className="text-[10px] text-slate-600">{game.round}</span>
-                    {/* Live score display */}
-                    {game.status === "live" && game.score1 != null && game.score2 != null && (
-                      <div className="flex flex-col items-center gap-0.5">
+              {filteredGames.map((game) => {
+                const isLive = game.status === "live";
+                const seed   = seedLabel(game.seed1, game.seed2);
+                const colW   = COL_WIDTHS[game.roundKey] ?? 96;
+                // header bg: live > key game > default
+                const headerBg = isLive
+                  ? "bg-red-950/50"
+                  : game.isKeyGame
+                    ? "bg-orange-950/30"
+                    : "bg-slate-900";
+                return (
+                  <th
+                    key={game.id}
+                    onMouseEnter={() => isLocked && setHoveredGame(game.id)}
+                    onMouseLeave={() => setHoveredGame(null)}
+                    className={`sticky top-0 z-20 border-b border-slate-800 px-2 py-1.5 text-center transition-colors ${headerBg} ${isLocked ? "cursor-pointer hover:brightness-125" : ""}`}
+                    style={{
+                      minWidth: colW,
+                      borderLeft: game.firstInRegion
+                        ? `2px solid ${game.regionColor}`
+                        : "1px solid rgb(30 41 59 / 0.5)",
+                      borderTop: `2px solid ${game.regionColor}55`,
+                    }}
+                  >
+                    <div className="flex flex-col items-center gap-0.5">
+                      {/* Region label on first column of each region */}
+                      {game.firstInRegion && (
+                        <span
+                          className="text-[9px] font-bold uppercase tracking-widest"
+                          style={{ color: game.regionColor, fontFamily: "Space Mono, monospace" }}
+                        >
+                          {game.region}
+                        </span>
+                      )}
+
+                      {/* Status + seed badge row */}
+                      <div className="flex items-center gap-1 flex-wrap justify-center">
+                        <StatusBadge status={game.status} />
+                        {seed && (
+                          <span
+                            className="text-[9px] tabular-nums px-1 py-0.5 rounded bg-slate-800 text-slate-500"
+                            style={{ fontFamily: "Space Mono, monospace" }}
+                          >
+                            {seed}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Matchup */}
+                      <span
+                        className={`text-[11px] font-semibold leading-tight ${game.isKeyGame ? "text-white" : "text-slate-300"}`}
+                      >
+                        {game.matchup}
+                      </span>
+
+                      {/* Round label */}
+                      <span
+                        className="text-[9px] uppercase tracking-wider"
+                        style={{ color: `${game.regionColor}99`, fontFamily: "Space Mono, monospace" }}
+                      >
+                        {game.round}
+                      </span>
+
+                      {/* Live score */}
+                      {isLive && game.score1 != null && game.score2 != null && (
                         <div className="flex items-center gap-1">
                           <span
                             className="text-[11px] font-bold text-amber-400 tabular-nums"
@@ -195,26 +252,24 @@ export default function MatrixView() {
                           </span>
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
                         </div>
-                        {game.gameNote && (
-                          <span className="text-[9px] text-slate-500 leading-tight">{game.gameNote}</span>
-                        )}
-                        <span className="text-[9px] text-slate-600">ESPN</span>
-                      </div>
-                    )}
-                    {game.status === "final" && game.score1 != null && game.score2 != null && (
-                      <div className="flex flex-col items-center gap-0.5">
+                      )}
+                      {isLive && game.gameNote && (
+                        <span className="text-[9px] text-slate-500 leading-none">{game.gameNote}</span>
+                      )}
+
+                      {/* Final score */}
+                      {game.status === "final" && game.score1 != null && game.score2 != null && (
                         <span
-                          className="text-[11px] text-slate-500 tabular-nums"
+                          className="text-[10px] text-slate-500 tabular-nums"
                           style={{ fontFamily: "Space Mono, monospace" }}
                         >
                           {game.score1}–{game.score2}
                         </span>
-                        <span className="text-[9px] text-slate-600">ESPN</span>
-                      </div>
-                    )}
-                  </div>
-                </th>
-              ))}
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
 
@@ -275,10 +330,9 @@ export default function MatrixView() {
                 </td>
 
                 {filteredGames.map((game) => {
-                  const gameIdx = GAMES.indexOf(game);
-                  // Before pool locks, show picks only for the current user's own row
+                  // Use slot_index for correct picks lookup across all 63 slots
                   const isOwnRow = player.name === profile?.username;
-                  const pick = (!isLocked && !isOwnRow) ? null : player.picks[gameIdx];
+                  const pick = (!isLocked && !isOwnRow) ? null : player.picks[game.slot_index];
                   const hidden = !isLocked && !isOwnRow;
                   return (
                     <td

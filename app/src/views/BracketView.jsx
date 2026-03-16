@@ -515,7 +515,14 @@ export default function BracketView() {
   const KEY_PICKS = useMemo(() => {
     const result = {};
     PLAYERS.forEach((player) => {
-      const [e8mw, e8w, e8e, e8s, sf1, sf2, champ] = player.picks;
+      // KEY_SLOTS = [14, 29, 59, 44, 60, 61, 62]
+      const e8mw  = player.picks[14];  // Midwest E8
+      const e8w   = player.picks[29];  // West E8
+      const e8e   = player.picks[59];  // East E8
+      const e8s   = player.picks[44];  // South E8
+      const sf1   = player.picks[60];  // F4 SF1
+      const sf2   = player.picks[61];  // F4 SF2
+      const champ = player.picks[62];  // Championship
       const runnerUp  = sf1 === champ ? (sf2 ?? null) : (sf1 ?? null);
       const sf1Loser  = e8mw === sf1  ? e8w : e8mw;
       const sf2Loser  = e8s  === sf2  ? e8e : e8s;

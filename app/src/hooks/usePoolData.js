@@ -20,6 +20,27 @@ import {
 const REGION_SLOT_BASES = { midwest: 0, west: 15, south: 30, east: 45 }
 const ROUND_SLOT_START  = { R64: 0, R32: 8, S16: 12, E8: 14 }
 
+// All-game matrix metadata
+const REGION_META = [
+  { name: 'Midwest', color: '#f97316', base: 0  },
+  { name: 'West',    color: '#06b6d4', base: 15 },
+  { name: 'South',   color: '#a78bfa', base: 30 },
+  { name: 'East',    color: '#22c55e', base: 45 },
+]
+const SLOT_ROUND_KEY = (() => {
+  const m = {}
+  for (const { base } of REGION_META) {
+    for (let i = 0;  i < 8;  i++) m[base + i]       = 'R64'
+    for (let i = 8;  i < 12; i++) m[base + i]       = 'R32'
+    for (let i = 12; i < 14; i++) m[base + i]       = 'S16'
+    m[base + 14] = 'E8'
+  }
+  m[60] = 'F4'; m[61] = 'F4'; m[62] = 'Champ'
+  return m
+})()
+const ROUND_DISPLAY = { R64: 'R64', R32: 'R32', S16: 'S16', E8: 'E8', F4: 'Final Four', Champ: 'Championship' }
+const ALL_ROUNDS    = ['R64', 'R32', 'S16', 'E8', 'Final Four', 'Championship']
+
 /**
  * Annotate a bracket object (mock or live) by adding slotIndex to each game.
  * Operates on the shape { regionKey: { rounds: { roundKey: [game, ...] } } }.
@@ -45,12 +66,6 @@ function annotateBracket(bracket) {
 // Pre-annotated mock bracket (computed once at module load)
 const ANNOTATED_MOCK_BRACKET = annotateBracket(MOCK_BRACKET)
 
-// Round name by KEY_SLOTS position
-const KEY_ROUND_NAMES = [
-  'Elite 8', 'Elite 8', 'Elite 8', 'Elite 8',
-  'Final Four', 'Final Four', 'Championship',
-]
-
 function shortTeam(name) {
   if (!name) return 'TBD'
   const parts = name.split(' ')
@@ -58,22 +73,65 @@ function shortTeam(name) {
 }
 
 function buildLiveGames(dbGames) {
-  return KEY_SLOTS.map((slot, idx) => {
-    const g = dbGames.find((r) => r.slot_index === slot)
-    if (!g) return null
-    return {
-      id:       idx + 1,
-      round:    KEY_ROUND_NAMES[idx],
-      matchup:  `${shortTeam(g.teams?.team1)} vs ${shortTeam(g.teams?.team2)}`,
-      team1:    g.teams?.team1 ?? null,
-      team2:    g.teams?.team2 ?? null,
-      status:   g.status,
-      winner:   g.winner,
-      score1:   g.teams?.score1 ?? null,
-      score2:   g.teams?.score2 ?? null,
-      gameNote: g.teams?.gameNote ?? null,
+  const games = []
+  let id = 1
+
+  // Four regions: slots 0–59
+  for (const { name, color, base } of REGION_META) {
+    for (let i = 0; i < 15; i++) {
+      const slot     = base + i
+      const roundKey = SLOT_ROUND_KEY[slot]
+      const g        = dbGames.find((r) => r.slot_index === slot)
+      games.push({
+        id:            id++,
+        slot_index:    slot,
+        round:         ROUND_DISPLAY[roundKey],
+        roundKey,
+        region:        name,
+        regionColor:   color,
+        isKeyGame:     roundKey === 'E8',
+        firstInRegion: i === 0,
+        seed1:         g?.teams?.seed1 ?? null,
+        seed2:         g?.teams?.seed2 ?? null,
+        matchup:       g ? `${shortTeam(g.teams?.team1)} vs ${shortTeam(g.teams?.team2)}` : 'TBD vs TBD',
+        team1:         g?.teams?.team1 ?? null,
+        team2:         g?.teams?.team2 ?? null,
+        status:        g?.status ?? 'pending',
+        winner:        g?.winner ?? null,
+        score1:        g?.teams?.score1 ?? null,
+        score2:        g?.teams?.score2 ?? null,
+        gameNote:      g?.teams?.gameNote ?? null,
+      })
     }
-  }).filter(Boolean)
+  }
+
+  // Final Four + Championship: slots 60–62
+  for (const slot of [60, 61, 62]) {
+    const roundKey = SLOT_ROUND_KEY[slot]
+    const g        = dbGames.find((r) => r.slot_index === slot)
+    games.push({
+      id:            id++,
+      slot_index:    slot,
+      round:         ROUND_DISPLAY[roundKey],
+      roundKey,
+      region:        'Final',
+      regionColor:   '#fbbf24',
+      isKeyGame:     true,
+      firstInRegion: slot === 60,
+      seed1:         null,
+      seed2:         null,
+      matchup:       g ? `${shortTeam(g.teams?.team1)} vs ${shortTeam(g.teams?.team2)}` : 'TBD vs TBD',
+      team1:         g?.teams?.team1 ?? null,
+      team2:         g?.teams?.team2 ?? null,
+      status:        g?.status ?? 'pending',
+      winner:        g?.winner ?? null,
+      score1:        g?.teams?.score1 ?? null,
+      score2:        g?.teams?.score2 ?? null,
+      gameNote:      g?.teams?.gameNote ?? null,
+    })
+  }
+
+  return games
 }
 
 function buildLiveBracket(dbGames) {
@@ -135,10 +193,9 @@ function computeConsensus(players, liveGames) {
   return liveGames
     .filter((g) => g.status !== 'final')
     .map((game) => {
-      const gameIdx = liveGames.indexOf(game)
       const counts  = {}
       players.forEach((p) => {
-        const pick = p.picks[gameIdx]
+        const pick = p.picks[game.slot_index]
         if (pick) counts[pick] = (counts[pick] || 0) + 1
       })
       const total = players.length || 1
@@ -214,8 +271,8 @@ export function usePoolData() {
 
   return {
     PLAYERS:            PLAYERS_WITH_PROBS,
-    GAMES:              useLive && liveGames.length >= 7 ? liveGames : MOCK_GAMES,
-    ROUNDS:             MOCK_ROUNDS,
+    GAMES:              useLive ? liveGames : MOCK_GAMES,
+    ROUNDS:             useLive ? ALL_ROUNDS : MOCK_ROUNDS,
     BRACKET:            useLive && liveBracket ? liveBracket : ANNOTATED_MOCK_BRACKET,
     PLAYER_COLORS:      MOCK_PLAYER_COLORS,
     LEVERAGE_GAMES:     LEVERAGE_GAMES_LIVE,

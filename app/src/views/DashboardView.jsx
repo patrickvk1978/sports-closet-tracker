@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { KEY_SLOTS } from "../lib/scoring";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
@@ -197,8 +198,9 @@ function OverviewTab({ player, players, bestPath, isLocked, onSelectPlayer }) {
     return players
       .filter(p => p.name !== player.name)
       .reduce((best, rival) => {
-        const matches = player.picks.reduce((acc, pick, i) => pick === rival.picks[i] ? acc + 1 : acc, 0);
-        return !best || matches > best.matches ? { ...rival, matches, divergences: player.picks.length - matches } : best;
+        const matches = KEY_SLOTS.reduce((acc, slot) =>
+          player.picks[slot] && player.picks[slot] === rival.picks[slot] ? acc + 1 : acc, 0);
+        return !best || matches > best.matches ? { ...rival, matches, divergences: KEY_SLOTS.length - matches } : best;
       }, null);
   }, [player, players]);
 
@@ -272,11 +274,11 @@ function OverviewTab({ player, players, bestPath, isLocked, onSelectPlayer }) {
                 <div className="flex items-center justify-between text-xs mb-2">
                   <span className="text-slate-400">Bracket overlap</span>
                   <span className="font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                    {closestRival.matches}/{player.picks.length} picks match
+                    {closestRival.matches}/{KEY_SLOTS.length} key picks match
                   </span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-orange-500 rounded-full" style={{ width: `${(closestRival.matches / player.picks.length) * 100}%` }} />
+                  <div className="h-full bg-orange-500 rounded-full" style={{ width: `${(closestRival.matches / KEY_SLOTS.length) * 100}%` }} />
                 </div>
                 <p className="text-[10px] text-slate-500 mt-2">
                   {closestRival.divergences} pick{closestRival.divergences !== 1 ? "s" : ""} differ — those games separate you

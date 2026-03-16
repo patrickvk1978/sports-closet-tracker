@@ -228,36 +228,52 @@ export const CHAMPIONSHIP = {
 
 // ─── Matrix Games ──────────────────────────────────────────────────────────────
 
+// KEY_SLOTS = [14(Midwest E8), 29(West E8), 59(East E8), 44(South E8), 60(F4-SF1), 61(F4-SF2), 62(Champ)]
+// Mock GAMES covers only the 7 key slots; real data covers all 63.
+// slot_index enables correct picks lookup: player.picks[game.slot_index]
+function _g(id, slotIdx, round, roundKey, region, regionColor, matchup, t1, t2, status, winner) {
+  return { id, slot_index: slotIdx, round, roundKey, region, regionColor,
+    isKeyGame: ['E8','F4','Champ'].includes(roundKey), firstInRegion: false,
+    seed1: null, seed2: null, matchup, team1: t1, team2: t2,
+    status, winner, score1: null, score2: null, gameNote: null }
+}
 export const GAMES = [
-  { id: 1, round: "Elite 8",     matchup: "Kent vs ND",    team1: "Kentucky",    team2: "Notre Dame",   status: "final",   winner: "Kentucky"   },
-  { id: 2, round: "Elite 8",     matchup: "Wisc vs Ariz",  team1: "Wisconsin",   team2: "Arizona",      status: "final",   winner: "Wisconsin"  },
-  { id: 3, round: "Elite 8",     matchup: "MSU vs Lou",    team1: "Michigan St", team2: "Louisville",   status: "final",   winner: "Michigan St"},
-  { id: 4, round: "Elite 8",     matchup: "Duke vs Gonz",  team1: "Duke",        team2: "Gonzaga",      status: "final",   winner: "Duke"       },
-  { id: 5, round: "Final Four",  matchup: "Kent vs Wisc",  team1: "Kentucky",    team2: "Wisconsin",    status: "final",   winner: "Wisconsin"  },
-  { id: 6, round: "Final Four",  matchup: "Duke vs MSU",   team1: "Duke",        team2: "Michigan St",  status: "live",    winner: null         },
-  { id: 7, round: "Championship",matchup: "TBD vs TBD",    team1: null,          team2: null,           status: "pending", winner: null         },
+  _g(1, 14, 'E8',          'E8',    'Midwest', '#f97316', 'Kent vs ND',   'Kentucky',   'Notre Dame',  'final',   'Kentucky'  ),
+  _g(2, 29, 'E8',          'E8',    'West',    '#06b6d4', 'Wisc vs Ariz', 'Wisconsin',  'Arizona',     'final',   'Wisconsin' ),
+  _g(3, 59, 'E8',          'E8',    'East',    '#22c55e', 'MSU vs Lou',   'Michigan St','Louisville',  'final',   'Michigan St'),
+  _g(4, 44, 'E8',          'E8',    'South',   '#a78bfa', 'Duke vs Gonz', 'Duke',       'Gonzaga',     'final',   'Duke'      ),
+  _g(5, 60, 'Final Four',  'F4',    'Final',   '#fbbf24', 'Kent vs Wisc', 'Kentucky',   'Wisconsin',   'final',   'Wisconsin' ),
+  _g(6, 61, 'Final Four',  'F4',    'Final',   '#fbbf24', 'Duke vs MSU',  'Duke',       'Michigan St', 'live',    null        ),
+  _g(7, 62, 'Championship','Champ', 'Final',   '#fbbf24', 'TBD vs TBD',   null,          null,          'pending', null        ),
 ];
 
-export const ROUNDS = ["Elite 8", "Final Four", "Championship"];
+export const ROUNDS = ['E8', 'Final Four', 'Championship'];
 
 // ─── Players ───────────────────────────────────────────────────────────────────
 
+// Expand 7 key picks into full 63-slot array.
+// KEY_SLOTS = [14(MidE8), 29(WstE8), 59(EstE8), 44(SthE8), 60(F4-1), 61(F4-2), 62(Champ)]
+function _p(e8mw, e8w, e8e, e8s, sf1, sf2, champ) {
+  const p = Array(63).fill(null);
+  p[14]=e8mw; p[29]=e8w; p[59]=e8e; p[44]=e8s; p[60]=sf1; p[61]=sf2; p[62]=champ;
+  return p;
+}
 export const PLAYERS = [
-  { rank: 1,  name: "erika-lenhart",  points: 1370, ppr: 480, winProb: 23.4, champAlive: true,  trend: "up",   picks: ["Kentucky","Wisconsin","Virginia",   "Duke","Kentucky","Duke",     "Duke"    ] },
-  { rank: 2,  name: "PayThePlayers",  points: 1330, ppr: 480, winProb: 19.1, champAlive: true,  trend: "up",   picks: ["Kentucky","Wisconsin","Virginia",   "Duke","Kentucky","Duke",     "Duke"    ] },
-  { rank: 3,  name: "ewolfe9",        points: 1150, ppr: 640, winProb: 15.7, champAlive: true,  trend: "up",   picks: ["Kentucky","UNC",      "Villanova",  "Duke","Kentucky","Duke",     "Duke"    ] },
-  { rank: 4,  name: "Stefan G.",      points: 1130, ppr: 480, winProb: 8.2,  champAlive: false, trend: "down", picks: ["Kentucky","Wisconsin","Oklahoma",   "Duke","Wisconsin","Duke",    "Wisconsin"] },
-  { rank: 5,  name: "Roberto8464",    points: 1080, ppr: 320, winProb: 6.8,  champAlive: true,  trend: "same", picks: ["Kentucky","Wisconsin","Louisville", "Duke","Kentucky","Duke",     "Kentucky"] },
-  { rank: 5,  name: "DancingInDark",  points: 1080, ppr: 480, winProb: 6.1,  champAlive: true,  trend: "up",   picks: ["Kentucky","Wisconsin","Louisville", "Duke","Wisconsin","Duke",    "Kentucky"] },
-  { rank: 7,  name: "Eric4197",       points: 1030, ppr: 480, winProb: 5.3,  champAlive: false, trend: "down", picks: ["Kentucky","Wisconsin","Villanova",  "Duke","Wisconsin","Villanova","Villanova"] },
-  { rank: 8,  name: "dukesucks15",    points: 1020, ppr: 480, winProb: 4.9,  champAlive: true,  trend: "same", picks: ["Kentucky","Wisconsin","Virginia",   "Duke","Kentucky","Duke",     "Kentucky"] },
-  { rank: 9,  name: "josedavila",     points: 1010, ppr: 480, winProb: 3.2,  champAlive: true,  trend: "up",   picks: ["Kentucky","Wisconsin","Virginia",   "Duke","Kentucky","Duke",     "Kentucky"] },
-  { rank: 10, name: "MediocreBrckt",  points: 1000, ppr: 320, winProb: 2.8,  champAlive: true,  trend: "same", picks: ["Kentucky","Arizona",   "Villanova",  "Duke","Kentucky","Duke",     "Kentucky"] },
-  { rank: 10, name: "KicyMotley",     points: 1000, ppr: 320, winProb: 2.1,  champAlive: true,  trend: "same", picks: ["Kentucky","Arizona",   "Virginia",   "Duke","Kentucky","Duke",     "Kentucky"] },
-  { rank: 10, name: "on Paul Lupo",   points: 1000, ppr: 480, winProb: 1.9,  champAlive: true,  trend: "up",   picks: ["Kentucky","UNC",      "Michigan St","Duke","Kentucky","Duke",     "Kentucky"] },
-  { rank: 13, name: "Bing",           points: 970,  ppr: 320, winProb: 0.5,  champAlive: true,  trend: "down", picks: ["Kentucky","UNC",      "Louisville", "Duke","Kentucky","Duke",     "Kentucky"] },
-  { rank: 14, name: "jackiedee",      points: 960,  ppr: 480, winProb: 0.3,  champAlive: false, trend: "down", picks: ["Kentucky","Wisconsin","Villanova",  "Iowa St","Wisconsin","Villanova","Wisconsin"] },
-  { rank: 14, name: "Josh Gold",      points: 960,  ppr: 320, winProb: 0.1,  champAlive: true,  trend: "down", picks: ["Kentucky","Wisconsin","Virginia",   "Duke","Kentucky","Duke",     "Kentucky"] },
+  { rank: 1,  name: "erika-lenhart",  points: 1370, ppr: 480, winProb: 23.4, champAlive: true,  trend: "up",   picks: _p("Kentucky","Wisconsin","Virginia",   "Duke",     "Kentucky","Duke",      "Duke"      ) },
+  { rank: 2,  name: "PayThePlayers",  points: 1330, ppr: 480, winProb: 19.1, champAlive: true,  trend: "up",   picks: _p("Kentucky","Wisconsin","Virginia",   "Duke",     "Kentucky","Duke",      "Duke"      ) },
+  { rank: 3,  name: "ewolfe9",        points: 1150, ppr: 640, winProb: 15.7, champAlive: true,  trend: "up",   picks: _p("Kentucky","UNC",      "Villanova",  "Duke",     "Kentucky","Duke",      "Duke"      ) },
+  { rank: 4,  name: "Stefan G.",      points: 1130, ppr: 480, winProb: 8.2,  champAlive: false, trend: "down", picks: _p("Kentucky","Wisconsin","Oklahoma",   "Duke",     "Wisconsin","Duke",     "Wisconsin" ) },
+  { rank: 5,  name: "Roberto8464",    points: 1080, ppr: 320, winProb: 6.8,  champAlive: true,  trend: "same", picks: _p("Kentucky","Wisconsin","Louisville", "Duke",     "Kentucky","Duke",      "Kentucky"  ) },
+  { rank: 5,  name: "DancingInDark",  points: 1080, ppr: 480, winProb: 6.1,  champAlive: true,  trend: "up",   picks: _p("Kentucky","Wisconsin","Louisville", "Duke",     "Wisconsin","Duke",     "Kentucky"  ) },
+  { rank: 7,  name: "Eric4197",       points: 1030, ppr: 480, winProb: 5.3,  champAlive: false, trend: "down", picks: _p("Kentucky","Wisconsin","Villanova",  "Duke",     "Wisconsin","Villanova","Villanova" ) },
+  { rank: 8,  name: "dukesucks15",    points: 1020, ppr: 480, winProb: 4.9,  champAlive: true,  trend: "same", picks: _p("Kentucky","Wisconsin","Virginia",   "Duke",     "Kentucky","Duke",      "Kentucky"  ) },
+  { rank: 9,  name: "josedavila",     points: 1010, ppr: 480, winProb: 3.2,  champAlive: true,  trend: "up",   picks: _p("Kentucky","Wisconsin","Virginia",   "Duke",     "Kentucky","Duke",      "Kentucky"  ) },
+  { rank: 10, name: "MediocreBrckt",  points: 1000, ppr: 320, winProb: 2.8,  champAlive: true,  trend: "same", picks: _p("Kentucky","Arizona",   "Villanova",  "Duke",     "Kentucky","Duke",      "Kentucky"  ) },
+  { rank: 10, name: "KicyMotley",     points: 1000, ppr: 320, winProb: 2.1,  champAlive: true,  trend: "same", picks: _p("Kentucky","Arizona",   "Virginia",   "Duke",     "Kentucky","Duke",      "Kentucky"  ) },
+  { rank: 10, name: "on Paul Lupo",   points: 1000, ppr: 480, winProb: 1.9,  champAlive: true,  trend: "up",   picks: _p("Kentucky","UNC",      "Michigan St","Duke",     "Kentucky","Duke",      "Kentucky"  ) },
+  { rank: 13, name: "Bing",           points: 970,  ppr: 320, winProb: 0.5,  champAlive: true,  trend: "down", picks: _p("Kentucky","UNC",      "Louisville", "Duke",     "Kentucky","Duke",      "Kentucky"  ) },
+  { rank: 14, name: "jackiedee",      points: 960,  ppr: 480, winProb: 0.3,  champAlive: false, trend: "down", picks: _p("Kentucky","Wisconsin","Villanova",  "Iowa St",  "Wisconsin","Villanova","Wisconsin" ) },
+  { rank: 14, name: "Josh Gold",      points: 960,  ppr: 320, winProb: 0.1,  champAlive: true,  trend: "down", picks: _p("Kentucky","Wisconsin","Virginia",   "Duke",     "Kentucky","Duke",      "Kentucky"  ) },
 ];
 
 export const PLAYER_COLORS = {
