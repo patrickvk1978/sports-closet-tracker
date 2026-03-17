@@ -241,6 +241,13 @@ export default function MatrixView() {
                         {game.round}
                       </span>
 
+                      {/* Game time for pending games */}
+                      {game.status === "pending" && game.gameTime && (
+                        <span className="text-[9px] text-slate-400 leading-none tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                          {game.gameTime}
+                        </span>
+                      )}
+
                       {/* Live score */}
                       {isLive && game.score1 != null && game.score2 != null && (
                         <div className="flex items-center gap-1">

@@ -44,6 +44,7 @@ export function useEspnPoller(slotMapping = {}) {
               score1:   transformed.score1,
               score2:   transformed.score2,
               gameNote: transformed.gameNote,
+              gameTime: transformed.gameTime ?? undefined,
             },
             winner:     transformed.winner,
             status:     transformed.status,

@@ -101,6 +101,7 @@ function buildLiveGames(dbGames) {
         score1:        g?.teams?.score1 ?? null,
         score2:        g?.teams?.score2 ?? null,
         gameNote:      g?.teams?.gameNote ?? null,
+        gameTime:      g?.teams?.gameTime ?? null,
       })
     }
   }

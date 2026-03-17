@@ -72,6 +72,20 @@ export async function fetchEspnGames(dateStr) {
  * Note: slot_index is NOT filled here — it must come from the pre-seeded
  * espn_id → slot_index mapping table (created before the tournament starts).
  */
+function formatGameTime(isoDate) {
+  if (!isoDate) return null
+  try {
+    return new Date(isoDate).toLocaleTimeString('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }) + ' ET'
+  } catch {
+    return null
+  }
+}
+
 export function transformEspnGame(event) {
   const comp = event?.competitions?.[0]
   if (!comp) return null
@@ -118,6 +132,7 @@ export function transformEspnGame(event) {
 
   return {
     espn_id: event.id,
+    gameTime: status === 'pending' ? formatGameTime(event.date) : null,
     teams: {
       team1: away?.team?.displayName ?? null,
       seed1: parseInt(away?.curatedRank?.current ?? away?.seed ?? 0, 10) || null,
