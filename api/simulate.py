@@ -512,9 +512,11 @@ def load_pool_data(client, pool_id):
             if t.get('team2') and t.get('seed2'):
                 team_seeds[t['team2']] = t['seed2']
 
-    # Pool members
-    resp       = client.rpc('get_pool_members', {'p_pool_id': pool_id}).execute()
-    member_map = {m['user_id']: m['username'] for m in (resp.data or [])}
+    # Pool members — query directly (service role bypasses RLS; avoids auth.uid() issue in RPC)
+    members_resp = client.table('pool_members').select('user_id').eq('pool_id', pool_id).execute()
+    user_ids     = [m['user_id'] for m in (members_resp.data or [])]
+    profiles_resp = client.table('profiles').select('id, username').in_('id', user_ids).execute()
+    member_map   = {p['id']: p['username'] for p in (profiles_resp.data or [])}
 
     # Brackets
     resp         = client.table('brackets').select('*').eq('pool_id', pool_id).execute()
