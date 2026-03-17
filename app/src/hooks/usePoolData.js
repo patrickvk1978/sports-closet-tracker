@@ -270,6 +270,11 @@ export function usePoolData() {
     ? simResult.best_paths
     : MOCK_BEST_PATH
 
+  // 4. Per-player leverage: { playerName: [top-5 games by personal swing] }
+  const PLAYER_LEVERAGE_LIVE = useLive && simResult?.player_leverage
+    ? simResult.player_leverage
+    : {}
+
   return {
     PLAYERS:            PLAYERS_WITH_PROBS,
     GAMES:              useLive ? liveGames : MOCK_GAMES,
@@ -281,6 +286,7 @@ export function usePoolData() {
     ELIMINATION_STATS:  useLive && liveElimStats  ? liveElimStats  : MOCK_ELIMINATION_STATS,
     WIN_PROB_HISTORY:   MOCK_WIN_PROB_HISTORY,
     BEST_PATH:          BEST_PATH_LIVE,
+    PLAYER_LEVERAGE:    PLAYER_LEVERAGE_LIVE,
     LEVERAGE_THRESHOLD: MOCK_LEVERAGE_THRESHOLD,
     simResult,
     userPicks,

@@ -330,12 +330,14 @@ def calculate_leverage(players, games_by_slot, team_seeds, bpi_ratings,
     For each pending/live game with known teams, run conditional simulations
     (force team1 wins, force team2 wins) to measure per-player swing.
 
-    Returns leverage_games list in the LEVERAGE_GAMES mock shape.
+    Returns:
+      leverage_games  — pool-wide list (max swing >= LEVERAGE_THRESHOLD), for the Overview tab
+      player_leverage — { player_name: [top-5 games sorted by that player's personal swing] }
     """
-    leverage_games = []
-    n_players      = len(players)
+    all_game_data = []
+    n_players     = len(players)
     if n_players == 0:
-        return leverage_games
+        return [], {}
 
     pending_slots = sorted([
         slot for slot, game in games_by_slot.items()
@@ -378,17 +380,14 @@ def calculate_leverage(players, games_by_slot, team_seeds, bpi_ratings,
                 'rootFor': team1 if p1 >= p2 else team2,
             })
 
-        if max_swing < LEVERAGE_THRESHOLD:
-            continue
-
-        n   = n_players or 1
+        n    = n_players or 1
         pct1 = round(
             sum(1 for p in players
                 if (p['picks'][slot] if slot < len(p['picks']) else None) == team1)
             / n * 100
         )
 
-        leverage_games.append({
+        all_game_data.append({
             'id':            slot,
             'round':         SLOT_ROUND.get(slot, 'R64'),
             'matchup':       f"{team1.split()[-1]} vs {team2.split()[-1]}",
@@ -404,8 +403,23 @@ def calculate_leverage(players, games_by_slot, team_seeds, bpi_ratings,
             'playerImpacts': sorted(player_impacts, key=lambda x: -x['swing']),
         })
 
+    # Pool-wide: games where any player has a meaningful swing
+    leverage_games = [g for g in all_game_data if g['leverage'] >= LEVERAGE_THRESHOLD]
     leverage_games.sort(key=lambda g: (0 if g['status'] == 'live' else 1, -g['leverage']))
-    return leverage_games
+
+    # Per-player: top 5 games ranked by each player's own personal swing
+    player_leverage = {}
+    for p in players:
+        name = p['username']
+        scored = []
+        for g in all_game_data:
+            impact = next((pi for pi in g['playerImpacts'] if pi['player'] == name), None)
+            if impact:
+                scored.append((impact['swing'], g))
+        scored.sort(key=lambda x: (-x[0], 0 if x[1]['status'] == 'live' else 1))
+        player_leverage[name] = [g for _, g in scored[:5]]
+
+    return leverage_games, player_leverage
 
 
 # ─── Best path derivation ──────────────────────────────────────────────────────
@@ -543,13 +557,14 @@ def load_pool_data(client, pool_id):
 
 
 def upsert_sim_results(client, pool_id, player_probs, leverage_games,
-                       best_paths, iterations, dry_run):
+                       player_leverage, best_paths, iterations, dry_run):
     payload = {
-        'pool_id':        pool_id,
-        'iterations':     iterations,
-        'player_probs':   player_probs,
-        'leverage_games': leverage_games,
-        'best_paths':     best_paths,
+        'pool_id':          pool_id,
+        'iterations':       iterations,
+        'player_probs':     player_probs,
+        'leverage_games':   leverage_games,
+        'player_leverage':  player_leverage,
+        'best_paths':       best_paths,
     }
     if dry_run:
         print('\n[DRY RUN] Would upsert to sim_results:')
@@ -616,17 +631,18 @@ def main():
         print(f'  {name:<20} {prob * 100:5.1f}%  {bar}')
 
     print(f'\nCalculating leverage ({args.cond_iters:,} conditional iters per game)…')
-    leverage_games = calculate_leverage(
+    leverage_games, player_leverage = calculate_leverage(
         players, games_by_slot, team_seeds, bpi_ratings,
         player_probs, conditional_iters=args.cond_iters
     )
-    print(f'  {len(leverage_games)} game(s) above {LEVERAGE_THRESHOLD}% threshold')
+    print(f'  {len(leverage_games)} game(s) above {LEVERAGE_THRESHOLD}% pool-wide threshold')
+    print(f'  Per-player top games computed for {len(player_leverage)} player(s)')
 
     best_paths = derive_best_paths(players, games_by_slot, all_outcomes, player_probs)
 
     upsert_sim_results(
-        client, args.pool_id, player_probs, leverage_games, best_paths,
-        iterations=args.iterations, dry_run=args.dry_run
+        client, args.pool_id, player_probs, leverage_games, player_leverage,
+        best_paths, iterations=args.iterations, dry_run=args.dry_run
     )
     print('\nDone.')
 

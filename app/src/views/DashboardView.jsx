@@ -512,9 +512,12 @@ function PoolKeyGamesCard({ leverageGames }) {
 
 // ─── Game Impact Tab ─────────────────────────────────────────────────────────
 
-function GameImpactTab({ player, leverageGames, threshold }) {
+function GameImpactTab({ player, playerLeverageGames, leverageGames, threshold }) {
   const keyGames = useMemo(() => {
-    // Sort by this player's personal win-prob swing, live games first
+    // Prefer server-computed per-player ranking (simulate.py player_leverage)
+    if (playerLeverageGames?.length > 0) return playerLeverageGames
+
+    // Fallback (before first sim run): sort pool-wide games by personal swing, min 3
     const withSwing = leverageGames
       .map(g => {
         const impact = g.playerImpacts?.find(p => p.player === player?.name)
@@ -526,12 +529,10 @@ function GameImpactTab({ player, leverageGames, threshold }) {
         if (b.g.status === "live" && a.g.status !== "live") return 1
         return b.swing - a.swing
       })
-
-    // Show games above threshold; always show at least 3
     const aboveThreshold = withSwing.filter(({ swing }) => swing >= threshold)
     const chosen = aboveThreshold.length >= 3 ? aboveThreshold : withSwing.slice(0, 3)
     return chosen.map(({ g }) => g)
-  }, [leverageGames, threshold, player])
+  }, [playerLeverageGames, leverageGames, threshold, player])
 
   if (keyGames.length === 0) {
     return (
@@ -565,6 +566,7 @@ export default function Dashboard() {
   const {
     PLAYERS,
     LEVERAGE_GAMES,
+    PLAYER_LEVERAGE,
     LEVERAGE_THRESHOLD,
     BEST_PATH,
     ELIMINATION_STATS,
@@ -730,6 +732,7 @@ export default function Dashboard() {
       ) : (
         <GameImpactTab
           player={player}
+          playerLeverageGames={PLAYER_LEVERAGE[player?.name] ?? []}
           leverageGames={LEVERAGE_GAMES}
           threshold={LEVERAGE_THRESHOLD}
         />
