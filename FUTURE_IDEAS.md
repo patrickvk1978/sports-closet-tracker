@@ -15,6 +15,27 @@ A shared space for the team to capture ideas as we think through where to take t
 
 ## Ideas Backlog
 
+### Phase 3.5 — AI-Powered Dashboard Narrative
+*Planned: build immediately after Monte Carlo test run confirms sim results are flowing correctly.*
+
+The Monte Carlo already produces all the structured data needed — win probabilities, leverage games, standings, best paths. This feature uses the Claude API to translate that data into natural language that powers specific dashboard components. Each AI call is small and focused (one card at a time), not a single big dump.
+
+**Per-player cards (personalized, regenerated after each sim run):**
+- **Path to Victory** — upgrades the current mechanical bullet points into 2-3 sentences of real narrative. e.g. *"You need Duke to keep winning and one upset in the South. If Kansas loses this weekend you're in real trouble."*
+- **Your Position** — upgrades the current if/else status message with context about what just happened. e.g. *"You dropped from 2nd to 4th after yesterday but your bracket is actually better positioned than your rank suggests."*
+- **Closest Rival** — upgrades the overlap stats card with dramatic context. e.g. *"Mike has 6 of the same Final Four picks as you — you're essentially tied to the same fate until the Elite 8."*
+
+**Pool-wide card (one per pool, shown to everyone):**
+- **Pool Storyline** — 2-3 sentence overview of the most interesting narrative in the pool right now. Sits at the top of the dashboard, changes after every sim run. e.g. *"Three players are within 20 points heading into the weekend and they all have different champions. This pool is wide open."*
+
+**Implementation approach:**
+- Call Claude API once per sim run (or on demand), passing current standings + sim results as structured context
+- Store AI-generated text in `sim_results` alongside the existing probability data
+- Each dashboard card reads its text from the stored result — no live API calls on page load
+- Pairs naturally with the email feature: post-round emails could include the AI narrative as the body copy
+
+---
+
 ### Email
 - **Pool owner → members email** — "Email Members" button in the Admin Pool tab; pool owner writes a message, a Supabase Edge Function looks up member emails server-side (auth.users is not exposed to the client) and sends via Resend or SendGrid. Good V4 candidate, ~1-2 days of work.
 - **Automated round-update emails** — after each round batch completes and the sim reruns, send all pool members a summary: current standings, biggest movers, leverage games for the next round. Could be triggered by a `--email` flag on the existing `simulate.py` script (lowest lift) or a scheduled Edge Function.
