@@ -204,7 +204,7 @@ function StatStrip({ player, poolSize }) {
 
 // ─── Overview Tab ────────────────────────────────────────────────────────────
 
-function OverviewTab({ player, players, bestPath, isLocked, onSelectPlayer }) {
+function OverviewTab({ player, players, bestPath, isLocked, onSelectPlayer, leverageGames }) {
   const status = computeStatusMessage(player);
   const leaderboard = useMemo(() => [...players].sort((a, b) => a.rank - b.rank), [players]);
 
@@ -302,6 +302,9 @@ function OverviewTab({ player, players, bestPath, isLocked, onSelectPlayer }) {
           </div>
         )}
       </div>
+
+      {/* Pool key games */}
+      <PoolKeyGamesCard leverageGames={leverageGames} />
 
       {/* Leaderboard */}
       <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
@@ -457,19 +460,78 @@ function LeverageGameCard({ game, player }) {
   );
 }
 
+// ─── Pool Key Games Card (overview — pool-wide top 3) ────────────────────────
+
+function PoolKeyGamesCard({ leverageGames }) {
+  const topGames = useMemo(() => {
+    return [...leverageGames]
+      .filter(g => g.team1 !== "TBD" && g.team2 !== "TBD")
+      .sort((a, b) => {
+        if (a.status === "live" && b.status !== "live") return -1
+        if (b.status === "live" && a.status !== "live") return 1
+        return b.leverage - a.leverage
+      })
+      .slice(0, 3)
+  }, [leverageGames])
+
+  if (topGames.length === 0) return null
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-slate-800/60">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
+          Pool's Key Games
+        </p>
+        <p className="text-[10px] text-slate-600 mt-0.5">Games that most affect who wins the pool</p>
+      </div>
+      <div className="divide-y divide-slate-800/40">
+        {topGames.map(game => (
+          <div key={game.id} className="px-5 py-3 flex items-center gap-3">
+            {game.status === "live" && <LivePing />}
+            <span className={`text-sm flex-1 ${game.status === "live" ? "text-white" : "text-slate-300"}`}>
+              {game.team1} vs {game.team2}
+            </span>
+            {game.status === "live" && game.score1 != null && (
+              <span className="text-xs font-bold text-amber-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                {game.score1}–{game.score2}
+              </span>
+            )}
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+              game.leverage >= 75 ? "bg-red-500/20 text-red-400" :
+              game.leverage >= 50 ? "bg-amber-500/20 text-amber-400" :
+                                    "bg-slate-700/60 text-slate-400"
+            }`} style={{ fontFamily: "Space Mono, monospace" }}>
+              {game.leverage}% pool impact
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Game Impact Tab ─────────────────────────────────────────────────────────
 
 function GameImpactTab({ player, leverageGames, threshold }) {
   const keyGames = useMemo(() => {
-    return [...leverageGames]
-      .filter(g => g.leverage >= threshold)
+    // Sort by this player's personal win-prob swing, live games first
+    const withSwing = leverageGames
+      .map(g => {
+        const impact = g.playerImpacts?.find(p => p.player === player?.name)
+        const swing  = impact ? Math.abs(impact.ifTeam1 - impact.ifTeam2) : 0
+        return { g, swing }
+      })
       .sort((a, b) => {
-        // Live games first, then by leverage desc
-        if (a.status === "live" && b.status !== "live") return -1;
-        if (b.status === "live" && a.status !== "live") return 1;
-        return b.leverage - a.leverage;
-      });
-  }, [leverageGames, threshold]);
+        if (a.g.status === "live" && b.g.status !== "live") return -1
+        if (b.g.status === "live" && a.g.status !== "live") return 1
+        return b.swing - a.swing
+      })
+
+    // Show games above threshold; always show at least 3
+    const aboveThreshold = withSwing.filter(({ swing }) => swing >= threshold)
+    const chosen = aboveThreshold.length >= 3 ? aboveThreshold : withSwing.slice(0, 3)
+    return chosen.map(({ g }) => g)
+  }, [leverageGames, threshold, player])
 
   if (keyGames.length === 0) {
     return (
@@ -484,9 +546,9 @@ function GameImpactTab({ player, leverageGames, threshold }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-[10px] text-slate-500 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
-          {keyGames.length} key game{keyGames.length !== 1 ? "s" : ""} · leverage ≥ {threshold}% swing
+          {keyGames.length} game{keyGames.length !== 1 ? "s" : ""} · sorted by your win impact
         </p>
-        <p className="text-[10px] text-slate-600">Sorted by impact</p>
+        <p className="text-[10px] text-slate-600">Min 3 shown</p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {keyGames.map(game => (
@@ -663,6 +725,7 @@ export default function Dashboard() {
           bestPath={BEST_PATH}
           isLocked={isLocked}
           onSelectPlayer={setSelectedName}
+          leverageGames={LEVERAGE_GAMES}
         />
       ) : (
         <GameImpactTab
