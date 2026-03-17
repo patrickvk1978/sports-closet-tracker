@@ -86,7 +86,7 @@ SLOT_ROUND[61] = 'F4'
 SLOT_ROUND[62] = 'Champ'
 
 ROUND_POINTS = {'R64': 10, 'R32': 20, 'S16': 40, 'E8': 80, 'F4': 160, 'Champ': 320}
-LEVERAGE_THRESHOLD = 15  # min max-swing % to surface a game
+LEVERAGE_THRESHOLD = 5   # min max-swing % to surface a game
 
 # ─── Seed-round win rate table ────────────────────────────────────────────────
 #
