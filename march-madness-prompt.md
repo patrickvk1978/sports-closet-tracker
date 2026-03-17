@@ -26,7 +26,7 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 - Interactive table: rows = players (sorted by rank/points), columns = games (grouped by round)
 - Each cell shows that player's pick for that game
 - Color coding: correct picks (green), eliminated picks (red), pending picks (neutral)
-- Column headers show the matchup (e.g., "Duke vs Kentucky")
+- Column headers show matchup (e.g., "Duke vs Kentucky"), scheduled tip-off time (ET) for pending games, live score + game clock for live games, final score for completed games
 - Key data columns: Rank, Points, PPR (Points Possible Remaining), Win Probability %
 - Sortable by any column
 - Filterable by round (R64, R32, S16, E8, Final Four, Championship)
@@ -36,8 +36,9 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 
 ### 3. Dashboard
 - **Pre-game gate:** Non-admins see a countdown screen until the pool is locked (tip-off)
+- **Pool commissioner** displayed under pool name in both pre-game and live headers
 - **Leaderboard** with current standings, points, PPR, and win probability
-- **Leverage Alerts** — high-leverage upcoming games with per-player impact
+- **Leverage Alerts** — high-leverage upcoming games with per-player impact (threshold: 5% win prob swing)
 - **Biggest Rival** card — player with most bracket overlap and how you diverge
 - **Best Path to Win** — simulation-powered path from Phase 3
 - **Win probability** per player, updated after each Monte Carlo run
@@ -106,7 +107,8 @@ app/src/
     MatrixView.jsx          ← const { PLAYERS, GAMES, ROUNDS } = usePoolData()
     BracketView.jsx         ← KEY_PICKS + ALIVE computed with useMemo from live data
   pages/
-    LoginPage.jsx           ← /login — email/password + Google OAuth, sign-in + sign-up tabs
+    LoginPage.jsx           ← /login — email/password, sign-in + sign-up tabs
+                               (Google OAuth button hidden — pending consent screen setup)
     JoinPoolPage.jsx        ← /join — enter 6-char invite code (pre-filled from URL ?code=)
     CreatePoolPage.jsx      ← /create-pool — admin creates pool, shows invite code
     BracketSubmitPage.jsx   ← /submit — interactive 63-slot bracket picker + save
@@ -207,7 +209,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 - Supabase project setup, 6-table schema, RLS on all tables
 - Supabase Realtime on games + scores tables
-- User auth: email/password + Google OAuth; sign-up, sign-in, sign-out
+- User auth: email/password sign-up, sign-in, sign-out (Google OAuth wired but button hidden — needs consent screen)
 - Password reset flow: "Forgot password?" on login → Supabase email → /reset-password page
 - Pool creation with 6-char invite codes; join pool flow
 - Interactive bracket submission at /submit (cascading pick logic)
@@ -252,6 +254,27 @@ Simplified from original Redis/FastAPI spec to a terminal script + Supabase Real
 - Pool tab: LockToggle + Invite Link copy + Delete Pool danger zone (with confirmation)
 - Dashboard pre-game CTA: "Edit Your Bracket" when bracket already saved, "Submit Your Bracket" when not
 - Leave Pool: button in pre-game CTAs + locked dashboard header (non-admins only); confirm modal deletes from pool_members + navigates to /join
+- Pool commissioner (owner) label displayed under pool name on dashboard (both pre-game and live headers)
+- Matrix view column headers now show scheduled tip-off time (ET) for pending games (extracted from ESPN `event.date`, stored in games.teams JSONB)
+- Leverage threshold lowered from 15% to 5% in `simulate.py`
+- Fixed simulate.py username lookup bug: replaced `get_pool_members` RPC (which returns empty when called with service role key — no auth.uid() session) with direct `pool_members` + `profiles` table queries
+- Google OAuth button hidden on login page (pending OAuth consent screen approval)
+
+### Phase 3.6: VPS Background Poller (Planned)
+
+Replace admin-browser-tab polling with a persistent server-side process:
+
+- `api/poller.py` — Python script that runs continuously on a VPS
+  - On startup: queries `games` table to build `espn_id → slot_index` mapping
+  - Polls ESPN scoreboard every 60s (30s when live games detected)
+  - Upserts results to Supabase `games` table (same logic as `useEspnPoller.js`)
+  - Fetches `win_prob_home` via ESPN Core probabilities endpoint for live games
+  - After each poll cycle, checks if all games in the current round are `final`
+  - If round complete: automatically runs `simulate.py` and pushes results via Realtime
+- Deploy to any cheap VPS (Fly.io free tier, Railway ~$5/mo, DigitalOcean $4/mo, Hetzner €3/mo)
+- Needs same `api/.env` credentials (`SUPABASE_SERVICE_ROLE_KEY` + `POOL_ID`)
+- Eliminates need to keep an admin browser tab open during the tournament
+- Eliminates manual `simulate.py` re-runs after each round
 
 ### Phase 4: Polish + PWA (Planned)
 - Service worker for offline bracket viewing
