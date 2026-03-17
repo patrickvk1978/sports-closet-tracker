@@ -68,7 +68,12 @@ export function useEspnPoller(slotMapping = {}) {
             upsertPayload.win_prob_home = null
           }
 
-          await supabase.from('games').upsert(upsertPayload, { onConflict: 'slot_index' })
+          const { error: upsertError } = await supabase
+            .from('games')
+            .upsert(upsertPayload, { onConflict: 'slot_index' })
+          if (upsertError) {
+            console.error('[useEspnPoller] upsert error slot', slotIndex, upsertError)
+          }
         }
       } catch (err) {
         console.error('[useEspnPoller] poll error:', err)
