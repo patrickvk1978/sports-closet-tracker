@@ -4,6 +4,25 @@ import { fetchEspnGames, transformEspnGame, fetchEspnWinProb } from '../lib/espn
 import { useAuth } from './useAuth'
 import { usePool } from './usePool'
 
+// Derive round and region strings from a slot index (needed for DB NOT NULL columns)
+function slotMeta(slot) {
+  const regions = [
+    { key: 'midwest', base: 0  },
+    { key: 'west',    base: 15 },
+    { key: 'south',   base: 30 },
+    { key: 'east',    base: 45 },
+  ]
+  for (const { key, base } of regions) {
+    if (slot < base || slot >= base + 15) continue
+    const off = slot - base
+    const round = off < 8 ? 'R64' : off < 12 ? 'R32' : off < 14 ? 'S16' : 'E8'
+    return { round, region: key }
+  }
+  if (slot === 60 || slot === 61) return { round: 'F4',   region: null }
+  if (slot === 62)                return { round: 'Champ', region: null }
+  return { round: 'R64', region: null }
+}
+
 /**
  * Admin-only hook: polls ESPN every 60s (30s when live games detected) and
  * upserts results to the games table. Other clients get updates via Realtime.
@@ -42,9 +61,12 @@ export function useEspnPoller(slotMapping = {}) {
           const slotIndex = slotMapping[transformed.espn_id]
           if (slotIndex === undefined) continue
 
+          const { round, region } = slotMeta(slotIndex)
           const upsertPayload = {
             espn_id:    transformed.espn_id,
             slot_index: slotIndex,
+            round,
+            region,
             teams: {
               ...transformed.teams,
               score1:   transformed.score1,
