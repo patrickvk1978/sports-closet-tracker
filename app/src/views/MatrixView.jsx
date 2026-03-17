@@ -37,7 +37,7 @@ function StatusBadge({ status }) {
   if (status === "final") {
     return <span className="px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 text-[10px] font-medium">Final</span>;
   }
-  return <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 text-[10px] font-medium">Soon</span>;
+  return null;
 }
 
 export default function MatrixView() {
