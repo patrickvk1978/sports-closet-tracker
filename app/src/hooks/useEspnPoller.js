@@ -26,8 +26,14 @@ export function useEspnPoller(slotMapping = {}) {
     async function poll() {
       setIsPolling(true)
       try {
-        const today  = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-        const events = await fetchEspnGames(today)
+        // Fetch today + next 4 days so upcoming game times populate before game day
+        const dates = Array.from({ length: 5 }, (_, i) => {
+          const d = new Date()
+          d.setDate(d.getDate() + i)
+          return d.toISOString().slice(0, 10).replace(/-/g, '')
+        })
+        const results = await Promise.allSettled(dates.map(fetchEspnGames))
+        const events  = results.flatMap((r) => r.status === 'fulfilled' ? r.value : [])
 
         for (const event of events) {
           const transformed = transformEspnGame(event)

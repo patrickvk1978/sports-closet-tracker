@@ -75,12 +75,18 @@ export async function fetchEspnGames(dateStr) {
 function formatGameTime(isoDate) {
   if (!isoDate) return null
   try {
-    return new Date(isoDate).toLocaleTimeString('en-US', {
+    const d = new Date(isoDate)
+    const timeStr = d.toLocaleTimeString('en-US', {
       timeZone: 'America/New_York',
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
     }) + ' ET'
+    const gameDate  = d.toLocaleDateString('en-US', { timeZone: 'America/New_York' })
+    const todayDate = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' })
+    if (gameDate === todayDate) return timeStr
+    const dayStr = d.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' })
+    return `${dayStr} ${timeStr}`
   } catch {
     return null
   }
