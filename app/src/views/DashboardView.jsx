@@ -252,10 +252,81 @@ function PoolKeyGamesCard({ leverageGames }) {
               game.leverage >= 50 ? "bg-amber-500/20 text-amber-400" :
                                     "bg-slate-700/60 text-slate-400"
             }`} style={{ fontFamily: "Space Mono, monospace" }}>
-              {game.leverage}% pool impact
+              ↕ {game.leverage}% swing
             </span>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Your Key Games Card ────────────────────────────────────────────────────
+
+function YourKeyGamesCard({ player, playerLeverageGames, leverageGames }) {
+  const keyGames = useMemo(() => {
+    // Prefer server-computed per-player ranking from simulate.py
+    if (playerLeverageGames?.length > 0) return playerLeverageGames.slice(0, 3)
+
+    // Fallback: sort pool-wide games by this player's personal swing
+    return [...leverageGames]
+      .filter(g => g.team1 !== "TBD" && g.team2 !== "TBD")
+      .map(g => {
+        const impact = g.playerImpacts?.find(p => p.player === player?.name)
+        return { g, swing: impact ? Math.abs(impact.ifTeam1 - impact.ifTeam2) : 0 }
+      })
+      .sort((a, b) => {
+        if (a.g.status === "live" && b.g.status !== "live") return -1
+        if (b.g.status === "live" && a.g.status !== "live") return 1
+        return b.swing - a.swing
+      })
+      .slice(0, 3)
+      .map(({ g }) => g)
+  }, [playerLeverageGames, leverageGames, player])
+
+  if (keyGames.length === 0) return null
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-slate-800/60">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
+          Your Key Games
+        </p>
+        <p className="text-[10px] text-slate-600 mt-0.5">Games that most affect your chances</p>
+      </div>
+      <div className="divide-y divide-slate-800/40">
+        {keyGames.map(game => {
+          const impact = game.playerImpacts?.find(p => p.player === player?.name)
+          const rootFor = impact ? (impact.ifTeam1 >= impact.ifTeam2 ? game.team1 : game.team2) : null
+          const gain = impact
+            ? Math.max(impact.ifTeam1, impact.ifTeam2) - Math.min(impact.ifTeam1, impact.ifTeam2)
+            : null
+
+          return (
+            <div key={game.id} className="px-5 py-3 flex items-center gap-3">
+              {game.status === "live" && <LivePing />}
+              <span className={`text-sm flex-1 min-w-0 truncate ${game.status === "live" ? "text-white" : "text-slate-300"}`}>
+                {game.team1} vs {game.team2}
+              </span>
+              {game.status === "live" && game.score1 != null && (
+                <span className="text-xs font-bold text-amber-400 tabular-nums shrink-0" style={{ fontFamily: "Space Mono, monospace" }}>
+                  {game.score1}–{game.score2}
+                </span>
+              )}
+              {rootFor && gain != null ? (
+                <span className="text-xs shrink-0 flex items-center gap-1">
+                  <span className="text-slate-500">Root for</span>
+                  <span className="font-bold text-orange-400">{rootFor}</span>
+                  <span className="text-emerald-400 font-bold tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                    ▲ +{gain.toFixed(1)}%
+                  </span>
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-600 shrink-0">—</span>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -323,6 +394,7 @@ export default function Dashboard() {
   const {
     PLAYERS,
     LEVERAGE_GAMES,
+    PLAYER_LEVERAGE,
     NARRATIVES,
     userPicks,
   } = usePoolData();
@@ -456,6 +528,13 @@ export default function Dashboard() {
 
       {/* ── Pool Key Games ─────────────────────────────────────────────────── */}
       <PoolKeyGamesCard leverageGames={LEVERAGE_GAMES} />
+
+      {/* ── Your Key Games ─────────────────────────────────────────────────── */}
+      <YourKeyGamesCard
+        player={player}
+        playerLeverageGames={PLAYER_LEVERAGE[player?.name] ?? []}
+        leverageGames={LEVERAGE_GAMES}
+      />
 
       {/* ── Leaderboard ────────────────────────────────────────────────────── */}
       <Leaderboard
