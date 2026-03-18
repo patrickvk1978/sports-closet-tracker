@@ -663,6 +663,100 @@ function EspnIdSection({ espnIds, teamData, onEspnChange, onEspnSave, saving }) 
   )
 }
 
+// ─── Poller heartbeat card ─────────────────────────────────────────────────────
+
+function PollerHeartbeatCard() {
+  const [heartbeat, setHeartbeat] = useState(null)
+  const [now,       setNow]       = useState(Date.now())
+
+  useEffect(() => {
+    async function fetchHeartbeat() {
+      const { data } = await supabase
+        .from('poller_heartbeat')
+        .select('*')
+        .eq('id', 1)
+        .single()
+      if (data) setHeartbeat(data)
+    }
+    fetchHeartbeat()
+    const id = setInterval(fetchHeartbeat, 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Tick "now" every 10s so relative time updates without a refetch
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 10_000)
+    return () => clearInterval(id)
+  }, [])
+
+  const polledAt = heartbeat?.polled_at ? new Date(heartbeat.polled_at) : null
+  const ageSec   = polledAt ? Math.floor((now - polledAt.getTime()) / 1000) : null
+
+  function fmtAge(sec) {
+    if (sec < 90)   return 'just now'
+    if (sec < 3600) return `${Math.floor(sec / 60)} min ago`
+    return `${Math.floor(sec / 3600)}h ago`
+  }
+
+  const hasError = !!heartbeat?.error
+  const isStale  = ageSec != null && ageSec > 600        // >10 min
+  const isWarn   = !hasError && !isStale && ageSec != null && ageSec > 180  // >3 min
+  const isOk     = !hasError && !isStale && !isWarn && polledAt != null
+
+  const dotColor    = hasError || isStale ? 'bg-red-500'     : isWarn ? 'bg-amber-500'  : isOk ? 'bg-emerald-500' : 'bg-slate-600'
+  const statusText  = hasError ? 'Error'  : isStale ? 'Stale' : isWarn ? 'Delayed'     : isOk ? 'Running'        : 'No data'
+  const statusColor = hasError || isStale ? 'text-red-400'   : isWarn ? 'text-amber-400': isOk ? 'text-emerald-400' : 'text-slate-500'
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-sm font-bold text-white mb-0.5">VPS Poller Status</p>
+          <p className="text-xs text-slate-400">Heartbeat written by the server-side poller after each poll cycle.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor} ${isOk ? 'animate-pulse' : ''}`} />
+          <span className={`text-xs font-semibold ${statusColor}`}>{statusText}</span>
+        </div>
+      </div>
+
+      {heartbeat ? (
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5" style={{ fontFamily: 'Space Mono, monospace' }}>Last poll</p>
+            <p className="text-xs text-slate-300 font-semibold">{ageSec != null ? fmtAge(ageSec) : '—'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5" style={{ fontFamily: 'Space Mono, monospace' }}>Pools</p>
+            <p className="text-xs text-slate-300 font-semibold">{heartbeat.pools_found}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5" style={{ fontFamily: 'Space Mono, monospace' }}>Updated</p>
+            <p className="text-xs text-slate-300 font-semibold">{heartbeat.games_updated} games</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5" style={{ fontFamily: 'Space Mono, monospace' }}>Live now</p>
+            <p className={`text-xs font-semibold ${heartbeat.live_count > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
+              {heartbeat.live_count} {heartbeat.live_count === 1 ? 'game' : 'games'}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-slate-600 italic">
+          No heartbeat data. Start the VPS poller and apply <code className="text-slate-500">poller_heartbeat_migration.sql</code> if not done yet.
+        </p>
+      )}
+
+      {heartbeat?.error && (
+        <div className="mt-3 bg-red-950/30 border border-red-900/40 rounded-xl px-4 py-2.5">
+          <p className="text-[10px] text-red-400 font-semibold mb-0.5 uppercase tracking-wider" style={{ fontFamily: 'Space Mono, monospace' }}>Last error</p>
+          <p className="text-xs text-red-300 font-mono break-all">{heartbeat.error}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Simulation section ────────────────────────────────────────────────────────
 
 function SimulationSection() {
@@ -695,6 +789,8 @@ function SimulationSection() {
     : null
 
   return (
+    <div className="space-y-4">
+    <PollerHeartbeatCard />
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 space-y-5">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
@@ -778,6 +874,7 @@ function SimulationSection() {
           No simulation results yet. Run the command above to generate win probabilities.
         </p>
       )}
+    </div>
     </div>
   )
 }

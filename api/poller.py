@@ -213,77 +213,96 @@ def run_poller(pool_ids, client):
         ts = datetime.now(ET).strftime('%H:%M:%S ET')
         print(f'[{ts}] Polling…', end=' ', flush=True)
 
-        # ── Fetch ESPN for today + next 4 days ──────────────────────────────
-        dates  = [(datetime.now(timezone.utc) + timedelta(days=i)).strftime('%Y%m%d')
-                  for i in range(5)]
-        events = [ev for d in dates for ev in fetch_espn_games(d)]
-
-        # ── Load current DB state (refreshed every poll for new R32+ ESPN IDs) ─
-        resp     = client.table('games').select('slot_index, espn_id, status, teams').execute()
-        db_games = {g['slot_index']: g for g in (resp.data or [])}
-        espn_map = {g['espn_id']: g['slot_index']
-                    for g in (resp.data or []) if g.get('espn_id')}
-
-        # ── Upsert each matched event ────────────────────────────────────────
         live_count = updated_count = 0
+        error_msg  = None
 
-        for event in events:
-            t = transform_event(event)
-            if not t or not t.get('espn_id'):
-                continue
-            slot = espn_map.get(t['espn_id'])
-            if slot is None:
-                continue
+        try:
+            # ── Fetch ESPN for today + next 4 days ──────────────────────────────
+            dates  = [(datetime.now(timezone.utc) + timedelta(days=i)).strftime('%Y%m%d')
+                      for i in range(5)]
+            events = [ev for d in dates for ev in fetch_espn_games(d)]
 
-            rnd, region = slot_meta(slot)
+            # ── Load current DB state (refreshed every poll for new R32+ ESPN IDs) ─
+            resp     = client.table('games').select('slot_index, espn_id, status, teams').execute()
+            db_games = {g['slot_index']: g for g in (resp.data or [])}
+            espn_map = {g['espn_id']: g['slot_index']
+                        for g in (resp.data or []) if g.get('espn_id')}
 
-            payload = {
-                'espn_id':    t['espn_id'],
-                'slot_index': slot,
-                'round':      rnd,
-                'region':     region,
-                'teams': {
-                    **t['teams'],
-                    'score1':   t['score1'],
-                    'score2':   t['score2'],
-                    'gameNote': t['game_note'],
-                    'gameTime': t['game_time'],
-                },
-                'winner':     t['winner'],
-                'status':     t['status'],
-                'updated_at': datetime.now(timezone.utc).isoformat(),
-            }
+            # ── Upsert each matched event ────────────────────────────────────────
+            for event in events:
+                t = transform_event(event)
+                if not t or not t.get('espn_id'):
+                    continue
+                slot = espn_map.get(t['espn_id'])
+                if slot is None:
+                    continue
 
-            if t['status'] == 'live':
-                live_count += 1
-                wp = fetch_win_prob(t['espn_id'])
-                if wp is not None:
-                    payload['win_prob_home'] = wp
-            elif t['status'] == 'final':
-                payload['win_prob_home'] = None
+                rnd, region = slot_meta(slot)
 
-            result = client.table('games').upsert(payload, on_conflict='slot_index').execute()
-            if result.data:
-                updated_count += 1
+                payload = {
+                    'espn_id':    t['espn_id'],
+                    'slot_index': slot,
+                    'round':      rnd,
+                    'region':     region,
+                    'teams': {
+                        **t['teams'],
+                        'score1':   t['score1'],
+                        'score2':   t['score2'],
+                        'gameNote': t['game_note'],
+                        'gameTime': t['game_time'],
+                    },
+                    'winner':     t['winner'],
+                    'status':     t['status'],
+                    'updated_at': datetime.now(timezone.utc).isoformat(),
+                }
 
-        print(f'{updated_count} updated  {live_count} live')
+                if t['status'] == 'live':
+                    live_count += 1
+                    wp = fetch_win_prob(t['espn_id'])
+                    if wp is not None:
+                        payload['win_prob_home'] = wp
+                elif t['status'] == 'final':
+                    payload['win_prob_home'] = None
 
-        # ── Round completion → auto-trigger sim for each pool ────────────────
-        current_done = completed_rounds(db_games)
-        newly_done   = current_done - last_done_rounds
-        if newly_done:
-            rounds_str = ', '.join(sorted(newly_done, key=lambda r: ROUND_ORDER.index(r)))
-            print(f'  ✓ Round(s) complete: {rounds_str} — running simulate.py for {len(pool_ids)} pool(s)…')
-            for pid in pool_ids:
-                try:
-                    subprocess.run(
-                        [sys.executable, str(sim_script), '--pool-id', pid],
-                        check=True,
-                    )
-                    print(f'  Simulation complete: pool {pid}')
-                except subprocess.CalledProcessError as e:
-                    print(f'  Simulation failed for pool {pid}: {e}')
-        last_done_rounds = current_done
+                result = client.table('games').upsert(payload, on_conflict='slot_index').execute()
+                if result.data:
+                    updated_count += 1
+
+            print(f'{updated_count} updated  {live_count} live')
+
+            # ── Round completion → auto-trigger sim for each pool ────────────────
+            current_done = completed_rounds(db_games)
+            newly_done   = current_done - last_done_rounds
+            if newly_done:
+                rounds_str = ', '.join(sorted(newly_done, key=lambda r: ROUND_ORDER.index(r)))
+                print(f'  ✓ Round(s) complete: {rounds_str} — running simulate.py for {len(pool_ids)} pool(s)…')
+                for pid in pool_ids:
+                    try:
+                        subprocess.run(
+                            [sys.executable, str(sim_script), '--pool-id', pid],
+                            check=True,
+                        )
+                        print(f'  Simulation complete: pool {pid}')
+                    except subprocess.CalledProcessError as e:
+                        print(f'  Simulation failed for pool {pid}: {e}')
+            last_done_rounds = current_done
+
+        except Exception as poll_err:
+            error_msg = str(poll_err)
+            print(f'ERROR: {poll_err}')
+
+        # ── Write heartbeat ───────────────────────────────────────────────────
+        try:
+            client.table('poller_heartbeat').upsert({
+                'id':            1,
+                'polled_at':     datetime.now(timezone.utc).isoformat(),
+                'pools_found':   len(pool_ids),
+                'games_updated': updated_count,
+                'live_count':    live_count,
+                'error':         error_msg,
+            }).execute()
+        except Exception as hb_err:
+            print(f'  [heartbeat] write failed: {hb_err}')
 
         # ── Sleep ────────────────────────────────────────────────────────────
         time.sleep(30 if live_count > 0 else 60)
