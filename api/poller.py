@@ -202,11 +202,11 @@ def completed_rounds(db_games):
 
 # ─── Poll loop ─────────────────────────────────────────────────────────────────
 
-def run_poller(pool_id, client):
-    sim_script           = _script_dir / 'simulate.py'
-    last_done_rounds     = set()
+def run_poller(pool_ids, client):
+    sim_script       = _script_dir / 'simulate.py'
+    last_done_rounds = set()
 
-    print(f'Poller started  pool={pool_id}')
+    print(f'Poller started  pools={pool_ids}')
     print('Ctrl+C to stop\n')
 
     while True:
@@ -268,20 +268,21 @@ def run_poller(pool_id, client):
 
         print(f'{updated_count} updated  {live_count} live')
 
-        # ── Round completion → auto-trigger sim ──────────────────────────────
+        # ── Round completion → auto-trigger sim for each pool ────────────────
         current_done = completed_rounds(db_games)
         newly_done   = current_done - last_done_rounds
         if newly_done:
             rounds_str = ', '.join(sorted(newly_done, key=lambda r: ROUND_ORDER.index(r)))
-            print(f'  ✓ Round(s) complete: {rounds_str} — running simulate.py…')
-            try:
-                subprocess.run(
-                    [sys.executable, str(sim_script), '--pool-id', pool_id],
-                    check=True,
-                )
-                print('  Simulation complete.')
-            except subprocess.CalledProcessError as e:
-                print(f'  Simulation failed: {e}')
+            print(f'  ✓ Round(s) complete: {rounds_str} — running simulate.py for {len(pool_ids)} pool(s)…')
+            for pid in pool_ids:
+                try:
+                    subprocess.run(
+                        [sys.executable, str(sim_script), '--pool-id', pid],
+                        check=True,
+                    )
+                    print(f'  Simulation complete: pool {pid}')
+                except subprocess.CalledProcessError as e:
+                    print(f'  Simulation failed for pool {pid}: {e}')
         last_done_rounds = current_done
 
         # ── Sleep ────────────────────────────────────────────────────────────
@@ -291,19 +292,26 @@ def run_poller(pool_id, client):
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description='ESPN → Supabase live score poller')
-    parser.add_argument('--pool-id', required=True, help='Supabase pool UUID')
-    args = parser.parse_args()
-
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         print('ERROR: Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in api/.env',
               file=sys.stderr)
         sys.exit(1)
 
-    client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    client   = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    resp     = client.table('pools').select('id, name').execute()
+    pools    = resp.data or []
+
+    if not pools:
+        print('ERROR: No pools found in database.', file=sys.stderr)
+        sys.exit(1)
+
+    pool_ids = [p['id'] for p in pools]
+    print(f'Found {len(pools)} pool(s):')
+    for p in pools:
+        print(f'  {p["name"]}  ({p["id"]})')
 
     try:
-        run_poller(args.pool_id, client)
+        run_poller(pool_ids, client)
     except KeyboardInterrupt:
         print('\nPoller stopped.')
 
