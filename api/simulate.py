@@ -556,20 +556,27 @@ def load_pool_data(client, pool_id):
     return players, games_by_slot, team_seeds
 
 
-def load_prev_probs(client, pool_id):
-    """Load existing player_probs from sim_results to track deltas."""
+def load_prev_sim_data(client, pool_id):
+    """Load previous player_probs and narratives from sim_results for delta tracking
+    and narrative preservation across hourly (no-narrative) runs."""
     try:
-        resp = client.table('sim_results').select('player_probs').eq('pool_id', pool_id).execute()
-        if resp.data and resp.data[0].get('player_probs'):
-            return resp.data[0]['player_probs']
+        resp = (client.table('sim_results')
+                .select('player_probs, narratives')
+                .eq('pool_id', pool_id)
+                .execute())
+        if resp.data:
+            row = resp.data[0]
+            return row.get('player_probs') or {}, row.get('narratives') or {}
     except Exception:
         pass
-    return {}
+    return {}, {}
 
 
-def generate_narratives(player_probs, prev_probs, best_paths):
+def generate_narratives(player_probs, prev_probs, best_paths,
+                        model='claude-haiku-4-5-20251001'):
     """
-    Generate one-sentence AI narratives per player using Claude Haiku.
+    Generate one-sentence AI narratives per player.
+    model: override to claude-opus-4-6 for end-of-day quality runs.
     Gracefully returns {} if anthropic is not installed or API key is missing.
     """
     api_key = os.environ.get('ANTHROPIC_API_KEY', '')
@@ -611,7 +618,7 @@ No markdown, no explanation — just the JSON object."""
     try:
         client = anthropic.Anthropic(api_key=api_key)
         resp = client.messages.create(
-            model='claude-haiku-4-5-20251001',
+            model=model,
             max_tokens=1024,
             messages=[{'role': 'user', 'content': prompt}],
         )
@@ -652,7 +659,11 @@ def main():
     parser.add_argument('--pool-id',    required=True)
     parser.add_argument('--iterations', type=int, default=10_000)
     parser.add_argument('--cond-iters', type=int, default=2_000)
-    parser.add_argument('--dry-run',    action='store_true')
+    parser.add_argument('--dry-run',        action='store_true')
+    parser.add_argument('--no-narratives',  action='store_true',
+                        help='Skip narrative generation; preserve existing narratives in DB')
+    parser.add_argument('--narrative-model', default='claude-haiku-4-5-20251001',
+                        help='Claude model for narrative generation (e.g. claude-opus-4-6)')
     args = parser.parse_args()
 
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
@@ -691,8 +702,8 @@ def main():
         for t in missing:
             print(f'    - {t}')
 
-    # Load previous probabilities for delta tracking
-    prev_probs = load_prev_probs(client, args.pool_id)
+    # Load previous sim data for delta tracking and narrative preservation
+    prev_probs, existing_narratives = load_prev_sim_data(client, args.pool_id)
     if prev_probs:
         print(f'  Loaded previous win probs for {len(prev_probs)} player(s)')
     else:
@@ -721,8 +732,14 @@ def main():
 
     best_paths = derive_best_paths(players, games_by_slot, all_outcomes, player_probs)
 
-    print('\nGenerating AI narratives…')
-    narratives = generate_narratives(player_probs, prev_probs, best_paths)
+    if args.no_narratives:
+        print('\nSkipping narrative generation (--no-narratives); preserving existing.')
+        narratives = existing_narratives
+    else:
+        print(f'\nGenerating AI narratives (model: {args.narrative_model})…')
+        narratives = generate_narratives(
+            player_probs, prev_probs, best_paths, model=args.narrative_model
+        )
 
     upsert_sim_results(
         client, args.pool_id, player_probs, leverage_games, player_leverage,

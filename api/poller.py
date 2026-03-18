@@ -174,6 +174,20 @@ ROUND_SLOTS = {
 }
 ROUND_ORDER = ['R64', 'R32', 'S16', 'E8', 'F4', 'Champ']
 
+# ─── First-weekend sim schedule ───────────────────────────────────────────────
+#
+# Hourly sims (no narrative) run throughout the first weekend.
+# End-of-day narrative sims (Opus) run once per night after 11 PM ET.
+# A one-off Thursday morning narrative runs the first time the sim fires on
+# March 19 (covers "dashboard goes live" moment).
+#
+# Re-evaluate this schedule for week 2.
+
+FIRST_WEEKEND = {'20260319', '20260320', '20260321', '20260322'}
+NARRATIVE_MODEL = 'claude-opus-4-6'
+SIM_INTERVAL_SECS   = 3600   # hourly
+EVENING_HOUR_ET     = 23     # 11 PM ET — end-of-day narrative trigger
+
 
 def slot_meta(slot):
     """Return (round_key, region_key) for a slot index."""
@@ -202,9 +216,28 @@ def completed_rounds(db_games):
 
 # ─── Poll loop ─────────────────────────────────────────────────────────────────
 
+def run_sim(sim_script, pool_ids, extra_args=()):
+    """Run simulate.py for every pool with optional extra args."""
+    for pid in pool_ids:
+        try:
+            subprocess.run(
+                [sys.executable, str(sim_script), '--pool-id', pid, *extra_args],
+                check=True,
+            )
+            print(f'  Simulation complete: pool {pid}')
+        except subprocess.CalledProcessError as e:
+            print(f'  Simulation failed for pool {pid}: {e}')
+
+
 def run_poller(pool_ids, client):
     sim_script       = _script_dir / 'simulate.py'
     last_done_rounds = set()
+
+    # ── Sim scheduling state ──────────────────────────────────────────────────
+    epoch = datetime.fromtimestamp(0, tz=timezone.utc)
+    last_hourly_sim_time        = epoch  # tracks last hourly (or narrative) run
+    evening_narrative_done_date = ''     # YYYYMMDD — prevent double evening run
+    locked_narrative_done       = set()  # pool IDs that have had their lock-trigger narrative
 
     print(f'Poller started  pools={pool_ids}')
     print('Ctrl+C to stop\n')
@@ -270,22 +303,52 @@ def run_poller(pool_ids, client):
 
             print(f'{updated_count} updated  {live_count} live')
 
-            # ── Round completion → auto-trigger sim for each pool ────────────────
+            # ── Sim scheduling ───────────────────────────────────────────────────
             current_done = completed_rounds(db_games)
             newly_done   = current_done - last_done_rounds
-            if newly_done:
-                rounds_str = ', '.join(sorted(newly_done, key=lambda r: ROUND_ORDER.index(r)))
-                print(f'  ✓ Round(s) complete: {rounds_str} — running simulate.py for {len(pool_ids)} pool(s)…')
-                for pid in pool_ids:
-                    try:
-                        subprocess.run(
-                            [sys.executable, str(sim_script), '--pool-id', pid],
-                            check=True,
-                        )
-                        print(f'  Simulation complete: pool {pid}')
-                    except subprocess.CalledProcessError as e:
-                        print(f'  Simulation failed for pool {pid}: {e}')
             last_done_rounds = current_done
+
+            now_et    = datetime.now(ET)
+            today_str = now_et.strftime('%Y%m%d')
+            hour_et   = now_et.hour
+            elapsed   = (datetime.now(timezone.utc) - last_hourly_sim_time).total_seconds()
+            is_first_weekend = today_str in FIRST_WEEKEND
+
+            if is_first_weekend:
+                # ── Bracket lock: one-off narrative per pool when admin locks brackets
+                pools_resp   = client.table('pools').select('id, locked').execute()
+                newly_locked = [
+                    p['id'] for p in (pools_resp.data or [])
+                    if p.get('locked') and p['id'] not in locked_narrative_done
+                ]
+                if newly_locked:
+                    print(f'  → Bracket lock detected — running narrative sim (model: {NARRATIVE_MODEL})…')
+                    run_sim(sim_script, newly_locked,
+                            ('--narrative-model', NARRATIVE_MODEL))
+                    locked_narrative_done.update(newly_locked)
+                    last_hourly_sim_time = datetime.now(timezone.utc)
+
+                # ── End of day: Opus narrative run (once per night, 11 PM+)
+                elif (hour_et >= EVENING_HOUR_ET
+                        and today_str != evening_narrative_done_date):
+                    print(f'  → End-of-day narrative run ({today_str}, model: {NARRATIVE_MODEL})…')
+                    run_sim(sim_script, pool_ids,
+                            ('--narrative-model', NARRATIVE_MODEL))
+                    evening_narrative_done_date = today_str
+                    last_hourly_sim_time        = datetime.now(timezone.utc)
+
+                # ── Hourly sim: no narrative, preserves existing narratives
+                elif elapsed >= SIM_INTERVAL_SECS:
+                    print(f'  → Hourly sim (no narrative)…')
+                    run_sim(sim_script, pool_ids, ('--no-narratives',))
+                    last_hourly_sim_time = datetime.now(timezone.utc)
+
+            else:
+                # ── Outside first weekend: trigger on round completion (existing behaviour)
+                if newly_done:
+                    rounds_str = ', '.join(sorted(newly_done, key=lambda r: ROUND_ORDER.index(r)))
+                    print(f'  ✓ Round(s) complete: {rounds_str} — running simulate.py…')
+                    run_sim(sim_script, pool_ids)
 
         except Exception as poll_err:
             error_msg = str(poll_err)
