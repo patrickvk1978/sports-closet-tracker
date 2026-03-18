@@ -5,7 +5,7 @@ import { usePool } from "../hooks/usePool";
 
 const NAV_LINKS = [
   { to: "/",       label: "Dashboard" },
-  { to: "/matrix", label: "Matrix"    },
+  { to: "/matrix", label: "Picks"     },
 ];
 
 // Trophy icon for pool context
@@ -66,7 +66,19 @@ function PoolSwitcher({ pool, allPools, switchPool, isLoading }) {
     );
   }
 
-  // 1+ pools — dropdown (always show chevron so user can join/create more)
+  // Single pool — static badge (no dropdown)
+  if (allPools.length === 1) {
+    return (
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50">
+        <PoolIcon />
+        <span className="text-xs font-medium text-slate-200 max-w-[140px] truncate">
+          {pool ? pool.name : allPools[0].name}
+        </span>
+      </div>
+    );
+  }
+
+  // 2+ pools — dropdown
   return (
     <div className="relative" ref={ref}>
       <button

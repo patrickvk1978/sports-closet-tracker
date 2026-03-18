@@ -556,15 +556,86 @@ def load_pool_data(client, pool_id):
     return players, games_by_slot, team_seeds
 
 
+def load_prev_probs(client, pool_id):
+    """Load existing player_probs from sim_results to track deltas."""
+    try:
+        resp = client.table('sim_results').select('player_probs').eq('pool_id', pool_id).execute()
+        if resp.data and resp.data[0].get('player_probs'):
+            return resp.data[0]['player_probs']
+    except Exception:
+        pass
+    return {}
+
+
+def generate_narratives(player_probs, prev_probs, best_paths):
+    """
+    Generate one-sentence AI narratives per player using Claude Haiku.
+    Gracefully returns {} if anthropic is not installed or API key is missing.
+    """
+    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+    if not api_key:
+        print('  Skipping narratives (no ANTHROPIC_API_KEY)')
+        return {}
+
+    try:
+        import anthropic
+    except ImportError:
+        print('  Skipping narratives (anthropic package not installed)')
+        return {}
+
+    # Build context for the prompt
+    lines = []
+    for name, prob in sorted(player_probs.items(), key=lambda x: -x[1]):
+        pct = round(prob * 100, 1)
+        prev_pct = round(prev_probs.get(name, 0) * 100, 1)
+        delta = round(pct - prev_pct, 1)
+        delta_str = f"+{delta}" if delta > 0 else str(delta)
+
+        path_bullets = best_paths.get(name, best_paths.get('_default', []))
+        path_text = '; '.join(b['text'] for b in path_bullets[:3]) if path_bullets else 'N/A'
+
+        lines.append(f"- {name}: {pct}% win prob (delta {delta_str}%), path: {path_text}")
+
+    player_block = '\n'.join(lines)
+
+    prompt = f"""You are a sports analyst writing brief updates for a March Madness bracket pool dashboard.
+
+For each player below, write exactly ONE sentence (max 25 words). Be specific about teams. Slightly informal tone — like a knowledgeable friend giving a quick update.
+
+Players:
+{player_block}
+
+Return valid JSON only: {{"playerName": "sentence", ...}}
+No markdown, no explanation — just the JSON object."""
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=1024,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+        raw = resp.content[0].text.strip()
+        narratives = json.loads(raw)
+        print(f'  Generated narratives for {len(narratives)} player(s)')
+        return narratives
+    except Exception as e:
+        print(f'  Narrative generation failed: {e}')
+        return {}
+
+
 def upsert_sim_results(client, pool_id, player_probs, leverage_games,
-                       player_leverage, best_paths, iterations, dry_run):
+                       player_leverage, best_paths, prev_player_probs,
+                       narratives, iterations, dry_run):
     payload = {
-        'pool_id':          pool_id,
-        'iterations':       iterations,
-        'player_probs':     player_probs,
-        'leverage_games':   leverage_games,
-        'player_leverage':  player_leverage,
-        'best_paths':       best_paths,
+        'pool_id':             pool_id,
+        'iterations':          iterations,
+        'player_probs':        player_probs,
+        'leverage_games':      leverage_games,
+        'player_leverage':     player_leverage,
+        'best_paths':          best_paths,
+        'prev_player_probs':   prev_player_probs,
+        'narratives':          narratives,
     }
     if dry_run:
         print('\n[DRY RUN] Would upsert to sim_results:')
@@ -620,6 +691,13 @@ def main():
         for t in missing:
             print(f'    - {t}')
 
+    # Load previous probabilities for delta tracking
+    prev_probs = load_prev_probs(client, args.pool_id)
+    if prev_probs:
+        print(f'  Loaded previous win probs for {len(prev_probs)} player(s)')
+    else:
+        print('  No previous sim results (first run — deltas will be suppressed)')
+
     print(f'\nRunning {args.iterations:,} simulations…')
     player_probs, _, all_outcomes = run_simulation(
         players, games_by_slot, team_seeds, bpi_ratings, iterations=args.iterations
@@ -628,7 +706,10 @@ def main():
     print('\nWin probabilities:')
     for name, prob in sorted(player_probs.items(), key=lambda x: -x[1]):
         bar = '█' * max(1, int(prob * 40))
-        print(f'  {name:<20} {prob * 100:5.1f}%  {bar}')
+        prev_pct = prev_probs.get(name, 0) * 100
+        delta = prob * 100 - prev_pct
+        delta_str = f' ({("+" if delta > 0 else "")}{delta:.1f})' if prev_probs else ''
+        print(f'  {name:<20} {prob * 100:5.1f}%{delta_str}  {bar}')
 
     print(f'\nCalculating leverage ({args.cond_iters:,} conditional iters per game)…')
     leverage_games, player_leverage = calculate_leverage(
@@ -640,9 +721,13 @@ def main():
 
     best_paths = derive_best_paths(players, games_by_slot, all_outcomes, player_probs)
 
+    print('\nGenerating AI narratives…')
+    narratives = generate_narratives(player_probs, prev_probs, best_paths)
+
     upsert_sim_results(
         client, args.pool_id, player_probs, leverage_games, player_leverage,
-        best_paths, iterations=args.iterations, dry_run=args.dry_run
+        best_paths, prev_player_probs=prev_probs, narratives=narratives,
+        iterations=args.iterations, dry_run=args.dry_run
     )
     print('\nDone.')
 

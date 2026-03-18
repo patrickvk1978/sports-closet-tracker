@@ -250,14 +250,21 @@ export function usePoolData() {
 
   // ── Phase 3: merge simulation results ────────────────────────────────────────
 
-  // 1. Win probabilities: merge player_probs from simResult into PLAYERS_LIVE
+  // 1. Win probabilities: merge player_probs + deltas from simResult into PLAYERS_LIVE
   const PLAYERS_WITH_PROBS = useMemo(() => {
     const base = useLive ? PLAYERS_LIVE : MOCK_PLAYERS
     if (!simResult?.player_probs) return base
-    return base.map((p) => ({
-      ...p,
-      winProb: parseFloat(((simResult.player_probs[p.name] ?? 0) * 100).toFixed(1)),
-    }))
+    const prev = simResult?.prev_player_probs ?? {}
+    const hasPrev = Object.keys(prev).length > 0
+    return base.map((p) => {
+      const current = (simResult.player_probs[p.name] ?? 0) * 100
+      const prevPct = (prev[p.name] ?? 0) * 100
+      return {
+        ...p,
+        winProb: parseFloat(current.toFixed(1)),
+        winProbDelta: hasPrev ? parseFloat((current - prevPct).toFixed(1)) : null,
+      }
+    })
   }, [useLive, PLAYERS_LIVE, simResult])
 
   // 2. Leverage games: use sim result if available, else mock
@@ -275,6 +282,9 @@ export function usePoolData() {
     ? simResult.player_leverage
     : {}
 
+  // 5. AI narratives: { playerName: "sentence" }
+  const NARRATIVES = simResult?.narratives ?? {}
+
   return {
     PLAYERS:            PLAYERS_WITH_PROBS,
     GAMES:              useLive ? liveGames : MOCK_GAMES,
@@ -288,6 +298,7 @@ export function usePoolData() {
     BEST_PATH:          BEST_PATH_LIVE,
     PLAYER_LEVERAGE:    PLAYER_LEVERAGE_LIVE,
     LEVERAGE_THRESHOLD: MOCK_LEVERAGE_THRESHOLD,
+    NARRATIVES,
     simResult,
     userPicks,
     isLoading,
