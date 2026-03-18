@@ -185,8 +185,9 @@ ROUND_ORDER = ['R64', 'R32', 'S16', 'E8', 'F4', 'Champ']
 
 FIRST_WEEKEND = {'20260319', '20260320', '20260321', '20260322'}
 NARRATIVE_MODEL = 'claude-opus-4-6'
-SIM_INTERVAL_SECS   = 3600   # hourly
-EVENING_HOUR_ET     = 23     # 11 PM ET — end-of-day narrative trigger
+SIM_INTERVAL_SECS    = 3600  # hourly
+OVERNIGHT_HOUR_ET    = 3     # 3 AM ET — overnight narrative trigger (after midnight)
+OVERNIGHT_CUTOFF_ET  = 4     # stop trying after 4 AM (avoids next-day confusion)
 
 
 def slot_meta(slot):
@@ -235,9 +236,9 @@ def run_poller(pool_ids, client):
 
     # ── Sim scheduling state ──────────────────────────────────────────────────
     epoch = datetime.fromtimestamp(0, tz=timezone.utc)
-    last_hourly_sim_time        = epoch  # tracks last hourly (or narrative) run
-    evening_narrative_done_date = ''     # YYYYMMDD — prevent double evening run
-    locked_narrative_done       = set()  # pool IDs that have had their lock-trigger narrative
+    last_hourly_sim_time          = epoch  # tracks last hourly (or narrative) run
+    overnight_narrative_done_date = ''    # game-day date (YYYYMMDD) already covered
+    locked_narrative_done         = set() # pool IDs that have had their lock-trigger narrative
 
     print(f'Poller started  pools={pool_ids}')
     print('Ctrl+C to stop\n')
@@ -328,14 +329,18 @@ def run_poller(pool_ids, client):
                     locked_narrative_done.update(newly_locked)
                     last_hourly_sim_time = datetime.now(timezone.utc)
 
-                # ── End of day: Opus narrative run (once per night, 11 PM+)
-                elif (hour_et >= EVENING_HOUR_ET
-                        and today_str != evening_narrative_done_date):
-                    print(f'  → End-of-day narrative run ({today_str}, model: {NARRATIVE_MODEL})…')
-                    run_sim(sim_script, pool_ids,
-                            ('--narrative-model', NARRATIVE_MODEL))
-                    evening_narrative_done_date = today_str
-                    last_hourly_sim_time        = datetime.now(timezone.utc)
+                # ── Overnight narrative: 3–4 AM ET, attributed to the previous
+                #    calendar day so a 3 AM Friday run covers Thursday's games.
+                elif OVERNIGHT_HOUR_ET <= hour_et < OVERNIGHT_CUTOFF_ET:
+                    # "game day" = yesterday when we're in the overnight window
+                    game_day = (now_et - timedelta(days=1)).strftime('%Y%m%d')
+                    if (game_day in FIRST_WEEKEND
+                            and game_day != overnight_narrative_done_date):
+                        print(f'  → Overnight narrative run (game day {game_day}, model: {NARRATIVE_MODEL})…')
+                        run_sim(sim_script, pool_ids,
+                                ('--narrative-model', NARRATIVE_MODEL))
+                        overnight_narrative_done_date = game_day
+                        last_hourly_sim_time          = datetime.now(timezone.utc)
 
                 # ── Hourly sim: no narrative, preserves existing narratives
                 elif elapsed >= SIM_INTERVAL_SECS:
