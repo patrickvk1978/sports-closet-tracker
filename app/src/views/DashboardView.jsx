@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
@@ -197,15 +197,85 @@ function StatStrip({ player, poolSize }) {
   );
 }
 
+// ─── Status Lines ───────────────────────────────────────────────────────────
+
+function formatAgo(ms) {
+  if (ms < 60_000) return 'just now';
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem > 0 ? `${hrs}h ${rem}m ago` : `${hrs}h ago`;
+}
+
+function UpdateStatusLine({ simResult }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!simResult?.run_at) return null;
+  const runAt = new Date(simResult.run_at).getTime();
+  const elapsed = now - runAt;
+  const agoText = formatAgo(elapsed);
+  // Next narrative assumed ~2h cadence
+  const nextMs = Math.max(0, 7_200_000 - elapsed);
+  const nextH = Math.floor(nextMs / 3_600_000);
+  const nextM = Math.floor((nextMs % 3_600_000) / 60_000);
+  const nextText = nextMs === 0 ? 'soon' : nextH > 0 ? `~${nextH}h ${nextM}m` : `~${nextM}m`;
+
+  return (
+    <p className="text-[10px] text-slate-500" style={{ fontFamily: "Space Mono, monospace" }}>
+      Updated {agoText} · Refreshes in {nextText}
+    </p>
+  );
+}
+
+function GameStatusLine({ games }) {
+  if (!games || games.length === 0) return null;
+
+  const finalGames = games.filter(g => g.status === 'final' && g.updated_at);
+  const liveGames = games.filter(g => g.status === 'live');
+
+  const lastFinal = finalGames.length > 0
+    ? finalGames.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0]
+    : null;
+
+  if (!lastFinal && liveGames.length === 0) return null;
+
+  return (
+    <p className="text-[10px] text-slate-500" style={{ fontFamily: "Space Mono, monospace" }}>
+      {lastFinal && (
+        <span>Last sim after {lastFinal.matchup}</span>
+      )}
+      {lastFinal && liveGames.length > 0 && <span> · </span>}
+      {liveGames.length > 0 ? (
+        <span>Next: when {liveGames[0].matchup} ends</span>
+      ) : finalGames.length === games.filter(g => g.team1).length ? (
+        <span> · All games complete</span>
+      ) : null}
+    </p>
+  );
+}
+
 // ─── Narrative Cards ─────────────────────────────────────────────────────────
 
-function PoolNarrativeCard({ narrative }) {
+function PoolNarrativeCard({ narrative, simResult }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   if (!narrative) return null;
+  const agoText = simResult?.run_at ? formatAgo(now - new Date(simResult.run_at).getTime()) : null;
+
   return (
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-4">
       <p className="text-sm text-slate-200 leading-relaxed">{narrative}</p>
       <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
-        Today's Briefing
+        Today's Briefing{agoText ? ` · Updated ${agoText}` : ''}
       </p>
     </div>
   );
@@ -225,7 +295,7 @@ function PlayerNarrativeCard({ narrative }) {
 
 // ─── Pool Key Games Card ────────────────────────────────────────────────────
 
-function PoolKeyGamesCard({ leverageGames }) {
+function PoolKeyGamesCard({ leverageGames, players }) {
   const topGames = useMemo(() => {
     return [...leverageGames]
       .filter(g => g.team1 !== "TBD" && g.team2 !== "TBD")
@@ -239,6 +309,15 @@ function PoolKeyGamesCard({ leverageGames }) {
 
   if (topGames.length === 0) return null
 
+  // Pick split helper
+  const pickSplit = (game) => {
+    if (!players?.length || !game.team1) return null
+    const t1Picks = players.filter(p => p.picks?.[game.slot_index ?? game.id] === game.team1).length
+    const pct = Math.round((t1Picks / players.length) * 100)
+    const shortName = game.team1.split(' ').pop()
+    return { pct, shortName }
+  }
+
   return (
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-800/60">
@@ -248,26 +327,49 @@ function PoolKeyGamesCard({ leverageGames }) {
         <p className="text-[10px] text-slate-600 mt-0.5">Games that most affect who wins the pool</p>
       </div>
       <div className="divide-y divide-slate-800/40">
-        {topGames.map(game => (
-          <div key={game.id} className="px-5 py-3 flex items-center gap-3">
-            {game.status === "live" && <LivePing />}
-            <span className={`text-sm flex-1 ${game.status === "live" ? "text-white" : "text-slate-300"}`}>
-              {game.team1} vs {game.team2}
-            </span>
-            {game.status === "live" && game.score1 != null && (
-              <span className="text-xs font-bold text-amber-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                {game.score1}–{game.score2}
-              </span>
-            )}
-            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-              game.leverage >= 75 ? "bg-red-500/20 text-red-400" :
-              game.leverage >= 50 ? "bg-amber-500/20 text-amber-400" :
-                                    "bg-slate-700/60 text-slate-400"
-            }`} style={{ fontFamily: "Space Mono, monospace" }}>
-              ↕ {game.leverage}% swing
-            </span>
-          </div>
-        ))}
+        {topGames.map(game => {
+          const top2 = (game.playerImpacts ?? [])
+            .map(imp => ({ player: imp.player, swing: Math.abs(imp.ifTeam1 - imp.ifTeam2) }))
+            .sort((a, b) => b.swing - a.swing)
+            .slice(0, 2)
+          const split = pickSplit(game)
+
+          return (
+            <div key={game.id} className="px-5 py-3">
+              <div className="flex items-center gap-3">
+                {game.status === "live" && <LivePing />}
+                <span className={`text-sm flex-1 ${game.status === "live" ? "text-white" : "text-slate-300"}`}>
+                  {game.team1} vs {game.team2}
+                </span>
+                {game.status === "live" && game.score1 != null && (
+                  <span className="text-xs font-bold text-amber-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                    {game.score1}–{game.score2}
+                  </span>
+                )}
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                  game.leverage >= 60 ? "bg-red-500/20 text-red-400" :
+                  game.leverage >= 35 ? "bg-amber-500/20 text-amber-400" :
+                                        "bg-slate-700/60 text-slate-400"
+                }`} style={{ fontFamily: "Space Mono, monospace" }}>
+                  ↕ {game.leverage}% swing
+                </span>
+              </div>
+              {/* Player impacts + pick split */}
+              <div className="flex items-center gap-3 mt-1">
+                {top2.map(imp => (
+                  <span key={imp.player} className="text-[9px] text-slate-500">
+                    {imp.player} <span className="text-emerald-400">▲+{imp.swing.toFixed(1)}%</span>
+                  </span>
+                ))}
+                {split && (
+                  <span className="text-[9px] text-slate-600 ml-auto">
+                    {split.pct}% on {split.shortName}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -354,10 +456,35 @@ const SORT_OPTIONS = [
 
 function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
   const [sortBy, setSortBy] = useState("points")
+  const prevProbs = useRef({})
+  const [flashState, setFlashState] = useState({}) // { playerName: 'up' | 'down' }
 
   const leaderboard = useMemo(() => {
     return [...players].sort((a, b) => b[sortBy] - a[sortBy])
   }, [players, sortBy])
+
+  // Flash on winProb change
+  useEffect(() => {
+    const prev = prevProbs.current
+    const newFlash = {}
+    let changed = false
+    for (const p of players) {
+      if (prev[p.name] != null && prev[p.name] !== p.winProb) {
+        newFlash[p.name] = p.winProb > prev[p.name] ? 'up' : 'down'
+        changed = true
+      }
+    }
+    // Update prev
+    const next = {}
+    for (const p of players) next[p.name] = p.winProb
+    prevProbs.current = next
+
+    if (changed) {
+      setFlashState(newFlash)
+      const timer = setTimeout(() => setFlashState({}), 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [players])
 
   return (
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
@@ -382,44 +509,65 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
         </div>
       </div>
       <div className="divide-y divide-slate-800/40">
-        {leaderboard.map(p => (
-          <button
-            key={p.name}
-            onClick={() => isLocked && onSelectPlayer(p.name)}
-            className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${
-              p.name === currentPlayer?.name ? "bg-orange-500/10" :
-              isLocked ? "hover:bg-slate-800/20 cursor-pointer" : "cursor-default"
-            }`}
-          >
-            <span className="text-xs text-slate-600 w-5 text-right tabular-nums shrink-0" style={{ fontFamily: "Space Mono, monospace" }}>
-              {p.rank}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className={`text-sm font-semibold truncate ${p.name === currentPlayer?.name ? "text-orange-400" : "text-white"}`}>
-                  {p.name}
-                </span>
-                {p.champAlive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400 font-medium shrink-0">♛</span>}
-              </div>
-              <div className="flex items-center gap-3 mt-0.5">
-                <span className="text-xs text-slate-500" style={{ fontFamily: "Space Mono, monospace" }}>{p.points.toLocaleString()} pts</span>
-                <span className="text-xs text-slate-600">PPR: {p.ppr}</span>
-              </div>
-            </div>
-            <div className="text-right shrink-0 flex items-center gap-1.5">
-              <span
-                className="text-sm font-bold tabular-nums"
-                style={{
-                  fontFamily: "Space Mono, monospace",
-                  color: p.winProb > 15 ? "#34d399" : p.winProb > 8 ? "#fbbf24" : "#94a3b8",
-                }}
-              >
-                {p.winProb}%
+        {leaderboard.map(p => {
+          const flash = flashState[p.name]
+          const flashBg = flash === 'up'
+            ? 'bg-emerald-900/20'
+            : flash === 'down'
+              ? 'bg-red-900/20'
+              : ''
+
+          return (
+            <button
+              key={p.name}
+              onClick={() => isLocked && onSelectPlayer(p.name)}
+              className={`w-full flex items-center gap-3 px-5 py-3 transition-all duration-500 text-left ${
+                flash ? flashBg :
+                p.name === currentPlayer?.name ? "bg-orange-500/10" :
+                isLocked ? "hover:bg-slate-800/20 cursor-pointer" : "cursor-default"
+              }`}
+            >
+              <span className="text-xs text-slate-600 w-5 text-right tabular-nums shrink-0" style={{ fontFamily: "Space Mono, monospace" }}>
+                {p.rank}
               </span>
-              <DeltaArrow delta={p.winProbDelta} />
-            </div>
-          </button>
-        ))}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-semibold truncate ${p.name === currentPlayer?.name ? "text-orange-400" : "text-white"}`}>
+                    {p.name}
+                  </span>
+                  {p.champAlive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400 font-medium shrink-0">♛</span>}
+                </div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="text-xs text-slate-500" style={{ fontFamily: "Space Mono, monospace" }}>{p.points.toLocaleString()} pts</span>
+                  <span className="text-xs text-slate-600">PPR: {p.ppr}</span>
+                </div>
+              </div>
+              <div className="text-right shrink-0 flex items-center gap-1.5">
+                <span
+                  className="text-sm font-bold tabular-nums"
+                  style={{
+                    fontFamily: "Space Mono, monospace",
+                    color: p.winProb > 15 ? "#34d399" : p.winProb > 8 ? "#fbbf24" : "#94a3b8",
+                    transition: "color 0.3s",
+                  }}
+                >
+                  {p.winProb}%
+                </span>
+                <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.min(p.winProb * 4, 100)}%`,
+                      background: p.winProb > 15 ? "#34d399" : p.winProb > 8 ? "#fbbf24" : "#64748b",
+                      transition: "width 0.6s ease, background 0.3s",
+                    }}
+                  />
+                </div>
+                <DeltaArrow delta={p.winProbDelta} />
+              </div>
+            </button>
+          )
+        })}
       </div>
     </div>
   );
@@ -430,10 +578,12 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
 export default function Dashboard() {
   const {
     PLAYERS,
+    GAMES,
     LEVERAGE_GAMES,
     PLAYER_LEVERAGE,
     NARRATIVES,
     userPicks,
+    simResult,
   } = usePoolData();
   const { pool, members } = usePool();
   const { profile } = useAuth();
@@ -558,8 +708,14 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── Status Lines ────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-0.5 px-1">
+        <UpdateStatusLine simResult={simResult} />
+        <GameStatusLine games={GAMES} />
+      </div>
+
       {/* ── Pool Briefing ──────────────────────────────────────────────────── */}
-      <PoolNarrativeCard narrative={poolNarrative} />
+      <PoolNarrativeCard narrative={poolNarrative} simResult={simResult} />
 
       {/* ── Stat Strip ─────────────────────────────────────────────────────── */}
       <StatStrip player={player} poolSize={PLAYERS.length} />
@@ -568,7 +724,7 @@ export default function Dashboard() {
       <PlayerNarrativeCard narrative={playerNarrative} />
 
       {/* ── Pool Key Games ─────────────────────────────────────────────────── */}
-      <PoolKeyGamesCard leverageGames={LEVERAGE_GAMES} />
+      <PoolKeyGamesCard leverageGames={LEVERAGE_GAMES} players={PLAYERS} />
 
       {/* ── Your Key Games ─────────────────────────────────────────────────── */}
       <YourKeyGamesCard

@@ -1,7 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
+
+const shortTeam = (name) => name ? name.split(' ').pop() : 'TBD';
 
 const SORT_OPTIONS = [
   { key: "rank",    label: "Rank"    },
@@ -41,7 +43,7 @@ function StatusBadge({ status }) {
 }
 
 export default function MatrixView() {
-  const { PLAYERS, GAMES, ROUNDS } = usePoolData();
+  const { PLAYERS, GAMES, ROUNDS, LEVERAGE_GAMES } = usePoolData();
   const { pool } = usePool();
   const { profile } = useAuth();
   const [sortBy, setSortBy]             = useState("rank");
@@ -51,6 +53,14 @@ export default function MatrixView() {
 
   // When pool is not locked, each user sees only their own picks
   const isLocked = pool?.locked === true;
+
+  // Live filter: auto-switch when games go live / all end
+  const hasLiveGames = useMemo(() => GAMES.some(g => g.status === 'live'), [GAMES]);
+
+  useEffect(() => {
+    if (hasLiveGames && selectedRound === 'All') setSelectedRound('Live');
+    if (!hasLiveGames && selectedRound === 'Live') setSelectedRound('All');
+  }, [hasLiveGames]);
 
   const sortedPlayers = useMemo(() => {
     return [...PLAYERS].sort((a, b) => {
@@ -63,7 +73,9 @@ export default function MatrixView() {
 
   const filteredGames = selectedRound === "All"
     ? GAMES
-    : GAMES.filter((g) => g.round === selectedRound);
+    : selectedRound === "Live"
+      ? GAMES.filter((g) => g.status === "live")
+      : GAMES.filter((g) => g.round === selectedRound);
 
   const getPickDistribution = (gameId) => {
     const game = GAMES.find((g) => g.id === gameId);
@@ -87,16 +99,21 @@ export default function MatrixView() {
         <span className="text-[11px] text-slate-500 font-medium mr-1 whitespace-nowrap" style={{ fontFamily: "Space Mono, monospace" }}>
           {PLAYERS.length} players
         </span>
-        {["All", ...ROUNDS].map((r) => (
+        {[...(hasLiveGames ? ['Live'] : []), 'All', ...ROUNDS].map((r) => (
           <button
             key={r}
             onClick={() => setSelectedRound(r)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-              selectedRound === r
-                ? "bg-orange-500/20 text-orange-400 ring-1 ring-orange-500/30"
-                : "bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              r === 'Live'
+                ? selectedRound === r
+                  ? "bg-red-500/20 text-red-400 ring-1 ring-red-500/30"
+                  : "bg-red-950/40 text-red-400 hover:bg-red-500/20"
+                : selectedRound === r
+                  ? "bg-orange-500/20 text-orange-400 ring-1 ring-orange-500/30"
+                  : "bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-white"
             }`}
           >
+            {r === 'Live' && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />}
             {r}
           </button>
         ))}
@@ -203,52 +220,37 @@ export default function MatrixView() {
                     }}
                   >
                     <div className="flex flex-col items-center gap-0.5">
-                      {/* Region label on first column of each region */}
-                      {game.firstInRegion && (
+                      {/* Seed badge */}
+                      {seed && (
                         <span
-                          className="text-[9px] font-bold uppercase tracking-widest"
-                          style={{ color: game.regionColor, fontFamily: "Space Mono, monospace" }}
+                          className="text-[9px] tabular-nums px-1 py-0.5 rounded bg-slate-800 text-slate-500"
+                          style={{ fontFamily: "Space Mono, monospace" }}
                         >
-                          {game.region}
+                          {seed}
                         </span>
                       )}
 
-                      {/* Status + seed badge row */}
-                      <div className="flex items-center gap-1 flex-wrap justify-center">
-                        <StatusBadge status={game.status} />
-                        {seed && (
-                          <span
-                            className="text-[9px] tabular-nums px-1 py-0.5 rounded bg-slate-800 text-slate-500"
-                            style={{ fontFamily: "Space Mono, monospace" }}
-                          >
-                            {seed}
-                          </span>
-                        )}
-                      </div>
+                      {/* Matchup — styled by status */}
+                      {game.status === "final" ? (
+                        <span className="text-[11px] leading-tight text-slate-500">
+                          <span className="font-bold text-slate-300">{game.winner === game.team1 ? shortTeam(game.team1) : shortTeam(game.team2)}</span>
+                          {' vs '}
+                          <span className="line-through opacity-60">{game.winner === game.team1 ? shortTeam(game.team2) : shortTeam(game.team1)}</span>
+                        </span>
+                      ) : (
+                        <span className={`text-[11px] font-semibold leading-tight ${isLive ? "text-white" : "text-slate-300"}`}>
+                          {game.matchup}
+                        </span>
+                      )}
 
-                      {/* Matchup */}
-                      <span
-                        className={`text-[11px] font-semibold leading-tight ${game.isKeyGame ? "text-white" : "text-slate-300"}`}
-                      >
-                        {game.matchup}
-                      </span>
-
-                      {/* Round label */}
-                      <span
-                        className="text-[9px] uppercase tracking-wider"
-                        style={{ color: `${game.regionColor}99`, fontFamily: "Space Mono, monospace" }}
-                      >
-                        {game.round}
-                      </span>
-
-                      {/* Game time for pending games */}
+                      {/* Pending: game time */}
                       {game.status === "pending" && game.gameTime && (
                         <span className="text-[9px] text-slate-400 leading-none tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                           {game.gameTime}
                         </span>
                       )}
 
-                      {/* Live score */}
+                      {/* Live: score with pulsing dot + game note */}
                       {isLive && game.score1 != null && game.score2 != null && (
                         <div className="flex items-center gap-1">
                           <span
@@ -264,7 +266,24 @@ export default function MatrixView() {
                         <span className="text-[9px] text-slate-500 leading-none">{game.gameNote}</span>
                       )}
 
-                      {/* Final score */}
+                      {/* Live: root-for line */}
+                      {isLive && (() => {
+                        const lg = LEVERAGE_GAMES.find(lg => lg.id === game.slot_index);
+                        const imp = lg?.playerImpacts?.find(p => p.player === profile?.username);
+                        if (!imp) return null;
+                        const rootFor = imp.ifTeam1 >= imp.ifTeam2 ? game.team1 : game.team2;
+                        const gain = Math.abs(imp.ifTeam1 - imp.ifTeam2);
+                        if (gain < 1) return null;
+                        return (
+                          <span className="text-[9px]">
+                            <span className="text-slate-500">Root for</span>{' '}
+                            <span className="font-bold text-orange-400">{shortTeam(rootFor)}</span>{' '}
+                            <span className="text-emerald-400 font-bold">+{gain.toFixed(1)}%</span>
+                          </span>
+                        );
+                      })()}
+
+                      {/* Final: score (muted) */}
                       {game.status === "final" && game.score1 != null && game.score2 != null && (
                         <span
                           className="text-[10px] text-slate-500 tabular-nums"

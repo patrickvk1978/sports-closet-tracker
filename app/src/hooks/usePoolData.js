@@ -102,6 +102,7 @@ function buildLiveGames(dbGames) {
         score2:        g?.teams?.score2 ?? null,
         gameNote:      g?.teams?.gameNote ?? null,
         gameTime:      g?.teams?.gameTime ?? null,
+        updated_at:    g?.updated_at ?? null,
       })
     }
   }
@@ -129,6 +130,7 @@ function buildLiveGames(dbGames) {
       score1:        g?.teams?.score1 ?? null,
       score2:        g?.teams?.score2 ?? null,
       gameNote:      g?.teams?.gameNote ?? null,
+      updated_at:    g?.updated_at ?? null,
     })
   }
 
