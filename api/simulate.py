@@ -572,10 +572,75 @@ def load_prev_sim_data(client, pool_id):
     return {}, {}
 
 
-def generate_narratives(player_probs, prev_probs, best_paths,
-                        model='claude-haiku-4-5-20251001'):
+def build_tournament_context(games_by_slot):
     """
-    Generate one-sentence AI narratives per player.
+    Summarise the current tournament state for the Claude prompt.
+    Returns a dict with recent results, notable upsets, and upcoming games.
+    """
+    ROUND_DISPLAY = {
+        'R64': 'Round of 64', 'R32': 'Round of 32', 'S16': 'Sweet 16',
+        'E8': 'Elite Eight', 'F4': 'Final Four', 'Champ': 'Championship',
+    }
+
+    # Determine current round (deepest round with any non-pending game)
+    current_round = 'R64'
+    for rnd in ['Champ', 'F4', 'E8', 'S16', 'R32', 'R64']:
+        slots = ROUND_SLOTS.get(rnd, [])
+        if any(games_by_slot.get(s, {}).get('status') in ('live', 'final') for s in slots):
+            current_round = rnd
+            break
+
+    # Collect completed games — flag upsets by seed differential
+    finals = []
+    for slot in sorted(games_by_slot.keys()):
+        g = games_by_slot[slot]
+        if g.get('status') != 'final' or not g.get('winner'):
+            continue
+        teams  = g.get('teams') or {}
+        t1, t2 = teams.get('team1', ''), teams.get('team2', '')
+        s1, s2 = teams.get('score1'), teams.get('score2')
+        winner = g['winner']
+        loser  = t2 if winner == t1 else t1
+        score  = f"{max(s1, s2)}-{min(s1, s2)}" if s1 is not None and s2 is not None else ''
+        seed1, seed2 = teams.get('seed1'), teams.get('seed2')
+        seed_diff = abs((seed1 or 0) - (seed2 or 0)) if seed1 and seed2 else 0
+        finals.append({
+            'result':    f"{winner} def. {loser}{(' ' + score) if score else ''}",
+            'round':     SLOT_ROUND.get(slot, ''),
+            'upset':     seed_diff >= 5,
+            'seed_diff': seed_diff,
+        })
+
+    upsets  = sorted([f for f in finals if f['upset']], key=lambda x: -x['seed_diff'])[:4]
+    recent  = finals[-10:]  # last 10 completed games for general context
+
+    # Upcoming games with scheduled times
+    upcoming = []
+    for slot in sorted(games_by_slot.keys()):
+        g = games_by_slot[slot]
+        if g.get('status') != 'pending':
+            continue
+        teams     = g.get('teams') or {}
+        t1, t2    = teams.get('team1', 'TBD'), teams.get('team2', 'TBD')
+        game_time = teams.get('gameTime', '')
+        if t1 != 'TBD' and t2 != 'TBD':
+            upcoming.append(f"{t1} vs {t2}" + (f" ({game_time})" if game_time else ''))
+
+    return {
+        'current_round':      ROUND_DISPLAY.get(current_round, current_round),
+        'n_final':            len(finals),
+        'n_upcoming':         len(upcoming),
+        'upsets':             upsets,
+        'recent_results':     recent,
+        'upcoming_games':     upcoming[:8],
+    }
+
+
+def generate_narratives(player_probs, prev_probs, best_paths, players,
+                        games_by_slot, model='claude-haiku-4-5-20251001'):
+    """
+    Generate per-player narratives (second person, 40 words) and a pool-wide
+    day-opener summary (second person plural, 75 words), keyed as "_pool".
     model: override to claude-opus-4-6 for end-of-day quality runs.
     Gracefully returns {} if anthropic is not installed or API key is missing.
     """
@@ -590,41 +655,84 @@ def generate_narratives(player_probs, prev_probs, best_paths,
         print('  Skipping narratives (anthropic package not installed)')
         return {}
 
-    # Build context for the prompt
-    lines = []
+    pool_size  = len(players)
+    points_map = {p['username']: p['current_points'] for p in players}
+    rank_map   = {
+        p['username']: i + 1
+        for i, p in enumerate(sorted(players, key=lambda x: -x['current_points']))
+    }
+
+    # Tournament context
+    ctx = build_tournament_context(games_by_slot)
+
+    upset_lines    = '\n'.join(f"  - {u['result']} ({u['round']})" for u in ctx['upsets']) \
+                     or '  None yet'
+    recent_lines   = '\n'.join(f"  - {r['result']}" for r in ctx['recent_results']) \
+                     or '  No results yet'
+    upcoming_lines = '\n'.join(f"  - {g}" for g in ctx['upcoming_games']) \
+                     or '  No games scheduled'
+
+    # Per-player context block
+    player_lines = []
     for name, prob in sorted(player_probs.items(), key=lambda x: -x[1]):
-        pct = round(prob * 100, 1)
+        pct      = round(prob * 100, 1)
         prev_pct = round(prev_probs.get(name, 0) * 100, 1)
-        delta = round(pct - prev_pct, 1)
+        delta    = round(pct - prev_pct, 1)
         delta_str = f"+{delta}" if delta > 0 else str(delta)
+        rank     = rank_map.get(name, '?')
+        points   = points_map.get(name, 0)
 
         path_bullets = best_paths.get(name, best_paths.get('_default', []))
-        path_text = '; '.join(b['text'] for b in path_bullets[:3]) if path_bullets else 'N/A'
+        path_text    = '; '.join(b['text'] for b in path_bullets[:2]) if path_bullets else 'N/A'
 
-        lines.append(f"- {name}: {pct}% win prob (delta {delta_str}%), path: {path_text}")
+        player_lines.append(
+            f"- {name}: rank {rank}/{pool_size}, {points} pts, "
+            f"{pct}% win prob (delta {delta_str}%), needs: {path_text}"
+        )
 
-    player_block = '\n'.join(lines)
+    player_block = '\n'.join(player_lines)
 
-    prompt = f"""You are a sports analyst writing brief updates for a March Madness bracket pool dashboard.
+    prompt = f"""You are writing content for a March Madness bracket pool dashboard.
 
-For each player below, write exactly ONE sentence (max 25 words). Be specific about teams. Slightly informal tone — like a knowledgeable friend giving a quick update.
+Tournament context:
+- Current round: {ctx['current_round']}
+- Games completed: {ctx['n_final']} | Games remaining today: {ctx['n_upcoming']}
+- Notable upsets:
+{upset_lines}
+- Recent results:
+{recent_lines}
+- Upcoming games:
+{upcoming_lines}
 
-Players:
+Pool ({pool_size} players):
 {player_block}
 
-Return valid JSON only: {{"playerName": "sentence", ...}}
+Tasks:
+
+1. For each player write ONE update in second person (max 40 words), addressed directly \
+to that player ("you're sitting in 3rd...", "your Duke pick..."). \
+Be specific about their teams and situation. Informal tone, like a knowledgeable friend.
+
+2. Write one pool-wide day-opener (key: "_pool", max 75 words). \
+Use second person plural ("you're all entering Day 2..."). \
+Cover: state of the pool, anything notable from recent results, key games to watch today. \
+Engaging and specific — like a morning briefing.
+
+Return valid JSON only: {{"playerName": "sentence", ..., "_pool": "pool summary"}}
 No markdown, no explanation — just the JSON object."""
 
     try:
         client = anthropic.Anthropic(api_key=api_key)
         resp = client.messages.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=2048,
             messages=[{'role': 'user', 'content': prompt}],
         )
-        raw = resp.content[0].text.strip()
+        raw        = resp.content[0].text.strip()
         narratives = json.loads(raw)
-        print(f'  Generated narratives for {len(narratives)} player(s)')
+        n_players  = len(narratives) - (1 if '_pool' in narratives else 0)
+        pool_ok    = '✓' if '_pool' in narratives else '✗'
+        print(f'  Generated narratives for {n_players} player(s), pool summary {pool_ok}')
         return narratives
     except Exception as e:
         print(f'  Narrative generation failed: {e}')
@@ -738,7 +846,8 @@ def main():
     else:
         print(f'\nGenerating AI narratives (model: {args.narrative_model})…')
         narratives = generate_narratives(
-            player_probs, prev_probs, best_paths, model=args.narrative_model
+            player_probs, prev_probs, best_paths, players, games_by_slot,
+            model=args.narrative_model
         )
 
     upsert_sim_results(

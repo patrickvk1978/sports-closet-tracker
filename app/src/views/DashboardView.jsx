@@ -197,15 +197,27 @@ function StatStrip({ player, poolSize }) {
   );
 }
 
-// ─── Narrative Card ─────────────────────────────────────────────────────────
+// ─── Narrative Cards ─────────────────────────────────────────────────────────
 
-function NarrativeCard({ narrative }) {
+function PoolNarrativeCard({ narrative }) {
+  if (!narrative) return null;
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-4">
+      <p className="text-sm text-slate-200 leading-relaxed">{narrative}</p>
+      <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
+        Today's Briefing
+      </p>
+    </div>
+  );
+}
+
+function PlayerNarrativeCard({ narrative }) {
   if (!narrative) return null;
   return (
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-4">
       <p className="text-sm text-slate-300 leading-relaxed">{narrative}</p>
       <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
-        AI Analysis
+        Your Situation
       </p>
     </div>
   );
@@ -485,7 +497,8 @@ export default function Dashboard() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const narrative = NARRATIVES[player.name] ?? null;
+  const poolNarrative   = NARRATIVES['_pool'] ?? null;
+  const playerNarrative = NARRATIVES[player.name] ?? null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
@@ -545,11 +558,14 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── Pool Briefing ──────────────────────────────────────────────────── */}
+      <PoolNarrativeCard narrative={poolNarrative} />
+
       {/* ── Stat Strip ─────────────────────────────────────────────────────── */}
       <StatStrip player={player} poolSize={PLAYERS.length} />
 
-      {/* ── AI Narrative ───────────────────────────────────────────────────── */}
-      <NarrativeCard narrative={narrative} />
+      {/* ── Player Narrative ───────────────────────────────────────────────── */}
+      <PlayerNarrativeCard narrative={playerNarrative} />
 
       {/* ── Pool Key Games ─────────────────────────────────────────────────── */}
       <PoolKeyGamesCard leverageGames={LEVERAGE_GAMES} />
