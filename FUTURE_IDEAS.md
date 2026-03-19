@@ -13,28 +13,41 @@ A shared space for the team to capture ideas as we think through where to take t
 
 ---
 
-## Ideas Backlog
+## Known Bugs (Low Priority — mostly affect Day 1 only)
 
-### Phase 3.5 — AI-Powered Dashboard Narrative
-*Planned: build immediately after Monte Carlo test run confirms sim results are flowing correctly.*
-
-The Monte Carlo already produces all the structured data needed — win probabilities, leverage games, standings, best paths. This feature uses the Claude API to translate that data into natural language that powers specific dashboard components. Each AI call is small and focused (one card at a time), not a single big dump.
-
-**Per-player cards (personalized, regenerated after each sim run):**
-- **Path to Victory** — upgrades the current mechanical bullet points into 2-3 sentences of real narrative. e.g. *"You need Duke to keep winning and one upset in the South. If Kansas loses this weekend you're in real trouble."*
-- **Your Position** — upgrades the current if/else status message with context about what just happened. e.g. *"You dropped from 2nd to 4th after yesterday but your bracket is actually better positioned than your rank suggests."*
-- **Closest Rival** — upgrades the overlap stats card with dramatic context. e.g. *"Mike has 6 of the same Final Four picks as you — you're essentially tied to the same fate until the Elite 8."*
-
-**Pool-wide card (one per pool, shown to everyone):**
-- **Pool Storyline** — 2-3 sentence overview of the most interesting narrative in the pool right now. Sits at the top of the dashboard, changes after every sim run. e.g. *"Three players are within 20 points heading into the weekend and they all have different champions. This pool is wide open."*
-
-**Implementation approach:**
-- Call Claude API once per sim run (or on demand), passing current standings + sim results as structured context
-- Store AI-generated text in `sim_results` alongside the existing probability data
-- Each dashboard card reads its text from the stored result — no live API calls on page load
-- Pairs naturally with the email feature: post-round emails could include the AI narrative as the body copy
+- **Narrative kickoff time wrong**: Day 1 narrative said 12:40 PM instead of 12:15 PM. Either ESPN data has different time or Claude is hallucinating from prompt context. Investigate whether `gameTime` in DB is accurate vs. what the prompt receives.
+- **Tied ranks in narrative**: When everyone has 0 points (Day 1), `rank_map` in `simulate.py` sorts by `-current_points` which produces arbitrary ordering. Narrative says "you're in 1st" / "you're in 5th" when everyone is tied. Should detect ties and say "tied for 1st" or suppress rank language when no games have been played.
 
 ---
+
+## Companion App — Active Development (Phase 4.5)
+
+Goal: Make the app a **live companion** people keep open during games, not just a reference tool they check once a day.
+
+### Backend — Sim & Narrative Cadence Rework
+
+| Layer | Trigger | What Updates | Cost |
+|-------|---------|-------------|------|
+| Scores | Every 30–60s (poller) | Live scores, game status | Free |
+| Sim (win%, leverage, PPR) | **When a game goes final** | All numbers, leaderboard, key games | Free (CPU) |
+| Narrative (Haiku) | Every 2–3 hrs during active game windows | Reactive conversational text | ~$0.003/run |
+| Narrative (Opus) | Overnight 3 AM ET | Day-in-review, sets up tomorrow | ~$0.09/run |
+
+- **Sim on game completion** is the single highest-impact change. Within 30s of a game ending, every player's win% jumps, leaderboard reshuffles, leverage recalculates. The app *reacts to the tournament*.
+- **Haiku narrative every 2–3 hours** during game windows (~noon–midnight ET). Conversational, reactive: "Duke just went down and half the pool is in shock." Timestamped so users know it's fresh.
+- **Overnight Opus** stays as premium day-in-review anchor.
+
+### Frontend — Liveness Signals
+
+- **"Updated after [Game] · Next: when [Game] ends"** — one line on dashboard. Not a countdown, a *reason* to come back.
+- **Animate stat changes on Realtime push** — CSS transitions on StatStrip and Leaderboard when sim_results update. Green flash for gains, red for losses, rows slide to new positions.
+- **Live games strip on Picks screen** — compact strip above matrix showing in-progress games with scores/clock. Disappears when nothing is live.
+- **Timestamp on narrative card** — "Updated 20 min ago" instead of static anonymous card.
+- **Expandable key game detail** — tap a key game to see player-by-player impact (data already exists in `playerImpacts`).
+
+---
+
+## Ideas Backlog
 
 ### Email
 - **Pool owner → members email** — "Email Members" button in the Admin Pool tab; pool owner writes a message, a Supabase Edge Function looks up member emails server-side (auth.users is not exposed to the client) and sends via Resend or SendGrid. Good V4 candidate, ~1-2 days of work.
