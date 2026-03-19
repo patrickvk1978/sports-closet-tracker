@@ -29,7 +29,11 @@ import math
 import os
 import random
 import sys
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+ET = ZoneInfo('America/New_York')
 
 from dotenv import load_dotenv
 from supabase import create_client
@@ -572,15 +576,24 @@ def load_prev_sim_data(client, pool_id):
     return {}, {}
 
 
+TOURNAMENT_START_ET = date(2026, 3, 19)  # Day 1 = Selection Sunday / dashboard launch
+
+
 def build_tournament_context(games_by_slot):
     """
     Summarise the current tournament state for the Claude prompt.
-    Returns a dict with recent results, notable upsets, and upcoming games.
+    Returns a dict with day number, yesterday's results, today's upcoming games,
+    notable upsets, and current round.
     """
     ROUND_DISPLAY = {
         'R64': 'Round of 64', 'R32': 'Round of 32', 'S16': 'Sweet 16',
         'E8': 'Elite Eight', 'F4': 'Final Four', 'Champ': 'Championship',
     }
+
+    now_et     = datetime.now(ET)
+    today_et   = now_et.date()
+    yesterday_et = today_et - timedelta(days=1)
+    day_number = (today_et - TOURNAMENT_START_ET).days + 1
 
     # Determine current round (deepest round with any non-pending game)
     current_round = 'R64'
@@ -590,8 +603,9 @@ def build_tournament_context(games_by_slot):
             current_round = rnd
             break
 
-    # Collect completed games — flag upsets by seed differential
-    finals = []
+    # Collect completed games — split into yesterday vs older; flag upsets
+    yesterday_finals = []
+    all_finals       = []
     for slot in sorted(games_by_slot.keys()):
         g = games_by_slot[slot]
         if g.get('status') != 'final' or not g.get('winner'):
@@ -604,18 +618,31 @@ def build_tournament_context(games_by_slot):
         score  = f"{max(s1, s2)}-{min(s1, s2)}" if s1 is not None and s2 is not None else ''
         seed1, seed2 = teams.get('seed1'), teams.get('seed2')
         seed_diff = abs((seed1 or 0) - (seed2 or 0)) if seed1 and seed2 else 0
-        finals.append({
+        entry = {
             'result':    f"{winner} def. {loser}{(' ' + score) if score else ''}",
             'round':     SLOT_ROUND.get(slot, ''),
             'upset':     seed_diff >= 5,
             'seed_diff': seed_diff,
-        })
+        }
+        all_finals.append(entry)
 
-    upsets  = sorted([f for f in finals if f['upset']], key=lambda x: -x['seed_diff'])[:4]
-    recent  = finals[-10:]  # last 10 completed games for general context
+        # Attribute to yesterday if updated_at falls on yesterday ET
+        updated_raw = g.get('updated_at', '')
+        if updated_raw:
+            try:
+                updated_et = datetime.fromisoformat(
+                    updated_raw.replace('Z', '+00:00')
+                ).astimezone(ET).date()
+                if updated_et == yesterday_et:
+                    yesterday_finals.append(entry)
+            except Exception:
+                pass
 
-    # Upcoming games with scheduled times
-    upcoming = []
+    upsets = sorted([f for f in all_finals if f['upset']], key=lambda x: -x['seed_diff'])[:4]
+
+    # Today's upcoming games: gameTime with no day prefix = today
+    # (poller omits the day name when game_date == today ET)
+    today_upcoming = []
     for slot in sorted(games_by_slot.keys()):
         g = games_by_slot[slot]
         if g.get('status') != 'pending':
@@ -623,16 +650,23 @@ def build_tournament_context(games_by_slot):
         teams     = g.get('teams') or {}
         t1, t2    = teams.get('team1', 'TBD'), teams.get('team2', 'TBD')
         game_time = teams.get('gameTime', '')
-        if t1 != 'TBD' and t2 != 'TBD':
-            upcoming.append(f"{t1} vs {t2}" + (f" ({game_time})" if game_time else ''))
+        if t1 == 'TBD' or t2 == 'TBD':
+            continue
+        # gameTime without a leading day abbreviation (Mon/Tue/…) = today
+        is_today = not any(game_time.startswith(d) for d in
+                           ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'))
+        if is_today:
+            today_upcoming.append(f"{t1} vs {t2}" + (f" ({game_time})" if game_time else ''))
 
     return {
-        'current_round':      ROUND_DISPLAY.get(current_round, current_round),
-        'n_final':            len(finals),
-        'n_upcoming':         len(upcoming),
-        'upsets':             upsets,
-        'recent_results':     recent,
-        'upcoming_games':     upcoming[:8],
+        'day_number':       day_number,
+        'current_round':    ROUND_DISPLAY.get(current_round, current_round),
+        'n_final':          len(all_finals),
+        'n_today_upcoming': len(today_upcoming),
+        'upsets':           upsets,
+        'yesterday_finals': yesterday_finals[-12:],
+        'today_upcoming':   today_upcoming[:8],
+        'is_day_one':       day_number == 1,
     }
 
 
@@ -665,12 +699,12 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
     # Tournament context
     ctx = build_tournament_context(games_by_slot)
 
-    upset_lines    = '\n'.join(f"  - {u['result']} ({u['round']})" for u in ctx['upsets']) \
-                     or '  None yet'
-    recent_lines   = '\n'.join(f"  - {r['result']}" for r in ctx['recent_results']) \
-                     or '  No results yet'
-    upcoming_lines = '\n'.join(f"  - {g}" for g in ctx['upcoming_games']) \
-                     or '  No games scheduled'
+    upset_lines     = '\n'.join(f"  - {u['result']} ({u['round']})" for u in ctx['upsets']) \
+                      or '  None yet'
+    yesterday_lines = '\n'.join(f"  - {r['result']}" for r in ctx['yesterday_finals']) \
+                      or ('  No games yet (Day 1)' if ctx['is_day_one'] else '  No results')
+    today_lines     = '\n'.join(f"  - {g}" for g in ctx['today_upcoming']) \
+                      or '  No games scheduled today'
 
     # Per-player context block
     player_lines = []
@@ -695,14 +729,14 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
     prompt = f"""You are writing content for a March Madness bracket pool dashboard.
 
 Tournament context:
-- Current round: {ctx['current_round']}
-- Games completed: {ctx['n_final']} | Games remaining today: {ctx['n_upcoming']}
-- Notable upsets:
+- Today: Day {ctx['day_number']} of the tournament | Current round: {ctx['current_round']}
+- Games completed total: {ctx['n_final']} | Today's games remaining: {ctx['n_today_upcoming']}
+- Notable upsets so far:
 {upset_lines}
-- Recent results:
-{recent_lines}
-- Upcoming games:
-{upcoming_lines}
+- Yesterday's results:
+{yesterday_lines}
+- Today's upcoming games:
+{today_lines}
 
 Pool ({pool_size} players):
 {player_block}
@@ -714,9 +748,10 @@ to that player ("you're sitting in 3rd...", "your Duke pick..."). \
 Be specific about their teams and situation. Informal tone, like a knowledgeable friend.
 
 2. Write one pool-wide day-opener (key: "_pool", max 75 words). \
-Use second person plural ("you're all entering Day 2..."). \
-Cover: state of the pool, anything notable from recent results, key games to watch today. \
-Engaging and specific — like a morning briefing.
+MUST start with "Welcome to Day {ctx['day_number']}" or a natural variation. \
+Use second person plural. Briefly reflect on anything notable from yesterday \
+(skip if Day 1), then highlight the most interesting games ahead today. \
+Engaging and specific — like a morning show host kicking off the day.
 
 Return valid JSON only: {{"playerName": "sentence", ..., "_pool": "pool summary"}}
 No markdown, no explanation — just the JSON object."""
