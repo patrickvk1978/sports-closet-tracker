@@ -9,6 +9,7 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 **Live URL:** https://sports-closet-tracker.vercel.app
 **Supabase project:** xuttkfikpxorvelzquuu.supabase.co
 **GitHub:** patrickvk1978/sports-closet-tracker
+**VPS:** Hetzner Helsinki — runs `api/poller.py` in a `screen` session
 
 ---
 
@@ -22,7 +23,7 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 - TBD slots in R32+ derive teams from the user's own picks at feeder slots (paper bracket logic)
 - Mobile-responsive
 
-### 2. Matrix View (The Signature Feature)
+### 2. Picks View (formerly Matrix View)
 - Interactive table: rows = players (sorted by rank/points), columns = games (grouped by round)
 - Each cell shows that player's pick for that game
 - Color coding: correct picks (green), eliminated picks (red), pending picks (neutral)
@@ -37,12 +38,14 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 ### 3. Dashboard
 - **Pre-game gate:** Non-admins see a countdown screen until the pool is locked (tip-off)
 - **Pool commissioner** displayed under pool name in both pre-game and live headers
-- **Single-scroll layout** (no tabs) — simplified in Phase 4:
+- **Single-scroll layout** (no tabs):
   1. Pool header bar with player selector + invite link
-  2. **Stat Strip** — rank, points, PPR, win prob with delta arrow (green ▲ / red ▼)
-  3. **AI Narrative** — one-sentence Claude-generated analysis per player (hidden if not yet generated)
-  4. **Pool Key Games** — top 3 highest-leverage upcoming games (compact)
-  5. **Leaderboard** — all players sorted by rank, with win prob delta arrows
+  2. **Today's Briefing** — pool-wide AI day-opener (second person plural, 80 words, `_pool` key)
+  3. **Stat Strip** — rank, points, PPR, win prob with delta arrow (green ▲ / red ▼)
+  4. **Your Situation** — per-player AI narrative (second person, 40 words)
+  5. **Pool Key Games** — top 3 highest-leverage upcoming games, badge shows `↕ N% swing`
+  6. **Your Key Games** — top 3 games by personal swing; shows "Root for TEAM ▲ +X%"
+  7. **Leaderboard** — all players sorted by rank/points/PPR (sort pills), with win prob delta arrows
 - **Win probability deltas** — tracked between simulation runs via `prev_player_probs`
 - Admins can view the full dashboard before pool is locked
 
@@ -60,23 +63,25 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 
 ### Backend
 - **Database + Auth + Realtime:** Supabase (Postgres + RLS + Realtime subscriptions)
-- **Game data:** ESPN unofficial API polled by admin browser client (useEspnPoller)
-- **Simulation:** Python Monte Carlo script (`api/simulate.py`) — run from terminal, pushes results to Supabase Realtime
+- **Game data:** ESPN unofficial API polled by `api/poller.py` on VPS (60s / 30s live)
+- **Simulation:** Python Monte Carlo script (`api/simulate.py`) — called by poller or run manually
 
 ### Data Model (Supabase schema)
 
 ```
-profiles     — id (FK auth.users), username, is_admin
-pools        — id, name, invite_code (6 char), admin_id, locked (bool)
-pool_members — pool_id, user_id, joined_at
-games        — slot_index (0–62), round, region, teams (JSONB), espn_id,
-               status (pending/live/final), winner, win_prob_home, updated_at
-brackets     — id, pool_id, user_id, picks (JSONB array[63]), submitted_at
-scores       — pool_id, user_id, points, ppr, rank, updated_at
-sim_results  — id, pool_id, run_at, iterations, player_probs (JSONB),
-               leverage_games (JSONB), best_paths (JSONB),
-               prev_player_probs (JSONB), narratives (JSONB),
-               player_leverage (JSONB)
+profiles          — id (FK auth.users), username, is_admin
+pools             — id, name, invite_code (6 char), admin_id, locked (bool)
+pool_members      — pool_id, user_id, joined_at
+games             — slot_index (0–62), round, region, teams (JSONB), espn_id,
+                    status (pending/live/final), winner, win_prob_home, updated_at
+brackets          — id, pool_id, user_id, picks (JSONB array[63]), submitted_at
+scores            — pool_id, user_id, points, ppr, rank, updated_at
+sim_results       — id, pool_id, run_at, iterations, player_probs (JSONB),
+                    leverage_games (JSONB), best_paths (JSONB),
+                    prev_player_probs (JSONB), narratives (JSONB),
+                    player_leverage (JSONB)
+poller_heartbeat  — id (always 1), polled_at, pools_found, games_updated,
+                    live_count, error
 ```
 
 ### App File Structure
@@ -99,7 +104,8 @@ app/src/
     useEspnPoller.js        ← admin-only ESPN poll every 60s/30s, upserts to games;
                                also fetches win_prob_home for live games
     usePoolData.js          ← adapter: returns mockData shape; merges sim results
-                               (winProb, winProbDelta, NARRATIVES); falls back to mock
+                               (winProb, winProbDelta, NARRATIVES, PLAYER_LEVERAGE);
+                               falls back to mock
     useSimResults.js        ← Realtime subscription on sim_results table
   components/
     NavBar.jsx              ← sticky nav + pool switcher (static badge for single pool,
@@ -108,8 +114,9 @@ app/src/
     PoolGuard.jsx           ← <Outlet /> or redirect to /join
   views/
     DashboardView.jsx       ← PreGameScreen (countdown + CTAs) for non-admins pre-lock;
-                               single-scroll dashboard (StatStrip + NarrativeCard +
-                               PoolKeyGames + Leaderboard) when locked or admin
+                               single-scroll dashboard when locked or admin:
+                               PoolNarrativeCard → StatStrip → PlayerNarrativeCard →
+                               PoolKeyGamesCard → YourKeyGamesCard → Leaderboard
     MatrixView.jsx          ← const { PLAYERS, GAMES, ROUNDS } = usePoolData()
     BracketView.jsx         ← KEY_PICKS + ALIVE computed with useMemo from live data
   pages/
@@ -124,13 +131,20 @@ app/src/
   main.jsx / index.css
 
 api/
-  simulate.py               ← Monte Carlo script + AI narrative generation (Claude Haiku);
-                               run: python api/simulate.py --pool-id UUID
-  requirements.txt          ← includes anthropic SDK for narrative generation
-  .env.example              ← needs SUPABASE_SERVICE_ROLE_KEY + ANTHROPIC_API_KEY (optional)
+  simulate.py               ← Monte Carlo script + AI narrative generation;
+                               flags: --pool-id UUID [--iterations N] [--dry-run]
+                                      [--no-narratives] [--narrative-model MODEL]
+                               default narrative model: claude-haiku-4-5-20251001
+                               Opus model: claude-opus-4-6 (used for overnight/lock runs)
+  poller.py                 ← VPS background process; polls ESPN every 60s (30s live);
+                               upserts games; runs hourly sim (--no-narratives) during
+                               first weekend; Opus narrative on bracket lock + 3 AM ET nightly
+  requirements.txt          ← supabase, requests, python-dotenv, anthropic>=0.39.0
+  .env.example              ← needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + ANTHROPIC_API_KEY
+  ratings.json              ← BPI ratings for 365 teams
 
 supabase/
-  schema.sql                ← Full 6-table schema with RLS policies + triggers
+  schema.sql                ← Full schema with RLS policies + triggers
   phase3_migration.sql      ← Adds win_prob_home column + sim_results table + RLS + Realtime
   phase4_migration.sql      ← Adds prev_player_probs, narratives, player_leverage columns
 ```
@@ -143,7 +157,7 @@ supabase/
 /join           → JoinPoolPage (auth required)
 /create-pool    → CreatePoolPage (auth required)
 /               → Dashboard (auth + pool required)
-/matrix         → Matrix View (auth + pool required)
+/matrix         → Picks View (auth + pool required)
 /bracket        → Bracket View (auth + pool required)
 /submit         → BracketSubmitPage (auth + pool required)
 /admin          → AdminPage (auth + pool + is_admin required)
@@ -193,6 +207,59 @@ Four sub-tabs. Header bar (Pre-fill 2026 Bracket button + ESPN polling badge) al
 
 ---
 
+## VPS Poller (`api/poller.py`)
+
+Runs continuously on a Hetzner Helsinki VPS in a `screen` session named `poller`.
+
+### Sim schedule (first weekend: Mar 19–22)
+| Trigger | Model | Narratives |
+|---------|-------|------------|
+| Bracket lock detected (`pools.locked` flips true) | Opus (`claude-opus-4-6`) | Yes — first narrative run |
+| Overnight: 3–4 AM ET each game night | Opus | Yes — reflects on that day's games |
+| Hourly (every 60 min, rest of day) | — | No (`--no-narratives`, preserves existing) |
+
+Outside first weekend: sims trigger on round completion (existing behavior).
+
+### Heartbeat
+Writes to `poller_heartbeat` table (id=1) after every poll cycle: `polled_at`, `games_updated`, `live_count`, `error`.
+
+### VPS setup
+```bash
+cd ~/sports-closet-tracker
+python3 -m venv api/venv
+api/venv/bin/pip install -r api/requirements.txt
+screen -S poller
+api/venv/bin/python api/poller.py
+# Ctrl+A, D to detach
+```
+
+---
+
+## AI Narrative System
+
+### Narrative types
+- **`_pool`** (Today's Briefing card): pool-wide day-opener, ~80 words, second person plural.
+  Always opens "Welcome to Day N" or variation. Reflects on yesterday's results (skips Day 1). References 1–2 highest-leverage games by team name with standings context.
+- **Per-player** (Your Situation card): ~40 words, second person ("you're sitting in 3rd..."). References their specific teams, rank, win prob delta, and best path.
+
+### Context provided to Claude
+- Tournament day number (Day 1 = Mar 19, 2026)
+- Current round, games completed, today's upcoming games
+- Notable upsets (seed diff ≥ 5)
+- Yesterday's final results (filtered by `updated_at` ET date)
+- Today's upcoming games (gameTime with no day prefix = today)
+- Per-player: rank, points, win prob, delta, best path bullets
+- Top 5 leverage games: matchup, pool swing %, pick distribution
+
+### Models
+- **Haiku** (`claude-haiku-4-5-20251001`): default for manual runs and testing
+- **Opus** (`claude-opus-4-6`): overnight + bracket lock runs via poller
+
+### Cost
+~$0.50–$1 total for first weekend (Opus only fires ~6 times; hourly runs skip Claude entirely).
+
+---
+
 ## Environment Variables
 
 ```
@@ -200,7 +267,8 @@ Four sub-tabs. Header bar (Pre-fill 2026 Bracket button + ESPN polling badge) al
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 
-# api/.env
+# api/.env  (VPS + local)
+SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 ANTHROPIC_API_KEY=          # optional — enables AI narrative generation
 ```
@@ -215,92 +283,57 @@ ANTHROPIC_API_KEY=          # optional — enables AI narrative generation
 - Goal: validate UX
 
 ### Phase 2: Backend + Auth ✅ COMPLETE (Mar 2026)
-
 - Supabase project setup, 6-table schema, RLS on all tables
 - Supabase Realtime on games + scores tables
-- User auth: email/password sign-up, sign-in, sign-out (Google OAuth wired but button hidden — needs consent screen)
-- Password reset flow: "Forgot password?" on login → Supabase email → /reset-password page
+- User auth: email/password sign-up, sign-in, sign-out
+- Password reset flow
 - Pool creation with 6-char invite codes; join pool flow
 - Interactive bracket submission at /submit (cascading pick logic)
 - All 3 views migrated from mock → live data via `usePoolData` adapter hook
 - ESPN unofficial API polling (admin browser, 60s/30s interval)
 - Live in-game scores in Matrix and Bracket views
-- NavBar: auth state, pool switcher (static badge for 1 pool, dropdown for 2+), Submit/Edit bracket link; nav tabs: Dashboard, Picks, Bracket
-- ProtectedRoute + PoolGuard route guards
-- Multi-pool support: PoolContext loads all memberships, active pool in localStorage, switchPool()
+- Multi-pool support: PoolContext loads all memberships, active pool in localStorage
 - Admin UI at /admin: R64 team editor, pool lock toggle, ESPN ID mapping
-- Security-definer RPC `get_pool_members` — members can see pool roster without RLS bypass
-- DB trigger auto-creates profile on auth user creation
-- Picks visibility: matrix and bracket view hide other players' picks pre-lock
-- BracketView: TBD slots derive from user's own picks at feeder slots
-- NavBar link: "Create Bracket" before submission, "Edit Bracket" after
 - Pre-game dashboard gate: non-admins see countdown screen until pool is locked
-- ESPN attribution throughout app
 
 ### Phase 3: Win Probability Engine ✅ COMPLETE (Mar 2026)
-
-Simplified from original Redis/FastAPI spec to a terminal script + Supabase Realtime:
-
-- `supabase/phase3_migration.sql` — adds `win_prob_home` column to games + `sim_results` table
-- `api/simulate.py` — Python Monte Carlo; run after each round batch completes
-- `api/requirements.txt`, `api/.env.example`
+- `supabase/phase3_migration.sql` — adds `win_prob_home` column + `sim_results` table
+- `api/simulate.py` — Python Monte Carlo (10,000 iterations); BPI + seed blended model
 - `useSimResults.js` — Realtime hook; sim results push live to all browsers
 - `useEspnPoller.js` — fetches `win_prob_home` for live games via ESPN Core probabilities
 - `usePoolData.js` — merges simResult: winProb into PLAYERS; exposes leverage_games, best_paths
 - Admin Simulation tab: copy command, last-run timestamp, top-5 win probs with bar chart
 
-**Operational steps before/during tournament:**
-1. Run `supabase/phase3_migration.sql` in Supabase SQL editor
-2. `cp api/.env.example api/.env` → fill in SUPABASE_SERVICE_ROLE_KEY
-3. `pip install -r api/requirements.txt`
-4. After brackets locked: `python api/simulate.py --pool-id UUID`
-5. Re-run after each round batch completes
-
 ### Phase 3.5: Admin UX + Pool Management ✅ COMPLETE (Mar 16 2026)
-
 - AdminPage reorganized into 4 sub-tabs: Bracket | Members | Pool | Simulation
-- Remove Member per row in Members tab (hidden for self)
-- Pool tab: LockToggle + Invite Link copy + Delete Pool danger zone (with confirmation)
-- Dashboard pre-game CTA: "Edit Your Bracket" when bracket already saved, "Submit Your Bracket" when not
-- Leave Pool: button in pre-game CTAs + locked dashboard header (non-admins only); confirm modal deletes from pool_members + navigates to /join
-- Pool commissioner (owner) label displayed under pool name on dashboard (both pre-game and live headers)
-- Matrix view column headers now show scheduled tip-off time (ET) for pending games (extracted from ESPN `event.date`, stored in games.teams JSONB)
-- Leverage threshold lowered from 15% to 5% in `simulate.py`
-- Fixed simulate.py username lookup bug: replaced `get_pool_members` RPC (which returns empty when called with service role key — no auth.uid() session) with direct `pool_members` + `profiles` table queries
-- Google OAuth button hidden on login page (pending OAuth consent screen approval)
+- Remove Member, Leave Pool, Delete Pool with confirmation dialogs
+- Pool commissioner label on dashboard
+- Matrix column headers show scheduled tip-off time (ET) for pending games
+- Leverage threshold lowered to 5%
 
-### Phase 3.6: VPS Background Poller (Planned)
+### Phase 3.6: VPS Background Poller ✅ COMPLETE (Mar 19 2026)
+- `api/poller.py` running on Hetzner Helsinki VPS
+- Polls ESPN every 60s (30s when live games detected)
+- Writes heartbeat to `poller_heartbeat` table after every cycle
+- Sim scheduling: hourly (no narratives) + overnight Opus + bracket lock Opus
+- Eliminates need to keep admin browser tab open during tournament
 
-Replace admin-browser-tab polling with a persistent server-side process:
-
-- `api/poller.py` — Python script that runs continuously on a VPS
-  - On startup: queries `games` table to build `espn_id → slot_index` mapping
-  - Polls ESPN scoreboard every 60s (30s when live games detected)
-  - Upserts results to Supabase `games` table (same logic as `useEspnPoller.js`)
-  - Fetches `win_prob_home` via ESPN Core probabilities endpoint for live games
-  - After each poll cycle, checks if all games in the current round are `final`
-  - If round complete: automatically runs `simulate.py` and pushes results via Realtime
-- Deploy to any cheap VPS (Fly.io free tier, Railway ~$5/mo, DigitalOcean $4/mo, Hetzner €3/mo)
-- Needs same `api/.env` credentials (`SUPABASE_SERVICE_ROLE_KEY` + `POOL_ID`)
-- Eliminates need to keep an admin browser tab open during the tournament
-- Eliminates manual `simulate.py` re-runs after each round
-
-### Phase 4: Dashboard Simplification + AI Narratives ✅ COMPLETE (Mar 18 2026)
-
-- Dashboard restructured from tabbed layout to single-scroll:
-  - Removed: Overview/Game Impact tabs, LeverageGameCard, Biggest Rival card, Best Path card, status message
-  - New layout: Pool Header → StatStrip (with delta arrows) → NarrativeCard → Pool Key Games (top 3) → Leaderboard (with delta arrows)
-- **Win probability deltas**: `simulate.py` reads previous `player_probs` before each run, saves as `prev_player_probs`; frontend shows green ▲ / red ▼ arrows next to win prob
-- **AI narratives**: `simulate.py` calls Claude Haiku (`claude-haiku-4-5-20251001`) after each sim run to generate one-sentence per-player analysis; gracefully skips if no `ANTHROPIC_API_KEY`
-- `supabase/phase4_migration.sql` — adds `prev_player_probs`, `narratives`, `player_leverage` columns to `sim_results`
-- NavBar: "Matrix" renamed to "Picks"; single-pool users see a static badge instead of dropdown
-- `usePoolData.js` — exposes `winProbDelta` per player + `NARRATIVES` dict
+### Phase 4: Dashboard Simplification + AI Narratives ✅ COMPLETE (Mar 19 2026)
+- Dashboard restructured to single-scroll (no tabs)
+- **Pool narrative** (`_pool` key): day-opener, opens "Welcome to Day N", references leverage games and pool standings; generated by Opus overnight / on bracket lock
+- **Per-player narrative**: second person, 40 words, references their teams + rank + delta
+- **Win probability deltas**: green ▲ / red ▼ arrows on StatStrip and Leaderboard
+- **Your Key Games** card: top 3 personal-leverage games with "Root for TEAM ▲ +X%" framing
+- **Pool Key Games** badge: `↕ N% swing` language
+- **Leaderboard sort pills**: Points (default) / Win% / PPR
+- `supabase/phase4_migration.sql` — adds `prev_player_probs`, `narratives`, `player_leverage`
+- NavBar: "Matrix" → "Picks"; single-pool static badge
 
 **Operational steps:**
 1. Run `supabase/phase4_migration.sql` in Supabase SQL editor
-2. `pip install anthropic` on VPS, add `ANTHROPIC_API_KEY` to `api/.env`
-3. Re-run `python api/simulate.py --pool-id UUID` — narratives will print
-4. Pull latest code on VPS; restart poller
+2. Add `ANTHROPIC_API_KEY` to `api/.env` on VPS
+3. `git pull origin main` on VPS; restart poller
+4. Test: `api/venv/bin/python api/simulate.py --pool-id UUID`
 
 ### Phase 5: Polish + PWA (Planned)
 - Service worker for offline bracket viewing
@@ -311,7 +344,8 @@ Replace admin-browser-tab polling with a persistent server-side process:
 ---
 
 ## Notes for Development
-- The matrix view is the most complex UI component
+- The matrix (Picks) view is the most complex UI component
 - Use responsive design, optimize for mobile-first
 - Mock data falls back gracefully when no live pool is active (dev mode)
-- Score calculation trigger (wire scoring.js to fire when game goes `final`) is still a loose end
+- `simulate.py` uses `ZoneInfo('America/New_York')` for all ET scheduling — safe on any VPS timezone
+- Narratives gracefully absent if `ANTHROPIC_API_KEY` not set or Claude API fails
