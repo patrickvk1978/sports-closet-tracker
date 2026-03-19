@@ -334,15 +334,40 @@ function YourKeyGamesCard({ player, playerLeverageGames, leverageGames }) {
 
 // ─── Leaderboard ────────────────────────────────────────────────────────────
 
+const SORT_OPTIONS = [
+  { key: "points",  label: "Points"  },
+  { key: "winProb", label: "Win %"   },
+  { key: "ppr",     label: "PPR"     },
+]
+
 function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
-  const leaderboard = useMemo(() => [...players].sort((a, b) => a.rank - b.rank), [players]);
+  const [sortBy, setSortBy] = useState("points")
+
+  const leaderboard = useMemo(() => {
+    return [...players].sort((a, b) => b[sortBy] - a[sortBy])
+  }, [players, sortBy])
 
   return (
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-800/60">
+      <div className="px-5 py-3 border-b border-slate-800/60 flex items-center justify-between gap-3">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
           Leaderboard
         </p>
+        <div className="flex items-center gap-1">
+          {SORT_OPTIONS.map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setSortBy(opt.key)}
+              className={`text-[10px] px-2 py-0.5 rounded-md font-semibold transition-colors ${
+                sortBy === opt.key
+                  ? "bg-slate-700 text-white"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="divide-y divide-slate-800/40">
         {leaderboard.map(p => (
