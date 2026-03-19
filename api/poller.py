@@ -319,9 +319,22 @@ def run_poller(pool_ids, client):
             prev_final_set = current_final_set
 
             if newly_final:
-                print(f'  → {len(newly_final)} game(s) just went final — running sim…')
-                run_sim(sim_script, pool_ids, ('--no-narratives',))
-                last_hourly_sim_time = datetime.now(timezone.utc)
+                # Check if a narrative is also due (prevents narrative starvation
+                # when frequent game completions keep resetting the hourly timer)
+                now_utc = datetime.now(timezone.utc)
+                now_et_check = datetime.now(ET)
+                narrative_elapsed = (now_utc - last_narrative_time).total_seconds()
+                in_game_window = GAME_WINDOW_START_ET <= now_et_check.hour < GAME_WINDOW_END_ET
+                need_narrative = in_game_window and narrative_elapsed >= NARRATIVE_INTERVAL_SECS
+
+                if need_narrative:
+                    print(f'  → {len(newly_final)} game(s) just went final — running sim + narrative ({HOURLY_NARRATIVE_MODEL})…')
+                    run_sim(sim_script, pool_ids, ('--narrative-model', HOURLY_NARRATIVE_MODEL))
+                    last_narrative_time = now_utc
+                else:
+                    print(f'  → {len(newly_final)} game(s) just went final — running sim…')
+                    run_sim(sim_script, pool_ids, ('--no-narratives',))
+                last_hourly_sim_time = now_utc
 
             # ── Sim scheduling ───────────────────────────────────────────────────
             current_done = completed_rounds(db_games)
