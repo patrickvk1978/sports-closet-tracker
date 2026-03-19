@@ -585,7 +585,7 @@ def build_tournament_context(games_by_slot):
     # Determine current round (deepest round with any non-pending game)
     current_round = 'R64'
     for rnd in ['Champ', 'F4', 'E8', 'S16', 'R32', 'R64']:
-        slots = ROUND_SLOTS.get(rnd, [])
+        slots = [s for s, r in SLOT_ROUND.items() if r == rnd]
         if any(games_by_slot.get(s, {}).get('status') in ('live', 'final') for s in slots):
             current_round = rnd
             break
