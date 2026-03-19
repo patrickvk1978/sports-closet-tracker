@@ -658,6 +658,18 @@ def build_tournament_context(games_by_slot):
         if is_today:
             today_upcoming.append(f"{t1} vs {t2}" + (f" ({game_time})" if game_time else ''))
 
+    # Collect live games with scores and clock
+    live_games = []
+    for slot in sorted(games_by_slot.keys()):
+        g = games_by_slot[slot]
+        if g.get('status') != 'live':
+            continue
+        teams = g.get('teams') or {}
+        t1, t2 = teams.get('team1', 'TBD'), teams.get('team2', 'TBD')
+        s1, s2 = teams.get('score1', 0), teams.get('score2', 0)
+        note = teams.get('gameNote', '')
+        live_games.append(f"{t1} {s1} - {t2} {s2} ({note})")
+
     return {
         'day_number':       day_number,
         'current_round':    ROUND_DISPLAY.get(current_round, current_round),
@@ -667,12 +679,14 @@ def build_tournament_context(games_by_slot):
         'yesterday_finals': yesterday_finals[-12:],
         'today_upcoming':   today_upcoming[:8],
         'is_day_one':       day_number == 1,
+        'live_games':       live_games,
     }
 
 
 def generate_narratives(player_probs, prev_probs, best_paths, players,
                         games_by_slot, leverage_games=None,
-                        model='claude-haiku-4-5-20251001'):
+                        model='claude-haiku-4-5-20251001',
+                        prev_narratives=None):
     """
     Generate per-player narratives (second person, 40 words) and a pool-wide
     day-opener summary (second person plural, 75 words), keyed as "_pool".
@@ -706,6 +720,12 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
                       or ('  No games yet (Day 1)' if ctx['is_day_one'] else '  No results')
     today_lines     = '\n'.join(f"  - {g}" for g in ctx['today_upcoming']) \
                       or '  No games scheduled today'
+    live_lines      = '\n'.join(f"  - {g}" for g in ctx.get('live_games', [])) \
+                      or '  No games live right now'
+
+    # Detect day-opener vs mid-game update
+    prev_pool = (prev_narratives or {}).get('_pool', '')
+    is_day_opener = not prev_pool or f"Day {ctx['day_number']}" not in prev_pool
 
     # Per-player context block
     player_lines = []
@@ -729,11 +749,54 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
 
     # Top leverage games for pool context
     top_leverage = (leverage_games or [])[:5]
-    leverage_lines = '\n'.join(
-        f"  - {g['team1']} vs {g['team2']} ({g['leverage']}% pool swing, "
-        f"{round(g['pickPct1'])}% of pool on {g['team1'].split()[-1]})"
-        for g in top_leverage
-    ) or '  None calculated yet'
+    leverage_parts = []
+    for g in top_leverage:
+        header = (f"  - {g['team1']} vs {g['team2']} "
+                  f"({g['leverage']}% pool swing, "
+                  f"{round(g['pickPct1'])}% of pool on {g['team1'].split()[-1]})")
+        # Top 2-3 players most affected, showing who they need
+        impacts = g.get('playerImpacts', [])[:3]
+        impact_strs = [
+            f"    {pi['player']} needs {pi['rootFor'].split()[-1]} (±{pi['swing']}%)"
+            for pi in impacts if pi['swing'] >= 1.0
+        ]
+        leverage_parts.append(header + ('\n' + '\n'.join(impact_strs) if impact_strs else ''))
+    leverage_lines = '\n'.join(leverage_parts) or '  None calculated yet'
+
+    # Build pool narrative task based on update type
+    if is_day_opener:
+        pool_task = (
+            f"2. Write one pool-wide day-opener (key: \"_pool\", max 80 words). "
+            f"MUST start with \"Welcome to Day {ctx['day_number']}\" or a natural variation. "
+            f"Use second person plural. Briefly reflect on anything notable from yesterday "
+            f"(skip if Day 1). Then reference 1-2 of the highest-leverage games above "
+            f"by team name — tell the pool who to root for and why it matters to the standings. "
+            f"Engaging and specific — like a morning show host kicking off the day."
+        )
+        prev_player_note = ''
+    else:
+        prev_pool_section = f"\nPrevious pool update (DO NOT repeat — build on what changed):\n  \"{prev_pool}\"\n"
+        pool_task = (
+            f"2. Write one pool-wide mid-game update (key: \"_pool\", max 80 words). "
+            f"{prev_pool_section}"
+            f"Open with what just happened or is happening now. "
+            f"Tone: halftime commentator pulse check. Use second person plural. "
+            f"Reference live scores if available and what they mean for the standings. "
+            f"Don't repeat the previous update — react to new developments."
+        )
+        # Build previous player narratives for context
+        prev_player_parts = []
+        for name in sorted(player_probs.keys()):
+            prev_text = (prev_narratives or {}).get(name, '')
+            if prev_text:
+                prev_player_parts.append(f"  {name}: \"{prev_text}\"")
+        if prev_player_parts:
+            prev_player_note = (
+                "\nPrevious player narratives (vary the angle — don't repeat):\n"
+                + '\n'.join(prev_player_parts) + '\n'
+            )
+        else:
+            prev_player_note = ''
 
     prompt = f"""You are writing content for a March Madness bracket pool dashboard.
 
@@ -746,6 +809,8 @@ Tournament context:
 {yesterday_lines}
 - Today's upcoming games:
 {today_lines}
+- Live games right now:
+{live_lines}
 
 Pool ({pool_size} players) standings:
 {player_block}
@@ -757,14 +822,10 @@ Tasks:
 
 1. For each player write ONE update in second person (max 40 words), addressed directly \
 to that player ("you're sitting in 3rd...", "your Duke pick..."). \
-Be specific about their teams and situation. Informal tone, like a knowledgeable friend.
-
-2. Write one pool-wide day-opener (key: "_pool", max 80 words). \
-MUST start with "Welcome to Day {ctx['day_number']}" or a natural variation. \
-Use second person plural. Briefly reflect on anything notable from yesterday \
-(skip if Day 1). Then reference 1-2 of the highest-leverage games above \
-by team name — tell the pool who to root for and why it matters to the standings. \
-Engaging and specific — like a morning show host kicking off the day.
+Be specific about their teams and situation. Informal tone, like a knowledgeable friend. \
+If a player's key team is currently playing, mention the live score and what it means for them.
+{prev_player_note}
+{pool_task}
 
 Return valid JSON only: {{"playerName": "sentence", ..., "_pool": "pool summary"}}
 No markdown, no explanation — just the JSON object."""
@@ -899,7 +960,8 @@ def main():
         narratives = generate_narratives(
             player_probs, prev_probs, best_paths, players, games_by_slot,
             leverage_games=leverage_games,
-            model=args.narrative_model
+            model=args.narrative_model,
+            prev_narratives=existing_narratives
         )
 
     upsert_sim_results(

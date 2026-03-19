@@ -43,7 +43,7 @@ function StatusBadge({ status }) {
 }
 
 export default function MatrixView() {
-  const { PLAYERS, GAMES, ROUNDS, LEVERAGE_GAMES } = usePoolData();
+  const { PLAYERS, GAMES, ROUNDS, LEVERAGE_GAMES, PLAYER_LEVERAGE } = usePoolData();
   const { pool } = usePool();
   const { profile } = useAuth();
   const [sortBy, setSortBy]             = useState("rank");
@@ -268,12 +268,14 @@ export default function MatrixView() {
 
                       {/* Live: root-for line */}
                       {isLive && (() => {
-                        const lg = LEVERAGE_GAMES.find(lg => lg.id === game.slot_index);
+                        // Check player-specific leverage first (no threshold), then pool-wide
+                        const playerGames = PLAYER_LEVERAGE?.[profile?.username] ?? [];
+                        const lg = playerGames.find(g => g.id === game.slot_index)
+                          ?? LEVERAGE_GAMES.find(lg => lg.id === game.slot_index);
                         const imp = lg?.playerImpacts?.find(p => p.player === profile?.username);
                         if (!imp) return null;
                         const rootFor = imp.ifTeam1 >= imp.ifTeam2 ? game.team1 : game.team2;
                         const gain = Math.abs(imp.ifTeam1 - imp.ifTeam2);
-                        if (gain < 1) return null;
                         return (
                           <span className="text-[9px]">
                             <span className="text-slate-500">Root for</span>{' '}

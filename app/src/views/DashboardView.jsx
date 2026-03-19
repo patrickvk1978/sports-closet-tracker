@@ -329,7 +329,11 @@ function PoolKeyGamesCard({ leverageGames, players }) {
       <div className="divide-y divide-slate-800/40">
         {topGames.map(game => {
           const top2 = (game.playerImpacts ?? [])
-            .map(imp => ({ player: imp.player, swing: Math.abs(imp.ifTeam1 - imp.ifTeam2) }))
+            .map(imp => ({
+              player: imp.player,
+              swing: Math.abs(imp.ifTeam1 - imp.ifTeam2),
+              rootFor: imp.ifTeam1 >= imp.ifTeam2 ? game.team1 : game.team2,
+            }))
             .sort((a, b) => b.swing - a.swing)
             .slice(0, 2)
           const split = pickSplit(game)
@@ -358,7 +362,7 @@ function PoolKeyGamesCard({ leverageGames, players }) {
               <div className="flex items-center gap-3 mt-1">
                 {top2.map(imp => (
                   <span key={imp.player} className="text-[9px] text-slate-500">
-                    {imp.player} <span className="text-emerald-400">▲+{imp.swing.toFixed(1)}%</span>
+                    {imp.player} <span className="text-orange-400">{imp.rootFor.split(' ').pop()}</span> <span className="text-emerald-400">▲+{imp.swing.toFixed(1)}%</span>
                   </span>
                 ))}
                 {split && (
