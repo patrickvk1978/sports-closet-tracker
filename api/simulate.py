@@ -671,7 +671,8 @@ def build_tournament_context(games_by_slot):
 
 
 def generate_narratives(player_probs, prev_probs, best_paths, players,
-                        games_by_slot, model='claude-haiku-4-5-20251001'):
+                        games_by_slot, leverage_games=None,
+                        model='claude-haiku-4-5-20251001'):
     """
     Generate per-player narratives (second person, 40 words) and a pool-wide
     day-opener summary (second person plural, 75 words), keyed as "_pool".
@@ -726,6 +727,14 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
 
     player_block = '\n'.join(player_lines)
 
+    # Top leverage games for pool context
+    top_leverage = (leverage_games or [])[:5]
+    leverage_lines = '\n'.join(
+        f"  - {g['team1']} vs {g['team2']} ({g['leverage']}% pool swing, "
+        f"{round(g['pickPct1'])}% of pool on {g['team1'].split()[-1]})"
+        for g in top_leverage
+    ) or '  None calculated yet'
+
     prompt = f"""You are writing content for a March Madness bracket pool dashboard.
 
 Tournament context:
@@ -738,8 +747,11 @@ Tournament context:
 - Today's upcoming games:
 {today_lines}
 
-Pool ({pool_size} players):
+Pool ({pool_size} players) standings:
 {player_block}
+
+Today's highest-leverage games for this pool (games that most change who wins):
+{leverage_lines}
 
 Tasks:
 
@@ -747,10 +759,11 @@ Tasks:
 to that player ("you're sitting in 3rd...", "your Duke pick..."). \
 Be specific about their teams and situation. Informal tone, like a knowledgeable friend.
 
-2. Write one pool-wide day-opener (key: "_pool", max 75 words). \
+2. Write one pool-wide day-opener (key: "_pool", max 80 words). \
 MUST start with "Welcome to Day {ctx['day_number']}" or a natural variation. \
 Use second person plural. Briefly reflect on anything notable from yesterday \
-(skip if Day 1), then highlight the most interesting games ahead today. \
+(skip if Day 1). Then reference 1-2 of the highest-leverage games above \
+by team name — tell the pool who to root for and why it matters to the standings. \
 Engaging and specific — like a morning show host kicking off the day.
 
 Return valid JSON only: {{"playerName": "sentence", ..., "_pool": "pool summary"}}
@@ -885,6 +898,7 @@ def main():
         print(f'\nGenerating AI narratives (model: {args.narrative_model})…')
         narratives = generate_narratives(
             player_probs, prev_probs, best_paths, players, games_by_slot,
+            leverage_games=leverage_games,
             model=args.narrative_model
         )
 
