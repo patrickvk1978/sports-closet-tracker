@@ -728,7 +728,10 @@ No markdown, no explanation — just the JSON object."""
             max_tokens=2048,
             messages=[{'role': 'user', 'content': prompt}],
         )
-        raw        = resp.content[0].text.strip()
+        raw = resp.content[0].text.strip()
+        # Strip markdown code fences if model ignores the instruction
+        if raw.startswith('```'):
+            raw = raw.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
         narratives = json.loads(raw)
         n_players  = len(narratives) - (1 if '_pool' in narratives else 0)
         pool_ok    = '✓' if '_pool' in narratives else '✗'
