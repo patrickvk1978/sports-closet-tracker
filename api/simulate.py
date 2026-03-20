@@ -561,19 +561,23 @@ def load_pool_data(client, pool_id):
 
 
 def load_prev_sim_data(client, pool_id):
-    """Load previous player_probs and narratives from sim_results for delta tracking
-    and narrative preservation across hourly (no-narrative) runs."""
+    """Load previous player_probs, narratives, and narrative_day from sim_results
+    for delta tracking and narrative preservation across hourly (no-narrative) runs."""
     try:
         resp = (client.table('sim_results')
-                .select('player_probs, narratives')
+                .select('player_probs, narratives, narrative_day')
                 .eq('pool_id', pool_id)
                 .execute())
         if resp.data:
             row = resp.data[0]
-            return row.get('player_probs') or {}, row.get('narratives') or {}
+            return (
+                row.get('player_probs') or {},
+                row.get('narratives') or {},
+                row.get('narrative_day') or 0,
+            )
     except Exception:
         pass
-    return {}, {}
+    return {}, {}, 0
 
 
 TOURNAMENT_START_ET = date(2026, 3, 19)  # Day 1 = Selection Sunday / dashboard launch
@@ -686,11 +690,18 @@ def build_tournament_context(games_by_slot):
 def generate_narratives(player_probs, prev_probs, best_paths, players,
                         games_by_slot, leverage_games=None,
                         model='claude-haiku-4-5-20251001',
-                        prev_narratives=None):
+                        prev_narratives=None,
+                        narrative_type='game_end',
+                        just_finished='',
+                        prev_narrative_day=0):
     """
-    Generate per-player narratives (second person, 40 words) and a pool-wide
-    day-opener summary (second person plural, 75 words), keyed as "_pool".
-    model: override to claude-opus-4-6 for end-of-day quality runs.
+    Generate per-player narratives and a pool-wide summary, keyed as "_pool".
+
+    Two prompt variants:
+      - overnight: 60-word day-ahead summaries (morning newsletter, runs at 3 AM ET)
+      - game_end: 40-word quick reactions to just-finished games
+
+    Day-opener detection uses stored narrative_day metadata instead of parsing LLM text.
     Gracefully returns {} if anthropic is not installed or API key is missing.
     """
     api_key = os.environ.get('ANTHROPIC_API_KEY', '')
@@ -723,10 +734,6 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
     live_lines      = '\n'.join(f"  - {g}" for g in ctx.get('live_games', [])) \
                       or '  No games live right now'
 
-    # Detect day-opener vs mid-game update
-    prev_pool = (prev_narratives or {}).get('_pool', '')
-    is_day_opener = not prev_pool or f"Day {ctx['day_number']}" not in prev_pool
-
     # Per-player context block
     player_lines = []
     for name, prob in sorted(player_probs.items(), key=lambda x: -x[1]):
@@ -754,7 +761,6 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
         header = (f"  - {g['team1']} vs {g['team2']} "
                   f"({g['leverage']}% pool swing, "
                   f"{round(g['pickPct1'])}% of pool on {g['team1'].split()[-1]})")
-        # Top 2-3 players most affected, showing who they need
         impacts = g.get('playerImpacts', [])[:3]
         impact_strs = [
             f"    {pi['player']} needs {pi['rootFor'].split()[-1]} (±{pi['swing']}%)"
@@ -763,42 +769,24 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
         leverage_parts.append(header + ('\n' + '\n'.join(impact_strs) if impact_strs else ''))
     leverage_lines = '\n'.join(leverage_parts) or '  None calculated yet'
 
-    # Build pool narrative task based on update type
-    if is_day_opener:
-        pool_task = (
-            f"2. Write one pool-wide day-opener (key: \"_pool\", max 80 words). "
-            f"MUST start with \"Welcome to Day {ctx['day_number']}\" or a natural variation. "
-            f"Use second person plural. Briefly reflect on anything notable from yesterday "
-            f"(skip if Day 1). Then reference 1-2 of the highest-leverage games above "
-            f"by team name — tell the pool who to root for and why it matters to the standings. "
-            f"Engaging and specific — like a morning show host kicking off the day."
-        )
-        prev_player_note = ''
-    else:
-        prev_pool_section = f"\nPrevious pool update (DO NOT repeat — build on what changed):\n  \"{prev_pool}\"\n"
-        pool_task = (
-            f"2. Write one pool-wide mid-game update (key: \"_pool\", max 80 words). "
-            f"{prev_pool_section}"
-            f"Open with what just happened or is happening now. "
-            f"Tone: halftime commentator pulse check. Use second person plural. "
-            f"Reference live scores if available and what they mean for the standings. "
-            f"Don't repeat the previous update — react to new developments."
-        )
-        # Build previous player narratives for context
-        prev_player_parts = []
-        for name in sorted(player_probs.keys()):
-            prev_text = (prev_narratives or {}).get(name, '')
-            if prev_text:
-                prev_player_parts.append(f"  {name}: \"{prev_text}\"")
-        if prev_player_parts:
-            prev_player_note = (
-                "\nPrevious player narratives (vary the angle — don't repeat):\n"
-                + '\n'.join(prev_player_parts) + '\n'
-            )
-        else:
-            prev_player_note = ''
+    # Previous narratives for "vary the angle" instruction
+    prev_player_parts = []
+    for name in sorted(player_probs.keys()):
+        prev_text = (prev_narratives or {}).get(name, '')
+        if prev_text:
+            prev_player_parts.append(f"  {name}: \"{prev_text}\"")
+    prev_player_note = (
+        "\nPrevious player narratives (vary the angle — don't repeat):\n"
+        + '\n'.join(prev_player_parts) + '\n'
+    ) if prev_player_parts else ''
 
-    prompt = f"""You are writing content for a March Madness bracket pool dashboard.
+    prev_pool = (prev_narratives or {}).get('_pool', '')
+    prev_pool_note = (
+        f"\nPrevious pool update (DO NOT repeat — build on what changed):\n  \"{prev_pool}\"\n"
+    ) if prev_pool else ''
+
+    # Shared tournament context header
+    context_block = f"""You are writing content for a March Madness bracket pool dashboard.
 
 Tournament context:
 - Today: Day {ctx['day_number']} of the tournament | Current round: {ctx['current_round']}
@@ -817,18 +805,45 @@ Pool ({pool_size} players) standings:
 
 Today's highest-leverage games for this pool (games that most change who wins):
 {leverage_lines}
+{prev_player_note}{prev_pool_note}"""
 
-Tasks:
+    # ── Prompt variants ──────────────────────────────────────────────────────
 
-1. For each player write ONE update in second person (max 40 words), addressed directly \
-to that player ("you're sitting in 3rd...", "your Duke pick..."). \
-Be specific about their teams and situation. Informal tone, like a knowledgeable friend. \
-If a player's key team is currently playing, mention the live score and what it means for them.
-{prev_player_note}
-{pool_task}
+    if narrative_type == 'overnight':
+        tasks_block = f"""Tasks:
+
+1. For each player write ONE overnight update in second person (max 60 words).
+   Start with what happened yesterday that affected them — upsets, key wins/losses,
+   how their rank and win probability shifted. Then pivot to today: which upcoming
+   games matter most for their bracket and why. Tone: morning newsletter friend.
+
+2. Write one pool-wide overnight update (key: "_pool", max 60 words).
+   Lead with yesterday's biggest story — an upset, a chalk day, a lead change
+   in the standings. Then set up today: which games are the pool's highest-leverage
+   matchups and who has the most at stake. Tone: morning newsletter.
+   Example: "Yesterday's Duke upset flipped the standings — now danhudder needs Arizona tonight to stay alive."
 
 Return valid JSON only: {{"playerName": "sentence", ..., "_pool": "pool summary"}}
 No markdown, no explanation — just the JSON object."""
+
+    else:  # game_end
+        just_finished_line = f"\nGame(s) just finished: {just_finished}\n" if just_finished else ''
+        tasks_block = f"""{just_finished_line}Tasks:
+
+1. For each player write ONE quick reaction in second person (max 40 words).
+   React to the game(s) that just ended — did it help or hurt them?
+   Mention their updated win probability. If games are still live,
+   flag what's at stake next. Tone: live commentator sidebar.
+
+2. Write one pool-wide update (key: "_pool", max 40 words).
+   Lead with the result(s). Name who in the pool benefited most and who
+   got hurt. If games are still live, mention what's at stake.
+   Tone: quick scoreboard pulse check.
+
+Return valid JSON only: {{"playerName": "sentence", ..., "_pool": "pool summary"}}
+No markdown, no explanation — just the JSON object."""
+
+    prompt = context_block + '\n' + tasks_block
 
     try:
         client = anthropic.Anthropic(api_key=api_key)
@@ -844,7 +859,7 @@ No markdown, no explanation — just the JSON object."""
         narratives = json.loads(raw)
         n_players  = len(narratives) - (1 if '_pool' in narratives else 0)
         pool_ok    = '✓' if '_pool' in narratives else '✗'
-        print(f'  Generated narratives for {n_players} player(s), pool summary {pool_ok}')
+        print(f'  Generated {narrative_type} narratives for {n_players} player(s), pool summary {pool_ok}')
         return narratives
     except Exception as e:
         print(f'  Narrative generation failed: {e}')
@@ -853,7 +868,7 @@ No markdown, no explanation — just the JSON object."""
 
 def upsert_sim_results(client, pool_id, player_probs, leverage_games,
                        player_leverage, best_paths, prev_player_probs,
-                       narratives, iterations, dry_run):
+                       narratives, iterations, dry_run, narrative_day=0):
     payload = {
         'pool_id':             pool_id,
         'iterations':          iterations,
@@ -863,6 +878,7 @@ def upsert_sim_results(client, pool_id, player_probs, leverage_games,
         'best_paths':          best_paths,
         'prev_player_probs':   prev_player_probs,
         'narratives':          narratives,
+        'narrative_day':       narrative_day,
     }
     if dry_run:
         print('\n[DRY RUN] Would upsert to sim_results:')
@@ -884,6 +900,11 @@ def main():
                         help='Skip narrative generation; preserve existing narratives in DB')
     parser.add_argument('--narrative-model', default='claude-haiku-4-5-20251001',
                         help='Claude model for narrative generation (e.g. claude-opus-4-6)')
+    parser.add_argument('--narrative-type', default='game_end',
+                        choices=['overnight', 'game_end'],
+                        help='Type of narrative to generate')
+    parser.add_argument('--just-finished', default='',
+                        help='Semicolon-separated list of just-finished game results')
     args = parser.parse_args()
 
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
@@ -923,7 +944,7 @@ def main():
             print(f'    - {t}')
 
     # Load previous sim data for delta tracking and narrative preservation
-    prev_probs, existing_narratives = load_prev_sim_data(client, args.pool_id)
+    prev_probs, existing_narratives, prev_narrative_day = load_prev_sim_data(client, args.pool_id)
     if prev_probs:
         print(f'  Loaded previous win probs for {len(prev_probs)} player(s)')
     else:
@@ -956,18 +977,23 @@ def main():
         print('\nSkipping narrative generation (--no-narratives); preserving existing.')
         narratives = existing_narratives
     else:
-        print(f'\nGenerating AI narratives (model: {args.narrative_model})…')
+        print(f'\nGenerating AI narratives (model: {args.narrative_model}, type: {args.narrative_type})…')
         narratives = generate_narratives(
             player_probs, prev_probs, best_paths, players, games_by_slot,
             leverage_games=leverage_games,
             model=args.narrative_model,
-            prev_narratives=existing_narratives
+            prev_narratives=existing_narratives,
+            narrative_type=args.narrative_type,
+            just_finished=args.just_finished,
+            prev_narrative_day=prev_narrative_day,
         )
 
+    current_day = (date.today() - TOURNAMENT_START_ET).days + 1
     upsert_sim_results(
         client, args.pool_id, player_probs, leverage_games, player_leverage,
         best_paths, prev_player_probs=prev_probs, narratives=narratives,
-        iterations=args.iterations, dry_run=args.dry_run
+        iterations=args.iterations, dry_run=args.dry_run,
+        narrative_day=current_day,
     )
     print('\nDone.')
 

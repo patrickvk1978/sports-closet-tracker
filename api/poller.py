@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """
 Sports Closet Tournament Tracker — VPS Background Poller
-Phase 3.6
+Phase 5
 
 Polls ESPN every 60s (30s when live games detected), upserts results to
-the Supabase games table, and auto-triggers simulate.py when all games
-in a round batch finish.
+the Supabase games table, and triggers simulate.py with narratives.
+
+Narrative model — two triggers only:
+  • Overnight (3 AM ET): 60-word day-ahead summaries (morning newsletter)
+  • Every game end: 40-word quick reactions with just-finished context
+  • Hourly sim still runs for odds refresh, but no narrative
 
 Usage:
   python api/poller.py --pool-id <UUID>
@@ -174,24 +178,20 @@ ROUND_SLOTS = {
 }
 ROUND_ORDER = ['R64', 'R32', 'S16', 'E8', 'F4', 'Champ']
 
-# ─── First-weekend sim schedule ───────────────────────────────────────────────
+# ─── Sim schedule ────────────────────────────────────────────────────────────
 #
-# Hourly sims (no narrative) run throughout the first weekend.
-# End-of-day narrative sims (Opus) run once per night after 11 PM ET.
-# A one-off Thursday morning narrative runs the first time the sim fires on
-# March 19 (covers "dashboard goes live" moment).
-#
-# Re-evaluate this schedule for week 2.
+# Narratives fire on two triggers only:
+#   1. Every game end → 40-word quick reactions (--narrative-type game_end)
+#   2. Overnight 3 AM ET → 60-word day-ahead summaries (--narrative-type overnight)
+# Hourly sim runs for odds refresh only (no narrative).
 
-FIRST_WEEKEND = {'20260319', '20260320', '20260321', '20260322'}
-NARRATIVE_MODEL = 'claude-opus-4-6'
-HOURLY_NARRATIVE_MODEL     = 'claude-opus-4-6'  # use Opus for all narratives
-SIM_INTERVAL_SECS       = 3600  # hourly
-NARRATIVE_INTERVAL_SECS = 7200  # 2 hours — Haiku narrative cadence during game windows
-GAME_WINDOW_START_ET    = 12    # noon ET
-GAME_WINDOW_END_ET      = 24    # midnight ET
-OVERNIGHT_HOUR_ET    = 3     # 3 AM ET — overnight narrative trigger (after midnight)
-OVERNIGHT_CUTOFF_ET  = 4     # stop trying after 4 AM (avoids next-day confusion)
+NARRATIVE_MODEL            = 'claude-opus-4-6'
+HOURLY_NARRATIVE_MODEL     = 'claude-opus-4-6'
+SIM_INTERVAL_SECS          = 3600  # hourly odds refresh (no narrative)
+GAME_WINDOW_START_ET       = 12    # noon ET
+GAME_WINDOW_END_ET         = 24    # midnight ET
+OVERNIGHT_HOUR_ET          = 3     # 3 AM ET — overnight narrative trigger
+OVERNIGHT_CUTOFF_ET        = 4     # stop trying after 4 AM
 
 
 def slot_meta(slot):
@@ -240,11 +240,17 @@ def run_poller(pool_ids, client):
 
     # ── Sim scheduling state ──────────────────────────────────────────────────
     epoch = datetime.fromtimestamp(0, tz=timezone.utc)
-    last_hourly_sim_time          = epoch  # tracks last hourly (or narrative) run
-    last_narrative_time           = epoch  # tracks last narrative (Haiku or Opus) run
+    last_hourly_sim_time          = epoch  # tracks last hourly sim run
     overnight_narrative_done_date = ''    # game-day date (YYYYMMDD) already covered
     locked_narrative_done         = set() # pool IDs that have had their lock-trigger narrative
-    prev_final_set                = set() # espn_ids of games that were final last cycle
+
+    # ── Seed prev_final_set from DB so first cycle doesn't false-trigger ─────
+    resp = client.table('games').select('espn_id, status').execute()
+    prev_final_set = {
+        g['espn_id'] for g in (resp.data or [])
+        if g.get('status') == 'final' and g.get('espn_id')
+    }
+    print(f'Seeded {len(prev_final_set)} existing final game(s)')
 
     print(f'Poller started  pools={pool_ids}')
     print('Ctrl+C to stop\n')
@@ -319,21 +325,25 @@ def run_poller(pool_ids, client):
             prev_final_set = current_final_set
 
             if newly_final:
-                # Check if a narrative is also due (prevents narrative starvation
-                # when frequent game completions keep resetting the hourly timer)
-                now_utc = datetime.now(timezone.utc)
-                now_et_check = datetime.now(ET)
-                narrative_elapsed = (now_utc - last_narrative_time).total_seconds()
-                in_game_window = GAME_WINDOW_START_ET <= now_et_check.hour < GAME_WINDOW_END_ET
-                need_narrative = in_game_window and narrative_elapsed >= NARRATIVE_INTERVAL_SECS
+                # Build just-finished matchup descriptions for narrative context
+                finished_matchups = []
+                for event in events:
+                    t = transform_event(event)
+                    if t and t.get('espn_id') in newly_final:
+                        teams = t.get('teams', {})
+                        winner = t.get('winner', '')
+                        loser = teams.get('team2') if winner == teams.get('team1') else teams.get('team1')
+                        score = f"{t.get('score1')}-{t.get('score2')}" if t.get('score1') is not None else ''
+                        finished_matchups.append(f"{winner} def. {loser or 'TBD'} {score}".strip())
 
-                if need_narrative:
-                    print(f'  → {len(newly_final)} game(s) just went final — running sim + narrative ({HOURLY_NARRATIVE_MODEL})…')
-                    run_sim(sim_script, pool_ids, ('--narrative-model', HOURLY_NARRATIVE_MODEL))
-                    last_narrative_time = now_utc
-                else:
-                    print(f'  → {len(newly_final)} game(s) just went final — running sim…')
-                    run_sim(sim_script, pool_ids, ('--no-narratives',))
+                just_finished = '; '.join(finished_matchups)
+                now_utc = datetime.now(timezone.utc)
+                print(f'  → {len(newly_final)} game(s) just went final — running sim + narrative…')
+                run_sim(sim_script, pool_ids, (
+                    '--narrative-model', HOURLY_NARRATIVE_MODEL,
+                    '--narrative-type', 'game_end',
+                    '--just-finished', just_finished,
+                ))
                 last_hourly_sim_time = now_utc
 
             # ── Sim scheduling ───────────────────────────────────────────────────
@@ -342,12 +352,16 @@ def run_poller(pool_ids, client):
             last_done_rounds = current_done
 
             now_et    = datetime.now(ET)
-            today_str = now_et.strftime('%Y%m%d')
             hour_et   = now_et.hour
             elapsed   = (datetime.now(timezone.utc) - last_hourly_sim_time).total_seconds()
-            is_first_weekend = today_str in FIRST_WEEKEND
 
-            if is_first_weekend:
+            # Dynamic tournament detection: active if any game is live or final
+            tournament_active = any(
+                g.get('status') in ('live', 'final')
+                for g in db_games.values()
+            )
+
+            if tournament_active:
                 # ── Bracket lock: one-off narrative per pool when admin locks brackets
                 pools_resp   = client.table('pools').select('id, locked').execute()
                 newly_locked = [
@@ -355,44 +369,33 @@ def run_poller(pool_ids, client):
                     if p.get('locked') and p['id'] not in locked_narrative_done
                 ]
                 if newly_locked:
-                    print(f'  → Bracket lock detected — running narrative sim (model: {NARRATIVE_MODEL})…')
+                    print(f'  → Bracket lock detected — running narrative sim…')
                     run_sim(sim_script, newly_locked,
-                            ('--narrative-model', NARRATIVE_MODEL))
+                            ('--narrative-model', NARRATIVE_MODEL,
+                             '--narrative-type', 'game_end'))
                     locked_narrative_done.update(newly_locked)
                     last_hourly_sim_time = datetime.now(timezone.utc)
-                    last_narrative_time  = datetime.now(timezone.utc)
 
                 # ── Overnight narrative: 3–4 AM ET, attributed to the previous
                 #    calendar day so a 3 AM Friday run covers Thursday's games.
                 elif OVERNIGHT_HOUR_ET <= hour_et < OVERNIGHT_CUTOFF_ET:
-                    # "game day" = yesterday when we're in the overnight window
                     game_day = (now_et - timedelta(days=1)).strftime('%Y%m%d')
-                    if (game_day in FIRST_WEEKEND
-                            and game_day != overnight_narrative_done_date):
-                        print(f'  → Overnight narrative run (game day {game_day}, model: {NARRATIVE_MODEL})…')
+                    if game_day != overnight_narrative_done_date:
+                        print(f'  → Overnight narrative run (game day {game_day})…')
                         run_sim(sim_script, pool_ids,
-                                ('--narrative-model', NARRATIVE_MODEL))
+                                ('--narrative-model', NARRATIVE_MODEL,
+                                 '--narrative-type', 'overnight'))
                         overnight_narrative_done_date = game_day
-                        last_hourly_sim_time          = datetime.now(timezone.utc)
-                        last_narrative_time           = datetime.now(timezone.utc)
+                        last_hourly_sim_time = datetime.now(timezone.utc)
 
-                # ── Hourly sim: check if Haiku narrative is due ──────────────
+                # ── Hourly sim: odds refresh only, no narrative ──────────────
                 elif elapsed >= SIM_INTERVAL_SECS:
-                    narrative_elapsed = (datetime.now(timezone.utc) - last_narrative_time).total_seconds()
-                    in_game_window = GAME_WINDOW_START_ET <= hour_et < GAME_WINDOW_END_ET
-                    need_narrative = in_game_window and narrative_elapsed >= NARRATIVE_INTERVAL_SECS
-
-                    if need_narrative:
-                        print(f'  → Hourly sim + Haiku narrative ({HOURLY_NARRATIVE_MODEL})…')
-                        run_sim(sim_script, pool_ids, ('--narrative-model', HOURLY_NARRATIVE_MODEL))
-                        last_narrative_time = datetime.now(timezone.utc)
-                    else:
-                        print(f'  → Hourly sim (no narrative)…')
-                        run_sim(sim_script, pool_ids, ('--no-narratives',))
+                    print(f'  → Hourly sim (no narrative)…')
+                    run_sim(sim_script, pool_ids, ('--no-narratives',))
                     last_hourly_sim_time = datetime.now(timezone.utc)
 
             else:
-                # ── Outside first weekend: trigger on round completion (existing behaviour)
+                # ── Pre-tournament: trigger on round completion only
                 if newly_done:
                     rounds_str = ', '.join(sorted(newly_done, key=lambda r: ROUND_ORDER.index(r)))
                     print(f'  ✓ Round(s) complete: {rounds_str} — running simulate.py…')
