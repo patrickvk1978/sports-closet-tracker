@@ -280,20 +280,20 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
         include = true;
         cardType = 'live';
       } else if (game.status === 'final') {
-        // Show recently-final games (within 2 hours)
+        // Show recently-final games (within 15 minutes)
         if (game.updated_at) {
-          const finalAge = (now - new Date(game.updated_at).getTime()) / 3600000;
-          if (finalAge <= 2) {
+          const finalAgeMins = (now - new Date(game.updated_at).getTime()) / 60000;
+          if (finalAgeMins <= 15) {
             include = true;
             cardType = 'final';
           }
         }
       } else if (game.status === 'pending') {
-        // Show upcoming within 5 minutes of tip
+        // Show upcoming within 15 minutes of tip
         const tipMs = parseGameTimeToMs(game.gameTime);
         if (tipMs) {
           const minsUntil = (tipMs - now) / 60000;
-          if (minsUntil >= -5 && minsUntil <= 5) {
+          if (minsUntil >= 0 && minsUntil <= 15) {
             include = true;
             cardType = 'upcoming';
           }
@@ -468,11 +468,11 @@ function ComingUp({ games, leverageGames, playerLeverage, player }) {
       if (game.status !== 'pending') continue;
       if (!game.team1 || !game.team2 || game.team1 === 'TBD' || game.team2 === 'TBD') continue;
 
-      // Exclude games within 5 minutes of tip (they're in the score grid)
+      // Exclude games within 15 minutes of tip (they're in the score grid)
       const tipMs = parseGameTimeToMs(game.gameTime);
       if (tipMs) {
         const minsUntil = (tipMs - now) / 60000;
-        if (minsUntil >= -5 && minsUntil <= 5) continue;
+        if (minsUntil >= 0 && minsUntil <= 15) continue;
       }
 
       const lg = leverageBySlot[game.slot_index];
