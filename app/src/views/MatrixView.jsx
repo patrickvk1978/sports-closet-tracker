@@ -75,6 +75,13 @@ export default function MatrixView() {
     });
   }, [sortBy]);
 
+  // Build leverage lookup by slot_index for cell deltas
+  const leverageBySlot = useMemo(() => {
+    const map = {};
+    for (const lg of (LEVERAGE_GAMES || [])) map[lg.id] = lg;
+    return map;
+  }, [LEVERAGE_GAMES]);
+
   const filteredGames = selectedRound === "All"
     ? GAMES
     : selectedRound === "Live"
@@ -259,26 +266,6 @@ export default function MatrixView() {
                         <span className="text-[9px] text-slate-500 leading-none">{game.gameNote}</span>
                       )}
 
-                      {/* Root-for line: live + pending games */}
-                      {(isLive || game.status === 'pending') && (() => {
-                        const playerGames = PLAYER_LEVERAGE?.[profile?.username] ?? [];
-                        const lg = playerGames.find(g => g.id === game.slot_index)
-                          ?? LEVERAGE_GAMES.find(lg => lg.id === game.slot_index);
-                        const imp = lg?.playerImpacts?.find(p => p.player === profile?.username);
-                        if (!imp) return null;
-                        const currentProb = PLAYERS.find(p => p.name === profile?.username)?.winProb ?? 0;
-                        const rootFor = imp.ifTeam1 >= imp.ifTeam2 ? game.team1 : game.team2;
-                        const rootAbbrev = imp.ifTeam1 >= imp.ifTeam2 ? game.abbrev1 : game.abbrev2;
-                        const delta = Math.max(imp.ifTeam1, imp.ifTeam2) - currentProb;
-                        if (delta <= 0) return null;
-                        return (
-                          <span className="text-[9px]">
-                            <span className="font-bold text-orange-400">{rootAbbrev || shortTeam(rootFor)}</span>{' '}
-                            <span className="text-emerald-400 font-bold">+{delta.toFixed(1)}%</span>
-                          </span>
-                        );
-                      })()}
-
                       {/* Final: score (muted) */}
                       {game.status === "final" && game.score1 != null && game.score2 != null && (
                         <span
@@ -356,14 +343,41 @@ export default function MatrixView() {
                   const isOwnRow = player.name === profile?.username;
                   const pick = (!isLocked && !isOwnRow) ? null : player.picks[game.slot_index];
                   const hidden = !isLocked && !isOwnRow;
+
+                  // Compute delta for live games: what happens to this player's win% if their pick wins
+                  let cellDelta = null;
+                  if (game.status === 'live' && pick && !hidden) {
+                    const lg = leverageBySlot[game.slot_index];
+                    const imp = lg?.playerImpacts?.find(p => p.player === player.name);
+                    if (imp) {
+                      const pickIsTeam1 = pick === game.team1;
+                      const ifPickWins = pickIsTeam1 ? imp.ifTeam1 : imp.ifTeam2;
+                      cellDelta = ifPickWins - (player.winProb ?? 0);
+                    }
+                  }
+
                   return (
                     <td
                       key={game.id}
-                      className={`px-2 py-2.5 text-center text-[11px] font-semibold border-l border-slate-800/30 ${
+                      className={`px-2 py-1.5 text-center text-[11px] font-semibold border-l border-slate-800/30 ${
                         hidden ? "bg-slate-900/40 text-slate-700" : getCellStyle(pick, game)
                       }`}
                     >
-                      {hidden ? "—" : (pick || "—")}
+                      {hidden ? "—" : (
+                        <div className="flex flex-col items-center">
+                          <span>{pick || "—"}</span>
+                          {cellDelta != null && (
+                            <span
+                              className={`text-[9px] font-bold tabular-nums leading-tight ${
+                                cellDelta > 0 ? 'text-emerald-400' : cellDelta < 0 ? 'text-red-400' : 'text-slate-500'
+                              }`}
+                              style={{ fontFamily: "Space Mono, monospace" }}
+                            >
+                              {cellDelta > 0 ? '+' : ''}{cellDelta.toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                   );
                 })}
