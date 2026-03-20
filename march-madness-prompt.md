@@ -38,15 +38,13 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 ### 3. Dashboard
 - **Pre-game gate:** Non-admins see a countdown screen until the pool is locked (tip-off)
 - **Pool commissioner** displayed under pool name in both pre-game and live headers
-- **Single-scroll layout** (no tabs):
-  1. Pool header bar with player selector + invite link
-  2. **Today's Briefing** — pool-wide AI day-opener (second person plural, 80 words, `_pool` key)
-  3. **Stat Strip** — rank, points, PPR, win prob with delta arrow (green ▲ / red ▼)
-  4. **Your Situation** — per-player AI narrative (second person, 40 words)
-  5. **Pool Key Games** — top 3 highest-leverage upcoming games, badge shows `↕ N% swing`
-  6. **Your Key Games** — top 3 games by personal swing; shows "Root for TEAM ▲ +X%"
-  7. **Leaderboard** — all players sorted by rank/points/PPR (sort pills), with win prob delta arrows
-- **Win probability deltas** — tracked between simulation runs via `prev_player_probs`
+- **Single-scroll layout** (5 sections):
+  1. **Stat Bar** — compact row: rank, points, win prob with delta arrow, champion alive/eliminated pill, "Need: X, Y, Z" (compressed best path picks)
+  2. **Narrative** — single context-aware card: player narrative during live games ("Latest Update"), pool narrative in morning ("Morning Briefing"). Never both simultaneously.
+  3. **Score Grid** — responsive grid (2→3→4 columns) of ESPN-style game cards. Shows live games (amber glow + pulse), recently-final games (≤15 min), and about-to-tip games (≤15 min before start). Each card: seeds + teams + scores + "You: ▲+X% if Team" (delta from current win prob) + pool's biggest winner.
+  4. **Coming Up** — top 3 highest-impact pending games for the selected player (games >15 min from tip). Shows both-side deltas: "Arizona: ▲+5.2% · LIU: ▼-17.1%"
+  5. **Leaderboard** — all players sorted by rank/points/PPR (sort pills), with win prob delta arrows
+- **Win probability deltas** — tracked between simulation runs via `prev_player_probs`; leverage display uses delta from current win prob (not raw swing)
 - Admins can view the full dashboard before pool is locked
 
 ---
@@ -79,7 +77,7 @@ scores            — pool_id, user_id, points, ppr, rank, updated_at
 sim_results       — id, pool_id, run_at, iterations, player_probs (JSONB),
                     leverage_games (JSONB), best_paths (JSONB),
                     prev_player_probs (JSONB), narratives (JSONB),
-                    player_leverage (JSONB)
+                    player_leverage (JSONB), narrative_day (int)
 poller_heartbeat  — id (always 1), polled_at, pools_found, games_updated,
                     live_count, error
 ```
@@ -115,8 +113,7 @@ app/src/
   views/
     DashboardView.jsx       ← PreGameScreen (countdown + CTAs) for non-admins pre-lock;
                                single-scroll dashboard when locked or admin:
-                               PoolNarrativeCard → StatStrip → PlayerNarrativeCard →
-                               PoolKeyGamesCard → YourKeyGamesCard → Leaderboard
+                               StatBar → NarrativeCard → ScoreGrid → ComingUp → Leaderboard
     MatrixView.jsx          ← const { PLAYERS, GAMES, ROUNDS } = usePoolData()
     BracketView.jsx         ← KEY_PICKS + ALIVE computed with useMemo from live data
   pages/
@@ -134,11 +131,15 @@ api/
   simulate.py               ← Monte Carlo script + AI narrative generation;
                                flags: --pool-id UUID [--iterations N] [--dry-run]
                                       [--no-narratives] [--narrative-model MODEL]
+                                      [--narrative-type overnight|game_end]
+                                      [--just-finished "Team A over Team B"]
                                default narrative model: claude-haiku-4-5-20251001
-                               Opus model: claude-opus-4-6 (used for overnight/lock runs)
+                               Opus model: claude-opus-4-6 (used for overnight runs)
   poller.py                 ← VPS background process; polls ESPN every 60s (30s live);
-                               upserts games; runs hourly sim (--no-narratives) during
-                               first weekend; Opus narrative on bracket lock + 3 AM ET nightly
+                               upserts games; triggers sim on game completion (game_end
+                               narrative) + hourly (no narratives) + 3 AM ET (overnight
+                               narrative); dynamic tournament detection (no hardcoded dates);
+                               seeds prev_final_set from DB on startup to avoid false triggers
   requirements.txt          ← supabase, requests, python-dotenv, anthropic>=0.39.0
   .env.example              ← needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + ANTHROPIC_API_KEY
   ratings.json              ← BPI ratings for 365 teams
@@ -147,6 +148,7 @@ supabase/
   schema.sql                ← Full schema with RLS policies + triggers
   phase3_migration.sql      ← Adds win_prob_home column + sim_results table + RLS + Realtime
   phase4_migration.sql      ← Adds prev_player_probs, narratives, player_leverage columns
+  phase5_migration.sql      ← Adds narrative_day column to sim_results
 ```
 
 ### Routes
@@ -211,14 +213,19 @@ Four sub-tabs. Header bar (Pre-fill 2026 Bracket button + ESPN polling badge) al
 
 Runs continuously on a Hetzner Helsinki VPS in a `screen` session named `poller`.
 
-### Sim schedule (first weekend: Mar 19–22)
-| Trigger | Model | Narratives |
-|---------|-------|------------|
-| Bracket lock detected (`pools.locked` flips true) | Opus (`claude-opus-4-6`) | Yes — first narrative run |
-| Overnight: 3–4 AM ET each game night | Opus | Yes — reflects on that day's games |
-| Hourly (every 60 min, rest of day) | — | No (`--no-narratives`, preserves existing) |
+### Tournament detection
+Dynamic — no hardcoded date sets. `tournament_active` is True when any game has status `live` or `final`. ESPN dates are fetched using ET timezone (not UTC) with yesterday included to avoid missing late-night games.
 
-Outside first weekend: sims trigger on round completion (existing behavior).
+### Startup safety
+On startup, queries DB for all games already `final` to seed `prev_final_set`. Prevents false mass-sim triggers when restarting the poller mid-tournament.
+
+### Sim schedule
+| Trigger | Model | Narrative type | Details |
+|---------|-------|---------------|---------|
+| Game goes final | Haiku | `game_end` | Runs sim + 40-word narrative per player about that game's impact. `--just-finished "Team A over Team B"` passed as context. |
+| Overnight: 3 AM ET | Opus | `overnight` | 60-word day-ahead briefing per player + pool summary. |
+| Hourly (every 60 min) | — | None | `--no-narratives` — odds refresh only. |
+| Bracket lock detected | Opus | `overnight` | First narrative run. |
 
 ### Heartbeat
 Writes to `poller_heartbeat` table (id=1) after every poll cycle: `polled_at`, `games_updated`, `live_count`, `error`.
@@ -237,26 +244,34 @@ api/venv/bin/python api/poller.py
 
 ## AI Narrative System
 
-### Narrative types
-- **`_pool`** (Today's Briefing card): pool-wide day-opener, ~80 words, second person plural.
-  Always opens "Welcome to Day N" or variation. Reflects on yesterday's results (skips Day 1). References 1–2 highest-leverage games by team name with standings context.
-- **Per-player** (Your Situation card): ~40 words, second person ("you're sitting in 3rd..."). References their specific teams, rank, win prob delta, and best path.
+### Two narrative triggers
+1. **`overnight`** (3 AM ET / bracket lock): 60-word day-ahead briefing per player + `_pool` summary. Generated by Opus. Pool narrative opens "Welcome to Day N". Player narratives preview the day's key games and what to watch for.
+2. **`game_end`** (every game completion): 40-word reaction per player about the just-finished game's impact. Generated by Haiku. No pool narrative — player-only. `--just-finished` provides game result context.
+
+### Narrative display (dashboard)
+- Single `NarrativeCard` component — never shows both pool and player narrative simultaneously.
+- Morning (before games start): pool narrative ("Morning Briefing")
+- During/after games: player narrative ("Latest Update")
+
+### Rank vs Win Probability distinction
+The LLM prompt explicitly instructs Claude that "rank" = points rank and "win prob" = simulated chance of winning. Players sorted by points rank in the prompt. This allows narratives like "even though you're 3rd in points, your win probability is highest because your remaining picks are strong."
 
 ### Context provided to Claude
-- Tournament day number (Day 1 = Mar 19, 2026)
+- Tournament day number (Day 1 = first game day)
+- `narrative_day` stored in sim_results for day-opener detection
 - Current round, games completed, today's upcoming games
 - Notable upsets (seed diff ≥ 5)
 - Yesterday's final results (filtered by `updated_at` ET date)
-- Today's upcoming games (gameTime with no day prefix = today)
-- Per-player: rank, points, win prob, delta, best path bullets
+- Per-player: rank (by points), points, win prob, delta, best path bullets
 - Top 5 leverage games: matchup, pool swing %, pick distribution
+- For `game_end`: `--just-finished` game result string
 
 ### Models
-- **Haiku** (`claude-haiku-4-5-20251001`): default for manual runs and testing
-- **Opus** (`claude-opus-4-6`): overnight + bracket lock runs via poller
+- **Haiku** (`claude-haiku-4-5-20251001`): game_end narratives + manual runs
+- **Opus** (`claude-opus-4-6`): overnight + bracket lock runs
 
 ### Cost
-~$0.50–$1 total for first weekend (Opus only fires ~6 times; hourly runs skip Claude entirely).
+~$0.50–$1 total for first weekend (Opus fires ~4 times; game_end uses Haiku; hourly runs skip Claude entirely).
 
 ---
 
@@ -317,14 +332,12 @@ ANTHROPIC_API_KEY=          # optional — enables AI narrative generation
 - Writes heartbeat to `poller_heartbeat` table after every cycle
 - Sim scheduling: hourly (no narratives) + overnight Opus + bracket lock Opus
 - Eliminates need to keep admin browser tab open during tournament
+- **Bug fix:** ESPN date fetching switched from UTC to ET timezone (games after 8 PM ET were disappearing from fetch window); now includes yesterday in date range
 
-### Phase 4: Dashboard Simplification + AI Narratives ✅ COMPLETE (Mar 19 2026)
+### Phase 4: Dashboard + AI Narratives ✅ COMPLETE (Mar 19 2026)
 - Dashboard restructured to single-scroll (no tabs)
-- **Pool narrative** (`_pool` key): day-opener, opens "Welcome to Day N", references leverage games and pool standings; generated by Opus overnight / on bracket lock
-- **Per-player narrative**: second person, 40 words, references their teams + rank + delta
-- **Win probability deltas**: green ▲ / red ▼ arrows on StatStrip and Leaderboard
-- **Your Key Games** card: top 3 personal-leverage games with "Root for TEAM ▲ +X%" framing
-- **Pool Key Games** badge: `↕ N% swing` language
+- **Pool narrative** + **per-player narrative** system (later redesigned in Phase 5)
+- **Win probability deltas**: green ▲ / red ▼ arrows
 - **Leaderboard sort pills**: Points (default) / Win% / PPR
 - `supabase/phase4_migration.sql` — adds `prev_player_probs`, `narratives`, `player_leverage`
 - NavBar: "Matrix" → "Picks"; single-pool static badge
@@ -335,7 +348,22 @@ ANTHROPIC_API_KEY=          # optional — enables AI narrative generation
 3. `git pull origin main` on VPS; restart poller
 4. Test: `api/venv/bin/python api/simulate.py --pool-id UUID`
 
-### Phase 5: Polish + PWA (Planned)
+### Phase 5: Dashboard Redesign + Narrative Overhaul ✅ COMPLETE (Mar 20 2026)
+- **Dashboard redesign** — 7 stacked cards → 5 focused sections: StatBar, NarrativeCard, ScoreGrid, ComingUp, Leaderboard
+- **ScoreGrid** — ESPN-style responsive game cards (grid-cols-2/3/4) showing live games (amber glow), recent finals (≤15 min), about-to-tip (≤15 min). Each card shows seeds + scores + "You: ▲+X% if Team" + pool biggest winner
+- **ComingUp** — top 3 high-impact pending games with both-side deltas per team
+- **StatBar** — compact row merging rank, points, win prob delta, champion pill, "Need: X, Y, Z" best path
+- **Leverage display overhaul** — raw swing → delta from current win prob; both outcomes shown for personal games
+- **All game impact data** sent to frontend (removed 5% threshold filter on leverage_games)
+- **Matrix root-for** expanded to live + pending games, shows upside delta (`▲+X%`), skips <0.5%
+- **Two-trigger narrative model** — overnight (3 AM, Opus, 60-word) + game_end (every final, Haiku, 40-word)
+- **Dynamic tournament detection** — replaces hardcoded FIRST_WEEKEND date set
+- **Startup prev_final_set seeding** — prevents false mass-sim triggers on poller restart
+- **Rank vs win prob distinction** in LLM prompt — players sorted by points rank, explicit instruction
+- `supabase/phase5_migration.sql` — adds `narrative_day` column
+- New simulate.py flags: `--narrative-type`, `--just-finished`
+
+### Phase 6: Polish + PWA (Planned)
 - Service worker for offline bracket viewing
 - Push notifications for high-leverage game alerts
 - Performance optimization for matrix view with 50+ players
