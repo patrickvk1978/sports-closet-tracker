@@ -734,9 +734,9 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
     live_lines      = '\n'.join(f"  - {g}" for g in ctx.get('live_games', [])) \
                       or '  No games live right now'
 
-    # Per-player context block
+    # Per-player context block (sorted by points rank, not win prob, so LLM sees correct order)
     player_lines = []
-    for name, prob in sorted(player_probs.items(), key=lambda x: -x[1]):
+    for name, prob in sorted(player_probs.items(), key=lambda x: rank_map.get(x[0], 99)):
         pct      = round(prob * 100, 1)
         prev_pct = round(prev_probs.get(name, 0) * 100, 1)
         delta    = round(pct - prev_pct, 1)
@@ -800,7 +800,11 @@ Tournament context:
 - Live games right now:
 {live_lines}
 
-Pool ({pool_size} players) standings:
+Pool ({pool_size} players) standings (sorted by points rank):
+IMPORTANT: "rank" is determined by current points scored. "win prob" is the
+simulated chance of winning the pool overall — these are DIFFERENT. A player
+can be 3rd in points but have the highest win probability if their remaining
+picks are strong. Always reference rank by points when saying "1st place" etc.
 {player_block}
 
 Today's highest-leverage games for this pool (games that most change who wins):
