@@ -407,9 +407,9 @@ def calculate_leverage(players, games_by_slot, team_seeds, bpi_ratings,
             'playerImpacts': sorted(player_impacts, key=lambda x: -x['swing']),
         })
 
-    # Pool-wide: games where any player has a meaningful swing
-    leverage_games = [g for g in all_game_data if g['leverage'] >= LEVERAGE_THRESHOLD]
-    leverage_games.sort(key=lambda g: (0 if g['status'] == 'live' else 1, -g['leverage']))
+    # Pool-wide: all games with computed impacts (sorted by leverage)
+    # Frontend filters by threshold as needed; this ensures every game has impact data
+    leverage_games = sorted(all_game_data, key=lambda g: (0 if g['status'] == 'live' else 1, -g['leverage']))
 
     # Per-player: top 5 games ranked by each player's own personal swing
     player_leverage = {}
