@@ -252,10 +252,22 @@ function parseGameTimeToMs(gameTime) {
 
 function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
   const [now, setNow] = useState(Date.now());
+  const finalFirstSeen = useRef({}); // slot_index -> timestamp when first seen as final
+
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
+
+  // Track when games first appear as final
+  useEffect(() => {
+    const seen = finalFirstSeen.current;
+    for (const game of games) {
+      if (game.status === 'final' && !seen[game.slot_index]) {
+        seen[game.slot_index] = Date.now();
+      }
+    }
+  }, [games]);
 
   const cards = useMemo(() => {
     // Build leverage lookup by slot_index
@@ -280,10 +292,11 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
         include = true;
         cardType = 'live';
       } else if (game.status === 'final') {
-        // Show recently-final games (within 15 minutes)
-        if (game.updated_at) {
-          const finalAgeMins = (now - new Date(game.updated_at).getTime()) / 60000;
-          if (finalAgeMins <= 15) {
+        // Show recently-final games (within 15 min of when we FIRST saw them as final)
+        const firstSeen = finalFirstSeen.current[game.slot_index];
+        if (firstSeen) {
+          const minsSinceFirstSeen = (now - firstSeen) / 60000;
+          if (minsSinceFirstSeen <= 15) {
             include = true;
             cardType = 'final';
           }
@@ -306,7 +319,7 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
       const lg = leverageBySlot[game.slot_index];
       const impact = lg?.playerImpacts?.find(p => p.player === player?.name);
 
-      // Player delta from current win prob
+      // Player delta from current win prob (root-for = team with higher upside)
       let playerDelta = null;
       let playerRootFor = null;
       if (impact && player?.winProb != null) {
@@ -321,25 +334,27 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
         }
       }
 
-      // Pool biggest winner (player with largest positive delta)
-      let poolWinner = null;
+      // Pool impacts: top 2 most impacted other players (≥1% absolute delta)
+      let poolImpacts = [];
       if (lg?.playerImpacts) {
-        let bestDelta = 0;
         for (const imp of lg.playerImpacts) {
-          if (imp.player === player?.name) continue; // skip self
+          if (imp.player === player?.name) continue;
           const p = players.find(pl => pl.name === imp.player);
           if (!p) continue;
           const d1 = imp.ifTeam1 - (p.winProb ?? 0);
           const d2 = imp.ifTeam2 - (p.winProb ?? 0);
-          const best = Math.max(d1, d2);
-          if (best > bestDelta) {
-            bestDelta = best;
-            poolWinner = { name: imp.player, delta: best };
-          }
+          // Pick the outcome with the largest absolute delta
+          const absD1 = Math.abs(d1), absD2 = Math.abs(d2);
+          if (Math.max(absD1, absD2) < 1) continue;
+          const delta = absD1 >= absD2 ? d1 : d2;
+          const team  = absD1 >= absD2 ? game.team1 : game.team2;
+          poolImpacts.push({ name: imp.player, delta, team });
         }
+        poolImpacts.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+        poolImpacts = poolImpacts.slice(0, 2);
       }
 
-      result.push({ game, cardType, impact, playerDelta, playerRootFor, poolWinner });
+      result.push({ game, cardType, impact, playerDelta, playerRootFor, poolImpacts });
     }
 
     // Sort: live first, then upcoming, then recent finals
@@ -353,7 +368,7 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-      {cards.map(({ game, cardType, playerDelta, playerRootFor, poolWinner }) => {
+      {cards.map(({ game, cardType, playerDelta, playerRootFor, poolImpacts }) => {
         const isLive = cardType === 'live';
         const isFinal = cardType === 'final';
 
@@ -416,28 +431,33 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
               )}
             </div>
 
-            {/* Deltas */}
-            {(playerDelta != null || poolWinner) && (
-              <div className="mt-2 pt-2 border-t border-slate-800/40 space-y-0.5">
-                {playerDelta != null && Math.abs(playerDelta) >= 0.5 && (
-                  <div className="flex items-center gap-1 text-[10px]">
-                    <span className="text-slate-500">You:</span>
-                    <span className={`font-bold tabular-nums ${playerDelta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
-                          style={{ fontFamily: "Space Mono, monospace" }}>
-                      {playerDelta >= 0 ? '▲' : '▼'}{playerDelta >= 0 ? '+' : ''}{playerDelta.toFixed(1)}%
+            {/* Impact section — live/upcoming only */}
+            {!isFinal && (playerDelta != null || poolImpacts.length > 0) && (
+              <div className="mt-2 pt-2 border-t border-slate-800/40 space-y-1">
+                {/* Root for line */}
+                {playerDelta != null && playerRootFor && (
+                  <div className="text-[10px]">
+                    <span className="text-slate-500">Root for </span>
+                    <span className="text-orange-400 font-semibold">{shortTeam(playerRootFor)}</span>
+                    {' '}
+                    <span className="text-emerald-400 font-bold tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                      +{playerDelta.toFixed(1)}%
                     </span>
-                    {playerRootFor && (
-                      <span className="text-slate-600">
-                        if <span className="text-orange-400">{shortTeam(playerRootFor)}</span>
-                      </span>
-                    )}
                   </div>
                 )}
-                {poolWinner && poolWinner.delta >= 1 && (
-                  <div className="text-[10px] text-slate-600">
-                    <span className="text-slate-400">{poolWinner.name}</span>: <span className="text-emerald-400 font-bold" style={{ fontFamily: "Space Mono, monospace" }}>▲+{poolWinner.delta.toFixed(1)}%</span>
+                {/* Pool player impacts — top 2 */}
+                {poolImpacts.map(pi => (
+                  <div key={pi.name} className="text-[10px]">
+                    <span className="text-slate-400">{pi.name}</span>
+                    {' '}
+                    <span className={`font-bold tabular-nums ${pi.delta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                          style={{ fontFamily: "Space Mono, monospace" }}>
+                      {pi.delta >= 0 ? '+' : ''}{pi.delta.toFixed(1)}%
+                    </span>
+                    {' '}
+                    <span className="text-slate-600">w/ {shortTeam(pi.team)} win</span>
                   </div>
-                )}
+                ))}
               </div>
             )}
           </div>
