@@ -4,7 +4,7 @@ Sports Closet Tournament Tracker — Monte Carlo Win Probability Simulator
 Phase 3
 
 Usage:
-  python api/simulate.py --pool-id <UUID> [--iterations 10000] [--dry-run]
+  python api/simulate.py --pool-id <UUID> [--iterations 20000] [--dry-run]
 
 Requirements:
   pip install -r api/requirements.txt
@@ -295,18 +295,22 @@ def score_additional(picks, sim_outcomes, games_by_slot):
 # ─── Main simulation loop ──────────────────────────────────────────────────────
 
 def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
-                   iterations=10_000, forced_outcomes=None):
+                   iterations=20_000):
     """
     Run Monte Carlo simulation.
 
     players: list of { username, picks (list[str|None]), current_points (int) }
-    Returns: (player_probs dict, win_counts dict, all_outcomes list)
+    Returns: (player_probs dict, win_counts dict, all_outcomes list, sim_winners list)
+
+    sim_winners[i] = list of pool-winning player names for iteration i
+    all_outcomes[i] = { slot: winning_team } for iteration i
     """
     win_counts  = {p['username']: 0.0 for p in players}
     all_outcomes = []
+    sim_winners  = []  # per-iteration pool winner(s) for leverage bucketing
 
     for _ in range(iterations):
-        sim = simulate_tournament(games_by_slot, team_seeds, bpi_ratings, forced_outcomes)
+        sim = simulate_tournament(games_by_slot, team_seeds, bpi_ratings)
         all_outcomes.append(sim)
 
         scores = {
@@ -314,6 +318,7 @@ def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
             for p in players
         }
         if not scores:
+            sim_winners.append([])
             continue
 
         max_score = max(scores.values())
@@ -321,26 +326,31 @@ def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
         share     = 1.0 / len(winners)
         for name in winners:
             win_counts[name] += share
+        sim_winners.append(winners)
 
     player_probs = {name: count / iterations for name, count in win_counts.items()}
-    return player_probs, win_counts, all_outcomes
+    return player_probs, win_counts, all_outcomes, sim_winners
 
 
 # ─── Leverage calculation ──────────────────────────────────────────────────────
 
-def calculate_leverage(players, games_by_slot, team_seeds, bpi_ratings,
-                       base_probs, conditional_iters=2_000):
+def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners):
     """
-    For each pending/live game with known teams, run conditional simulations
-    (force team1 wins, force team2 wins) to measure per-player swing.
+    For each pending/live game with known teams, split the base simulation
+    outcomes into two buckets (team1 won vs team2 won) and compute each
+    player's conditional win probability from the same simulation run.
+
+    This is zero-sum by construction: all player deltas for a given game
+    outcome sum to zero against the base probabilities.
 
     Returns:
-      leverage_games  — pool-wide list (max swing >= LEVERAGE_THRESHOLD), for the Overview tab
-      player_leverage — { player_name: [top-5 games sorted by that player's personal swing] }
+      leverage_games  — all games with computed impacts, sorted by leverage
+      player_leverage — { player_name: [top-5 games sorted by personal swing] }
     """
     all_game_data = []
     n_players     = len(players)
-    if n_players == 0:
+    n_sims        = len(all_outcomes)
+    if n_players == 0 or n_sims == 0:
         return [], {}
 
     pending_slots = sorted([
@@ -357,23 +367,36 @@ def calculate_leverage(players, games_by_slot, team_seeds, bpi_ratings,
         if team1 == 'TBD' or team2 == 'TBD':
             continue
 
-        # Conditional simulations — force each team to win slot
-        result_if_t1, _, _ = run_simulation(
-            players, games_by_slot, team_seeds, bpi_ratings,
-            iterations=conditional_iters, forced_outcomes={slot: team1}
-        )
-        result_if_t2, _, _ = run_simulation(
-            players, games_by_slot, team_seeds, bpi_ratings,
-            iterations=conditional_iters, forced_outcomes={slot: team2}
-        )
+        # Split simulations into two buckets based on who won this slot
+        wins_if_t1 = {p['username']: 0.0 for p in players}
+        wins_if_t2 = {p['username']: 0.0 for p in players}
+        count_t1 = 0
+        count_t2 = 0
 
-        # Per-player swings
+        for i, sim in enumerate(all_outcomes):
+            winner_of_slot = sim.get(slot)
+            if winner_of_slot == team1:
+                count_t1 += 1
+                share = 1.0 / len(sim_winners[i]) if sim_winners[i] else 0
+                for name in sim_winners[i]:
+                    wins_if_t1[name] += share
+            elif winner_of_slot == team2:
+                count_t2 += 1
+                share = 1.0 / len(sim_winners[i]) if sim_winners[i] else 0
+                for name in sim_winners[i]:
+                    wins_if_t2[name] += share
+
+        # Skip games where one bucket has too few simulations (< 50)
+        if count_t1 < 50 or count_t2 < 50:
+            continue
+
+        # Per-player conditional probabilities
         player_impacts = []
         max_swing = 0.0
         for p in players:
-            name  = p['username']
-            p1    = result_if_t1.get(name, 0.0) * 100
-            p2    = result_if_t2.get(name, 0.0) * 100
+            name = p['username']
+            p1   = (wins_if_t1[name] / count_t1) * 100
+            p2   = (wins_if_t2[name] / count_t2) * 100
             swing = abs(p1 - p2)
             max_swing = max(max_swing, swing)
             player_impacts.append({
@@ -401,14 +424,13 @@ def calculate_leverage(players, games_by_slot, team_seeds, bpi_ratings,
             'score1':        (game.get('teams') or {}).get('score1'),
             'score2':        (game.get('teams') or {}).get('score2'),
             'gameNote':      (game.get('teams') or {}).get('gameNote'),
-            'leverage':      round(max_swing),
+            'leverage':      round(max_swing, 1),
             'pickPct1':      pct1,
             'pickPct2':      100 - pct1,
             'playerImpacts': sorted(player_impacts, key=lambda x: -x['swing']),
         })
 
     # Pool-wide: all games with computed impacts (sorted by leverage)
-    # Frontend filters by threshold as needed; this ensures every game has impact data
     leverage_games = sorted(all_game_data, key=lambda g: (0 if g['status'] == 'live' else 1, -g['leverage']))
 
     # Per-player: top 5 games ranked by each player's own personal swing
@@ -897,8 +919,7 @@ def upsert_sim_results(client, pool_id, player_probs, leverage_games,
 def main():
     parser = argparse.ArgumentParser(description='Run Monte Carlo win probability simulation.')
     parser.add_argument('--pool-id',    required=True)
-    parser.add_argument('--iterations', type=int, default=10_000)
-    parser.add_argument('--cond-iters', type=int, default=2_000)
+    parser.add_argument('--iterations', type=int, default=20_000)
     parser.add_argument('--dry-run',        action='store_true')
     parser.add_argument('--no-narratives',  action='store_true',
                         help='Skip narrative generation; preserve existing narratives in DB')
@@ -955,7 +976,7 @@ def main():
         print('  No previous sim results (first run — deltas will be suppressed)')
 
     print(f'\nRunning {args.iterations:,} simulations…')
-    player_probs, _, all_outcomes = run_simulation(
+    player_probs, _, all_outcomes, sim_winners = run_simulation(
         players, games_by_slot, team_seeds, bpi_ratings, iterations=args.iterations
     )
 
@@ -967,12 +988,11 @@ def main():
         delta_str = f' ({("+" if delta > 0 else "")}{delta:.1f})' if prev_probs else ''
         print(f'  {name:<20} {prob * 100:5.1f}%{delta_str}  {bar}')
 
-    print(f'\nCalculating leverage ({args.cond_iters:,} conditional iters per game)…')
+    print(f'\nCalculating leverage (bucket-split from {args.iterations:,} base sims)…')
     leverage_games, player_leverage = calculate_leverage(
-        players, games_by_slot, team_seeds, bpi_ratings,
-        player_probs, conditional_iters=args.cond_iters
+        players, games_by_slot, all_outcomes, sim_winners
     )
-    print(f'  {len(leverage_games)} game(s) above {LEVERAGE_THRESHOLD}% pool-wide threshold')
+    print(f'  {len(leverage_games)} game(s) with leverage data')
     print(f'  Per-player top games computed for {len(player_leverage)} player(s)')
 
     best_paths = derive_best_paths(players, games_by_slot, all_outcomes, player_probs)
