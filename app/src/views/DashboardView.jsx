@@ -327,10 +327,10 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
         const deltaT2 = impact.ifTeam2 - player.winProb;
         if (deltaT1 >= deltaT2) {
           playerDelta = deltaT1;
-          playerRootFor = game.team1;
+          playerRootFor = game.abbrev1 || shortTeam(game.team1);
         } else {
           playerDelta = deltaT2;
-          playerRootFor = game.team2;
+          playerRootFor = game.abbrev2 || shortTeam(game.team2);
         }
       }
 
@@ -347,7 +347,7 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
           const absD1 = Math.abs(d1), absD2 = Math.abs(d2);
           if (Math.max(absD1, absD2) < 1) continue;
           const delta = absD1 >= absD2 ? d1 : d2;
-          const team  = absD1 >= absD2 ? game.team1 : game.team2;
+          const team  = absD1 >= absD2 ? (game.abbrev1 || shortTeam(game.team1)) : (game.abbrev2 || shortTeam(game.team2));
           poolImpacts.push({ name: imp.player, delta, team });
         }
         poolImpacts.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
@@ -400,8 +400,8 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
                 isFinal ? 'text-slate-500' :
                 isLive ? 'text-white' : 'text-slate-300'
               }`}>
-                {game.seed1 && <span className="text-slate-500 mr-1">{game.seed1}</span>}
-                {shortTeam(game.team1)}
+                {game.seed1 && <span className="text-slate-500 mr-1">({game.seed1})</span>}
+                {game.abbrev1 || shortTeam(game.team1)}
               </span>
               {(isLive || isFinal) && game.score1 != null && (
                 <span className={`text-xs font-bold tabular-nums ${
@@ -419,8 +419,8 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
                 isFinal ? 'text-slate-500' :
                 isLive ? 'text-white' : 'text-slate-300'
               }`}>
-                {game.seed2 && <span className="text-slate-500 mr-1">{game.seed2}</span>}
-                {shortTeam(game.team2)}
+                {game.seed2 && <span className="text-slate-500 mr-1">({game.seed2})</span>}
+                {game.abbrev2 || shortTeam(game.team2)}
               </span>
               {(isLive || isFinal) && game.score2 != null && (
                 <span className={`text-xs font-bold tabular-nums ${
@@ -527,7 +527,7 @@ function ComingUp({ games, leverageGames, playerLeverage, player }) {
           <div key={game.slot_index} className="px-5 py-3">
             <div className="flex items-center gap-2">
               <span className="text-sm text-slate-300 flex-1 truncate">
-                {game.team1} vs {game.team2}
+                {game.abbrev1 || shortTeam(game.team1)} vs {game.abbrev2 || shortTeam(game.team2)}
               </span>
               {game.gameTime && (
                 <span className="text-[10px] text-slate-600 shrink-0" style={{ fontFamily: "Space Mono, monospace" }}>
@@ -537,7 +537,7 @@ function ComingUp({ games, leverageGames, playerLeverage, player }) {
             </div>
             <div className="flex items-center gap-3 mt-1 text-[11px]">
               <span>
-                <span className="text-orange-400 font-semibold">{shortTeam(game.team1)}</span>
+                <span className="text-orange-400 font-semibold">{game.abbrev1 || shortTeam(game.team1)}</span>
                 <span className="text-slate-500">: </span>
                 <span className={`font-bold tabular-nums ${deltaT1 >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
                       style={{ fontFamily: "Space Mono, monospace" }}>
@@ -546,7 +546,7 @@ function ComingUp({ games, leverageGames, playerLeverage, player }) {
               </span>
               <span className="text-slate-700">·</span>
               <span>
-                <span className="text-orange-400 font-semibold">{shortTeam(game.team2)}</span>
+                <span className="text-orange-400 font-semibold">{game.abbrev2 || shortTeam(game.team2)}</span>
                 <span className="text-slate-500">: </span>
                 <span className={`font-bold tabular-nums ${deltaT2 >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
                       style={{ fontFamily: "Space Mono, monospace" }}>

@@ -4,6 +4,14 @@ import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
 
 const shortTeam = (name) => name ? name.split(' ').pop() : 'TBD';
+const teamLabel = (game, which) => {
+  // Prefer ESPN abbreviation, fall back to last word of full name
+  const abbrev = which === 1 ? game.abbrev1 : game.abbrev2;
+  const full   = which === 1 ? game.team1   : game.team2;
+  const seed   = which === 1 ? game.seed1   : game.seed2;
+  const name   = abbrev || shortTeam(full);
+  return seed ? `${name} (${seed})` : name;
+};
 
 const SORT_OPTIONS = [
   { key: "rank",    label: "Rank"    },
@@ -21,11 +29,7 @@ function getCellStyle(pick, game) {
   return "bg-red-900/30 text-red-400 line-through opacity-60";
 }
 
-function seedLabel(seed1, seed2) {
-  if (!seed1 || !seed2) return null;
-  const lo = Math.min(seed1, seed2), hi = Math.max(seed1, seed2);
-  return `${lo}v${hi}`;
-}
+// seedLabel removed — seeds now inline in team abbreviation labels
 
 function StatusBadge({ status }) {
   if (status === "live") {
@@ -197,7 +201,6 @@ export default function MatrixView() {
               {/* Game columns */}
               {filteredGames.map((game) => {
                 const isLive = game.status === "live";
-                const seed   = seedLabel(game.seed1, game.seed2);
                 const colW   = COL_WIDTHS[game.roundKey] ?? 96;
                 // header bg: live > key game > default
                 const headerBg = isLive
@@ -220,26 +223,16 @@ export default function MatrixView() {
                     }}
                   >
                     <div className="flex flex-col items-center gap-0.5">
-                      {/* Seed badge */}
-                      {seed && (
-                        <span
-                          className="text-[9px] tabular-nums px-1 py-0.5 rounded bg-slate-800 text-slate-500"
-                          style={{ fontFamily: "Space Mono, monospace" }}
-                        >
-                          {seed}
-                        </span>
-                      )}
-
-                      {/* Matchup — styled by status */}
+                      {/* Matchup — abbreviations with inline seeds */}
                       {game.status === "final" ? (
                         <span className="text-[11px] leading-tight text-slate-500">
-                          <span className="font-bold text-slate-300">{game.winner === game.team1 ? shortTeam(game.team1) : shortTeam(game.team2)}</span>
+                          <span className="font-bold text-slate-300">{game.winner === game.team1 ? teamLabel(game, 1) : teamLabel(game, 2)}</span>
                           {' vs '}
-                          <span className="line-through opacity-60">{game.winner === game.team1 ? shortTeam(game.team2) : shortTeam(game.team1)}</span>
+                          <span className="line-through opacity-60">{game.winner === game.team1 ? teamLabel(game, 2) : teamLabel(game, 1)}</span>
                         </span>
                       ) : (
                         <span className={`text-[11px] font-semibold leading-tight ${isLive ? "text-white" : "text-slate-300"}`}>
-                          {game.matchup}
+                          {teamLabel(game, 1)} vs {teamLabel(game, 2)}
                         </span>
                       )}
 
@@ -275,12 +268,13 @@ export default function MatrixView() {
                         if (!imp) return null;
                         const currentProb = PLAYERS.find(p => p.name === profile?.username)?.winProb ?? 0;
                         const rootFor = imp.ifTeam1 >= imp.ifTeam2 ? game.team1 : game.team2;
+                        const rootAbbrev = imp.ifTeam1 >= imp.ifTeam2 ? game.abbrev1 : game.abbrev2;
                         const delta = Math.max(imp.ifTeam1, imp.ifTeam2) - currentProb;
-                        if (delta < 0.5) return null;
+                        if (delta <= 0) return null;
                         return (
                           <span className="text-[9px]">
-                            <span className="font-bold text-orange-400">{shortTeam(rootFor)}</span>{' '}
-                            <span className="text-emerald-400 font-bold">▲+{delta.toFixed(1)}%</span>
+                            <span className="font-bold text-orange-400">{rootAbbrev || shortTeam(rootFor)}</span>{' '}
+                            <span className="text-emerald-400 font-bold">+{delta.toFixed(1)}%</span>
                           </span>
                         );
                       })()}

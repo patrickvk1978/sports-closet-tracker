@@ -142,8 +142,10 @@ export function transformEspnGame(event) {
     teams: {
       team1: away?.team?.displayName ?? null,
       seed1: parseInt(away?.curatedRank?.current ?? away?.seed ?? 0, 10) || null,
+      abbrev1: away?.team?.abbreviation ?? null,
       team2: home?.team?.displayName ?? null,
       seed2: parseInt(home?.curatedRank?.current ?? home?.seed ?? 0, 10) || null,
+      abbrev2: home?.team?.abbreviation ?? null,
     },
     score: {
       team1: parseInt(away?.score ?? 0, 10),

@@ -160,8 +160,10 @@ def transform_event(event):
         'teams': {
             'team1': (away or {}).get('team', {}).get('displayName'),
             'seed1': parse_seed(away),
+            'abbrev1': (away or {}).get('team', {}).get('abbreviation'),
             'team2': (home or {}).get('team', {}).get('displayName'),
             'seed2': parse_seed(home),
+            'abbrev2': (home or {}).get('team', {}).get('abbreviation'),
         },
     }
 
