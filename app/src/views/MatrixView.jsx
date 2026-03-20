@@ -266,21 +266,21 @@ export default function MatrixView() {
                         <span className="text-[9px] text-slate-500 leading-none">{game.gameNote}</span>
                       )}
 
-                      {/* Live: root-for line */}
-                      {isLive && (() => {
-                        // Check player-specific leverage first (no threshold), then pool-wide
+                      {/* Root-for line: live + pending games */}
+                      {(isLive || game.status === 'pending') && (() => {
                         const playerGames = PLAYER_LEVERAGE?.[profile?.username] ?? [];
                         const lg = playerGames.find(g => g.id === game.slot_index)
                           ?? LEVERAGE_GAMES.find(lg => lg.id === game.slot_index);
                         const imp = lg?.playerImpacts?.find(p => p.player === profile?.username);
                         if (!imp) return null;
+                        const currentProb = PLAYERS.find(p => p.name === profile?.username)?.winProb ?? 0;
                         const rootFor = imp.ifTeam1 >= imp.ifTeam2 ? game.team1 : game.team2;
-                        const gain = Math.abs(imp.ifTeam1 - imp.ifTeam2);
+                        const delta = Math.max(imp.ifTeam1, imp.ifTeam2) - currentProb;
+                        if (delta < 0.5) return null;
                         return (
                           <span className="text-[9px]">
-                            <span className="text-slate-500">Root for</span>{' '}
                             <span className="font-bold text-orange-400">{shortTeam(rootFor)}</span>{' '}
-                            <span className="text-emerald-400 font-bold">+{gain.toFixed(1)}%</span>
+                            <span className="text-emerald-400 font-bold">▲+{delta.toFixed(1)}%</span>
                           </span>
                         );
                       })()}
