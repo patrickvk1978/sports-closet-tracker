@@ -250,23 +250,37 @@ function parseGameTimeToMs(gameTime) {
   }
 }
 
+const FINAL_SEEN_KEY = 'scoregrid_final_seen';
+
+function loadFinalSeen() {
+  try {
+    return JSON.parse(localStorage.getItem(FINAL_SEEN_KEY) || '{}');
+  } catch { return {}; }
+}
+
+function saveFinalSeen(map) {
+  try { localStorage.setItem(FINAL_SEEN_KEY, JSON.stringify(map)); } catch {}
+}
+
 function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
   const [now, setNow] = useState(Date.now());
-  const finalFirstSeen = useRef({}); // slot_index -> timestamp when first seen as final
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
 
-  // Track when games first appear as final
+  // Track when games first appear as final — persisted in localStorage
   useEffect(() => {
-    const seen = finalFirstSeen.current;
+    const seen = loadFinalSeen();
+    let changed = false;
     for (const game of games) {
       if (game.status === 'final' && !seen[game.slot_index]) {
         seen[game.slot_index] = Date.now();
+        changed = true;
       }
     }
+    if (changed) saveFinalSeen(seen);
   }, [games]);
 
   const cards = useMemo(() => {
@@ -293,7 +307,8 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
         cardType = 'live';
       } else if (game.status === 'final') {
         // Show recently-final games (within 15 min of when we FIRST saw them as final)
-        const firstSeen = finalFirstSeen.current[game.slot_index];
+        const seen = loadFinalSeen();
+        const firstSeen = seen[game.slot_index];
         if (firstSeen) {
           const minsSinceFirstSeen = (now - firstSeen) / 60000;
           if (minsSinceFirstSeen <= 15) {
