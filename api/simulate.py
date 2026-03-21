@@ -562,21 +562,26 @@ def load_pool_data(client, pool_id):
     resp         = client.table('brackets').select('*').eq('pool_id', pool_id).execute()
     brackets_raw = resp.data or []
 
-    # Current scores
-    resp       = client.table('scores').select('bracket_id, points').execute()
-    scores_map = {s['bracket_id']: s['points'] for s in (resp.data or [])}
-
-    # Build players list
+    # Build players list — calculate scores directly from games + picks
+    # (no dependency on scores table, which is not populated)
     players = []
     for bracket in brackets_raw:
         uid      = bracket['user_id']
         username = member_map.get(uid, uid)
         picks    = bracket.get('picks') or []
         picks    = (picks + [None] * 63)[:63] if isinstance(picks, list) else [None] * 63
+
+        # Calculate current points from final games
+        points = 0
+        for slot, game in games_by_slot.items():
+            if (game.get('status') == 'final' and game.get('winner')
+                    and slot < len(picks) and picks[slot] == game['winner']):
+                points += ROUND_POINTS.get(SLOT_ROUND.get(slot, ''), 0)
+
         players.append({
             'username':       username,
             'picks':          picks,
-            'current_points': scores_map.get(bracket['id'], 0),
+            'current_points': points,
         })
 
     return players, games_by_slot, team_seeds
