@@ -27,7 +27,8 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 - Interactive table: rows = players (sorted by rank/points), columns = games (grouped by round)
 - Each cell shows that player's pick for that game
 - Color coding: correct picks (green), eliminated picks (red), pending picks (neutral)
-- Column headers show matchup (e.g., "Duke vs Kentucky"), scheduled tip-off time (ET) for pending games, live score + game clock for live games, final score for completed games
+- Column headers show matchup using ESPN abbreviations + seeds (e.g., "UNC (2) vs DUKE (1)"), scheduled tip-off time (ET) for pending games, live score + game clock for live games, final score for completed games
+- Per-cell win% deltas on live games: shows "+1.3%" green or "-2.1%" red under each player's pick (delta to their win prob if that pick wins)
 - Key data columns: Rank, Points, PPR (Points Possible Remaining), Win Probability %
 - Sortable by any column
 - Filterable by round (R64, R32, S16, E8, Final Four, Championship)
@@ -41,7 +42,7 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 - **Single-scroll layout** (5 sections):
   1. **Stat Bar** — compact row: rank, points, win prob with delta arrow, champion alive/eliminated pill, "Need: X, Y, Z" (compressed best path picks)
   2. **Narrative** — single context-aware card: player narrative during live games ("Latest Update"), pool narrative in morning ("Morning Briefing"). Never both simultaneously.
-  3. **Score Grid** — responsive grid (2→3→4 columns) of ESPN-style game cards. Shows live games (amber glow + pulse), recently-final games (≤15 min), and about-to-tip games (≤15 min before start). Each card: seeds + teams + scores + "You: ▲+X% if Team" (delta from current win prob) + pool's biggest winner.
+  3. **Score Grid** — responsive grid (2→3→4 columns) of ESPN-style game cards. Shows live games (amber glow + pulse), recently-final games (≤15 min, tracked via localStorage for persistence across refreshes), and about-to-tip games (≤15 min before start). Each card: abbreviations + seeds + scores + "Root for TEAM +X%" (higher upside delta) + top 2 pool player impacts (≥1% threshold, e.g., "Matty +2% w/ Duke win").
   4. **Coming Up** — top 3 highest-impact pending games for the selected player (games >15 min from tip). Shows both-side deltas: "Arizona: ▲+5.2% · LIU: ▼-17.1%"
   5. **Leaderboard** — all players sorted by rank/points/PPR (sort pills), with win prob delta arrows
 - **Win probability deltas** — tracked between simulation runs via `prev_player_probs`; leverage display uses delta from current win prob (not raw swing)
@@ -62,7 +63,7 @@ The app is inspired by a decade-old Google Sheets-based pool ("NYC Madness") tha
 ### Backend
 - **Database + Auth + Realtime:** Supabase (Postgres + RLS + Realtime subscriptions)
 - **Game data:** ESPN unofficial API polled by `api/poller.py` on VPS (60s / 30s live)
-- **Simulation:** Python Monte Carlo script (`api/simulate.py`) — called by poller or run manually
+- **Simulation:** Python Monte Carlo script (`api/simulate.py`) — called by poller or run manually; calculates scores directly from games+picks (no dependency on scores table)
 
 ### Data Model (Supabase schema)
 
@@ -214,7 +215,7 @@ Four sub-tabs. Header bar (Pre-fill 2026 Bracket button + ESPN polling badge) al
 Runs continuously on a Hetzner Helsinki VPS in a `screen` session named `poller`.
 
 ### Tournament detection
-Dynamic — no hardcoded date sets. `tournament_active` is True when any game has status `live` or `final`. ESPN dates are fetched using ET timezone (not UTC) with yesterday included to avoid missing late-night games.
+Dynamic — no hardcoded date sets. `tournament_active` is True when any game has status `live` or `final`. ESPN dates are fetched using ET timezone (not UTC) with 2 days back included (`range(-2, 4)`) to avoid missing games that go final late.
 
 ### Startup safety
 On startup, queries DB for all games already `final` to seed `prev_final_set`. Prevents false mass-sim triggers when restarting the poller mid-tournament.
@@ -222,7 +223,7 @@ On startup, queries DB for all games already `final` to seed `prev_final_set`. P
 ### Sim schedule
 | Trigger | Model | Narrative type | Details |
 |---------|-------|---------------|---------|
-| Game goes final | Haiku | `game_end` | Runs sim + 40-word narrative per player about that game's impact. `--just-finished "Team A over Team B"` passed as context. |
+| Game goes final | Opus | `game_end` | Runs sim + 40-word narrative per player about that game's impact. `--just-finished "Team A over Team B"` passed as context. |
 | Overnight: 3 AM ET | Opus | `overnight` | 60-word day-ahead briefing per player + pool summary. |
 | Hourly (every 60 min) | — | None | `--no-narratives` — odds refresh only. |
 | Bracket lock detected | Opus | `overnight` | First narrative run. |
@@ -245,8 +246,8 @@ api/venv/bin/python api/poller.py
 ## AI Narrative System
 
 ### Two narrative triggers
-1. **`overnight`** (3 AM ET / bracket lock): 60-word day-ahead briefing per player + `_pool` summary. Generated by Opus. Pool narrative opens "Welcome to Day N". Player narratives preview the day's key games and what to watch for.
-2. **`game_end`** (every game completion): 40-word reaction per player about the just-finished game's impact. Generated by Haiku. No pool narrative — player-only. `--just-finished` provides game result context.
+1. **`overnight`** (3 AM ET / bracket lock): 60-word day-ahead briefing per player + `_pool` summary. Generated by Opus.
+2. **`game_end`** (every game completion): 40-word reaction per player + `_pool` summary about the just-finished game's impact. Generated by Opus. `--just-finished` provides game result context.
 
 ### Narrative display (dashboard)
 - Single `NarrativeCard` component — never shows both pool and player narrative simultaneously.
@@ -267,11 +268,9 @@ The LLM prompt explicitly instructs Claude that "rank" = points rank and "win pr
 - For `game_end`: `--just-finished` game result string
 
 ### Models
-- **Haiku** (`claude-haiku-4-5-20251001`): game_end narratives + manual runs
-- **Opus** (`claude-opus-4-6`): overnight + bracket lock runs
-
-### Cost
-~$0.50–$1 total for first weekend (Opus fires ~4 times; game_end uses Haiku; hourly runs skip Claude entirely).
+- **Opus** (`claude-opus-4-6`): all narrative runs (overnight, game_end, bracket lock)
+- **Haiku** (`claude-haiku-4-5-20251001`): default in simulate.py for manual runs only
+- Hourly sim runs use `--no-narratives` (no Claude call)
 
 ---
 
@@ -313,7 +312,7 @@ ANTHROPIC_API_KEY=          # optional — enables AI narrative generation
 
 ### Phase 3: Win Probability Engine ✅ COMPLETE (Mar 2026)
 - `supabase/phase3_migration.sql` — adds `win_prob_home` column + `sim_results` table
-- `api/simulate.py` — Python Monte Carlo (10,000 iterations); BPI + seed blended model
+- `api/simulate.py` — Python Monte Carlo (20,000 iterations); BPI + seed blended model; bucket-split leverage (zero-sum by construction)
 - `useSimResults.js` — Realtime hook; sim results push live to all browsers
 - `useEspnPoller.js` — fetches `win_prob_home` for live games via ESPN Core probabilities
 - `usePoolData.js` — merges simResult: winProb into PLAYERS; exposes leverage_games, best_paths
@@ -350,18 +349,27 @@ ANTHROPIC_API_KEY=          # optional — enables AI narrative generation
 
 ### Phase 5: Dashboard Redesign + Narrative Overhaul ✅ COMPLETE (Mar 20 2026)
 - **Dashboard redesign** — 7 stacked cards → 5 focused sections: StatBar, NarrativeCard, ScoreGrid, ComingUp, Leaderboard
-- **ScoreGrid** — ESPN-style responsive game cards (grid-cols-2/3/4) showing live games (amber glow), recent finals (≤15 min), about-to-tip (≤15 min). Each card shows seeds + scores + "You: ▲+X% if Team" + pool biggest winner
+- **ScoreGrid** — ESPN-style responsive game cards (grid-cols-2/3/4) showing live games (amber glow), recent finals (≤15 min via localStorage), about-to-tip (≤15 min). Each card: abbreviations + seeds + scores + "Root for TEAM +X%" + top 2 pool impacts (≥1% threshold)
 - **ComingUp** — top 3 high-impact pending games with both-side deltas per team
 - **StatBar** — compact row merging rank, points, win prob delta, champion pill, "Need: X, Y, Z" best path
 - **Leverage display overhaul** — raw swing → delta from current win prob; both outcomes shown for personal games
 - **All game impact data** sent to frontend (removed 5% threshold filter on leverage_games)
-- **Matrix root-for** expanded to live + pending games, shows upside delta (`▲+X%`), skips <0.5%
-- **Two-trigger narrative model** — overnight (3 AM, Opus, 60-word) + game_end (every final, Haiku, 40-word)
+- **Picks grid per-cell deltas** — replaced header root-for with per-cell win% delta under each player's pick for live games
+- **Team abbreviations** — headers use ESPN abbreviations + inline seeds (e.g., "UNC (2) vs DUKE (1)")
+- **Two-trigger narrative model** — overnight (3 AM, Opus, 60-word) + game_end (every final, Opus, 40-word)
 - **Dynamic tournament detection** — replaces hardcoded FIRST_WEEKEND date set
 - **Startup prev_final_set seeding** — prevents false mass-sim triggers on poller restart
 - **Rank vs win prob distinction** in LLM prompt — players sorted by points rank, explicit instruction
 - `supabase/phase5_migration.sql` — adds `narrative_day` column
 - New simulate.py flags: `--narrative-type`, `--just-finished`
+
+### Phase 5.1: Simulation + Scoring Fixes ✅ COMPLETE (Mar 21 2026)
+- **Leverage rewrite** — conditional sims (separate 2K runs) replaced with bucket-splitting from 20K base simulation. Zero-sum by construction: splitting base sim outcomes by game result ensures all player deltas sum to zero. Faster (20K vs 90K total sims) and mathematically correct.
+- **Default iterations** increased from 10K → 20K; `--cond-iters` flag removed
+- **Scoring fix** — `simulate.py` was reading points from empty `scores` table (never populated; scores calculated client-side only). Now calculates points directly from `games_by_slot` + bracket picks using same logic as frontend `scoring.js`.
+- **Thursday games fix** — 16 R64 games from Day 1 had `winner` set but `status` stuck at `pending` (caused by earlier UTC→ET date bug). Fixed with one-off DB update. Poller date range expanded from `-1` to `-2` days to prevent recurrence.
+- **Leverage precision** — `round(max_swing)` → `round(max_swing, 1)` for decimal precision
+- **Bucket minimum** — games with <50 sims in either outcome bucket are skipped
 
 ### Phase 6: Polish + PWA (Planned)
 - Service worker for offline bracket viewing
@@ -377,7 +385,7 @@ ANTHROPIC_API_KEY=          # optional — enables AI narrative generation
 - Mock data falls back gracefully when no live pool is active (dev mode)
 - `simulate.py` uses `ZoneInfo('America/New_York')` for all ET scheduling — safe on any VPS timezone
 - Narratives gracefully absent if `ANTHROPIC_API_KEY` not set or Claude API fails
-- LEADERBOARD NOT UPDATING: My guess it is giving updates for only the previous 24 hours. On the morning of 3/21, the picks table is only showing results from 3/20 (not 3/19). Bracket too. The site seems to have forgotten results from Day 1 of the tournament.
 - LEAGUE ADMIN VS SITE ADMIN: Will eventually need to differentiate these roles.
-- AI NOTES: Morning briefing is using some incorrect data, e.g., "yesterday's 12-game slate" when there 16 games, Duke-Siena was actually not yesterday
+- AI NARRATIVE ACCURACY: Narrative context builder (`build_tournament_context`) has known issues: current round shows deepest *completed* round (not upcoming), yesterday's results use fragile `updated_at` date matching, today's upcoming game detection relies on gameTime day prefix. Plan: replace computed tournament metadata with a hardcoded schedule table mapping dates → day numbers, rounds, slot ranges, and game counts. Dynamic data (scores, upsets, leverage) stays calculated.
 - STANDINGS ACCURACY: When teams have the same points, they should be listed as tied for the same place in the standings.
+- SCORES TABLE: The `scores` table in Supabase is unused — scores are calculated client-side (scoring.js) and in simulate.py directly from games+picks. Consider removing the table or populating it for other uses.
