@@ -659,23 +659,13 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
                     {p.ppr}
                   </td>
                   <td className="px-2 sm:px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1 sm:gap-1.5">
+                    <div className="flex items-center justify-end gap-1">
                       <span
                         className="text-sm font-bold tabular-nums"
                         style={{ fontFamily: "Space Mono, monospace", color: winProbColor(wp) }}
                       >
                         {wp.toFixed(1)}%
                       </span>
-                      <div className="w-8 sm:w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${Math.min(wp * 4, 100)}%`,
-                            background: winProbColor(wp),
-                            transition: "width 0.6s ease",
-                          }}
-                        />
-                      </div>
                       <DeltaArrow delta={p.winProbDelta} />
                     </div>
                   </td>
