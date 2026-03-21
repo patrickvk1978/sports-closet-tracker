@@ -644,21 +644,21 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
                     isLocked ? 'hover:bg-slate-800/20 cursor-pointer' : ''
                   }`}
                 >
-                  <td className="px-2 sm:px-4 py-3 text-sm font-semibold text-slate-500 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                  <td className="px-2 sm:px-4 py-2 text-sm font-semibold text-slate-500 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                     {p.rank}
                   </td>
-                  <td className="px-2 sm:px-4 py-3">
+                  <td className="px-2 sm:px-4 py-2">
                     <span className={`text-sm font-semibold ${isActive ? 'text-orange-400' : 'text-white'}`}>
                       {p.name}
                     </span>
                   </td>
-                  <td className="px-2 sm:px-4 py-3 text-right text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                  <td className="px-2 sm:px-4 py-2 text-right text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                     {p.points.toLocaleString()}
                   </td>
-                  <td className="px-2 sm:px-4 py-3 text-right text-sm text-slate-400 tabular-nums hidden sm:table-cell" style={{ fontFamily: "Space Mono, monospace" }}>
+                  <td className="px-2 sm:px-4 py-2 text-right text-sm text-slate-400 tabular-nums hidden sm:table-cell" style={{ fontFamily: "Space Mono, monospace" }}>
                     {p.ppr}
                   </td>
-                  <td className="px-2 sm:px-4 py-3 text-right">
+                  <td className="px-2 sm:px-4 py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <span
                         className="text-sm font-bold tabular-nums"
@@ -669,7 +669,7 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
                       <DeltaArrow delta={p.winProbDelta} />
                     </div>
                   </td>
-                  <td className="px-2 sm:px-4 py-3 text-center">
+                  <td className="px-2 sm:px-4 py-2 text-center">
                     <span
                       className={`inline-flex rounded-full border px-1.5 sm:px-2 py-0.5 text-[10px] font-semibold ${
                         p.champAlive
