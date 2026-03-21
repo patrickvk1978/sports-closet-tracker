@@ -623,12 +623,12 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
         <table className="min-w-full border-collapse">
           <thead>
             <tr className="border-b border-slate-800 bg-slate-950/80 text-left text-[11px] uppercase tracking-[0.18em] text-slate-500">
-              <th className="px-4 py-2.5 w-10">#</th>
-              <th className="px-4 py-2.5">Entry</th>
-              <th className="px-4 py-2.5 text-right" style={{ fontFamily: "Space Mono, monospace" }}>Pts</th>
-              <th className="px-4 py-2.5 text-right" style={{ fontFamily: "Space Mono, monospace" }}>PPR</th>
-              <th className="px-4 py-2.5 text-right">Win %</th>
-              <th className="px-4 py-2.5 text-center">Champ</th>
+              <th className="px-2 sm:px-4 py-2.5 w-8 sm:w-10">#</th>
+              <th className="px-2 sm:px-4 py-2.5">Entry</th>
+              <th className="px-2 sm:px-4 py-2.5 text-right" style={{ fontFamily: "Space Mono, monospace" }}>Pts</th>
+              <th className="px-2 sm:px-4 py-2.5 text-right hidden sm:table-cell" style={{ fontFamily: "Space Mono, monospace" }}>PPR</th>
+              <th className="px-2 sm:px-4 py-2.5 text-right">Win %</th>
+              <th className="px-2 sm:px-4 py-2.5 text-center w-10 sm:w-auto"></th>
             </tr>
           </thead>
           <tbody>
@@ -644,29 +644,29 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
                     isLocked ? 'hover:bg-slate-800/20 cursor-pointer' : ''
                   }`}
                 >
-                  <td className="px-4 py-3 text-sm font-semibold text-slate-500 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                  <td className="px-2 sm:px-4 py-3 text-sm font-semibold text-slate-500 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                     {p.rank}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-2 sm:px-4 py-3">
                     <span className={`text-sm font-semibold ${isActive ? 'text-orange-400' : 'text-white'}`}>
                       {p.name}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                  <td className="px-2 sm:px-4 py-3 text-right text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                     {p.points.toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-right text-sm text-slate-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                  <td className="px-2 sm:px-4 py-3 text-right text-sm text-slate-400 tabular-nums hidden sm:table-cell" style={{ fontFamily: "Space Mono, monospace" }}>
                     {p.ppr}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
+                  <td className="px-2 sm:px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1 sm:gap-1.5">
                       <span
                         className="text-sm font-bold tabular-nums"
                         style={{ fontFamily: "Space Mono, monospace", color: winProbColor(wp) }}
                       >
                         {wp.toFixed(1)}%
                       </span>
-                      <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="w-8 sm:w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full"
                           style={{
@@ -679,15 +679,16 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
                       <DeltaArrow delta={p.winProbDelta} />
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-2 sm:px-4 py-3 text-center">
                     <span
-                      className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                      className={`inline-flex rounded-full border px-1.5 sm:px-2 py-0.5 text-[10px] font-semibold ${
                         p.champAlive
                           ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
                           : 'border-red-500/20 bg-red-500/10 text-red-400'
                       }`}
                     >
-                      {p.champAlive ? '♛ alive' : '♛ out'}
+                      <span className="sm:hidden">{p.champAlive ? '♛' : '✗'}</span>
+                      <span className="hidden sm:inline">{p.champAlive ? '♛ alive' : '♛ out'}</span>
                     </span>
                   </td>
                 </tr>
