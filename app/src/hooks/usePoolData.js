@@ -235,6 +235,17 @@ export function usePoolData() {
     () => (games.length > 0 ? buildLiveBracket(games) : null),
     [games]
   )
+  // Build displayName → abbreviation lookup from game data
+  const teamAbbrevMap = useMemo(() => {
+    const map = {}
+    for (const g of games) {
+      const t = g.teams || {}
+      if (t.team1 && t.abbrev1) map[t.team1] = t.abbrev1
+      if (t.team2 && t.abbrev2) map[t.team2] = t.abbrev2
+    }
+    return map
+  }, [games])
+
   const liveConsensus = useMemo(
     () => (PLAYERS_LIVE && liveGames.length ? computeConsensus(PLAYERS_LIVE, liveGames) : null),
     [PLAYERS_LIVE, liveGames]
@@ -305,6 +316,7 @@ export function usePoolData() {
     PLAYER_LEVERAGE:    PLAYER_LEVERAGE_LIVE,
     LEVERAGE_THRESHOLD: MOCK_LEVERAGE_THRESHOLD,
     NARRATIVES,
+    TEAM_ABBREV: teamAbbrevMap,
     simResult,
     userPicks,
     isLoading,

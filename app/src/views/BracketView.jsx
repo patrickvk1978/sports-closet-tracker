@@ -10,6 +10,9 @@ const REGION_KEYS  = ["midwest", "west", "south", "east"];
 const ROUND_KEYS   = ["R64", "R32", "S16", "E8"];
 const ROUND_LABELS = { R64: "R64", R32: "R32", S16: "Sweet 16", E8: "Elite 8" };
 
+// Shorten team displayName using abbreviation lookup
+const abbrev = (name, map) => (map && name && map[name]) || name || 'TBD';
+
 // Height of the game area (excluding round labels). With 8 R64 games this gives
 // each game 65px of vertical space, which fits the compact two-row card.
 const GAME_AREA_H = 520;
@@ -144,7 +147,7 @@ function TeamRow({ team, seed, isWinner, status, score, userPickedThis, correctA
 // GameCard — one unified card per game. Pick color coding lives inside TeamRow.
 // userPick: string | null — the team name the selected player picked for this slot.
 // allUserPicks: full 63-item picks array — used to derive teams for pending rounds.
-function GameCard({ game, userPick, allUserPicks }) {
+function GameCard({ game, userPick, allUserPicks, abbrevMap }) {
   const { winner, status, score1, score2, gameNote } = game;
 
   // For pending rounds, derive displayed teams from user's picks at feeder slots
@@ -177,15 +180,15 @@ function GameCard({ game, userPick, allUserPicks }) {
         style={{ width: 128 }}
       >
         <TeamRow
-          team={dt1} seed={ds1} isWinner={winner === dt1} status={status} score={score1}
+          team={abbrev(dt1, abbrevMap)} seed={ds1} isWinner={winner === dt1} status={status} score={score1}
           userPickedThis={userPick === dt1}
-          correctAnswer={t1CorrectAnswer}
+          correctAnswer={abbrev(t1CorrectAnswer, abbrevMap)}
         />
         <div className="h-px bg-slate-800/80" />
         <TeamRow
-          team={dt2} seed={ds2} isWinner={winner === dt2} status={status} score={score2}
+          team={abbrev(dt2, abbrevMap)} seed={ds2} isWinner={winner === dt2} status={status} score={score2}
           userPickedThis={userPick === dt2}
-          correctAnswer={t2CorrectAnswer}
+          correctAnswer={abbrev(t2CorrectAnswer, abbrevMap)}
         />
       </div>
       {status === "live" && gameNote && (
@@ -244,7 +247,7 @@ function BracketConnectors({ leftCount }) {
 
 const GAME_COUNTS = { R64: 8, R32: 4, S16: 2, E8: 1 };
 
-function RegionBracket({ region, userPicks }) {
+function RegionBracket({ region, userPicks, abbrevMap }) {
   if (!region) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -288,6 +291,7 @@ function RegionBracket({ region, userPicks }) {
                     game={game}
                     userPick={game.slotIndex != null ? (userPicks[game.slotIndex] ?? null) : null}
                     allUserPicks={userPicks}
+                    abbrevMap={abbrevMap}
                   />
                 ))}
               </div>
@@ -370,7 +374,7 @@ function F4TeamRow({ team, isWinner, status, score, userPickedThis }) {
   );
 }
 
-function FinalFourView({ userPicks, showPersonal, games }) {
+function FinalFourView({ userPicks, showPersonal, games, abbrevMap }) {
   // Derive teams for each F4/Champ slot from user picks at feeder slots
   // SF1 (slot 60): Midwest E8 pick [14] vs West E8 pick [29]
   // SF2 (slot 61): South E8 pick [44] vs East E8 pick [59]
@@ -428,8 +432,8 @@ function FinalFourView({ userPicks, showPersonal, games }) {
             {statusBadge(sf1.status)}
             <span className="text-[10px] text-slate-600">Semifinal 1</span>
           </div>
-          <F4TeamRow team={sf1.t1} isWinner={sf1.winner === sf1.t1} status={sf1.status} score={sf1.score1} userPickedThis={showPersonal && sf1Pick === sf1.t1} />
-          <F4TeamRow team={sf1.t2} isWinner={sf1.winner === sf1.t2} status={sf1.status} score={sf1.score2} userPickedThis={showPersonal && sf1Pick === sf1.t2} />
+          <F4TeamRow team={abbrev(sf1.t1, abbrevMap)} isWinner={sf1.winner === sf1.t1} status={sf1.status} score={sf1.score1} userPickedThis={showPersonal && sf1Pick === sf1.t1} />
+          <F4TeamRow team={abbrev(sf1.t2, abbrevMap)} isWinner={sf1.winner === sf1.t2} status={sf1.status} score={sf1.score2} userPickedThis={showPersonal && sf1Pick === sf1.t2} />
           {sf1.gameNote && <p className="text-center text-[10px] text-amber-400 mt-1">{sf1.gameNote}</p>}
         </div>
 
@@ -442,11 +446,11 @@ function FinalFourView({ userPicks, showPersonal, games }) {
             {statusBadge(champ.status)}
           </div>
           <div className="mt-3">
-            <F4TeamRow team={champ.t1} isWinner={champ.winner === champ.t1} status={champ.status} score={champ.score1} userPickedThis={showPersonal && champPick === champ.t1} />
-            <F4TeamRow team={champ.t2} isWinner={champ.winner === champ.t2} status={champ.status} score={champ.score2} userPickedThis={showPersonal && champPick === champ.t2} />
+            <F4TeamRow team={abbrev(champ.t1, abbrevMap)} isWinner={champ.winner === champ.t1} status={champ.status} score={champ.score1} userPickedThis={showPersonal && champPick === champ.t1} />
+            <F4TeamRow team={abbrev(champ.t2, abbrevMap)} isWinner={champ.winner === champ.t2} status={champ.status} score={champ.score2} userPickedThis={showPersonal && champPick === champ.t2} />
           </div>
           {champ.status === "final" && champ.winner && (
-            <p className="text-center text-[11px] text-amber-400 font-semibold mt-2">🏆 {champ.winner}</p>
+            <p className="text-center text-[11px] text-amber-400 font-semibold mt-2">🏆 {abbrev(champ.winner, abbrevMap)}</p>
           )}
         </div>
 
@@ -456,8 +460,8 @@ function FinalFourView({ userPicks, showPersonal, games }) {
             {statusBadge(sf2.status)}
             <span className="text-[10px] text-slate-600">Semifinal 2</span>
           </div>
-          <F4TeamRow team={sf2.t1} isWinner={sf2.winner === sf2.t1} status={sf2.status} score={sf2.score1} userPickedThis={showPersonal && sf2Pick === sf2.t1} />
-          <F4TeamRow team={sf2.t2} isWinner={sf2.winner === sf2.t2} status={sf2.status} score={sf2.score2} userPickedThis={showPersonal && sf2Pick === sf2.t2} />
+          <F4TeamRow team={abbrev(sf2.t1, abbrevMap)} isWinner={sf2.winner === sf2.t1} status={sf2.status} score={sf2.score1} userPickedThis={showPersonal && sf2Pick === sf2.t1} />
+          <F4TeamRow team={abbrev(sf2.t2, abbrevMap)} isWinner={sf2.winner === sf2.t2} status={sf2.status} score={sf2.score2} userPickedThis={showPersonal && sf2Pick === sf2.t2} />
           {sf2.gameNote && <p className="text-center text-[10px] text-amber-400 mt-1">{sf2.gameNote}</p>}
         </div>
 
@@ -498,7 +502,7 @@ const TABS = [
 ];
 
 export default function BracketView() {
-  const { BRACKET, PLAYERS, GAMES, userPicks } = usePoolData();
+  const { BRACKET, PLAYERS, GAMES, TEAM_ABBREV, userPicks } = usePoolData();
   const { pool, games } = usePool();
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -655,10 +659,10 @@ export default function BracketView() {
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <PickCard label="Champion"   pick={keyPicks.champion}  alive={ALIVE.has(keyPicks.champion)} />
-              <PickCard label="Runner-Up"  pick={keyPicks.runnerUp}  alive={ALIVE.has(keyPicks.runnerUp)} />
-              <PickCard label="Final Four" pick={keyPicks.ff[0]}     alive={ALIVE.has(keyPicks.ff[0])} />
-              <PickCard label="Final Four" pick={keyPicks.ff[1]}     alive={ALIVE.has(keyPicks.ff[1])} />
+              <PickCard label="Champion"   pick={abbrev(keyPicks.champion, TEAM_ABBREV)}  alive={ALIVE.has(keyPicks.champion)} />
+              <PickCard label="Runner-Up"  pick={abbrev(keyPicks.runnerUp, TEAM_ABBREV)}  alive={ALIVE.has(keyPicks.runnerUp)} />
+              <PickCard label="Final Four" pick={abbrev(keyPicks.ff[0], TEAM_ABBREV)}     alive={ALIVE.has(keyPicks.ff[0])} />
+              <PickCard label="Final Four" pick={abbrev(keyPicks.ff[1], TEAM_ABBREV)}     alive={ALIVE.has(keyPicks.ff[1])} />
             </div>
           </>
         ) : (
@@ -691,12 +695,13 @@ export default function BracketView() {
       {/* Bracket content */}
       <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl overflow-hidden">
         {activeTab === "finalfour" ? (
-          <FinalFourView userPicks={userPicks} showPersonal={showPersonal} games={games} />
+          <FinalFourView userPicks={userPicks} showPersonal={showPersonal} games={games} abbrevMap={TEAM_ABBREV} />
         ) : (
           <div className="p-4">
             <RegionBracket
               region={BRACKET[activeTab]}
               userPicks={userPicks}
+              abbrevMap={TEAM_ABBREV}
             />
           </div>
         )}

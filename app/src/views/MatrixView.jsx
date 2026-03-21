@@ -45,7 +45,7 @@ function StatusBadge({ status }) {
 }
 
 export default function MatrixView() {
-  const { PLAYERS, GAMES, ROUNDS, LEVERAGE_GAMES, PLAYER_LEVERAGE } = usePoolData();
+  const { PLAYERS, GAMES, ROUNDS, LEVERAGE_GAMES, PLAYER_LEVERAGE, TEAM_ABBREV } = usePoolData();
   const { pool } = usePool();
   const { profile } = useAuth();
   const [sortBy, setSortBy]             = useState("rank");
@@ -363,7 +363,7 @@ export default function MatrixView() {
                     >
                       {hidden ? "—" : (
                         <div className="flex flex-col items-center">
-                          <span>{pick || "—"}</span>
+                          <span>{(pick && TEAM_ABBREV[pick]) || pick || "—"}</span>
                           {cellDelta != null && (
                             <span
                               className={`text-[9px] font-bold tabular-nums leading-tight ${
