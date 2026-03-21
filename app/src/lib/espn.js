@@ -98,6 +98,8 @@ export function transformEspnGame(event) {
 
   const away = comp.competitors?.find((c) => c.homeAway === 'away')
   const home = comp.competitors?.find((c) => c.homeAway === 'home')
+  const awaySchool = away?.team?.location ?? away?.team?.displayName ?? null
+  const homeSchool = home?.team?.location ?? home?.team?.displayName ?? null
 
   const statusState = comp.status?.type?.state
   const completed   = comp.status?.type?.completed ?? false
@@ -110,8 +112,8 @@ export function transformEspnGame(event) {
     const awayScore = parseInt(away.score ?? 0, 10)
     const homeScore = parseInt(home.score ?? 0, 10)
     winner = awayScore > homeScore
-      ? (away.team?.displayName ?? null)
-      : (home.team?.displayName ?? null)
+      ? awaySchool
+      : homeSchool
   }
 
   // Live score extraction
@@ -140,10 +142,10 @@ export function transformEspnGame(event) {
     espn_id: event.id,
     gameTime: status === 'pending' ? formatGameTime(event.date) : null,
     teams: {
-      team1: away?.team?.displayName ?? null,
+      team1: awaySchool,
       seed1: parseInt(away?.curatedRank?.current ?? away?.seed ?? 0, 10) || null,
       abbrev1: away?.team?.abbreviation ?? null,
-      team2: home?.team?.displayName ?? null,
+      team2: homeSchool,
       seed2: parseInt(home?.curatedRank?.current ?? home?.seed ?? 0, 10) || null,
       abbrev2: home?.team?.abbreviation ?? null,
     },

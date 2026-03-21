@@ -7,6 +7,10 @@ import PoolGuard from "./components/PoolGuard";
 import Dashboard from "./views/DashboardView";
 import MatrixView from "./views/MatrixView";
 import BracketView from "./views/BracketView";
+import ReportsHomeView from "./views/ReportsHomeView";
+import ReportsStandingsView from "./views/ReportsStandingsView";
+import ReportsLeverageView from "./views/ReportsLeverageView";
+import ReportsRootingView from "./views/ReportsRootingView";
 import LoginPage from "./pages/LoginPage";
 import JoinPoolPage from "./pages/JoinPoolPage";
 import CreatePoolPage from "./pages/CreatePoolPage";
@@ -38,10 +42,14 @@ export default function App() {
 
                   {/* Requires pool membership */}
                   <Route element={<PoolGuard />}>
-                    <Route path="/"       element={<Dashboard />} />
-                    <Route path="/matrix" element={<MatrixView />} />
-                    <Route path="/bracket"element={<BracketView />} />
-                    <Route path="/submit" element={<BracketSubmitPage />} />
+                    <Route path="/"                  element={<Dashboard />} />
+                    <Route path="/matrix"            element={<MatrixView />} />
+                    <Route path="/bracket"           element={<BracketView />} />
+                    <Route path="/submit"            element={<BracketSubmitPage />} />
+                    <Route path="/reports"           element={<ReportsHomeView />} />
+                    <Route path="/reports/standings" element={<ReportsStandingsView />} />
+                    <Route path="/reports/leverage"  element={<ReportsLeverageView />} />
+                    <Route path="/reports/rooting"   element={<ReportsRootingView />} />
                   </Route>
                 </Route>
               </Routes>

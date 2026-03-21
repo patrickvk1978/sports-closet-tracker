@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { usePool } from './usePool'
 import { useAuth } from './useAuth'
 import { KEY_SLOTS } from '../lib/scoring'
+import { displayTeamName, matchupLabel } from '../lib/teamNames'
 import {
   PLAYERS       as MOCK_PLAYERS,
   GAMES         as MOCK_GAMES,
@@ -66,12 +67,6 @@ function annotateBracket(bracket) {
 // Pre-annotated mock bracket (computed once at module load)
 const ANNOTATED_MOCK_BRACKET = annotateBracket(MOCK_BRACKET)
 
-function shortTeam(name) {
-  if (!name) return 'TBD'
-  const parts = name.split(' ')
-  return parts[parts.length - 1]
-}
-
 function buildLiveGames(dbGames) {
   const games = []
   let id = 1
@@ -95,7 +90,7 @@ function buildLiveGames(dbGames) {
         seed2:         g?.teams?.seed2 ?? null,
         abbrev1:       g?.teams?.abbrev1 ?? null,
         abbrev2:       g?.teams?.abbrev2 ?? null,
-        matchup:       g ? `${shortTeam(g.teams?.team1)} vs ${shortTeam(g.teams?.team2)}` : 'TBD vs TBD',
+        matchup:       g ? matchupLabel(g.teams?.team1, g.teams?.team2, g.teams?.abbrev1, g.teams?.abbrev2) : 'TBD vs TBD',
         team1:         g?.teams?.team1 ?? null,
         team2:         g?.teams?.team2 ?? null,
         status:        g?.status ?? 'pending',
@@ -126,7 +121,7 @@ function buildLiveGames(dbGames) {
       seed2:         null,
       abbrev1:       g?.teams?.abbrev1 ?? null,
       abbrev2:       g?.teams?.abbrev2 ?? null,
-      matchup:       g ? `${shortTeam(g.teams?.team1)} vs ${shortTeam(g.teams?.team2)}` : 'TBD vs TBD',
+      matchup:       g ? matchupLabel(g.teams?.team1, g.teams?.team2, g.teams?.abbrev1, g.teams?.abbrev2) : 'TBD vs TBD',
       team1:         g?.teams?.team1 ?? null,
       team2:         g?.teams?.team2 ?? null,
       status:        g?.status ?? 'pending',
@@ -165,8 +160,10 @@ function buildLiveBracket(dbGames) {
         rounds[key].push({
           slotIndex: slot,
           t1:       g.teams?.team1 ?? 'TBD',
+          a1:       g.teams?.abbrev1 ?? null,
           s1:       g.teams?.seed1 ?? null,
           t2:       g.teams?.team2 ?? 'TBD',
+          a2:       g.teams?.abbrev2 ?? null,
           s2:       g.teams?.seed2 ?? null,
           winner:   g.winner,
           status:   g.status,
@@ -244,6 +241,15 @@ export function usePoolData() {
     [PLAYERS_LIVE]
   )
 
+  const TEAM_ABBREVIATIONS = useMemo(() => {
+    const map = {}
+    for (const game of [...MOCK_GAMES, ...liveGames]) {
+      if (game.team1 && game.abbrev1) map[game.team1] = game.abbrev1
+      if (game.team2 && game.abbrev2) map[game.team2] = game.abbrev2
+    }
+    return map
+  }, [liveGames])
+
   // Fall back to mock data when: loading, no active pool, or no live data yet
   const useLive = !isLoading && pool && PLAYERS_LIVE && PLAYERS_LIVE.length > 0
 
@@ -288,6 +294,54 @@ export function usePoolData() {
     ? simResult.player_leverage
     : {}
 
+  const sourceGames = useLive ? liveGames : MOCK_GAMES
+  const gameLookup = useMemo(
+    () => Object.fromEntries(sourceGames.map((game) => [game.id, game])),
+    [sourceGames]
+  )
+
+  const DISPLAY_LEVERAGE_GAMES = useMemo(() => (
+    LEVERAGE_GAMES_LIVE.map((game) => {
+      const source = gameLookup[game.id]
+      return {
+        ...game,
+        team1: displayTeamName(game.team1, source?.abbrev1),
+        team2: displayTeamName(game.team2, source?.abbrev2),
+        matchup: matchupLabel(game.team1, game.team2, source?.abbrev1, source?.abbrev2),
+        game: matchupLabel(game.team1, game.team2, source?.abbrev1, source?.abbrev2),
+        abbrev1: source?.abbrev1 ?? null,
+        abbrev2: source?.abbrev2 ?? null,
+        playerImpacts: (game.playerImpacts ?? []).map((impact) => ({
+          ...impact,
+          rootFor: displayTeamName(impact.rootFor, TEAM_ABBREVIATIONS[impact.rootFor]),
+        })),
+      }
+    })
+  ), [LEVERAGE_GAMES_LIVE, gameLookup, TEAM_ABBREVIATIONS])
+
+  const DISPLAY_PLAYER_LEVERAGE = useMemo(() => (
+    Object.fromEntries(
+      Object.entries(PLAYER_LEVERAGE_LIVE).map(([playerName, gameList]) => [
+        playerName,
+        (gameList ?? []).map((game) => {
+          const source = gameLookup[game.id]
+          return {
+            ...game,
+            team1: displayTeamName(game.team1, source?.abbrev1),
+            team2: displayTeamName(game.team2, source?.abbrev2),
+            matchup: matchupLabel(game.team1, game.team2, source?.abbrev1, source?.abbrev2),
+            game: matchupLabel(game.team1, game.team2, source?.abbrev1, source?.abbrev2),
+            rootFor: displayTeamName(game.rootFor, TEAM_ABBREVIATIONS[game.rootFor]),
+            playerImpacts: (game.playerImpacts ?? []).map((impact) => ({
+              ...impact,
+              rootFor: displayTeamName(impact.rootFor, TEAM_ABBREVIATIONS[impact.rootFor]),
+            })),
+          }
+        }),
+      ])
+    )
+  ), [PLAYER_LEVERAGE_LIVE, gameLookup, TEAM_ABBREVIATIONS])
+
   // 5. AI narratives: { playerName: "sentence" }
   const NARRATIVES = simResult?.narratives ?? {}
 
@@ -297,16 +351,17 @@ export function usePoolData() {
     ROUNDS:             useLive ? ALL_ROUNDS : MOCK_ROUNDS,
     BRACKET:            useLive && liveBracket ? liveBracket : ANNOTATED_MOCK_BRACKET,
     PLAYER_COLORS:      MOCK_PLAYER_COLORS,
-    LEVERAGE_GAMES:     LEVERAGE_GAMES_LIVE,
+    LEVERAGE_GAMES:     DISPLAY_LEVERAGE_GAMES,
     CONSENSUS:          useLive && liveConsensus ? liveConsensus : MOCK_CONSENSUS,
     ELIMINATION_STATS:  useLive && liveElimStats  ? liveElimStats  : MOCK_ELIMINATION_STATS,
     WIN_PROB_HISTORY:   MOCK_WIN_PROB_HISTORY,
     BEST_PATH:          BEST_PATH_LIVE,
-    PLAYER_LEVERAGE:    PLAYER_LEVERAGE_LIVE,
+    PLAYER_LEVERAGE:    DISPLAY_PLAYER_LEVERAGE,
     LEVERAGE_THRESHOLD: MOCK_LEVERAGE_THRESHOLD,
     NARRATIVES,
     simResult,
     userPicks,
+    TEAM_ABBREVIATIONS,
     isLoading,
   }
 }

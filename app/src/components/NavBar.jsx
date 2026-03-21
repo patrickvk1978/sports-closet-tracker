@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 
 const NAV_LINKS = [
   { to: "/",       label: "Dashboard" },
   { to: "/matrix", label: "Picks"     },
+];
+
+const REPORT_LINKS = [
+  { to: "/reports", label: "Overview", description: "Launchpad for all pool reports" },
+  { to: "/reports/rooting", label: "Whom To Root For", description: "Per-bracket rooting guide by surviving team" },
+  { to: "/reports/standings", label: "Standings Snapshot", description: "Ranks, points, and title odds" },
+  { to: "/reports/leverage", label: "Leverage Report", description: "Key swings and live inflection points" },
 ];
 
 // Trophy icon for pool context
@@ -169,12 +176,38 @@ function PoolSwitcher({ pool, allPools, switchPool, isLoading }) {
 }
 
 export default function NavBar() {
+  const location = useLocation();
   const { profile, signOut } = useAuth();
   const { pool, allPools, brackets, switchPool, isLoading } = usePool();
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const reportsRef = useRef(null);
 
   const userBracket = profile && brackets
     ? brackets.find((b) => b.user_id === profile.id)
     : null;
+  const isReportsActive = location.pathname === "/reports" || location.pathname.startsWith("/reports/");
+
+  useEffect(() => {
+    if (!reportsOpen) return;
+    function handleClickOutside(event) {
+      if (reportsRef.current && !reportsRef.current.contains(event.target)) {
+        setReportsOpen(false);
+      }
+    }
+    function handleEscape(event) {
+      if (event.key === "Escape") setReportsOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [reportsOpen]);
+
+  useEffect(() => {
+    setReportsOpen(false);
+  }, [location.pathname]);
 
   return (
     <div className="border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-sm sticky top-0 z-30">
@@ -225,6 +258,51 @@ export default function NavBar() {
               {label}
             </NavLink>
           ))}
+
+          <div className="relative" ref={reportsRef}>
+            <button
+              type="button"
+              onClick={() => setReportsOpen((open) => !open)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                isReportsActive || reportsOpen
+                  ? "bg-slate-700 text-white shadow"
+                  : "text-slate-400 hover:text-white"
+              }`}
+              aria-expanded={reportsOpen}
+              aria-haspopup="menu"
+            >
+              Reports
+              <svg
+                className={`w-3 h-3 transition-transform ${reportsOpen ? "rotate-180" : ""}`}
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            {reportsOpen && (
+              <div className="absolute left-0 top-full mt-2 w-72 rounded-2xl border border-slate-700/70 bg-slate-900/95 p-2 shadow-2xl backdrop-blur-sm z-50">
+                {REPORT_LINKS.map(({ to, label, description }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={to === "/reports"}
+                    className={({ isActive }) =>
+                      `block rounded-xl px-3 py-2.5 transition-all ${
+                        isActive
+                          ? "bg-slate-800 text-white"
+                          : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
+                      }`
+                    }
+                  >
+                    <div className="text-xs font-semibold">{label}</div>
+                    <div className="mt-0.5 text-[11px] text-slate-500">{description}</div>
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Bracket nav: "Create Bracket" → /submit; "Bracket" → /bracket */}
           {pool && !userBracket && (

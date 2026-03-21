@@ -2,15 +2,13 @@ import { useState, useMemo, useEffect } from "react";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
+import { seededTeamLabel } from "../lib/teamNames";
 
-const shortTeam = (name) => name ? name.split(' ').pop() : 'TBD';
 const teamLabel = (game, which) => {
-  // Prefer ESPN abbreviation, fall back to last word of full name
   const abbrev = which === 1 ? game.abbrev1 : game.abbrev2;
   const full   = which === 1 ? game.team1   : game.team2;
   const seed   = which === 1 ? game.seed1   : game.seed2;
-  const name   = abbrev || shortTeam(full);
-  return seed ? `${name} (${seed})` : name;
+  return seededTeamLabel(full, seed, abbrev);
 };
 
 const SORT_OPTIONS = [
@@ -29,7 +27,7 @@ function getCellStyle(pick, game) {
   return "bg-red-900/30 text-red-400 line-through opacity-60";
 }
 
-// seedLabel removed — seeds now inline in team abbreviation labels
+// seedLabel removed — seeds now inline in team labels
 
 function StatusBadge({ status }) {
   if (status === "live") {

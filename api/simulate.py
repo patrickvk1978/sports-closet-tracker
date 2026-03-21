@@ -77,6 +77,9 @@ def _build_bracket_tree():
 
 BRACKET_TREE = _build_bracket_tree()
 
+def display_team_name(team):
+    return team or 'TBD'
+
 # ─── Round metadata ────────────────────────────────────────────────────────────
 
 SLOT_ROUND = {}
@@ -417,7 +420,7 @@ def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners):
         all_game_data.append({
             'id':            slot,
             'round':         SLOT_ROUND.get(slot, 'R64'),
-            'matchup':       f"{team1.split()[-1]} vs {team2.split()[-1]}",
+            'matchup':       f"{display_team_name(team1)} vs {display_team_name(team2)}",
             'team1':         team1,
             'team2':         team2,
             'status':        game.get('status', 'pending'),
@@ -782,10 +785,10 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
     for g in top_leverage:
         header = (f"  - {g['team1']} vs {g['team2']} "
                   f"({g['leverage']}% pool swing, "
-                  f"{round(g['pickPct1'])}% of pool on {g['team1'].split()[-1]})")
+                  f"{round(g['pickPct1'])}% of pool on {g['team1']})")
         impacts = g.get('playerImpacts', [])[:3]
         impact_strs = [
-            f"    {pi['player']} needs {pi['rootFor'].split()[-1]} (±{pi['swing']}%)"
+            f"    {pi['player']} needs {pi['rootFor']} (±{pi['swing']}%)"
             for pi in impacts if pi['swing'] >= 1.0
         ]
         leverage_parts.append(header + ('\n' + '\n'.join(impact_strs) if impact_strs else ''))

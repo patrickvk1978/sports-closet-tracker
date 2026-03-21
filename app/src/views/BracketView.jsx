@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
+import { displayTeamName } from "../lib/teamNames";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -34,14 +35,21 @@ const FEEDER_MAP = buildFeederMap()
 // Return the teams to display for a game slot.
 // For pending rounds with no DB teams, derive from userPicks at feeder slots.
 function getDisplayTeams(game, userPicks) {
-  const { t1, s1, t2, s2, slotIndex, status } = game
-  if (status === "live" || status === "final") return { dt1: t1, ds1: s1, dt2: t2, ds2: s2 }
-  if (t1 && t1 !== "TBD" && t2 && t2 !== "TBD") return { dt1: t1, ds1: s1, dt2: t2, ds2: s2 }
+  const { t1, a1, s1, t2, a2, s2, slotIndex, status, teamAbbreviations } = game
+  if (status === "live" || status === "final") return { dt1: displayTeamName(t1, a1), ds1: s1, dt2: displayTeamName(t2, a2), ds2: s2 }
+  if (t1 && t1 !== "TBD" && t2 && t2 !== "TBD") return { dt1: displayTeamName(t1, a1), ds1: s1, dt2: displayTeamName(t2, a2), ds2: s2 }
   const feeders = FEEDER_MAP[slotIndex]
   if (feeders && userPicks?.length > 0) {
-    return { dt1: userPicks[feeders[0]] ?? "TBD", ds1: null, dt2: userPicks[feeders[1]] ?? "TBD", ds2: null }
+    const pick1 = userPicks[feeders[0]] ?? "TBD"
+    const pick2 = userPicks[feeders[1]] ?? "TBD"
+    return {
+      dt1: displayTeamName(pick1, teamAbbreviations?.[pick1]),
+      ds1: null,
+      dt2: displayTeamName(pick2, teamAbbreviations?.[pick2]),
+      ds2: null,
+    }
   }
-  return { dt1: t1 ?? "TBD", ds1: s1, dt2: t2 ?? "TBD", ds2: s2 }
+  return { dt1: displayTeamName(t1, a1), ds1: s1, dt2: displayTeamName(t2, a2), ds2: s2 }
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -244,7 +252,7 @@ function BracketConnectors({ leftCount }) {
 
 const GAME_COUNTS = { R64: 8, R32: 4, S16: 2, E8: 1 };
 
-function RegionBracket({ region, userPicks }) {
+function RegionBracket({ region, userPicks, teamAbbreviations }) {
   if (!region) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -285,7 +293,7 @@ function RegionBracket({ region, userPicks }) {
                 {((region.rounds ?? {})[round] || []).map((game, gi) => (
                   <GameCard
                     key={gi}
-                    game={game}
+                    game={{ ...game, teamAbbreviations }}
                     userPick={game.slotIndex != null ? (userPicks[game.slotIndex] ?? null) : null}
                     allUserPicks={userPicks}
                   />
@@ -498,7 +506,7 @@ const TABS = [
 ];
 
 export default function BracketView() {
-  const { BRACKET, PLAYERS, GAMES, userPicks } = usePoolData();
+  const { BRACKET, PLAYERS, GAMES, userPicks, TEAM_ABBREVIATIONS } = usePoolData();
   const { pool, games } = usePool();
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -697,6 +705,7 @@ export default function BracketView() {
             <RegionBracket
               region={BRACKET[activeTab]}
               userPicks={userPicks}
+              teamAbbreviations={TEAM_ABBREVIATIONS}
             />
           </div>
         )}

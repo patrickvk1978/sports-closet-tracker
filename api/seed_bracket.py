@@ -118,8 +118,8 @@ def build_rows(events):
         away  = next((t for t in teams if t.get('homeAway') == 'away'), {})
         home  = next((t for t in teams if t.get('homeAway') == 'home'), {})
 
-        t1 = away.get('team', {}).get('displayName') or 'TBD'
-        t2 = home.get('team', {}).get('displayName') or 'TBD'
+        t1 = away.get('team', {}).get('location') or away.get('team', {}).get('displayName') or 'TBD'
+        t2 = home.get('team', {}).get('location') or home.get('team', {}).get('displayName') or 'TBD'
         s1 = int(away.get('curatedRank', {}).get('current') or 0)
         s2 = int(home.get('curatedRank', {}).get('current') or 0)
 

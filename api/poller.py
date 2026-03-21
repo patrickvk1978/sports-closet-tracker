@@ -109,6 +109,8 @@ def transform_event(event):
     competitors = comp.get('competitors', [])
     away = next((c for c in competitors if c.get('homeAway') == 'away'), None)
     home = next((c for c in competitors if c.get('homeAway') == 'home'), None)
+    away_school = (away or {}).get('team', {}).get('location') or (away or {}).get('team', {}).get('displayName')
+    home_school = (home or {}).get('team', {}).get('location') or (home or {}).get('team', {}).get('displayName')
 
     state     = comp.get('status', {}).get('type', {}).get('state', '')
     completed = comp.get('status', {}).get('type', {}).get('completed', False)
@@ -124,7 +126,7 @@ def transform_event(event):
     if status == 'final' and away and home:
         a_score = int(away.get('score') or 0)
         h_score = int(home.get('score') or 0)
-        winner  = (away if a_score > h_score else home).get('team', {}).get('displayName')
+        winner  = away_school if a_score > h_score else home_school
 
     def parse_score(c):
         s = (c or {}).get('score')
@@ -158,10 +160,10 @@ def transform_event(event):
         'game_note': game_note,
         'game_time': format_game_time(event.get('date')) if status == 'pending' else None,
         'teams': {
-            'team1': (away or {}).get('team', {}).get('displayName'),
+            'team1': away_school,
             'seed1': parse_seed(away),
             'abbrev1': (away or {}).get('team', {}).get('abbreviation'),
-            'team2': (home or {}).get('team', {}).get('displayName'),
+            'team2': home_school,
             'seed2': parse_seed(home),
             'abbrev2': (home or {}).get('team', {}).get('abbreviation'),
         },
