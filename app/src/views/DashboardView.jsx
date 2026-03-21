@@ -136,7 +136,7 @@ function DeltaArrow({ delta, className = "" }) {
 
 function shortTeam(name) {
   if (!name) return 'TBD';
-  return name.split(' ').pop();
+  return name;
 }
 
 // ─── 1. Stat Bar ─────────────────────────────────────────────────────────────

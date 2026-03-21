@@ -66,10 +66,10 @@ function annotateBracket(bracket) {
 // Pre-annotated mock bracket (computed once at module load)
 const ANNOTATED_MOCK_BRACKET = annotateBracket(MOCK_BRACKET)
 
-function shortTeam(name) {
+function shortTeam(abbrev, name) {
+  if (abbrev) return abbrev
   if (!name) return 'TBD'
-  const parts = name.split(' ')
-  return parts[parts.length - 1]
+  return name
 }
 
 function buildLiveGames(dbGames) {
@@ -95,7 +95,7 @@ function buildLiveGames(dbGames) {
         seed2:         g?.teams?.seed2 ?? null,
         abbrev1:       g?.teams?.abbrev1 ?? null,
         abbrev2:       g?.teams?.abbrev2 ?? null,
-        matchup:       g ? `${shortTeam(g.teams?.team1)} vs ${shortTeam(g.teams?.team2)}` : 'TBD vs TBD',
+        matchup:       g ? `${shortTeam(g.teams?.abbrev1, g.teams?.team1)} vs ${shortTeam(g.teams?.abbrev2, g.teams?.team2)}` : 'TBD vs TBD',
         team1:         g?.teams?.team1 ?? null,
         team2:         g?.teams?.team2 ?? null,
         status:        g?.status ?? 'pending',
@@ -126,7 +126,7 @@ function buildLiveGames(dbGames) {
       seed2:         null,
       abbrev1:       g?.teams?.abbrev1 ?? null,
       abbrev2:       g?.teams?.abbrev2 ?? null,
-      matchup:       g ? `${shortTeam(g.teams?.team1)} vs ${shortTeam(g.teams?.team2)}` : 'TBD vs TBD',
+      matchup:       g ? `${shortTeam(g.teams?.abbrev1, g.teams?.team1)} vs ${shortTeam(g.teams?.abbrev2, g.teams?.team2)}` : 'TBD vs TBD',
       team1:         g?.teams?.team1 ?? null,
       team2:         g?.teams?.team2 ?? null,
       status:        g?.status ?? 'pending',

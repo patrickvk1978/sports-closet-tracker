@@ -3,13 +3,11 @@ import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
 
-const shortTeam = (name) => name ? name.split(' ').pop() : 'TBD';
 const teamLabel = (game, which) => {
-  // Prefer ESPN abbreviation, fall back to last word of full name
   const abbrev = which === 1 ? game.abbrev1 : game.abbrev2;
   const full   = which === 1 ? game.team1   : game.team2;
   const seed   = which === 1 ? game.seed1   : game.seed2;
-  const name   = abbrev || shortTeam(full);
+  const name   = abbrev || full || 'TBD';
   return seed ? `${name} (${seed})` : name;
 };
 
