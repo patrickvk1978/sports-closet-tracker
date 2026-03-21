@@ -377,3 +377,7 @@ ANTHROPIC_API_KEY=          # optional — enables AI narrative generation
 - Mock data falls back gracefully when no live pool is active (dev mode)
 - `simulate.py` uses `ZoneInfo('America/New_York')` for all ET scheduling — safe on any VPS timezone
 - Narratives gracefully absent if `ANTHROPIC_API_KEY` not set or Claude API fails
+- LEADERBOARD NOT UPDATING: My guess it is giving updates for only the previous 24 hours. On the morning of 3/21, the picks table is only showing results from 3/20 (not 3/19). Bracket too. The site seems to have forgotten results from Day 1 of the tournament.
+- LEAGUE ADMIN VS SITE ADMIN: Will eventually need to differentiate these roles.
+- AI NOTES: Morning briefing is using some incorrect data, e.g., "yesterday's 12-game slate" when there 16 games, Duke-Siena was actually not yesterday
+- STANDINGS ACCURACY: When teams have the same points, they should be listed as tied for the same place in the standings.
