@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
@@ -584,40 +584,21 @@ const SORT_OPTIONS = [
   { key: "ppr",     label: "PPR"     },
 ]
 
+function winProbColor(wp) {
+  if (wp > 15) return '#34d399'
+  if (wp > 8)  return '#fbbf24'
+  return '#94a3b8'
+}
+
 function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
   const [sortBy, setSortBy] = useState("points")
-  const prevProbs = useRef({})
-  const [flashState, setFlashState] = useState({}) // { playerName: 'up' | 'down' }
 
   const leaderboard = useMemo(() => {
     return [...players].sort((a, b) => b[sortBy] - a[sortBy])
   }, [players, sortBy])
 
-  // Flash on winProb change
-  useEffect(() => {
-    const prev = prevProbs.current
-    const newFlash = {}
-    let changed = false
-    for (const p of players) {
-      if (prev[p.name] != null && prev[p.name] !== p.winProb) {
-        newFlash[p.name] = p.winProb > prev[p.name] ? 'up' : 'down'
-        changed = true
-      }
-    }
-    // Update prev
-    const next = {}
-    for (const p of players) next[p.name] = p.winProb
-    prevProbs.current = next
-
-    if (changed) {
-      setFlashState(newFlash)
-      const timer = setTimeout(() => setFlashState({}), 1500)
-      return () => clearTimeout(timer)
-    }
-  }, [players])
-
   return (
-    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
+    <div className="overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-900/60">
       <div className="px-5 py-3 border-b border-slate-800/60 flex items-center justify-between gap-3">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
           Leaderboard
@@ -638,66 +619,82 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
           ))}
         </div>
       </div>
-      <div className="divide-y divide-slate-800/40">
-        {leaderboard.map(p => {
-          const flash = flashState[p.name]
-          const flashBg = flash === 'up'
-            ? 'bg-emerald-900/20'
-            : flash === 'down'
-              ? 'bg-red-900/20'
-              : ''
-
-          return (
-            <button
-              key={p.name}
-              onClick={() => isLocked && onSelectPlayer(p.name)}
-              className={`w-full flex items-center gap-3 px-5 py-3 transition-all duration-500 text-left ${
-                flash ? flashBg :
-                p.name === currentPlayer?.name ? "bg-orange-500/10" :
-                isLocked ? "hover:bg-slate-800/20 cursor-pointer" : "cursor-default"
-              }`}
-            >
-              <span className="text-xs text-slate-600 w-5 text-right tabular-nums shrink-0" style={{ fontFamily: "Space Mono, monospace" }}>
-                {p.rank}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-semibold truncate ${p.name === currentPlayer?.name ? "text-orange-400" : "text-white"}`}>
-                    {p.name}
-                  </span>
-                  {p.champAlive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400 font-medium shrink-0">♛</span>}
-                </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-slate-500" style={{ fontFamily: "Space Mono, monospace" }}>{p.points.toLocaleString()} pts</span>
-                  <span className="text-xs text-slate-600">PPR: {p.ppr}</span>
-                </div>
-              </div>
-              <div className="text-right shrink-0 flex items-center gap-1.5">
-                <span
-                  className="text-sm font-bold tabular-nums"
-                  style={{
-                    fontFamily: "Space Mono, monospace",
-                    color: p.winProb > 15 ? "#34d399" : p.winProb > 8 ? "#fbbf24" : "#94a3b8",
-                    transition: "color 0.3s",
-                  }}
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-collapse">
+          <thead>
+            <tr className="border-b border-slate-800 bg-slate-950/80 text-left text-[11px] uppercase tracking-[0.18em] text-slate-500">
+              <th className="px-4 py-2.5 w-10">#</th>
+              <th className="px-4 py-2.5">Entry</th>
+              <th className="px-4 py-2.5 text-right" style={{ fontFamily: "Space Mono, monospace" }}>Pts</th>
+              <th className="px-4 py-2.5 text-right" style={{ fontFamily: "Space Mono, monospace" }}>PPR</th>
+              <th className="px-4 py-2.5 text-right">Win %</th>
+              <th className="px-4 py-2.5 text-center">Champ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leaderboard.map(p => {
+              const isActive = p.name === currentPlayer?.name
+              const wp = p.winProb ?? 0
+              return (
+                <tr
+                  key={p.name}
+                  onClick={() => isLocked && onSelectPlayer(p.name)}
+                  className={`border-b border-slate-800/60 last:border-b-0 transition-colors ${
+                    isActive ? 'bg-orange-500/10' :
+                    isLocked ? 'hover:bg-slate-800/20 cursor-pointer' : ''
+                  }`}
                 >
-                  {p.winProb}%
-                </span>
-                <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.min(p.winProb * 4, 100)}%`,
-                      background: p.winProb > 15 ? "#34d399" : p.winProb > 8 ? "#fbbf24" : "#64748b",
-                      transition: "width 0.6s ease, background 0.3s",
-                    }}
-                  />
-                </div>
-                <DeltaArrow delta={p.winProbDelta} />
-              </div>
-            </button>
-          )
-        })}
+                  <td className="px-4 py-3 text-sm font-semibold text-slate-500 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                    {p.rank}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-sm font-semibold ${isActive ? 'text-orange-400' : 'text-white'}`}>
+                      {p.name}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                    {p.points.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-slate-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+                    {p.ppr}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span
+                        className="text-sm font-bold tabular-nums"
+                        style={{ fontFamily: "Space Mono, monospace", color: winProbColor(wp) }}
+                      >
+                        {wp.toFixed(1)}%
+                      </span>
+                      <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.min(wp * 4, 100)}%`,
+                            background: winProbColor(wp),
+                            transition: "width 0.6s ease",
+                          }}
+                        />
+                      </div>
+                      <DeltaArrow delta={p.winProbDelta} />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                        p.champAlive
+                          ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                          : 'border-red-500/20 bg-red-500/10 text-red-400'
+                      }`}
+                    >
+                      {p.champAlive ? '♛ alive' : '♛ out'}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -110,5 +110,11 @@ export function buildPlayersArray(members, brackets, games) {
   })
 
   result.sort((a, b) => b.points - a.points)
-  return result.map((p, i) => ({ ...p, rank: i + 1 }))
+  // Standard competition ranking: tied players share the same rank (1, 1, 3, ...)
+  let currentRank = 1
+  for (let i = 0; i < result.length; i++) {
+    if (i > 0 && result[i].points < result[i - 1].points) currentRank = i + 1
+    result[i] = { ...result[i], rank: currentRank }
+  }
+  return result
 }
