@@ -265,11 +265,12 @@ def run_poller(pool_ids, client):
         error_msg  = None
 
         try:
-            # ── Fetch ESPN for yesterday + today + next 3 days (ET) ────────────
+            # ── Fetch ESPN for past 2 days + today + next 3 days (ET) ─────────
             #     Use ET so late-night games aren't missed after midnight UTC.
+            #     -2 days ensures games that go final late aren't missed.
             now_et_dt = datetime.now(ET)
             dates  = [(now_et_dt + timedelta(days=i)).strftime('%Y%m%d')
-                      for i in range(-1, 4)]
+                      for i in range(-2, 4)]
             events = [ev for d in dates for ev in fetch_espn_games(d)]
 
             # ── Load current DB state (refreshed every poll for new R32+ ESPN IDs) ─
