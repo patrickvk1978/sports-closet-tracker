@@ -4,8 +4,8 @@ import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 
 const NAV_LINKS = [
-  { to: "/",       label: "Dashboard" },
-  { to: "/matrix", label: "Picks"     },
+  { to: "/",        label: "Dashboard" },
+  { to: "/matrix",  label: "Picks"     },
 ];
 
 // Trophy icon for pool context
@@ -253,6 +253,20 @@ export default function NavBar() {
               }
             >
               Bracket
+            </NavLink>
+          )}
+          {pool && (
+            <NavLink
+              to="/reports"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  isActive
+                    ? "bg-slate-700 text-white shadow"
+                    : "text-slate-400 hover:text-white"
+                }`
+              }
+            >
+              Reports
             </NavLink>
           )}
 

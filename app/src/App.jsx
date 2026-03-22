@@ -13,6 +13,7 @@ import CreatePoolPage from "./pages/CreatePoolPage";
 import BracketSubmitPage from "./pages/BracketSubmitPage";
 import AdminPage from "./pages/AdminPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import ReportsRootingView from "./views/ReportsRootingView";
 
 export default function App() {
   return (
@@ -41,7 +42,8 @@ export default function App() {
                     <Route path="/"       element={<Dashboard />} />
                     <Route path="/matrix" element={<MatrixView />} />
                     <Route path="/bracket"element={<BracketView />} />
-                    <Route path="/submit" element={<BracketSubmitPage />} />
+                    <Route path="/submit"   element={<BracketSubmitPage />} />
+                    <Route path="/reports"  element={<ReportsRootingView />} />
                   </Route>
                 </Route>
               </Routes>

@@ -417,7 +417,7 @@ def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners):
         all_game_data.append({
             'id':            slot,
             'round':         SLOT_ROUND.get(slot, 'R64'),
-            'matchup':       f"{team1.split()[-1]} vs {team2.split()[-1]}",
+            'matchup':       f"{team1} vs {team2}",
             'team1':         team1,
             'team2':         team2,
             'status':        game.get('status', 'pending'),
