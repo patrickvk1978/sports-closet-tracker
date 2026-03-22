@@ -10,6 +10,12 @@ const REPORT_CARDS = [
     eyebrow: "Personal rooting guide",
     description: "See every surviving team through the lens of one bracket's title chances.",
   },
+  {
+    to: "/reports/head-to-head",
+    title: "Head To Head",
+    eyebrow: "Bracket showdown",
+    description: "Compare two entries directly, see who is favored, and isolate the games that decide it.",
+  },
 ];
 
 function StatCard({ label, value, hint }) {

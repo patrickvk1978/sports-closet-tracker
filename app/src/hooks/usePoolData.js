@@ -82,6 +82,7 @@ function buildLiveGames(dbGames) {
       const slot     = base + i
       const roundKey = SLOT_ROUND_KEY[slot]
       const g        = dbGames.find((r) => r.slot_index === slot)
+      const status   = g?.winner ? 'final' : (g?.status ?? 'pending')
       games.push({
         id:            id++,
         slot_index:    slot,
@@ -98,7 +99,7 @@ function buildLiveGames(dbGames) {
         matchup:       g ? `${shortTeam(g.teams?.abbrev1, g.teams?.team1)} vs ${shortTeam(g.teams?.abbrev2, g.teams?.team2)}` : 'TBD vs TBD',
         team1:         g?.teams?.team1 ?? null,
         team2:         g?.teams?.team2 ?? null,
-        status:        g?.status ?? 'pending',
+        status,
         winner:        g?.winner ?? null,
         score1:        g?.teams?.score1 ?? null,
         score2:        g?.teams?.score2 ?? null,
@@ -113,6 +114,7 @@ function buildLiveGames(dbGames) {
   for (const slot of [60, 61, 62]) {
     const roundKey = SLOT_ROUND_KEY[slot]
     const g        = dbGames.find((r) => r.slot_index === slot)
+    const status   = g?.winner ? 'final' : (g?.status ?? 'pending')
     games.push({
       id:            id++,
       slot_index:    slot,
@@ -129,7 +131,7 @@ function buildLiveGames(dbGames) {
       matchup:       g ? `${shortTeam(g.teams?.abbrev1, g.teams?.team1)} vs ${shortTeam(g.teams?.abbrev2, g.teams?.team2)}` : 'TBD vs TBD',
       team1:         g?.teams?.team1 ?? null,
       team2:         g?.teams?.team2 ?? null,
-      status:        g?.status ?? 'pending',
+      status,
       winner:        g?.winner ?? null,
       score1:        g?.teams?.score1 ?? null,
       score2:        g?.teams?.score2 ?? null,
@@ -162,6 +164,7 @@ function buildLiveBracket(dbGames) {
         const slot = base + start + i
         const g    = dbGames.find((r) => r.slot_index === slot)
         if (!g) continue  // skip missing slots; do not abort the whole round
+        const status = g.winner ? 'final' : g.status
         rounds[key].push({
           slotIndex: slot,
           t1:       g.teams?.team1 ?? 'TBD',
@@ -169,7 +172,7 @@ function buildLiveBracket(dbGames) {
           t2:       g.teams?.team2 ?? 'TBD',
           s2:       g.teams?.seed2 ?? null,
           winner:   g.winner,
-          status:   g.status,
+          status,
           score1:   g.teams?.score1 ?? null,
           score2:   g.teams?.score2 ?? null,
           gameNote: g.teams?.gameNote ?? null,
@@ -255,8 +258,11 @@ export function usePoolData() {
     [PLAYERS_LIVE]
   )
 
-  // Fall back to mock data when: loading, no active pool, or no live data yet
-  const useLive = !isLoading && pool && PLAYERS_LIVE && PLAYERS_LIVE.length > 0
+  // Decouple live games from live player/sim data so reports don't fall back
+  // to old mock tournament state when the current pool is loaded but partial.
+  const hasLivePool = !isLoading && !!pool
+  const hasLiveGames = hasLivePool && games.length > 0
+  const hasLivePlayers = hasLivePool && PLAYERS_LIVE && PLAYERS_LIVE.length > 0
 
   // Current user's 63-slot picks array (null entries where they made no pick)
   const userPicks = useMemo(() => {
@@ -269,7 +275,7 @@ export function usePoolData() {
 
   // 1. Win probabilities: merge player_probs + deltas from simResult into PLAYERS_LIVE
   const PLAYERS_WITH_PROBS = useMemo(() => {
-    const base = useLive ? PLAYERS_LIVE : MOCK_PLAYERS
+    const base = hasLivePlayers ? PLAYERS_LIVE : MOCK_PLAYERS
     if (!simResult?.player_probs) return base
     const prev = simResult?.prev_player_probs ?? {}
     const hasPrev = Object.keys(prev).length > 0
@@ -282,35 +288,36 @@ export function usePoolData() {
         winProbDelta: hasPrev ? parseFloat((current - prevPct).toFixed(1)) : null,
       }
     })
-  }, [useLive, PLAYERS_LIVE, simResult])
+  }, [hasLivePlayers, PLAYERS_LIVE, simResult])
 
-  // 2. Leverage games: use sim result if available, else mock
-  const LEVERAGE_GAMES_LIVE = useLive && simResult?.leverage_games?.length
+  // 2. Leverage games: use sim result if available; if current pool is live but
+  // sim data is missing, prefer an empty set over stale mock tournament games.
+  const LEVERAGE_GAMES_LIVE = hasLivePool && simResult?.leverage_games?.length
     ? simResult.leverage_games
-    : MOCK_LEVERAGE_GAMES
+    : hasLivePool ? [] : MOCK_LEVERAGE_GAMES
 
-  // 3. Best paths: use sim result if available, else mock
-  const BEST_PATH_LIVE = useLive && simResult?.best_paths
+  // 3. Best paths: use sim result if available; otherwise keep empty on live pool.
+  const BEST_PATH_LIVE = hasLivePool && simResult?.best_paths
     ? simResult.best_paths
-    : MOCK_BEST_PATH
+    : hasLivePool ? {} : MOCK_BEST_PATH
 
   // 4. Per-player leverage: { playerName: [top-5 games by personal swing] }
-  const PLAYER_LEVERAGE_LIVE = useLive && simResult?.player_leverage
+  const PLAYER_LEVERAGE_LIVE = hasLivePool && simResult?.player_leverage
     ? simResult.player_leverage
-    : {}
+    : hasLivePool ? {} : {}
 
   // 5. AI narratives: { playerName: "sentence" }
   const NARRATIVES = simResult?.narratives ?? {}
 
   return {
     PLAYERS:            PLAYERS_WITH_PROBS,
-    GAMES:              useLive ? liveGames : MOCK_GAMES,
-    ROUNDS:             useLive ? ALL_ROUNDS : MOCK_ROUNDS,
-    BRACKET:            useLive && liveBracket ? liveBracket : ANNOTATED_MOCK_BRACKET,
+    GAMES:              hasLiveGames ? liveGames : MOCK_GAMES,
+    ROUNDS:             hasLiveGames ? ALL_ROUNDS : MOCK_ROUNDS,
+    BRACKET:            hasLiveGames && liveBracket ? liveBracket : ANNOTATED_MOCK_BRACKET,
     PLAYER_COLORS:      MOCK_PLAYER_COLORS,
     LEVERAGE_GAMES:     LEVERAGE_GAMES_LIVE,
-    CONSENSUS:          useLive && liveConsensus ? liveConsensus : MOCK_CONSENSUS,
-    ELIMINATION_STATS:  useLive && liveElimStats  ? liveElimStats  : MOCK_ELIMINATION_STATS,
+    CONSENSUS:          hasLivePlayers && liveConsensus ? liveConsensus : MOCK_CONSENSUS,
+    ELIMINATION_STATS:  hasLivePlayers && liveElimStats  ? liveElimStats  : MOCK_ELIMINATION_STATS,
     WIN_PROB_HISTORY:   MOCK_WIN_PROB_HISTORY,
     BEST_PATH:          BEST_PATH_LIVE,
     PLAYER_LEVERAGE:    PLAYER_LEVERAGE_LIVE,

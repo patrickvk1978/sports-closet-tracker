@@ -45,10 +45,12 @@ export function useEspnPoller(slotMapping = {}) {
     async function poll() {
       setIsPolling(true)
       try {
-        // Fetch today + next 4 days so upcoming game times populate before game day
-        const dates = Array.from({ length: 5 }, (_, i) => {
+        // Fetch past 3 days + today + next 3 days.
+        // Looking backward keeps earlier tournament results, scores, and
+        // abbreviations from falling stale once the calendar rolls forward.
+        const dates = Array.from({ length: 7 }, (_, i) => {
           const d = new Date()
-          d.setDate(d.getDate() + i)
+          d.setDate(d.getDate() + i - 3)
           return d.toISOString().slice(0, 10).replace(/-/g, '')
         })
         const results = await Promise.allSettled(dates.map(fetchEspnGames))

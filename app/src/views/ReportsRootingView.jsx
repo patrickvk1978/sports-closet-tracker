@@ -34,6 +34,259 @@ function statusTone(status) {
   return "border-slate-700/60 bg-slate-800/60 text-slate-300";
 }
 
+function pluralizeBrackets(count) {
+  return `${count} other bracket${count === 1 ? "" : "s"}`;
+}
+
+function bracketsHavePhrase(count) {
+  return count === 1 ? "1 other bracket has" : `${count} other brackets have`;
+}
+
+function noteVariantIndex(...parts) {
+  const text = parts.filter(Boolean).join("|");
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function chooseNote(options, seed, avoid) {
+  if (!options.length) return "";
+  const ordered = options.map((option, index) => ({
+    option,
+    score: (seed + index * 17) % 997,
+  })).sort((a, b) => a.score - b.score);
+  const preferred = ordered.find(({ option }) => option !== avoid);
+  return (preferred ?? ordered[0]).option;
+}
+
+function normalizeRootingNote(note) {
+  return String(note || "")
+    .replace(/\b[A-Z]{2,6}\b/g, "TEAM")
+    .replace(/\b\d+(?:\.\d+)?%?\b/g, "NUM")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function uniqueifyRootingNotes(rows) {
+  const seenNotes = new Set();
+  const seenKinds = new Set();
+  return rows.map((row, index) => {
+    let note = row.note;
+    let attempt = 0;
+    let kindKey = `${row.noteKind}:${normalizeRootingNote(note)}`;
+
+    while ((seenNotes.has(note) || seenKinds.has(kindKey)) && attempt < 6) {
+      const seed = noteVariantIndex(row.team, row.roundKey, row.noteKind, row.poolPct, Math.round(row.nextSwing * 10), attempt, index);
+      const fallbackPools = {
+        counter: [
+          `${row.team} is not really your team, but the field would still feel it if they keep moving.`,
+          `${row.team} is an awkward root, though the ripple effects still break more your way than the pool's.`,
+          `You would not naturally circle ${row.team}, but this is still one of those results that can help by making life harder on competing brackets.`,
+          `${row.team} is more useful as a spoiler than as a true ally for your bracket.`,
+        ],
+        short_term: [
+          `${row.team} is helping you for now, but the longer they stay alive, the more dangerous they become.`,
+          `This is a classic short-term friend, long-term problem situation for ${row.team}.`,
+          `${row.team} can still do useful work for your bracket, just preferably before they become everyone else's payoff.`,
+          `You can live with ${row.team} winning now, but there is a clear expiration date on that arrangement.`,
+        ],
+        background: [
+          `${row.team} is more useful as optional upside than urgent rooting drama.`,
+          `This is a quieter edge, but still one worth keeping on the board.`,
+          `${row.team} is not a headline need for your bracket, just a result that happens to age well for you.`,
+          `Think of ${row.team} as a decent supporting result rather than a must-have.`,
+        ],
+        danger: [
+          `${row.team} is carrying more value for the field than for you right now, which is why their exit would help.`,
+          `${row.team} is the kind of team that gets more dangerous the longer the pool stays invested in them.`,
+          `This is less about loving the other side and more about wanting ${row.team} out of the shared bloodstream.`,
+          `${row.team} is helping too many rivals at the moment to feel comfortable.`,
+          `${row.team} is the sort of live grenade you would rather see someone else catch.`,
+          `The problem with ${row.team} is not style points. It is the amount of damage they can still do if left alive.`,
+        ],
+        default: [
+          `${row.team} is still worth tracking here, just not for exactly the same reason as the nearby rows.`,
+          `Similar category, different payoff. ${row.team} still changes your picture in its own way.`,
+          `${row.team} belongs in this section even if the logic overlaps a bit with another team.`,
+          `This is another live rooting angle, but not just a copy of the row above.`,
+        ],
+      };
+
+      const pool = fallbackPools[row.noteKind] ?? fallbackPools.default;
+      note = chooseNote(pool, seed, note);
+      kindKey = `${row.noteKind}:${normalizeRootingNote(note)}`;
+      attempt += 1;
+    }
+
+    seenNotes.add(note);
+    seenKinds.add(kindKey);
+    return { ...row, note };
+  });
+}
+
+function rootingNote({
+  teamShort,
+  championPick,
+  pickedHere,
+  nextGame,
+  team,
+  player,
+  PLAYERS,
+  nextSwing,
+  poolPct,
+  championshipValue,
+}) {
+  const nextSlot = nextGame?.slot_index ?? -1;
+  const laterSlots = Array.from({ length: 63 - Math.max(nextSlot + 1, 0) }, (_, i) => i + nextSlot + 1);
+  const otherPlayers = PLAYERS.filter((entry) => entry.name !== player.name);
+  const otherChampCount = otherPlayers.filter((entry) => entry.picks?.[62] === team).length;
+  const otherDeeperCount = otherPlayers.filter((entry) =>
+    laterSlots.some((slot) => entry.picks?.[slot] === team)
+  ).length;
+  const yourFutureRounds = laterSlots.filter((slot) => player.picks?.[slot] === team).length;
+  const teamWinsHelpNow = nextSwing > 0.6;
+  const teamHurtsNow = nextSwing < -0.6;
+  const seed = noteVariantIndex(teamShort, player?.name, nextGame?.slot_index, championPick, pickedHere, otherChampCount, otherDeeperCount, poolPct, Math.round(nextSwing * 10));
+
+  if (championPick === team && otherChampCount === 0) {
+    return {
+      noteKind: "champ_unique",
+      note: chooseNote([
+        `This is your champion, and nobody else has them cutting down the nets. About as clean a rooting interest as you can get.`,
+        `${teamShort} is your last-team-standing dream, and the rest of the pool does not share it. That is a beautiful setup.`,
+        `This is the easiest note in the report: ${teamShort} is your champion and basically your private upside.`,
+        `${teamShort} is where your bracket can separate from the whole pool in one clean shot.`,
+      ], seed),
+    };
+  }
+
+  if (championPick === team && otherChampCount > 0) {
+    return {
+      noteKind: "champ_shared",
+      note: chooseNote([
+        `This is still your champion, but ${bracketsHavePhrase(otherChampCount)} them winning it all, so you want them alive without letting the field pile up too much value.`,
+        `${teamShort} is still your title team, but you are not alone. The trick is keeping them alive without letting the rest of the pool cash too hard.`,
+        `You still need ${teamShort} for the big prize, but enough other brackets are riding them too that every win is a little complicated.`,
+        `${teamShort} is your champion, just not your private champion, which makes every extra win a little more crowded.`,
+      ], seed),
+    };
+  }
+
+  if (!pickedHere && teamWinsHelpNow && otherDeeperCount > 0) {
+    return {
+      noteKind: "counter",
+      note: chooseNote([
+        `Even though you have ${teamShort} losing this exact game, a win here actually helps because ${bracketsHavePhrase(otherDeeperCount)} them going even further.`,
+        `This is one of those weird pool spots where your bracket says lose, but your odds say survive. ${teamShort} winning would hurt other brackets more later.`,
+        `${teamShort} is a little counterintuitive here: you picked against them now, but keeping them alive actually does more damage to the field.`,
+        `${teamShort} surviving here would be bad for your bracket sheet and good for your title odds, which tells you a lot about the rest of the pool.`,
+      ], seed),
+    };
+  }
+
+  if (pickedHere && otherChampCount > 0 && yourFutureRounds < 2) {
+    return {
+      noteKind: "short_term",
+      note: chooseNote([
+        `You still need ${teamShort} for now, but ${bracketsHavePhrase(otherChampCount)} them as champion, so there is real value in them exiting before they become a bigger problem.`,
+        `You are fine with ${teamShort} surviving this round, but not much longer. Too many other brackets still have bigger plans for them.`,
+        `${teamShort} is useful to you in the short term and dangerous in the long term. That tension is the whole story here.`,
+        `${teamShort} can help you a little right now, but the field starts cashing much harder if they stick around too long.`,
+      ], seed),
+    };
+  }
+
+  if (pickedHere && yourFutureRounds >= 2 && otherChampCount === 0) {
+    return {
+      noteKind: "deep_personal",
+      note: chooseNote([
+        `You have ${teamShort} going ${yourFutureRounds + 1} more round${yourFutureRounds + 1 === 1 ? "" : "s"}, and the rest of the pool is not nearly as invested. That's a strong personal path.`,
+        `${teamShort} runs through a lot of your future bracket, and the field is not nearly as exposed. That is real personal leverage.`,
+        `There is some genuine upside here because you still have ${teamShort} alive deeper than most of the pool does.`,
+        `${teamShort} is one of the places where your bracket still owns some real private upside.`,
+      ], seed),
+    };
+  }
+
+  if (!pickedHere && teamHurtsNow && poolPct >= 45) {
+    return {
+      noteKind: "danger",
+      note: chooseNote([
+        `${teamShort} is dangerous mostly because too much of the pool still benefits if they keep moving. Their loss would clear space for your bracket.`,
+        `This is less about your bracket loving the other side and more about too much of the pool still being alive on ${teamShort}.`,
+        `${teamShort} is carrying a lot of public equity right now. If they go down, the path gets cleaner for you fast.`,
+        `${teamShort} is one of those teams the pool has left hanging around a little too long for your liking.`,
+        `${teamShort} is a problem because too many rival brackets still have life tied to them. The longer that lasts, the worse this gets.`,
+        `${teamShort} has turned into a shared threat. If they keep winning, too many other brackets get to stay dangerous with them.`,
+      ], seed),
+    };
+  }
+
+  if (!pickedHere && teamWinsHelpNow) {
+    return {
+      noteKind: "counter",
+      note: chooseNote([
+        `${teamShort} is a little counterintuitive: they are not really your team, but them winning here helps thin out stronger competing paths.`,
+        `This one is sneaky. ${teamShort} is not part of your dream bracket, but them surviving helps knock loose stronger competing routes.`,
+        `You are not exactly rooting for ${teamShort} in a vacuum, but this is the kind of result that can make the field's life harder than yours.`,
+        `${teamShort} is not really a true ally, but a win here would still do useful work against stronger competing paths.`,
+        `This is one of those awkward roots: ${teamShort} is not your team, yet them advancing would still help clutter the field in the right way.`,
+        `${teamShort} is not central to your bracket, but them hanging around can still make life messier for the brackets you are chasing.`,
+      ], seed),
+    };
+  }
+
+  if (pickedHere && championshipValue > 2) {
+    return {
+      noteKind: "path_flex",
+      note: chooseNote([
+        `${teamShort} shows up in a lot of your live path, so keeping them alive buys you flexibility in later rounds.`,
+        `${teamShort} still touches enough of your future bracket that a win here preserves options you may need later.`,
+        `This is not just about one game. ${teamShort} still props up enough of your bracket to matter downstream too.`,
+        `${teamShort} is still supporting enough of your bracket that you do not really want to lose them yet.`,
+      ], seed),
+    };
+  }
+
+  if (teamHurtsNow) {
+    return {
+      noteKind: "danger",
+      note: chooseNote([
+        `${teamShort} does more for the other live brackets than for yours right now. If they go down, your route gets cleaner.`,
+        `${teamShort} is helping the competition more than they are helping you at the moment. That is usually a bad sign.`,
+        `This is one where the cleanest outcome for your bracket is simply ${teamShort} getting out of the way.`,
+        `${teamShort} is doing more good elsewhere than they are doing for you, which makes this an easy fade.`,
+        `${teamShort} is not your problem because of who they are. They are your problem because of how many brackets still wake up alive if they win.`,
+        `${teamShort} is the kind of team that keeps bad bracket news alive for one more day. Better to see them shut off now.`,
+      ], seed),
+    };
+  }
+
+  if (teamWinsHelpNow) {
+    return {
+      noteKind: "background",
+      note: chooseNote([
+        `${teamShort} quietly helps more of your live path than the rest of the field's. Not flashy, but useful.`,
+        `${teamShort} is more of a quiet helper than a headline team for you, but those are still worth tracking.`,
+        `There is no huge story here, just a result that happens to break a little better for you than for the field.`,
+        `${teamShort} is the kind of team you are happy to have in your corner even if they are not the headline.`,
+      ], seed),
+    };
+  }
+
+  return {
+    noteKind: "background",
+    note: chooseNote([
+      `${teamShort} matters, just not in a dramatic way yet. This is more about keeping your options open than a must-have result.`,
+      `This is more background value than urgent rooting drama. Useful to have, not devastating to lose.`,
+      `${teamShort} is in the picture, just not at center stage. Think of this as optional upside rather than a must-win path.`,
+      `${teamShort} is still part of the story, just more as a supporting character than a lead.`,
+    ], seed),
+  };
+}
+
 
 function labelForRow(row) {
   if (row.rootScore >= 2.5) return { text: "Root hard", cls: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" };
@@ -127,6 +380,18 @@ export default function ReportsRootingView() {
 
         const rootScore = nextSwing + championshipValue;
         const recommendation = labelForRow({ rootScore });
+        const noteData = rootingNote({
+          teamShort,
+          championPick,
+          pickedHere,
+          nextGame,
+          team,
+          player,
+          PLAYERS,
+          nextSwing,
+          poolPct,
+          championshipValue,
+        });
 
         rows.push({
           team: teamShort,
@@ -141,15 +406,13 @@ export default function ReportsRootingView() {
           championshipValue,
           rootScore,
           recommendation,
-          note:
-            rootScore >= 0
-              ? `${teamShort} supports more of this bracket's live path than it threatens.`
-              : `${teamShort} is more likely to strengthen competing paths than this bracket's own route.`,
+          noteKind: noteData.noteKind,
+          note: noteData.note,
         });
       }
     }
 
-    return rows;
+    return uniqueifyRootingNotes(rows);
   }, [BEST_PATH, GAMES, LEVERAGE_GAMES, PLAYERS, bestPathTexts, eliminatedTeams, leverageBySlot, player]);
 
   const sortedRows = useMemo(() => {

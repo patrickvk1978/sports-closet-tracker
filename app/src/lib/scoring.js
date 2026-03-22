@@ -30,7 +30,7 @@ export function calculateScore(picks, games) {
   let points = 0
   for (const game of games) {
     if (
-      game.status === 'final' &&
+      (game.status === 'final' || game.winner) &&
       game.winner &&
       picks[game.slot_index] === game.winner
     ) {
@@ -47,7 +47,7 @@ export function calculateScore(picks, games) {
 export function calculatePPR(picks, games) {
   const eliminated = new Set()
   for (const game of games) {
-    if (game.status === 'final' && game.winner) {
+    if ((game.status === 'final' || game.winner) && game.winner) {
       const teams = game.teams || {}
       const loser = teams.team1 === game.winner ? teams.team2 : teams.team1
       if (loser) eliminated.add(loser)
@@ -56,7 +56,7 @@ export function calculatePPR(picks, games) {
 
   let ppr = 0
   for (const game of games) {
-    if (game.status !== 'final') {
+    if (game.status !== 'final' && !game.winner) {
       const pick = picks[game.slot_index]
       if (pick && !eliminated.has(pick)) {
         ppr += ROUND_POINTS[SLOT_ROUND[game.slot_index]] ?? 0
@@ -73,7 +73,7 @@ function isChampAlive(picks, games) {
   const champTeam = picks[62]
   if (!champTeam) return false
   for (const game of games) {
-    if (game.status === 'final' && game.winner && game.winner !== champTeam) {
+    if ((game.status === 'final' || game.winner) && game.winner && game.winner !== champTeam) {
       const teams = game.teams || {}
       if (teams.team1 === champTeam || teams.team2 === champTeam) return false
     }

@@ -15,6 +15,7 @@ import AdminPage from "./pages/AdminPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ReportsHomeView from "./views/ReportsHomeView";
 import ReportsRootingView from "./views/ReportsRootingView";
+import ReportsHeadToHeadView from "./views/ReportsHeadToHeadView";
 
 export default function App() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
                     <Route path="/submit"   element={<BracketSubmitPage />} />
                     <Route path="/reports"          element={<ReportsHomeView />} />
                     <Route path="/reports/rooting" element={<ReportsRootingView />} />
+                    <Route path="/reports/head-to-head" element={<ReportsHeadToHeadView />} />
                   </Route>
                 </Route>
               </Routes>
