@@ -319,7 +319,9 @@ def run_poller(pool_ids, client):
                 if result.data:
                     updated_count += 1
 
-            print(f'{updated_count} updated  {live_count} live')
+            final_count = sum(1 for event in events
+                              if (t := transform_event(event)) and t.get('status') == 'final')
+            print(f'{updated_count} updated  {live_count} live  {final_count} final')
 
             # ── Game-completion sim: fire immediately when a game goes final ──
             current_final_set = {
@@ -327,6 +329,8 @@ def run_poller(pool_ids, client):
                 if (t := transform_event(event)) and t.get('status') == 'final'
             }
             newly_final = current_final_set - prev_final_set
+            if newly_final:
+                print(f'  ✓ newly_final detected: {newly_final}')
             prev_final_set = current_final_set
 
             if newly_final:
