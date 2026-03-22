@@ -258,13 +258,15 @@ export default function NavBar() {
           {pool && (
             <NavLink
               to="/reports"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  isActive
+              className={({ isActive }) => {
+                // Also highlight when on any /reports/* sub-route
+                const onReports = isActive || window.location.pathname.startsWith('/reports');
+                return `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  onReports
                     ? "bg-slate-700 text-white shadow"
                     : "text-slate-400 hover:text-white"
-                }`
-              }
+                }`;
+              }}
             >
               Reports
             </NavLink>
