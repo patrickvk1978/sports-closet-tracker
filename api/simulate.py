@@ -649,10 +649,18 @@ def build_tournament_context(games_by_slot):
         score  = f"{max(s1, s2)}-{min(s1, s2)}" if s1 is not None and s2 is not None else ''
         seed1, seed2 = teams.get('seed1'), teams.get('seed2')
         seed_diff = abs((seed1 or 0) - (seed2 or 0)) if seed1 and seed2 else 0
+        # Upset threshold scales with round: later rounds have tighter seeds
+        rnd = SLOT_ROUND.get(slot, '')
+        upset_threshold = 3 if rnd in ('S16', 'E8', 'F4', 'Champ') else 5
+        winner_seed = seed1 if winner == t1 else seed2
+        loser_seed  = seed2 if winner == t1 else seed1
+        is_upset = (seed_diff >= upset_threshold
+                    and winner_seed is not None and loser_seed is not None
+                    and winner_seed > loser_seed)
         entry = {
             'result':    f"{winner} def. {loser}{(' ' + score) if score else ''}",
-            'round':     SLOT_ROUND.get(slot, ''),
-            'upset':     seed_diff >= 5,
+            'round':     rnd,
+            'upset':     is_upset,
             'seed_diff': seed_diff,
         }
         all_finals.append(entry)
@@ -684,7 +692,8 @@ def build_tournament_context(games_by_slot):
         if t1 == 'TBD' or t2 == 'TBD':
             continue
         # gameTime without a leading day abbreviation (Mon/Tue/…) = today
-        is_today = not any(game_time.startswith(d) for d in
+        # Empty gameTime means slot not yet linked to ESPN — skip it
+        is_today = game_time and not any(game_time.startswith(d) for d in
                            ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'))
         if is_today:
             today_upcoming.append(f"{t1} vs {t2}" + (f" ({game_time})" if game_time else ''))
