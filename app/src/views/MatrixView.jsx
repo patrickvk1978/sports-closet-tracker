@@ -44,7 +44,10 @@ function StatusBadge({ status }) {
   return null;
 }
 
-const ROUND_ORDER = ['R64', 'R32', 'S16', 'E8', 'F4', 'Champ'];
+// Display names used by ROUNDS from usePoolData, and internal roundKey values used by GAMES
+const ROUND_ORDER_DISPLAY = ['R64', 'R32', 'S16', 'E8', 'Final Four', 'Championship'];
+const ROUND_ORDER_KEY     = ['R64', 'R32', 'S16', 'E8', 'F4', 'Champ'];
+const START_ROUND_DISPLAY_IDX = { R64: 0, S16: 2, E8: 3 };
 
 export default function MatrixView() {
   const { PLAYERS, GAMES, ROUNDS, LEVERAGE_GAMES, PLAYER_LEVERAGE, TEAM_ABBREV } = usePoolData();
@@ -60,12 +63,12 @@ export default function MatrixView() {
 
   // For S16 pools, filter out early rounds
   const startRound = pool?.start_round ?? 'R64';
-  const startIdx = ROUND_ORDER.indexOf(startRound);
+  const startIdx = START_ROUND_DISPLAY_IDX[startRound] ?? 0;
   const visibleRounds = startIdx > 0
-    ? ROUNDS.filter((r) => ROUND_ORDER.indexOf(r) >= startIdx)
+    ? ROUNDS.filter((r) => ROUND_ORDER_DISPLAY.indexOf(r) >= startIdx)
     : ROUNDS;
   const visibleGames = startIdx > 0
-    ? GAMES.filter((g) => ROUND_ORDER.indexOf(g.roundKey) >= startIdx)
+    ? GAMES.filter((g) => ROUND_ORDER_KEY.indexOf(g.roundKey) >= startIdx)
     : GAMES;
 
   // Live filter: auto-switch when games go live / all end
