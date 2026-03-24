@@ -126,6 +126,92 @@ function useToast() {
   return { toast, showToast }
 }
 
+// ─── Scoring config editor ───────────────────────────────────────────────────────
+
+const ROUND_LABELS = [
+  { key: 'R64',   label: 'Round of 64' },
+  { key: 'R32',   label: 'Round of 32' },
+  { key: 'S16',   label: 'Sweet 16' },
+  { key: 'E8',    label: 'Elite 8' },
+  { key: 'F4',    label: 'Final Four' },
+  { key: 'Champ', label: 'Championship' },
+]
+
+const DEFAULT_SCORING = { R64: 10, R32: 20, S16: 40, E8: 80, F4: 160, Champ: 320 }
+
+function ScoringConfigEditor({ pool }) {
+  const initial = pool?.scoring_config ?? DEFAULT_SCORING
+  const [config, setConfig] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved]   = useState(false)
+
+  useEffect(() => {
+    setConfig(pool?.scoring_config ?? DEFAULT_SCORING)
+  }, [pool?.scoring_config])
+
+  function handleChange(key, val) {
+    const num = parseInt(val, 10)
+    setConfig(prev => ({ ...prev, [key]: isNaN(num) ? 0 : num }))
+    setSaved(false)
+  }
+
+  async function save() {
+    setSaving(true)
+    await supabase
+      .from('pools')
+      .update({ scoring_config: config })
+      .eq('id', pool.id)
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  function reset() {
+    setConfig(DEFAULT_SCORING)
+    setSaved(false)
+  }
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">
+      <p className="text-sm font-bold text-white mb-0.5">Scoring Config</p>
+      <p className="text-xs text-slate-400 max-w-sm mb-3">
+        Points awarded per correct pick in each round. Changes take effect on next score calculation.
+      </p>
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-3">
+        {ROUND_LABELS.map(({ key, label }) => (
+          <div key={key}>
+            <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">{label}</label>
+            <input
+              type="number"
+              min="0"
+              step="10"
+              value={config[key] ?? 0}
+              onChange={(e) => handleChange(key, e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-white tabular-nums text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
+              style={{ fontFamily: 'Space Mono, monospace' }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={save}
+          disabled={saving || !pool}
+          className="px-4 py-2 rounded-xl text-xs font-semibold bg-orange-500 hover:bg-orange-400 text-white transition-all disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
+        </button>
+        <button
+          onClick={reset}
+          className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+        >
+          Reset to Default
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Next tipoff picker ─────────────────────────────────────────────────────────
 
 function NextTipoffPicker({ pool }) {
@@ -572,6 +658,9 @@ function PoolSection({ pool, onLockChange, navigate, showToast }) {
 
       {/* Between-rounds countdown */}
       <NextTipoffPicker pool={pool} />
+
+      {/* Scoring config */}
+      <ScoringConfigEditor pool={pool} />
 
       {/* Invite link */}
       <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">

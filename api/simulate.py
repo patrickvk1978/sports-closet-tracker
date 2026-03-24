@@ -278,8 +278,9 @@ def simulate_tournament(games_by_slot, team_seeds, bpi_ratings, forced_outcomes=
 
 # ─── Scoring ──────────────────────────────────────────────────────────────────
 
-def score_additional(picks, sim_outcomes, games_by_slot):
+def score_additional(picks, sim_outcomes, games_by_slot, round_points=None):
     """Count points from future (non-final) games in one simulation outcome."""
+    rp = round_points or ROUND_POINTS
     total = 0
     for slot, winner in sim_outcomes.items():
         if not winner:
@@ -288,14 +289,14 @@ def score_additional(picks, sim_outcomes, games_by_slot):
             continue
         pick = picks[slot] if slot < len(picks) else None
         if pick and pick == winner:
-            total += ROUND_POINTS.get(SLOT_ROUND.get(slot, 'R64'), 0)
+            total += rp.get(SLOT_ROUND.get(slot, 'R64'), 0)
     return total
 
 
 # ─── Main simulation loop ──────────────────────────────────────────────────────
 
 def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
-                   iterations=20_000):
+                   iterations=20_000, round_points=None):
     """
     Run Monte Carlo simulation.
 
@@ -314,7 +315,7 @@ def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
         all_outcomes.append(sim)
 
         scores = {
-            p['username']: p['current_points'] + score_additional(p['picks'], sim, games_by_slot)
+            p['username']: p['current_points'] + score_additional(p['picks'], sim, games_by_slot, round_points)
             for p in players
         }
         if not scores:
@@ -535,8 +536,13 @@ def load_ratings():
 def load_pool_data(client, pool_id):
     """
     Load all data needed for simulation.
-    Returns (players, games_by_slot, team_seeds).
+    Returns (players, games_by_slot, team_seeds, round_points).
     """
+    # Pool scoring config
+    pool_resp = client.table('pools').select('scoring_config').eq('id', pool_id).execute()
+    pool_row  = (pool_resp.data or [{}])[0]
+    round_points = pool_row.get('scoring_config') or ROUND_POINTS
+
     # Games
     resp         = client.table('games').select('*').execute()
     games_raw    = resp.data or []
@@ -576,7 +582,7 @@ def load_pool_data(client, pool_id):
         for slot, game in games_by_slot.items():
             if (game.get('status') == 'final' and game.get('winner')
                     and slot < len(picks) and picks[slot] == game['winner']):
-                points += ROUND_POINTS.get(SLOT_ROUND.get(slot, ''), 0)
+                points += round_points.get(SLOT_ROUND.get(slot, ''), 0)
 
         players.append({
             'username':       username,
@@ -584,7 +590,7 @@ def load_pool_data(client, pool_id):
             'current_points': points,
         })
 
-    return players, games_by_slot, team_seeds
+    return players, games_by_slot, team_seeds, round_points
 
 
 def load_prev_sim_data(client, pool_id):
@@ -954,7 +960,7 @@ def main():
     bpi_ratings = load_ratings()
 
     print(f'Loading pool data for pool {args.pool_id}…')
-    players, games_by_slot, team_seeds = load_pool_data(client, args.pool_id)
+    players, games_by_slot, team_seeds, pool_round_points = load_pool_data(client, args.pool_id)
 
     if not players:
         print('ERROR: No brackets found for this pool.', file=sys.stderr)
@@ -991,7 +997,8 @@ def main():
 
     print(f'\nRunning {args.iterations:,} simulations…')
     player_probs, _, all_outcomes, sim_winners = run_simulation(
-        players, games_by_slot, team_seeds, bpi_ratings, iterations=args.iterations
+        players, games_by_slot, team_seeds, bpi_ratings,
+        iterations=args.iterations, round_points=pool_round_points
     )
 
     print('\nWin probabilities:')

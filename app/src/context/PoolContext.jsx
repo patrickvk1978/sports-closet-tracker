@@ -164,8 +164,8 @@ export function PoolProvider({ children }) {
   // Derived PLAYERS array — recomputed whenever brackets or games change
   const PLAYERS_LIVE = useMemo(() => {
     if (!members.length) return null
-    return buildPlayersArray(members, brackets, games)
-  }, [members, brackets, games])
+    return buildPlayersArray(members, brackets, games, pool?.scoring_config)
+  }, [members, brackets, games, pool?.scoring_config])
 
   return (
     <PoolContext.Provider value={{

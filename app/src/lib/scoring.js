@@ -1,6 +1,8 @@
 // ─── Scoring constants ─────────────────────────────────────────────────────────
 
-export const ROUND_POINTS = { R64: 10, R32: 20, S16: 40, E8: 80, F4: 160, Champ: 320 }
+export const DEFAULT_ROUND_POINTS = { R64: 10, R32: 20, S16: 40, E8: 80, F4: 160, Champ: 320 }
+// Legacy alias
+export const ROUND_POINTS = DEFAULT_ROUND_POINTS
 
 // Map slot index (0-62) → round key
 export const SLOT_ROUND = {}
@@ -23,10 +25,11 @@ export const KEY_SLOTS = [14, 29, 59, 44, 60, 61, 62]
 
 /**
  * Calculate total score for a 63-slot picks array against completed games.
- * @param {(string|null)[]} picks  - 63-element array of team name picks
- * @param {object[]}        games  - rows from DB: { slot_index, winner, status }
+ * @param {(string|null)[]} picks       - 63-element array of team name picks
+ * @param {object[]}        games       - rows from DB: { slot_index, winner, status }
+ * @param {object}          [roundPoints] - optional per-round point values (defaults to standard scoring)
  */
-export function calculateScore(picks, games) {
+export function calculateScore(picks, games, roundPoints = DEFAULT_ROUND_POINTS) {
   let points = 0
   for (const game of games) {
     if (
@@ -34,7 +37,7 @@ export function calculateScore(picks, games) {
       game.winner &&
       picks[game.slot_index] === game.winner
     ) {
-      points += ROUND_POINTS[SLOT_ROUND[game.slot_index]] ?? 0
+      points += roundPoints[SLOT_ROUND[game.slot_index]] ?? 0
     }
   }
   return points
@@ -44,7 +47,7 @@ export function calculateScore(picks, games) {
  * Calculate points-possible-remaining (PPR): max future points a player can still earn.
  * A pick is still eligible if the team has not been eliminated in any completed game.
  */
-export function calculatePPR(picks, games) {
+export function calculatePPR(picks, games, roundPoints = DEFAULT_ROUND_POINTS) {
   const eliminated = new Set()
   for (const game of games) {
     if ((game.status === 'final' || game.winner) && game.winner) {
@@ -59,7 +62,7 @@ export function calculatePPR(picks, games) {
     if (game.status !== 'final' && !game.winner) {
       const pick = picks[game.slot_index]
       if (pick && !eliminated.has(pick)) {
-        ppr += ROUND_POINTS[SLOT_ROUND[game.slot_index]] ?? 0
+        ppr += roundPoints[SLOT_ROUND[game.slot_index]] ?? 0
       }
     }
   }
@@ -88,15 +91,15 @@ function isChampAlive(picks, games) {
  * @param {object[]} brackets  - brackets rows: { user_id, picks: [...63] }
  * @param {object[]} games     - all 63 game rows from DB
  */
-export function buildPlayersArray(members, brackets, games) {
+export function buildPlayersArray(members, brackets, games, roundPoints = DEFAULT_ROUND_POINTS) {
   const bracketsByUser = {}
   brackets.forEach((b) => { bracketsByUser[b.user_id] = b })
 
   const result = members.map((member) => {
     const bracket  = bracketsByUser[member.user_id]
     const picks63  = bracket?.picks || Array(63).fill(null)
-    const points   = games.length > 0 ? calculateScore(picks63, games) : 0
-    const ppr      = games.length > 0 ? calculatePPR(picks63, games) : 0
+    const points   = games.length > 0 ? calculateScore(picks63, games, roundPoints) : 0
+    const ppr      = games.length > 0 ? calculatePPR(picks63, games, roundPoints) : 0
 
     return {
       name:       member.profiles?.username ?? `user_${member.user_id.slice(0, 6)}`,
