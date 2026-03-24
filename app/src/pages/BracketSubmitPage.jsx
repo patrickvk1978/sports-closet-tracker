@@ -194,12 +194,17 @@ function BracketConnectors({ leftCount }) {
   )
 }
 
-function RegionPickBracket({ regionIndex, picks, r64Seeds, isLocked, onPick }) {
+function RegionPickBracket({ regionIndex, picks, r64Seeds, isLocked, onPick, startRound }) {
   const base = REGION_BASES[regionIndex]
+  // For S16 pools, only show S16 and E8 columns
+  const visibleRounds = startRound === 'S16'
+    ? ROUND_KEYS.filter((r) => r !== 'R64' && r !== 'R32')
+    : ROUND_KEYS
+  const minW = startRound === 'S16' ? 320 : 620
   return (
     <div className="overflow-x-auto pb-4">
-      <div className="flex" style={{ minWidth: 620 }}>
-        {ROUND_KEYS.map((round, ri) => {
+      <div className="flex" style={{ minWidth: minW }}>
+        {visibleRounds.map((round, ri) => {
           const count = GAME_COUNTS[round]
           const startOffset = { R64: 0, R32: 8, S16: 12, E8: 14 }[round]
           return (
@@ -226,7 +231,7 @@ function RegionPickBracket({ regionIndex, picks, r64Seeds, isLocked, onPick }) {
                   ))}
                 </div>
               </div>
-              {ri < ROUND_KEYS.length - 1 && (
+              {ri < visibleRounds.length - 1 && (
                 <div style={{ paddingTop: LABEL_H }}>
                   <BracketConnectors leftCount={GAME_COUNTS[round]} />
                 </div>
@@ -385,6 +390,8 @@ export default function BracketSubmitPage() {
   const { pool, games: dbGames, refreshPool } = usePool()
   const navigate = useNavigate()
 
+  const isS16Pool = pool?.start_round === 'S16'
+
   const [activeTab, setActiveTab] = useState('midwest')
   const [picks,     setPicks]     = useState(Array(63).fill(null))
   const [isLocked,  setIsLocked]  = useState(false)
@@ -411,6 +418,16 @@ export default function BracketSubmitPage() {
     return buildR64SeedsFromMock(MOCK_BRACKET)
   }, [dbGames])
 
+  // For S16 pools: auto-fill R64/R32 slots from DB game winners
+  const autoFilledPicks = useMemo(() => {
+    if (!isS16Pool || !dbGames?.length) return null
+    const filled = Array(63).fill(null)
+    dbGames
+      .filter((g) => g.winner && ['R64', 'R32'].includes(BRACKET_SLOTS[g.slot_index]?.round))
+      .forEach((g) => { filled[g.slot_index] = g.winner })
+    return filled
+  }, [isS16Pool, dbGames])
+
   // Load existing bracket on mount
   useEffect(() => {
     if (!session || !pool) return
@@ -421,30 +438,66 @@ export default function BracketSubmitPage() {
         .eq('user_id', session.user.id)
         .eq('pool_id', pool.id)
         .single()
-      if (data?.picks?.length) setPicks(data.picks)
+      if (data?.picks?.length) {
+        setPicks(data.picks)
+      } else if (autoFilledPicks) {
+        // Pre-fill R64/R32 for new S16 brackets
+        setPicks(autoFilledPicks)
+      }
       if (data?.locked || pool.locked) setIsLocked(true)
     }
     load()
-  }, [session, pool])
+  }, [session, pool, autoFilledPicks])
+
+  // Keep R64/R32 slots in sync with actual results for S16 pools
+  useEffect(() => {
+    if (!autoFilledPicks) return
+    setPicks((current) => {
+      const updated = [...current]
+      for (let i = 0; i < 63; i++) {
+        const round = BRACKET_SLOTS[i]?.round
+        if ((round === 'R64' || round === 'R32') && autoFilledPicks[i]) {
+          updated[i] = autoFilledPicks[i]
+        }
+      }
+      return updated
+    })
+  }, [autoFilledPicks])
 
   function handlePick(slot, team) {
     if (isLocked) return
+    // Prevent picking R64/R32 in S16 pools
+    const round = BRACKET_SLOTS[slot]?.round
+    if (isS16Pool && (round === 'R64' || round === 'R32')) return
     setSaved(false)
     setPicks((current) => cascadingSetPick(slot, team, current))
   }
 
-  const filledCount = picks.filter(Boolean).length
-  const isComplete  = filledCount === 63
+  // For S16 pools: only count S16+ slots (15 total: 12 region + 2 F4 + 1 Champ)
+  const userPickSlots = isS16Pool
+    ? picks.filter((p, i) => p && !['R64', 'R32'].includes(BRACKET_SLOTS[i]?.round))
+    : picks.filter(Boolean)
+  const totalSlots   = isS16Pool ? 15 : 63
+  const filledCount  = userPickSlots.length
+  const isComplete   = filledCount === totalSlots
 
   async function handleSave() {
     if (!session || !pool) return
     setSaving(true)
     setError(null)
     try {
+      // For S16 pools, ensure R64/R32 auto-filled picks are included
+      const savePicks = autoFilledPicks
+        ? picks.map((p, i) => {
+            const round = BRACKET_SLOTS[i]?.round
+            if ((round === 'R64' || round === 'R32') && autoFilledPicks[i]) return autoFilledPicks[i]
+            return p
+          })
+        : picks
       const { error: upsertError } = await supabase
         .from('brackets')
         .upsert(
-          { user_id: session.user.id, pool_id: pool.id, picks, submitted_at: new Date().toISOString() },
+          { user_id: session.user.id, pool_id: pool.id, picks: savePicks, submitted_at: new Date().toISOString() },
           { onConflict: 'user_id,pool_id' }
         )
       if (upsertError) throw upsertError
@@ -481,14 +534,16 @@ export default function BracketSubmitPage() {
         <div>
           <h2 className="text-lg font-bold text-white">Submit Bracket</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Click a team to advance them. Picks cascade automatically.
+            {isS16Pool
+              ? 'Pick Sweet 16 through Championship. Earlier rounds are auto-filled.'
+              : 'Click a team to advance them. Picks cascade automatically.'}
           </p>
         </div>
 
         <div className="flex items-center gap-4">
           {/* Progress */}
           <div className="w-36">
-            <ProgressBar filled={filledCount} total={63} />
+            <ProgressBar filled={filledCount} total={totalSlots} />
           </div>
 
           {isLocked ? (
@@ -547,6 +602,7 @@ export default function BracketSubmitPage() {
               r64Seeds={r64Seeds}
               isLocked={isLocked}
               onPick={handlePick}
+              startRound={pool?.start_round}
             />
           </div>
         )}

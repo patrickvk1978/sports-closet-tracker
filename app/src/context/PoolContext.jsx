@@ -134,8 +134,9 @@ export function PoolProvider({ children }) {
     return { pool: targetPool }
   }
 
-  async function createPool(name) {
+  async function createPool(name, startRound = 'R64', scoringConfig) {
     const inviteCode = generateInviteCode()
+    const defaultScoring = { R64: 10, R32: 20, S16: 40, E8: 80, F4: 160, Champ: 320 }
 
     const { data: newPool, error } = await supabase
       .from('pools')
@@ -143,7 +144,8 @@ export function PoolProvider({ children }) {
         name,
         admin_id: session.user.id,
         invite_code: inviteCode,
-        scoring_config: { R64: 10, R32: 20, S16: 40, E8: 80, F4: 160, Champ: 320 },
+        scoring_config: scoringConfig ?? defaultScoring,
+        start_round: startRound,
         locked: false,
       })
       .select()

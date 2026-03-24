@@ -3,21 +3,33 @@ import { useNavigate } from 'react-router-dom'
 import { usePool } from '../hooks/usePool'
 import { useAuth } from '../hooks/useAuth'
 
+const START_ROUND_OPTIONS = [
+  { value: 'R64', label: 'Full Tournament (Round of 64)' },
+  { value: 'S16', label: 'Sweet 16 Mini-Pool' },
+]
+
+const SCORING_PRESETS = {
+  R64: { R64: 10, R32: 20, S16: 40, E8: 80, F4: 160, Champ: 320 },
+  S16: { R64: 0, R32: 0, S16: 40, E8: 80, F4: 160, Champ: 320 },
+}
+
 export default function CreatePoolPage() {
   const { createPool } = usePool()
   const { signOut } = useAuth()
   const navigate = useNavigate()
 
-  const [name,    setName]    = useState('')
-  const [created, setCreated] = useState(null)  // { name, invite_code }
-  const [error,   setError]   = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [name,       setName]       = useState('')
+  const [startRound, setStartRound] = useState('R64')
+  const [created,    setCreated]    = useState(null)
+  const [error,      setError]      = useState(null)
+  const [loading,    setLoading]    = useState(false)
 
   async function handleCreate(e) {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const { pool, error } = await createPool(name.trim())
+    const scoringConfig = SCORING_PRESETS[startRound] ?? SCORING_PRESETS.R64
+    const { pool, error } = await createPool(name.trim(), startRound, scoringConfig)
     setLoading(false)
     if (error) { setError(error); return }
     setCreated(pool)
@@ -88,6 +100,24 @@ export default function CreatePoolPage() {
                 required
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-orange-500"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Starting Round</label>
+              <select
+                value={startRound}
+                onChange={(e) => setStartRound(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+              >
+                {START_ROUND_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              {startRound === 'S16' && (
+                <p className="text-xs text-slate-500 mt-1.5">
+                  Players pick Sweet 16 through Championship. R64/R32 results are auto-filled.
+                </p>
+              )}
             </div>
 
             {error && (

@@ -247,7 +247,7 @@ function BracketConnectors({ leftCount }) {
 
 const GAME_COUNTS = { R64: 8, R32: 4, S16: 2, E8: 1 };
 
-function RegionBracket({ region, userPicks, abbrevMap }) {
+function RegionBracket({ region, userPicks, abbrevMap, startRound }) {
   if (!region) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -255,11 +255,16 @@ function RegionBracket({ region, userPicks, abbrevMap }) {
       </div>
     );
   }
+  // For S16 pools, only show S16 and E8 columns
+  const visibleRounds = startRound === 'S16'
+    ? ROUND_KEYS.filter((r) => r !== 'R64' && r !== 'R32')
+    : ROUND_KEYS;
+  const minW = startRound === 'S16' ? 300 : 580;
   return (
     <div className="overflow-x-auto pb-4">
-      <div className="flex" style={{ minWidth: 580 }}>
+      <div className="flex" style={{ minWidth: minW }}>
 
-        {ROUND_KEYS.map((round, ri) => (
+        {visibleRounds.map((round, ri) => (
           <div key={round} className="flex">
 
             {/* Round column */}
@@ -298,7 +303,7 @@ function RegionBracket({ region, userPicks, abbrevMap }) {
             </div>
 
             {/* Connector SVG (not after last column) */}
-            {ri < ROUND_KEYS.length - 1 && (
+            {ri < visibleRounds.length - 1 && (
               <div style={{ paddingTop: LABEL_H }}>
                 <BracketConnectors leftCount={GAME_COUNTS[round]} />
               </div>
@@ -702,6 +707,7 @@ export default function BracketView() {
               region={BRACKET[activeTab]}
               userPicks={userPicks}
               abbrevMap={TEAM_ABBREV}
+              startRound={pool?.start_round}
             />
           </div>
         )}

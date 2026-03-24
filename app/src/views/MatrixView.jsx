@@ -44,6 +44,8 @@ function StatusBadge({ status }) {
   return null;
 }
 
+const ROUND_ORDER = ['R64', 'R32', 'S16', 'E8', 'F4', 'Champ'];
+
 export default function MatrixView() {
   const { PLAYERS, GAMES, ROUNDS, LEVERAGE_GAMES, PLAYER_LEVERAGE, TEAM_ABBREV } = usePoolData();
   const { pool } = usePool();
@@ -56,8 +58,18 @@ export default function MatrixView() {
   // When pool is not locked, each user sees only their own picks
   const isLocked = pool?.locked === true;
 
+  // For S16 pools, filter out early rounds
+  const startRound = pool?.start_round ?? 'R64';
+  const startIdx = ROUND_ORDER.indexOf(startRound);
+  const visibleRounds = startIdx > 0
+    ? ROUNDS.filter((r) => ROUND_ORDER.indexOf(r) >= startIdx)
+    : ROUNDS;
+  const visibleGames = startIdx > 0
+    ? GAMES.filter((g) => ROUND_ORDER.indexOf(g.roundKey) >= startIdx)
+    : GAMES;
+
   // Live filter: auto-switch when games go live / all end
-  const hasLiveGames = useMemo(() => GAMES.some(g => g.status === 'live'), [GAMES]);
+  const hasLiveGames = useMemo(() => visibleGames.some(g => g.status === 'live'), [visibleGames]);
 
   useEffect(() => {
     if (hasLiveGames && selectedRound === 'All') setSelectedRound('Live');
@@ -81,10 +93,10 @@ export default function MatrixView() {
   }, [LEVERAGE_GAMES]);
 
   const filteredGames = selectedRound === "All"
-    ? GAMES
+    ? visibleGames
     : selectedRound === "Live"
-      ? GAMES.filter((g) => g.status === "live")
-      : GAMES.filter((g) => g.round === selectedRound);
+      ? visibleGames.filter((g) => g.status === "live")
+      : visibleGames.filter((g) => g.round === selectedRound);
 
   const getPickDistribution = (gameId) => {
     const game = GAMES.find((g) => g.id === gameId);
@@ -108,7 +120,7 @@ export default function MatrixView() {
         <span className="text-[11px] text-slate-500 font-medium mr-1 whitespace-nowrap" style={{ fontFamily: "Space Mono, monospace" }}>
           {PLAYERS.length} players
         </span>
-        {[...(hasLiveGames ? ['Live'] : []), 'All', ...ROUNDS].map((r) => (
+        {[...(hasLiveGames ? ['Live'] : []), 'All', ...visibleRounds].map((r) => (
           <button
             key={r}
             onClick={() => setSelectedRound(r)}
