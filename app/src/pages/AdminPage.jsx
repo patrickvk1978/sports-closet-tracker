@@ -126,6 +126,72 @@ function useToast() {
   return { toast, showToast }
 }
 
+// ─── Next tipoff picker ─────────────────────────────────────────────────────────
+
+function NextTipoffPicker({ pool }) {
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (pool?.next_tipoff) {
+      // Convert ISO to datetime-local format (YYYY-MM-DDTHH:MM)
+      const d = new Date(pool.next_tipoff)
+      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+        .toISOString().slice(0, 16)
+      setValue(local)
+    } else {
+      setValue('')
+    }
+  }, [pool?.next_tipoff])
+
+  async function save(newValue) {
+    setSaving(true)
+    const tipoff = newValue ? new Date(newValue).toISOString() : null
+    await supabase
+      .from('pools')
+      .update({ next_tipoff: tipoff })
+      .eq('id', pool.id)
+    setSaving(false)
+  }
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">
+      <p className="text-sm font-bold text-white mb-0.5">Between-Rounds Countdown</p>
+      <p className="text-xs text-slate-400 max-w-sm mb-3">
+        Set the next round's tipoff time. Non-admin users will see a countdown
+        + leaderboard instead of the full dashboard until this time passes.
+      </p>
+      <div className="flex items-center gap-3 flex-wrap">
+        <input
+          type="datetime-local"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+        />
+        <button
+          onClick={() => save(value)}
+          disabled={saving || !pool}
+          className="px-4 py-2 rounded-xl text-xs font-semibold bg-orange-500 hover:bg-orange-400 text-white transition-all disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Set'}
+        </button>
+        <button
+          onClick={() => { setValue(''); save(''); }}
+          disabled={saving || !pool}
+          className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all disabled:opacity-50"
+        >
+          Clear
+        </button>
+      </div>
+      {pool?.next_tipoff && (
+        <p className="mt-2 text-xs text-amber-400 font-semibold">
+          Countdown active until {new Date(pool.next_tipoff).toLocaleString()}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ─── Lock toggle ────────────────────────────────────────────────────────────────
 
 function LockToggle({ pool, onLockChange }) {
@@ -503,6 +569,9 @@ function PoolSection({ pool, onLockChange, navigate, showToast }) {
     <div className="space-y-4">
       {/* Lock toggle */}
       <LockToggle pool={pool} onLockChange={onLockChange} />
+
+      {/* Between-rounds countdown */}
+      <NextTipoffPicker pool={pool} />
 
       {/* Invite link */}
       <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">

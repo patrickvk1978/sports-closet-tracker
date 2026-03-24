@@ -691,6 +691,75 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
   );
 }
 
+// ─── 6. Between-Rounds Screen ───────────────────────────────────────────────
+
+function BetweenRoundsScreen({ pool, players, ownerName, tipoff }) {
+  const tipoffDate = new Date(tipoff);
+  const { days, hours, mins, secs, done } = useCountdown(tipoffDate.getTime());
+
+  const dayLabel = tipoffDate.toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  });
+  const timeLabel = tipoffDate.toLocaleTimeString('en-US', {
+    hour: 'numeric', minute: '2-digit',
+  });
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
+      {/* Pool header */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-3 flex items-center gap-4">
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold text-white truncate">{pool?.name ?? "Pool"}</h2>
+          {ownerName && (
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Commissioner: <span className="text-slate-400">{ownerName}</span>
+            </p>
+          )}
+        </div>
+        <span className="text-xs text-slate-500 shrink-0">
+          {players.length} {players.length === 1 ? "entry" : "entries"}
+        </span>
+      </div>
+
+      {/* Countdown */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-10 flex flex-col items-center text-center gap-6">
+        <div className="space-y-2">
+          <div className="text-4xl">🏀</div>
+          <h1 className="text-2xl font-bold text-white">Next Round Tips Off Soon</h1>
+          <p className="text-sm text-slate-400">
+            The dashboard will return when games resume. Check the standings below.
+          </p>
+        </div>
+
+        {done ? (
+          <p className="text-orange-400 font-semibold">Games are underway — refreshing shortly!</p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-widest text-slate-500">{dayLabel} · {timeLabel}</p>
+            <div className="flex items-start gap-5">
+              <CountdownUnit value={days}  label="days"    />
+              <span className="text-2xl font-bold text-slate-600 mt-1">:</span>
+              <CountdownUnit value={hours} label="hours"   />
+              <span className="text-2xl font-bold text-slate-600 mt-1">:</span>
+              <CountdownUnit value={mins}  label="minutes" />
+              <span className="text-2xl font-bold text-slate-600 mt-1">:</span>
+              <CountdownUnit value={secs}  label="seconds" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Leaderboard */}
+      <Leaderboard
+        players={players}
+        currentPlayer={null}
+        isLocked={false}
+        onSelectPlayer={() => {}}
+      />
+    </div>
+  );
+}
+
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -752,6 +821,19 @@ export default function Dashboard() {
         hasBracket={hasBracket}
         ownerName={ownerName}
         onLeavePool={() => setShowLeaveConfirm(true)}
+      />
+    );
+  }
+
+  // Gate: between rounds — admin sets next_tipoff, non-admins see countdown + leaderboard
+  const betweenRounds = pool?.next_tipoff && new Date(pool.next_tipoff) > new Date();
+  if (isLocked && betweenRounds && !isAdmin) {
+    return (
+      <BetweenRoundsScreen
+        pool={pool}
+        players={PLAYERS}
+        ownerName={ownerName}
+        tipoff={pool.next_tipoff}
       />
     );
   }
