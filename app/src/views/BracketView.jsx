@@ -585,9 +585,16 @@ export default function BracketView() {
   const [activeTab,      setActiveTab]      = useState("midwest");
   const [selectedPlayer, setSelectedPlayer] = useState(() => PLAYER_NAMES[0] ?? "");
 
+  // Keep selectedPlayer valid when PLAYERS list updates (e.g. on Realtime refresh)
+  useEffect(() => {
+    if (PLAYER_NAMES.length > 0 && !PLAYER_NAMES.includes(selectedPlayer)) {
+      setSelectedPlayer(PLAYER_NAMES[0]);
+    }
+  }, [PLAYER_NAMES.join(',')]);
+
   // When not locked, always view the current user's own data
   const effectivePlayer = isLocked
-    ? selectedPlayer
+    ? (PLAYER_NAMES.includes(selectedPlayer) ? selectedPlayer : PLAYER_NAMES[0] ?? "")
     : (profile?.username && PLAYER_NAMES.includes(profile.username)
         ? profile.username
         : (PLAYER_NAMES[0] ?? ""));
