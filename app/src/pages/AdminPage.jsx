@@ -505,6 +505,8 @@ function MembersSection({ showToast, onRemove, membersKey }) {
   async function handleRemove(userId) {
     setRemovingId(userId)
     await onRemove(userId)
+    // Optimistically remove from local list so UI updates immediately
+    setMembers((prev) => prev.filter((m) => m.user_id !== userId))
     setRemovingId(null)
   }
 
@@ -1271,6 +1273,7 @@ export default function AdminPage() {
     } else {
       showToast('Member removed.')
       setMembersKey((k) => k + 1)
+      refreshPool()
     }
   }
 
