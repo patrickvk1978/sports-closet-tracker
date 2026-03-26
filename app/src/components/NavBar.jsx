@@ -4,8 +4,8 @@ import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 
 const NAV_LINKS = [
-  { to: "/",        label: "Dashboard", mobileHidden: true },
-  { to: "/matrix",  label: "Picks"     },
+  { to: "/",       label: "Dashboard" },
+  { to: "/matrix", label: "Picks"     },
 ];
 
 // Trophy icon for pool context
@@ -210,13 +210,13 @@ export default function NavBar() {
         {/* Page nav tabs — scrollable on mobile so overflow doesn't scroll the page */}
         <nav className="overflow-x-auto scrollbar-none flex-1 min-w-0">
         <div className="flex items-center gap-1 bg-slate-800/50 rounded-xl p-1 w-max">
-          {NAV_LINKS.map(({ to, label, mobileHidden }) => (
+          {NAV_LINKS.map(({ to, label }) => (
             <NavLink
               key={to}
               to={to}
               end={to === "/"}
               className={({ isActive }) =>
-                `${mobileHidden && isActive ? "hidden " : ""}px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   isActive
                     ? "bg-slate-700 text-white shadow"
                     : "text-slate-400 hover:text-white"
