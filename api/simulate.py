@@ -1198,6 +1198,14 @@ No markdown, no explanation — just the JSON array."""
 
     prompt = context_block + '\n\n' + tasks_block
 
+    # Debug: print the full prompt when --debug-prompt is used
+    if os.environ.get('DEBUG_NARRATIVE_PROMPT'):
+        print('\n' + '=' * 80)
+        print('NARRATIVE PROMPT (what the LLM receives):')
+        print('=' * 80)
+        print(prompt)
+        print('=' * 80 + '\n')
+
     try:
         client = anthropic.Anthropic(api_key=api_key)
         resp = client.messages.create(
