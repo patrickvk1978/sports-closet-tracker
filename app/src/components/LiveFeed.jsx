@@ -1,7 +1,7 @@
 import { useMemo, useRef, useEffect } from "react";
 
 const PERSONA_LABEL = {
-  stat_nerd: "Moe",
+  stat_nerd: "Mo",
   color_commentator: "Zelda",
   barkley: "Davin",
 };
@@ -24,7 +24,7 @@ function formatTimestamp(isoStr) {
 function EntryBubble({ entry }) {
   const isAlert = entry.entry_type === "alert";
   const persona = entry.persona || "stat_nerd";
-  const label = PERSONA_LABEL[persona] || "Moe";
+  const label = PERSONA_LABEL[persona] || "Mo";
   const ts = formatTimestamp(entry.created_at);
 
   if (isAlert) {

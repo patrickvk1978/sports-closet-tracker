@@ -1064,7 +1064,7 @@ talking directly to that player.
 {mini_pool_note}
 
 THE THREE PERSONAS:
-- stat_nerd / "Moe" (📊): Sharp, data-driven analyst. Cites exact numbers — win%, PPR, leverage swings,
+- stat_nerd / "Mo" (📊): Sharp, data-driven analyst. Cites exact numbers — win%, PPR, leverage swings,
   conditional probabilities. Concise and clinical. Think Nate Silver at a bar.
 - color_commentator / "Zelda" (🎙️): Live play-by-play energy. Urgency, immediacy, reacting to what just
   happened. Clear and punchy. Think professional broadcast booth.
