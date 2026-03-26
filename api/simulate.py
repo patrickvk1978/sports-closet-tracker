@@ -539,9 +539,10 @@ def load_pool_data(client, pool_id):
     Returns (players, games_by_slot, team_seeds, round_points).
     """
     # Pool scoring config
-    pool_resp = client.table('pools').select('scoring_config').eq('id', pool_id).execute()
+    pool_resp = client.table('pools').select('scoring_config, start_round').eq('id', pool_id).execute()
     pool_row  = (pool_resp.data or [{}])[0]
     round_points = pool_row.get('scoring_config') or ROUND_POINTS
+    pool_start_round = pool_row.get('start_round') or 'R64'
 
     # Games
     resp         = client.table('games').select('*').execute()
@@ -931,7 +932,8 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
                           just_finished='',
                           enriched_stats=None,
                           outcome_deltas=None,
-                          round_points=None):
+                          round_points=None,
+                          pool_start_round='R64'):
     """
     Generate narrative feed entries for the live broadcast booth system.
 
@@ -1043,10 +1045,23 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
 
     # ── Shared context header ─────────────────────────────────────────────────
 
+    mini_pool_note = ''
+    if pool_start_round and pool_start_round != 'R64':
+        mini_pool_note = f"""
+IMPORTANT — THIS IS A {pool_start_round} MINI-POOL:
+- Players only submitted picks starting from {pool_start_round}. Earlier rounds were auto-filled.
+- DO NOT reference R64, R32, or any round before {pool_start_round}. Those are not real player picks.
+- DO NOT mention "perfect records", "X-for-X in R64/R32", or any early-round stats.
+- Treat this as the FIRST round of competition. Write the overnight as a tournament kickoff/preview.
+- Focus on: who each player picked to win from {pool_start_round} onward, their champion pick,
+  today's upcoming matchups, win%, PPR, and which games matter most.
+"""
+
     context_block = f"""You are the voice of a March Madness bracket pool live feed — a broadcast booth
 with THREE personas who take turns. The feed is personalized: each player entry is
 written in SECOND PERSON ("your bracket", "you need", "your champion"), as if
 talking directly to that player.
+{mini_pool_note}
 
 THE THREE PERSONAS:
 - stat_nerd / "Moe" (📊): Sharp, data-driven analyst. Cites exact numbers — win%, PPR, leverage swings,
@@ -1490,6 +1505,7 @@ def main():
             enriched_stats=enriched_stats,
             outcome_deltas=outcome_deltas,
             round_points=pool_round_points,
+            pool_start_round=pool_start_round,
         )
         # Insert into narrative_feed table
         # Overnight briefings clear the previous day's feed for a fresh start
