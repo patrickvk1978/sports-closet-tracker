@@ -629,7 +629,7 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
               <th className="px-2 sm:px-4 py-2.5">Entry</th>
               <th className="px-2 sm:px-4 py-2.5 text-right" style={{ fontFamily: "Space Mono, monospace" }}>Pts</th>
               <th className="px-2 sm:px-4 py-2.5 text-right hidden sm:table-cell" style={{ fontFamily: "Space Mono, monospace" }}>PPR</th>
-              <th className="px-2 sm:px-4 py-2.5 text-right">Win %</th>
+              <th className="px-2 sm:px-4 py-2.5 text-left">Win %</th>
               <th className="px-2 sm:px-4 py-2.5 text-center w-10 sm:w-auto"></th>
             </tr>
           </thead>
@@ -660,8 +660,8 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
                   <td className="px-2 sm:px-4 py-2 text-right text-sm text-slate-400 tabular-nums hidden sm:table-cell" style={{ fontFamily: "Space Mono, monospace" }}>
                     {p.ppr}
                   </td>
-                  <td className="px-2 sm:px-4 py-2 text-right">
-                    <div className="flex items-center justify-end gap-1">
+                  <td className="px-2 sm:px-4 py-2">
+                    <div className="flex items-center gap-1">
                       <span
                         className="text-sm font-bold tabular-nums"
                         style={{ fontFamily: "Space Mono, monospace", color: winProbColor(wp) }}
