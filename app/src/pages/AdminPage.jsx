@@ -214,16 +214,16 @@ function ScoringConfigEditor({ pool }) {
 
 // ─── Next tipoff picker ─────────────────────────────────────────────────────────
 
-function NextTipoffPicker({ pool }) {
+function NextTipoffPicker({ pool, refreshPool }) {
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (pool?.next_tipoff) {
-      // Convert ISO to datetime-local format (YYYY-MM-DDTHH:MM)
+      // Convert UTC ISO to datetime-local format using local time methods
       const d = new Date(pool.next_tipoff)
-      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-        .toISOString().slice(0, 16)
+      const pad = n => String(n).padStart(2, '0')
+      const local = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
       setValue(local)
     } else {
       setValue('')
@@ -238,6 +238,7 @@ function NextTipoffPicker({ pool }) {
       .update({ next_tipoff: tipoff })
       .eq('id', pool.id)
     setSaving(false)
+    if (refreshPool) await refreshPool(pool.id)
   }
 
   return (
@@ -659,7 +660,7 @@ function PoolSection({ pool, onLockChange, navigate, showToast }) {
       <LockToggle pool={pool} onLockChange={onLockChange} />
 
       {/* Between-rounds countdown */}
-      <NextTipoffPicker pool={pool} />
+      <NextTipoffPicker pool={pool} refreshPool={refreshPool} />
 
       {/* Scoring config */}
       <ScoringConfigEditor pool={pool} />
