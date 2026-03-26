@@ -857,11 +857,48 @@ export default function Dashboard() {
   const bestPath        = BEST_PATH?.[player.name] ?? BEST_PATH?.['_default'] ?? [];
   const hasLiveGames    = GAMES.some(g => g.status === 'live');
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
+  const winProbColor = player
+    ? player.winProb > 15 ? "text-emerald-400" : player.winProb > 8 ? "text-amber-400" : "text-slate-400"
+    : "text-slate-400";
 
-      {/* ── Pool Header ────────────────────────────────────────────────────── */}
-      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-3 flex items-center gap-4 flex-wrap">
+  return (
+    <>
+    {/* ── Mobile sticky hero bar ───────────────────────────────────────────── */}
+    {player && (
+      <div className="sm:hidden sticky top-[52px] z-20 bg-slate-950/95 backdrop-blur-sm border-b border-slate-800/60 px-4 py-2 flex items-center gap-2.5">
+        {isLocked ? (
+          <select
+            value={selectedName}
+            onChange={e => setSelectedName(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold text-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-orange-500 max-w-[110px]"
+          >
+            {PLAYERS.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+          </select>
+        ) : (
+          <span className="text-xs font-semibold text-white truncate max-w-[110px]">{profile?.username}</span>
+        )}
+        <span className="text-slate-700">·</span>
+        <span className="text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+          #{player.rank}
+        </span>
+        <span className="text-[10px] text-slate-500">of {PLAYERS.length}</span>
+        <span className="text-slate-700">·</span>
+        <span className="text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
+          {player.points.toLocaleString()}
+        </span>
+        <span className="text-[10px] text-slate-500">pts</span>
+        <span className="text-slate-700">·</span>
+        <span className={`text-sm font-bold tabular-nums ${winProbColor}`} style={{ fontFamily: "Space Mono, monospace" }}>
+          {player.winProb}%
+        </span>
+        <DeltaArrow delta={player.winProbDelta} />
+      </div>
+    )}
+
+    <div className="max-w-7xl mx-auto px-4 py-2 sm:py-6 space-y-2 sm:space-y-4">
+
+      {/* ── Pool Header — desktop only ──────────────────────────────────────── */}
+      <div className="hidden sm:flex bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-3 items-center gap-4 flex-wrap">
         <div className="min-w-0 hidden sm:block">
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-bold text-white truncate">{pool?.name ?? "Pool"}</h2>
@@ -875,7 +912,7 @@ export default function Dashboard() {
             </p>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-3 shrink-0 flex-wrap">
+        <div className="sm:ml-auto flex items-center gap-3 shrink-0 flex-wrap">
           {isLocked ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 hidden sm:inline">Viewing:</span>
@@ -911,8 +948,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── 1. Stat Bar ──────────────────────────────────────────────────────── */}
-      <StatBar player={player} poolSize={PLAYERS.length} bestPath={bestPath} />
+      {/* ── 1. Stat Bar — desktop only (mobile uses sticky hero bar above) ──── */}
+      <div className="hidden sm:block">
+        <StatBar player={player} poolSize={PLAYERS.length} bestPath={bestPath} />
+      </div>
 
       {/* ── 2. Live Feed / Narrative ────────────────────────────────────────── */}
       {feedEntries.length > 0 || feedLoading ? (
@@ -984,5 +1023,6 @@ export default function Dashboard() {
       )}
 
     </div>
+    </>
   );
 }

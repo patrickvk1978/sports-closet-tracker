@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 
 const NAV_LINKS = [
-  { to: "/",        label: "Dashboard" },
+  { to: "/",        label: "Dashboard", mobileHidden: true },
   { to: "/matrix",  label: "Picks"     },
 ];
 
@@ -180,8 +180,8 @@ export default function NavBar() {
     <div className="border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-sm sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center gap-3">
 
-        {/* Brand */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Brand — links to dashboard on mobile (replaces Dashboard tab) */}
+        <NavLink to="/" className="flex items-center gap-2.5 shrink-0">
           <div
             className="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center font-bold text-white text-xs shrink-0"
             style={{ fontFamily: "Space Mono, monospace" }}
@@ -191,7 +191,7 @@ export default function NavBar() {
           <span className="text-sm font-bold tracking-tight text-white hidden md:block leading-none">
             Sports Closet
           </span>
-        </div>
+        </NavLink>
 
         {/* Divider */}
         <div className="w-px h-5 bg-slate-700/80 shrink-0" />
@@ -210,13 +210,13 @@ export default function NavBar() {
         {/* Page nav tabs — scrollable on mobile so overflow doesn't scroll the page */}
         <nav className="overflow-x-auto scrollbar-none flex-1 min-w-0">
         <div className="flex items-center gap-1 bg-slate-800/50 rounded-xl p-1 w-max">
-          {NAV_LINKS.map(({ to, label }) => (
+          {NAV_LINKS.map(({ to, label, mobileHidden }) => (
             <NavLink
               key={to}
               to={to}
               end={to === "/"}
               className={({ isActive }) =>
-                `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                `${mobileHidden ? "hidden sm:flex " : ""}px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   isActive
                     ? "bg-slate-700 text-white shadow"
                     : "text-slate-400 hover:text-white"
@@ -279,12 +279,12 @@ export default function NavBar() {
         {/* Auth widget — pushed to right */}
         {profile && (
           <div className="ml-auto flex items-center gap-2 shrink-0">
-            {/* Admin link — app-level, lives near account controls */}
+            {/* Admin link — hidden on mobile */}
             {profile.is_admin && (
               <NavLink
                 to="/admin"
                 className={({ isActive }) =>
-                  `px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+                  `hidden sm:block px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
                     isActive
                       ? "bg-cyan-600/30 text-cyan-300"
                       : "text-cyan-500/60 hover:text-cyan-400"
@@ -297,11 +297,17 @@ export default function NavBar() {
             <span className="text-xs text-slate-400 hidden sm:block max-w-[96px] truncate">
               {profile.username}
             </span>
+            {/* Sign out: icon-only on mobile, text on desktop */}
             <button
               onClick={signOut}
-              className="text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-all"
+              className="flex items-center gap-1 text-[11px] px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-all"
+              title="Sign out"
             >
-              Sign out
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z" clipRule="evenodd" />
+                <path fillRule="evenodd" d="M19 10a.75.75 0 00-.75-.75H8.704l1.048-1.04a.75.75 0 10-1.056-1.064l-2.5 2.5a.75.75 0 000 1.064l2.5 2.5a.75.75 0 101.056-1.064L8.704 10.75H18.25A.75.75 0 0019 10z" clipRule="evenodd" />
+              </svg>
+              <span className="hidden sm:inline">Sign out</span>
             </button>
           </div>
         )}
