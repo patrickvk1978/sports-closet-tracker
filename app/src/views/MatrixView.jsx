@@ -120,7 +120,7 @@ export default function MatrixView() {
 
       {/* ── Filter / sort bar (not sticky — it's always at top of this flex column) ── */}
       <div className="shrink-0 bg-slate-950 border-b border-slate-800/60 px-4 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none">
-        <span className="text-[11px] text-slate-500 font-medium mr-1 whitespace-nowrap" style={{ fontFamily: "Space Mono, monospace" }}>
+        <span className="text-[11px] text-slate-500 font-medium mr-1 whitespace-nowrap hidden sm:inline" style={{ fontFamily: "Space Mono, monospace" }}>
           {PLAYERS.length} players
         </span>
         {[...(hasLiveGames ? ['Live'] : []), 'All', ...visibleRounds].map((r) => (
