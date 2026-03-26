@@ -36,6 +36,14 @@ export function useNarrativeFeed(poolId, { limit = 50 } = {}) {
           setEntries((prev) => [payload.new, ...prev].slice(0, limit))
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'narrative_feed' },
+        () => {
+          // Overnight clear — refetch to get clean state
+          fetchEntries()
+        }
+      )
       .subscribe()
 
     return () => supabase.removeChannel(channel)
