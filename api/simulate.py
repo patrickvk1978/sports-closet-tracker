@@ -239,8 +239,8 @@ def simulate_tournament(games_by_slot, team_seeds, bpi_ratings, forced_outcomes=
         game    = games_by_slot.get(slot)
         feeders = BRACKET_TREE[slot]
 
-        # Game already decided
-        if game and game.get('status') == 'final' and game.get('winner'):
+        # Game already decided (status 'final' OR winner already set)
+        if game and game.get('winner'):
             memo[slot] = game['winner']
             return memo[slot]
 
@@ -285,8 +285,8 @@ def score_additional(picks, sim_outcomes, games_by_slot, round_points=None):
     for slot, winner in sim_outcomes.items():
         if not winner:
             continue
-        if (games_by_slot.get(slot) or {}).get('status') == 'final':
-            continue
+        if (games_by_slot.get(slot) or {}).get('winner'):
+            continue  # already decided — points counted in current_points
         pick = picks[slot] if slot < len(picks) else None
         if pick and pick == winner:
             total += rp.get(SLOT_ROUND.get(slot, 'R64'), 0)
@@ -356,7 +356,7 @@ def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners):
 
     pending_slots = sorted([
         slot for slot, game in games_by_slot.items()
-        if (game or {}).get('status') in ('pending', 'live')
+        if not (game or {}).get('winner')  # undecided games
     ])
 
     for slot in pending_slots:
@@ -491,7 +491,7 @@ def derive_best_paths(players, games_by_slot, all_outcomes, player_probs):
             if winner and winner != pick:
                 continue  # already eliminated
 
-            if (game or {}).get('status') == 'final':
+            if (game or {}).get('winner'):
                 continue  # already resolved
 
             btype = 'critical' if slot == 62 else 'important' if slot in (60, 61) else 'helpful'
@@ -577,10 +577,10 @@ def load_pool_data(client, pool_id):
         picks    = bracket.get('picks') or []
         picks    = (picks + [None] * 63)[:63] if isinstance(picks, list) else [None] * 63
 
-        # Calculate current points from final games
+        # Calculate current points from decided games (status 'final' OR winner set)
         points = 0
         for slot, game in games_by_slot.items():
-            if (game.get('status') == 'final' and game.get('winner')
+            if (game.get('winner')
                     and slot < len(picks) and picks[slot] == game['winner']):
                 points += round_points.get(SLOT_ROUND.get(slot, ''), 0)
 
@@ -645,7 +645,7 @@ def build_tournament_context(games_by_slot):
     all_finals       = []
     for slot in sorted(games_by_slot.keys()):
         g = games_by_slot[slot]
-        if g.get('status') != 'final' or not g.get('winner'):
+        if not g.get('winner'):
             continue
         teams  = g.get('teams') or {}
         t1, t2 = teams.get('team1', ''), teams.get('team2', '')
@@ -767,7 +767,7 @@ def build_enriched_player_stats(players, games_by_slot, player_probs, prev_probs
     # Eliminated teams
     eliminated = set()
     for g in games_by_slot.values():
-        if g.get('status') == 'final' and g.get('winner'):
+        if g.get('winner'):
             teams = g.get('teams') or {}
             loser = teams.get('team2') if g['winner'] == teams.get('team1') else teams.get('team1')
             if loser:
@@ -826,7 +826,7 @@ def build_enriched_player_stats(players, games_by_slot, player_probs, prev_probs
                 continue
             rnd = SLOT_ROUND.get(slot, 'R64')
             game = games_by_slot.get(slot)
-            if game and game.get('status') == 'final':
+            if game and game.get('winner'):
                 if game.get('winner') == pick:
                     correct_by_round[rnd] = correct_by_round.get(rnd, 0) + 1
                 else:
@@ -840,7 +840,7 @@ def build_enriched_player_stats(players, games_by_slot, player_probs, prev_probs
             if not pick or pick in eliminated:
                 continue
             game = games_by_slot.get(slot)
-            if game and game.get('status') != 'final' and not game.get('winner'):
+            if game and not game.get('winner'):
                 ppr += rp.get(SLOT_ROUND.get(slot, 'R64'), 0)
 
         # Region health: alive picks in S16+ slots per region
@@ -1404,9 +1404,9 @@ def main():
         print('ERROR: No brackets found for this pool.', file=sys.stderr)
         sys.exit(1)
 
-    n_final = sum(1 for g in games_by_slot.values() if g.get('status') == 'final')
-    n_live  = sum(1 for g in games_by_slot.values() if g.get('status') == 'live')
-    n_pend  = sum(1 for g in games_by_slot.values() if g.get('status') == 'pending')
+    n_final = sum(1 for g in games_by_slot.values() if g.get('winner'))
+    n_live  = sum(1 for g in games_by_slot.values() if g.get('status') == 'live' and not g.get('winner'))
+    n_pend  = sum(1 for g in games_by_slot.values() if not g.get('winner') and g.get('status') != 'live')
     n_rated = sum(1 for p in players
                   if any(bpi_ratings.get(t) is not None
                          for t in (p['picks'] or []) if t))
