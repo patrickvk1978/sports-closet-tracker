@@ -591,7 +591,7 @@ def load_pool_data(client, pool_id):
             'current_points': points,
         })
 
-    return players, games_by_slot, team_seeds, round_points
+    return players, games_by_slot, team_seeds, round_points, pool_start_round
 
 
 def load_prev_sim_data(client, pool_id):
@@ -1423,7 +1423,7 @@ def main():
     bpi_ratings = load_ratings()
 
     print(f'Loading pool data for pool {args.pool_id}…')
-    players, games_by_slot, team_seeds, pool_round_points = load_pool_data(client, args.pool_id)
+    players, games_by_slot, team_seeds, pool_round_points, pool_start_round = load_pool_data(client, args.pool_id)
 
     if not players:
         print('ERROR: No brackets found for this pool.', file=sys.stderr)
