@@ -704,7 +704,7 @@ def build_tournament_context(games_by_slot):
         if is_today:
             today_upcoming.append(f"{t1} vs {t2}" + (f" ({game_time})" if game_time else ''))
 
-    # Collect live games with scores and clock
+    # Collect live games with enriched ESPN context
     live_games = []
     for slot in sorted(games_by_slot.keys()):
         g = games_by_slot[slot]
@@ -713,8 +713,25 @@ def build_tournament_context(games_by_slot):
         teams = g.get('teams') or {}
         t1, t2 = teams.get('team1', 'TBD'), teams.get('team2', 'TBD')
         s1, s2 = teams.get('score1', 0), teams.get('score2', 0)
+        seed1, seed2 = teams.get('seed1'), teams.get('seed2')
         note = teams.get('gameNote', '')
-        live_games.append(f"{t1} {s1} - {t2} {s2} ({note})")
+        rnd = SLOT_ROUND.get(slot, '')
+
+        # ESPN win probability (stored as home/team2 probability)
+        wp_home = g.get('win_prob_home')
+        wp_note = ''
+        if wp_home is not None:
+            wp_t1 = round((1.0 - wp_home) * 100)
+            wp_t2 = round(wp_home * 100)
+            wp_note = f", ESPN win prob: {t1} {wp_t1}% / {t2} {wp_t2}%"
+
+        seed_note = ''
+        if seed1 and seed2:
+            seed_note = f" [#{seed1} vs #{seed2}]"
+
+        line = (f"{t1} {s1} - {t2} {s2} ({note}){seed_note}"
+                f" | {ROUND_DISPLAY.get(rnd, rnd)}{wp_note}")
+        live_games.append(line)
 
     return {
         'day_number':       day_number,
@@ -729,43 +746,226 @@ def build_tournament_context(games_by_slot):
     }
 
 
-def generate_narratives(player_probs, prev_probs, best_paths, players,
-                        games_by_slot, leverage_games=None,
-                        model='claude-haiku-4-5-20251001',
-                        prev_narratives=None,
-                        narrative_type='game_end',
-                        just_finished='',
-                        prev_narrative_day=0):
+def build_enriched_player_stats(players, games_by_slot, player_probs, prev_probs,
+                                 leverage_games, outcome_deltas, round_points=None):
     """
-    Generate per-player narratives and a pool-wide summary, keyed as "_pool".
+    Build enriched per-player stats for narrative prompts.
 
-    Two prompt variants:
-      - overnight: 60-word day-ahead summaries (morning newsletter, runs at 3 AM ET)
-      - game_end: 40-word quick reactions to just-finished games
+    Returns { player_name: { ...stats } } with:
+      - rank, points, ppr, win_prob, win_prob_delta, trajectory
+      - picks_correct / picks_eliminated / picks_alive by round
+      - region_health: per-region count of alive picks in S16+
+      - unique_picks: picks no other player shares (differentiators)
+      - shared_picks: picks that N other players also have (crowded)
+      - top_outcome_deltas: best upside + biggest threat from dependency data
+      - personal_leverage: top 3 games by personal swing
+      - max_remaining_upside: theoretical max future points
+      - champ_pick, champ_alive
+    """
+    rp = round_points or ROUND_POINTS
 
-    Day-opener detection uses stored narrative_day metadata instead of parsing LLM text.
-    Gracefully returns {} if anthropic is not installed or API key is missing.
+    # Eliminated teams
+    eliminated = set()
+    for g in games_by_slot.values():
+        if g.get('status') == 'final' and g.get('winner'):
+            teams = g.get('teams') or {}
+            loser = teams.get('team2') if g['winner'] == teams.get('team1') else teams.get('team1')
+            if loser:
+                eliminated.add(loser)
+
+    # Rank by points (standard competition: 1,1,3)
+    sorted_by_pts = sorted(players, key=lambda p: -p['current_points'])
+    rank_map = {}
+    for i, p in enumerate(sorted_by_pts):
+        if i == 0 or p['current_points'] < sorted_by_pts[i - 1]['current_points']:
+            rank_map[p['username']] = i + 1
+        else:
+            rank_map[p['username']] = rank_map[sorted_by_pts[i - 1]['username']]
+
+    pool_size = len(players)
+
+    # Count pick frequency across all players (for unique/shared detection)
+    pick_freq = {}  # { (slot, team): count }
+    for p in players:
+        for slot, pick in enumerate(p['picks']):
+            if pick:
+                pick_freq[(slot, pick)] = pick_freq.get((slot, pick), 0) + 1
+
+    # Build outcome delta lookup
+    delta_lookup = {}  # { (team, outcome): { player: delta } }
+    for entry in (outcome_deltas or []):
+        delta_lookup[(entry['team'], entry['outcome'])] = entry.get('deltas', {})
+
+    # Leverage lookup for per-player top games
+    lev_by_player = {}
+    for g in (leverage_games or []):
+        for pi in g.get('playerImpacts', []):
+            lev_by_player.setdefault(pi['player'], []).append({
+                'matchup': f"{g['team1']} vs {g['team2']}",
+                'round': g.get('round', ''),
+                'swing': pi['swing'],
+                'root_for': pi['rootFor'],
+                'status': g.get('status', 'pending'),
+                'game_note': g.get('gameNote', ''),
+            })
+
+    REGION_NAMES = {0: 'Midwest', 15: 'West', 30: 'South', 45: 'East'}
+
+    stats = {}
+    for player in players:
+        name  = player['username']
+        picks = player['picks']
+        pts   = player['current_points']
+
+        # Per-round pick breakdown
+        correct_by_round = {}
+        eliminated_by_round = {}
+        alive_by_round = {}
+        for slot, pick in enumerate(picks):
+            if not pick:
+                continue
+            rnd = SLOT_ROUND.get(slot, 'R64')
+            game = games_by_slot.get(slot)
+            if game and game.get('status') == 'final':
+                if game.get('winner') == pick:
+                    correct_by_round[rnd] = correct_by_round.get(rnd, 0) + 1
+                else:
+                    eliminated_by_round[rnd] = eliminated_by_round.get(rnd, 0) + 1
+            elif pick not in eliminated:
+                alive_by_round[rnd] = alive_by_round.get(rnd, 0) + 1
+
+        # PPR: max future points still achievable
+        ppr = 0
+        for slot, pick in enumerate(picks):
+            if not pick or pick in eliminated:
+                continue
+            game = games_by_slot.get(slot)
+            if game and game.get('status') != 'final' and not game.get('winner'):
+                ppr += rp.get(SLOT_ROUND.get(slot, 'R64'), 0)
+
+        # Region health: alive picks in S16+ slots per region
+        region_health = {}
+        for base, rname in REGION_NAMES.items():
+            alive = 0
+            for offset in (12, 13, 14):  # S16 (2) + E8 (1) slots
+                slot = base + offset
+                pick = picks[slot] if slot < len(picks) else None
+                if pick and pick not in eliminated:
+                    alive += 1
+            region_health[rname] = alive
+
+        # Unique picks (only this player has it) — focus on S16+ rounds
+        unique = []
+        shared = []
+        for slot, pick in enumerate(picks):
+            if not pick or pick in eliminated:
+                continue
+            rnd = SLOT_ROUND.get(slot, 'R64')
+            if rnd in ('R64', 'R32'):
+                continue  # too many R64/R32 picks to list
+            freq = pick_freq.get((slot, pick), 0)
+            if freq == 1:
+                unique.append(f"{pick} ({rnd})")
+            elif freq >= pool_size * 0.6:
+                shared.append(f"{pick} ({rnd}, {freq}/{pool_size} share)")
+
+        # Top outcome deltas (biggest upside + biggest threat)
+        best_upside = {'delta': 0, 'label': ''}
+        worst_threat = {'delta': 0, 'label': ''}
+        for (team, outcome), deltas in delta_lookup.items():
+            d = deltas.get(name, 0)
+            outcome_label = f"{team} {'Final Four' if outcome == 'F4' else 'Title'}"
+            if d > best_upside['delta']:
+                best_upside = {'delta': d, 'label': outcome_label}
+            if d < worst_threat['delta']:
+                worst_threat = {'delta': d, 'label': outcome_label}
+
+        # Personal top leverage games
+        plev = sorted(lev_by_player.get(name, []), key=lambda x: -x['swing'])[:3]
+
+        # Win prob + trajectory
+        wp = round((player_probs.get(name, 0)) * 100, 1)
+        prev_wp = round((prev_probs.get(name, 0)) * 100, 1)
+        wp_delta = round(wp - prev_wp, 1)
+        if wp_delta > 2:
+            trajectory = 'rising'
+        elif wp_delta < -2:
+            trajectory = 'falling'
+        else:
+            trajectory = 'stable'
+
+        # Champion pick
+        champ_pick = picks[62] if len(picks) > 62 else None
+        champ_alive = champ_pick is not None and champ_pick not in eliminated
+
+        stats[name] = {
+            'rank': rank_map.get(name, '?'),
+            'points': pts,
+            'ppr': ppr,
+            'win_prob': wp,
+            'win_prob_delta': wp_delta,
+            'trajectory': trajectory,
+            'correct_by_round': correct_by_round,
+            'eliminated_by_round': eliminated_by_round,
+            'alive_by_round': alive_by_round,
+            'region_health': region_health,
+            'unique_picks': unique[:5],
+            'shared_picks': shared[:3],
+            'best_upside': best_upside,
+            'worst_threat': worst_threat,
+            'personal_leverage': plev,
+            'max_remaining_upside': ppr,
+            'champ_pick': champ_pick,
+            'champ_alive': champ_alive,
+        }
+
+    return stats
+
+
+# ─── Narrative feed generation ────────────────────────────────────────────────
+
+def generate_feed_entries(player_probs, prev_probs, best_paths, players,
+                          games_by_slot, leverage_games=None,
+                          model='claude-haiku-4-5-20251001',
+                          narrative_type='game_end',
+                          just_finished='',
+                          enriched_stats=None,
+                          outcome_deltas=None,
+                          round_points=None):
+    """
+    Generate narrative feed entries for the live broadcast booth system.
+
+    Three personas:
+      - stat_nerd (📊): data-driven analysis, leverages enriched stats
+      - color_commentator (🎙️): live play-by-play energy, game reactions
+      - barkley (🔥): Charles Barkley energy — funny, blunt, hot takes
+
+    Persona assignments by entry type:
+      - overnight: stat_nerd + barkley (morning briefing)
+      - deep_dive: stat_nerd + barkley alternating (studio show during live games)
+      - game_end: color_commentator (immediate reactions)
+      - alert: color_commentator (breaking news)
+
+    Returns list of dicts ready to insert into narrative_feed table:
+      [{ player_name, entry_type, persona, content, leverage_pct }, ...]
+
+    Also returns legacy narratives dict for backward compatibility with sim_results.
     """
     api_key = os.environ.get('ANTHROPIC_API_KEY', '')
     if not api_key:
         print('  Skipping narratives (no ANTHROPIC_API_KEY)')
-        return {}
+        return [], {}
 
     try:
         import anthropic
     except ImportError:
         print('  Skipping narratives (anthropic package not installed)')
-        return {}
+        return [], {}
 
-    pool_size  = len(players)
-    points_map = {p['username']: p['current_points'] for p in players}
-    rank_map   = {
-        p['username']: i + 1
-        for i, p in enumerate(sorted(players, key=lambda x: -x['current_points']))
-    }
-
-    # Tournament context
+    pool_size = len(players)
     ctx = build_tournament_context(games_by_slot)
+
+    # ── Tournament context ────────────────────────────────────────────────────
 
     upset_lines     = '\n'.join(f"  - {u['result']} ({u['round']})" for u in ctx['upsets']) \
                       or '  None yet'
@@ -776,27 +976,57 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
     live_lines      = '\n'.join(f"  - {g}" for g in ctx.get('live_games', [])) \
                       or '  No games live right now'
 
-    # Per-player context block (sorted by points rank, not win prob, so LLM sees correct order)
-    player_lines = []
-    for name, prob in sorted(player_probs.items(), key=lambda x: rank_map.get(x[0], 99)):
-        pct      = round(prob * 100, 1)
-        prev_pct = round(prev_probs.get(name, 0) * 100, 1)
-        delta    = round(pct - prev_pct, 1)
-        delta_str = f"+{delta}" if delta > 0 else str(delta)
-        rank     = rank_map.get(name, '?')
-        points   = points_map.get(name, 0)
+    # ── Enriched per-player stat blocks ───────────────────────────────────────
+
+    enriched = enriched_stats or {}
+    player_stat_blocks = []
+    for name in sorted(enriched.keys(), key=lambda n: enriched[n].get('rank', 99)):
+        s = enriched[name]
+        correct_str = ', '.join(f"{r}:{s['correct_by_round'].get(r, 0)}"
+                                for r in ('R64','R32','S16','E8','F4','Champ')
+                                if s['correct_by_round'].get(r, 0) > 0)
+        elim_str = ', '.join(f"{r}:{s['eliminated_by_round'].get(r, 0)}"
+                             for r in ('R64','R32','S16','E8','F4','Champ')
+                             if s['eliminated_by_round'].get(r, 0) > 0)
+        alive_str = ', '.join(f"{r}:{s['alive_by_round'].get(r, 0)}"
+                              for r in ('R64','R32','S16','E8','F4','Champ')
+                              if s['alive_by_round'].get(r, 0) > 0)
+        region_str = ', '.join(f"{r}:{c}" for r, c in s['region_health'].items() if c > 0)
+        unique_str = '; '.join(s['unique_picks'][:3]) if s['unique_picks'] else 'none'
+        lev_str = ' | '.join(
+            f"{g['matchup']} (±{g['swing']}%, root for {g['root_for']})"
+            for g in s['personal_leverage']
+        ) or 'none'
+
+        upside = s['best_upside']
+        threat = s['worst_threat']
+        upside_str = f"{upside['label']} (+{round(upside['delta']*100,1)}%)" if upside['delta'] else 'none'
+        threat_str = f"{threat['label']} ({round(threat['delta']*100,1)}%)" if threat['delta'] else 'none'
 
         path_bullets = best_paths.get(name, best_paths.get('_default', []))
-        path_text    = '; '.join(b['text'] for b in path_bullets[:2]) if path_bullets else 'N/A'
+        path_text = '; '.join(b['text'] for b in path_bullets[:3]) if path_bullets else 'N/A'
 
-        player_lines.append(
-            f"- {name}: rank {rank}/{pool_size}, {points} pts, "
-            f"{pct}% win prob (delta {delta_str}%), needs: {path_text}"
+        block = (
+            f"- {name}:\n"
+            f"    Rank: {s['rank']}/{pool_size} | Points: {s['points']} | "
+            f"PPR (points possible remaining): {s['ppr']} | "
+            f"Win%: {s['win_prob']}% (delta {'+' if s['win_prob_delta'] > 0 else ''}{s['win_prob_delta']}%) | "
+            f"Trajectory: {s['trajectory']}\n"
+            f"    Picks correct: {correct_str or 'none'} | Eliminated: {elim_str or 'none'} | "
+            f"Still alive: {alive_str or 'none'}\n"
+            f"    Region health (S16+ alive): {region_str or 'all regions dead'}\n"
+            f"    Unique picks (only this player): {unique_str}\n"
+            f"    Champ pick: {s['champ_pick'] or 'none'} ({'alive' if s['champ_alive'] else 'ELIMINATED'})\n"
+            f"    Best upside: {upside_str} | Biggest threat: {threat_str}\n"
+            f"    Key leverage: {lev_str}\n"
+            f"    Needs: {path_text}"
         )
+        player_stat_blocks.append(block)
 
-    player_block = '\n'.join(player_lines)
+    player_block = '\n'.join(player_stat_blocks)
 
-    # Top leverage games for pool context
+    # ── Leverage games ────────────────────────────────────────────────────────
+
     top_leverage = (leverage_games or [])[:5]
     leverage_parts = []
     for g in top_leverage:
@@ -811,105 +1041,238 @@ def generate_narratives(player_probs, prev_probs, best_paths, players,
         leverage_parts.append(header + ('\n' + '\n'.join(impact_strs) if impact_strs else ''))
     leverage_lines = '\n'.join(leverage_parts) or '  None calculated yet'
 
-    # Previous narratives for "vary the angle" instruction
-    prev_player_parts = []
-    for name in sorted(player_probs.keys()):
-        prev_text = (prev_narratives or {}).get(name, '')
-        if prev_text:
-            prev_player_parts.append(f"  {name}: \"{prev_text}\"")
-    prev_player_note = (
-        "\nPrevious player narratives (vary the angle — don't repeat):\n"
-        + '\n'.join(prev_player_parts) + '\n'
-    ) if prev_player_parts else ''
+    # ── Shared context header ─────────────────────────────────────────────────
 
-    prev_pool = (prev_narratives or {}).get('_pool', '')
-    prev_pool_note = (
-        f"\nPrevious pool update (DO NOT repeat — build on what changed):\n  \"{prev_pool}\"\n"
-    ) if prev_pool else ''
+    context_block = f"""You are the voice of a March Madness bracket pool live feed — a broadcast booth
+with THREE personas who take turns. The feed is personalized: each player entry is
+written in SECOND PERSON ("your bracket", "you need", "your champion"), as if
+talking directly to that player.
 
-    # Shared tournament context header
-    context_block = f"""You are writing content for a March Madness bracket pool dashboard.
+THE THREE PERSONAS:
+- stat_nerd (📊): Sharp, data-driven analyst. Cites exact numbers — win%, PPR, leverage swings,
+  conditional probabilities. Concise and clinical. Think Nate Silver at a bar.
+- color_commentator (🎙️): Live play-by-play energy. Urgency, immediacy, reacting to what just
+  happened. Clear and punchy. Think professional broadcast booth.
+- barkley (🔥): Charles Barkley energy — funny, blunt, tough but fair. Hot takes, trash talk,
+  tells it like it is. "That bracket is turrible." Roasts struggling brackets, hypes underdogs,
+  makes bold predictions. Entertaining but never mean-spirited.
+
+CRITICAL TERMINOLOGY:
+- "Score" / "Points" = current ranking points earned from correct picks. This determines rank/standings.
+- "PPR" (Points Possible Remaining) = maximum future points still earnable. High PPR = upside potential.
+- "Win %" / "Win probability" = simulated chance of winning the entire pool. NOT used for current ranking.
+  A player can be 3rd in points but 1st in win% if their remaining picks are strong.
+- NEVER confuse these. When saying "1st place" always mean points rank. When saying "best odds" mean win%.
 
 Tournament context:
-- Today: Day {ctx['day_number']} of the tournament | Current round: {ctx['current_round']}
-- Games completed total: {ctx['n_final']} | Today's games remaining: {ctx['n_today_upcoming']}
-- Notable upsets so far:
+- Today: Day {ctx['day_number']} | Current round: {ctx['current_round']}
+- Games completed: {ctx['n_final']} | Today remaining: {ctx['n_today_upcoming']}
+- Notable upsets:
 {upset_lines}
 - Yesterday's results:
 {yesterday_lines}
-- Today's upcoming games:
+- Today's upcoming:
 {today_lines}
-- Live games right now:
+- Live right now:
 {live_lines}
 
-Pool ({pool_size} players) standings (sorted by points rank):
-IMPORTANT: "rank" is determined by current points scored. "win prob" is the
-simulated chance of winning the pool overall — these are DIFFERENT. A player
-can be 3rd in points but have the highest win probability if their remaining
-picks are strong. Always reference rank by points when saying "1st place" etc.
+Pool ({pool_size} entries) — enriched player stats:
 {player_block}
 
-Today's highest-leverage games for this pool (games that most change who wins):
-{leverage_lines}
-{prev_player_note}{prev_pool_note}"""
+Highest-leverage games:
+{leverage_lines}"""
 
-    # ── Prompt variants ──────────────────────────────────────────────────────
+    # ── Prompt variants ───────────────────────────────────────────────────────
 
     if narrative_type == 'overnight':
-        tasks_block = f"""Tasks:
+        tasks_block = f"""Morning briefing. Two personas tag-team: stat_nerd sets the table, barkley adds flavor.
 
-1. For each player write ONE overnight update in second person (max 60 words).
-   Start with what happened yesterday that affected them — upsets, key wins/losses,
-   how their rank and win probability shifted. Then pivot to today: which upcoming
-   games matter most for their bracket and why. Tone: morning newsletter friend.
+Generate a JSON array. For EACH player, produce TWO entries (one stat_nerd, one barkley).
+Also produce TWO "_pool" entries (one stat_nerd, one barkley).
 
-2. Write one pool-wide overnight update (key: "_pool", max 60 words).
-   Lead with yesterday's biggest story — an upset, a chalk day, a lead change
-   in the standings. Then set up today: which games are the pool's highest-leverage
-   matchups and who has the most at stake. Tone: morning newsletter.
-   Example: "Yesterday's Duke upset flipped the standings — now danhudder needs Arizona tonight to stay alive."
+stat_nerd entries:
+- Max 60 words. Lead with yesterday's impact, then set up today.
+- Reference specific stats: rank change, PPR, win% movement, which picks got hurt.
+- Tone: sharp morning newsletter — concise, data-rich.
 
-Return valid JSON only: {{"playerName": "sentence", ..., "_pool": "pool summary"}}
-No markdown, no explanation — just the JSON object."""
+barkley entries:
+- Max 50 words. React to their situation with personality.
+- Hot takes, predictions, roasts for bad picks, hype for good ones.
+- Playful trash talk is encouraged. "That bracket is turrible" energy.
+- Keep it fun — tough but fair, never genuinely mean.
+
+Rules for both:
+- Second person ("Your bracket…", "You need…")
+- NEVER confuse score (ranking points) with win probability
+
+Return JSON array:
+[
+  {{"player_name": "playerName", "entry_type": "overnight", "persona": "stat_nerd", "content": "..."}},
+  {{"player_name": "playerName", "entry_type": "overnight", "persona": "barkley", "content": "..."}},
+  ...
+  {{"player_name": "_pool", "entry_type": "overnight", "persona": "stat_nerd", "content": "..."}},
+  {{"player_name": "_pool", "entry_type": "overnight", "persona": "barkley", "content": "..."}}
+]
+No markdown, no explanation — just the JSON array."""
+
+    elif narrative_type == 'deep_dive':
+        tasks_block = f"""Studio show deep-dive during live action. stat_nerd and barkley go back and forth.
+
+Generate a JSON array of 4-6 entries total (mix of pool-wide "_pool" and individual player entries).
+Pick the 2-3 players with the most at stake right now. Alternate personas.
+
+stat_nerd entries:
+- Cite specific numbers: win%, PPR, leverage swing, conditional probabilities
+- What do the live scores mean for the pool standings if they hold?
+- Reference ESPN win probabilities if available in the live game data
+
+barkley entries:
+- React to what's happening with personality and humor
+- Call out who should be sweating, who's getting lucky, who's bracket is falling apart
+- Bold predictions: "If this score holds, [player] is DONE"
+- Playful roasts and hype — keep the energy flowing
+
+Rules for both:
+- Max 50 words per entry
+- Second person for player entries
+- Focus on what's happening NOW in live games
+
+Return JSON array:
+[
+  {{"player_name": "_pool", "entry_type": "deep_dive", "persona": "barkley", "content": "..."}},
+  {{"player_name": "playerName", "entry_type": "deep_dive", "persona": "stat_nerd", "content": "..."}},
+  {{"player_name": "playerName", "entry_type": "deep_dive", "persona": "barkley", "content": "..."}},
+  ...
+]
+No markdown, no explanation — just the JSON array."""
+
+    elif narrative_type == 'alert':
+        # Alert entries are generated for specific high-leverage moments
+        tasks_block = f"""BREAKING: A high-leverage moment has been detected. color_commentator delivers the alerts.
+
+Generate a JSON array of 2-4 entries: one pool-wide alert + alerts for the 1-3 most affected players.
+
+Rules:
+- All entries use persona "color_commentator" — this is live breaking news
+- Max 35 words per entry
+- URGENT tone — this is a turning point, treat it like a breaking score alert
+- Cite the leverage swing percentage in the content
+- Include leverage_pct field with the numeric swing value
+- Second person for player entries
+
+Return JSON array:
+[
+  {{"player_name": "_pool", "entry_type": "alert", "persona": "color_commentator", "content": "...", "leverage_pct": 25.0}},
+  {{"player_name": "playerName", "entry_type": "alert", "persona": "color_commentator", "content": "...", "leverage_pct": 18.5}},
+  ...
+]
+No markdown, no explanation — just the JSON array."""
 
     else:  # game_end
         just_finished_line = f"\nGame(s) just finished: {just_finished}\n" if just_finished else ''
-        tasks_block = f"""{just_finished_line}Tasks:
+        tasks_block = f"""{just_finished_line}Game just ended. color_commentator delivers the immediate reactions.
 
-1. For each player write ONE quick reaction in second person (max 40 words).
-   React to the game(s) that just ended — did it help or hurt them?
-   Mention their updated win probability. If games are still live,
-   flag what's at stake next. Tone: live commentator sidebar.
+Generate a JSON array: for each player one entry + one "_pool" entry.
+All entries use persona "color_commentator" — this is live play-by-play reaction.
 
-2. Write one pool-wide update (key: "_pool", max 40 words).
-   Lead with the result(s). Name who in the pool benefited most and who
-   got hurt. If games are still live, mention what's at stake.
-   Tone: quick scoreboard pulse check.
+Rules:
+- Max 45 words per entry
+- Second person for player entries ("That result just boosted your win% to…")
+- React to the game(s) that just ended — did it help or hurt?
+- Reference specific stats where impactful: win% delta, points gained/lost
+- If games are still live, flag what's at stake next
+- Urgency and energy — this just happened, react to it
+- NEVER confuse score (ranking points) with win probability
 
-Return valid JSON only: {{"playerName": "sentence", ..., "_pool": "pool summary"}}
-No markdown, no explanation — just the JSON object."""
+Return JSON array:
+[
+  {{"player_name": "_pool", "entry_type": "game_end", "persona": "color_commentator", "content": "..."}},
+  {{"player_name": "playerName", "entry_type": "game_end", "persona": "color_commentator", "content": "..."}},
+  ...
+]
+No markdown, no explanation — just the JSON array."""
 
-    prompt = context_block + '\n' + tasks_block
+    prompt = context_block + '\n\n' + tasks_block
 
     try:
         client = anthropic.Anthropic(api_key=api_key)
         resp = client.messages.create(
             model=model,
-            max_tokens=2048,
+            max_tokens=4096,
             messages=[{'role': 'user', 'content': prompt}],
         )
         raw = resp.content[0].text.strip()
         # Strip markdown code fences if model ignores the instruction
         if raw.startswith('```'):
             raw = raw.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
-        narratives = json.loads(raw)
-        n_players  = len(narratives) - (1 if '_pool' in narratives else 0)
-        pool_ok    = '✓' if '_pool' in narratives else '✗'
-        print(f'  Generated {narrative_type} narratives for {n_players} player(s), pool summary {pool_ok}')
-        return narratives
+        entries = json.loads(raw)
+
+        if not isinstance(entries, list):
+            # Legacy format fallback: old-style {player: text} dict
+            entries = [
+                {'player_name': k, 'entry_type': narrative_type,
+                 'persona': 'stat_nerd', 'content': v}
+                for k, v in entries.items()
+            ]
+
+        n_player = sum(1 for e in entries if e.get('player_name') != '_pool')
+        n_pool   = sum(1 for e in entries if e.get('player_name') == '_pool')
+        print(f'  Generated {narrative_type} feed: {n_player} player + {n_pool} pool entries')
+
+        # Build legacy narratives dict for backward compat with sim_results
+        legacy = {}
+        for e in entries:
+            pn = e.get('player_name', '')
+            if pn and pn not in legacy:  # first entry per player wins for legacy
+                legacy[pn] = e.get('content', '')
+
+        return entries, legacy
+
     except Exception as e:
         print(f'  Narrative generation failed: {e}')
-        return {}
+        return [], {}
+
+
+def insert_feed_entries(client, pool_id, entries):
+    """Insert feed entries into the narrative_feed table."""
+    if not entries:
+        return
+    rows = []
+    for e in entries:
+        row = {
+            'pool_id':      pool_id,
+            'player_name':  e.get('player_name', '_pool'),
+            'entry_type':   e.get('entry_type', 'game_end'),
+            'persona':      e.get('persona', 'stat_nerd'),
+            'content':      e.get('content', ''),
+        }
+        if e.get('leverage_pct') is not None:
+            row['leverage_pct'] = e['leverage_pct']
+        rows.append(row)
+    try:
+        client.table('narrative_feed').insert(rows).execute()
+        print(f'  Inserted {len(rows)} feed entries into narrative_feed')
+    except Exception as err:
+        print(f'  Failed to insert feed entries: {err}')
+
+
+# ─── Legacy wrapper (backward compat for old poller calls) ────────────────────
+
+def generate_narratives(player_probs, prev_probs, best_paths, players,
+                        games_by_slot, leverage_games=None,
+                        model='claude-haiku-4-5-20251001',
+                        prev_narratives=None,
+                        narrative_type='game_end',
+                        just_finished='',
+                        prev_narrative_day=0):
+    """Legacy wrapper — calls new feed system and returns old-style dict."""
+    _, legacy = generate_feed_entries(
+        player_probs, prev_probs, best_paths, players,
+        games_by_slot, leverage_games=leverage_games,
+        model=model, narrative_type=narrative_type,
+        just_finished=just_finished,
+    )
+    return legacy or {}
 
 
 def calculate_outcome_deltas(players, all_outcomes, sim_winners, player_probs,
@@ -1009,7 +1372,7 @@ def main():
     parser.add_argument('--narrative-model', default='claude-haiku-4-5-20251001',
                         help='Claude model for narrative generation (e.g. claude-opus-4-6)')
     parser.add_argument('--narrative-type', default='game_end',
-                        choices=['overnight', 'game_end'],
+                        choices=['overnight', 'game_end', 'deep_dive', 'alert'],
                         help='Type of narrative to generate')
     parser.add_argument('--just-finished', default='',
                         help='Semicolon-separated list of just-finished game results')
@@ -1085,20 +1448,33 @@ def main():
 
     best_paths = derive_best_paths(players, games_by_slot, all_outcomes, player_probs)
 
+    # Build enriched stats for narrative prompts
+    enriched_stats = build_enriched_player_stats(
+        players, games_by_slot, player_probs, prev_probs,
+        leverage_games, outcome_deltas, pool_round_points,
+    )
+
     if args.no_narratives:
         print('\nSkipping narrative generation (--no-narratives); preserving existing.')
         narratives = existing_narratives
     else:
         print(f'\nGenerating AI narratives (model: {args.narrative_model}, type: {args.narrative_type})…')
-        narratives = generate_narratives(
+        feed_entries, narratives = generate_feed_entries(
             player_probs, prev_probs, best_paths, players, games_by_slot,
             leverage_games=leverage_games,
             model=args.narrative_model,
-            prev_narratives=existing_narratives,
             narrative_type=args.narrative_type,
             just_finished=args.just_finished,
-            prev_narrative_day=prev_narrative_day,
+            enriched_stats=enriched_stats,
+            outcome_deltas=outcome_deltas,
+            round_points=pool_round_points,
         )
+        # Insert into narrative_feed table (append-only)
+        if feed_entries and not args.dry_run:
+            insert_feed_entries(client, args.pool_id, feed_entries)
+        # Fall back to existing if generation failed
+        if not narratives:
+            narratives = existing_narratives
 
     current_day = (date.today() - TOURNAMENT_START_ET).days + 1
     upsert_sim_results(

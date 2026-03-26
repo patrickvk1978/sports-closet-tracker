@@ -189,7 +189,12 @@ ROUND_ORDER = ['R64', 'R32', 'S16', 'E8', 'F4', 'Champ']
 
 NARRATIVE_MODEL            = 'claude-opus-4-6'
 HOURLY_NARRATIVE_MODEL     = 'claude-opus-4-6'
+DEEP_DIVE_MODEL            = 'claude-sonnet-4-6'  # faster model for frequent deep dives
 SIM_INTERVAL_SECS          = 3600  # hourly odds refresh (no narrative)
+DEEP_DIVE_INTERVAL_SECS   = 720   # ~12 min between deep-dive commentaries during live games
+ALERT_SWING_THRESHOLD      = 5.0   # leverage% × |wp_now - wp_at_start| must exceed this
+ALERT_FLIP_MIN_LEVERAGE    = 10.0  # min leverage% for a favorite-flip alert
+ALERT_COOLDOWN_SECS        = 600   # min 10 min between alerts for the same game slot
 GAME_WINDOW_START_ET       = 12    # noon ET
 GAME_WINDOW_END_ET         = 24    # midnight ET
 OVERNIGHT_HOUR_ET          = 3     # 3 AM ET — overnight narrative trigger
@@ -243,16 +248,26 @@ def run_poller(pool_ids, client):
     # ── Sim scheduling state ──────────────────────────────────────────────────
     epoch = datetime.fromtimestamp(0, tz=timezone.utc)
     last_hourly_sim_time          = epoch  # tracks last hourly sim run
+    last_deep_dive_time           = epoch  # tracks last deep-dive narrative
     overnight_narrative_done_date = ''    # game-day date (YYYYMMDD) already covered
     locked_narrative_done         = set() # pool IDs that have had their lock-trigger narrative
 
+    # ── Alert state ──────────────────────────────────────────────────────────
+    wp_at_game_start = {}          # { slot_index: win_prob_home } when game first went live
+    wp_flipped = set()             # slot_indices where favorite already flipped (fire once)
+    alert_last_fired = {}          # { slot_index: datetime } cooldown tracker
+
     # ── Seed prev_final_set from DB so first cycle doesn't false-trigger ─────
-    resp = client.table('games').select('espn_id, status').execute()
+    resp = client.table('games').select('espn_id, status, slot_index, win_prob_home').execute()
     prev_final_set = {
         g['espn_id'] for g in (resp.data or [])
         if g.get('status') == 'final' and g.get('espn_id')
     }
-    print(f'Seeded {len(prev_final_set)} existing final game(s)')
+    # Seed wp_at_game_start for already-live games so first cycle doesn't false-trigger
+    for g in (resp.data or []):
+        if g.get('status') == 'live' and g.get('win_prob_home') is not None:
+            wp_at_game_start[g['slot_index']] = g['win_prob_home']
+    print(f'Seeded {len(prev_final_set)} existing final game(s), {len(wp_at_game_start)} live win probs')
 
     print(f'Poller started  pools={pool_ids}')
     print('Ctrl+C to stop\n')
@@ -274,7 +289,7 @@ def run_poller(pool_ids, client):
             events = [ev for d in dates for ev in fetch_espn_games(d)]
 
             # ── Load current DB state (refreshed every poll for new R32+ ESPN IDs) ─
-            resp     = client.table('games').select('slot_index, espn_id, status, teams').execute()
+            resp     = client.table('games').select('slot_index, espn_id, status, teams, win_prob_home').execute()
             db_games = {g['slot_index']: g for g in (resp.data or [])}
             espn_map = {g['espn_id']: g['slot_index']
                         for g in (resp.data or []) if g.get('espn_id')}
@@ -322,6 +337,100 @@ def run_poller(pool_ids, client):
             final_count = sum(1 for event in events
                               if (t := transform_event(event)) and t.get('status') == 'final')
             print(f'{updated_count} updated  {live_count} live  {final_count} final')
+
+            # ── Alert detection: leverage × cumulative wp swing ──────────────
+            #
+            # Two triggers (either fires):
+            #   1. Cumulative swing: leverage% × |wp_now - wp_at_start| > threshold
+            #   2. Favorite flip: wp crosses 50% in a game with leverage > min (once)
+            #
+            # Leverage data comes from last sim run (sim_results.leverage_games).
+            if live_count > 0:
+                # Load leverage per slot from sim_results (use first pool — leverage is pool-specific)
+                leverage_by_slot = {}
+                try:
+                    sr_resp = client.table('sim_results').select('leverage_games').eq('pool_id', pool_ids[0]).execute()
+                    for lg in ((sr_resp.data or [{}])[0].get('leverage_games') or []):
+                        leverage_by_slot[lg['id']] = lg.get('leverage', 0)
+                except Exception:
+                    pass
+
+                # Update wp_at_game_start for newly-live games; build current wp map
+                current_wps = {}
+                for event in events:
+                    t = transform_event(event)
+                    if not t or t.get('status') != 'live':
+                        continue
+                    slot = espn_map.get(t.get('espn_id'))
+                    if slot is None:
+                        continue
+                    wp = db_games.get(slot, {}).get('win_prob_home')
+                    if wp is None:
+                        continue
+                    current_wps[slot] = wp
+                    if slot not in wp_at_game_start:
+                        wp_at_game_start[slot] = wp  # first sighting — record opening line
+
+                now_utc = datetime.now(timezone.utc)
+                alert_slots = []
+
+                for slot, wp_now in current_wps.items():
+                    wp_start = wp_at_game_start.get(slot)
+                    if wp_start is None:
+                        continue
+                    lev = leverage_by_slot.get(slot, 0)
+                    if lev <= 0:
+                        continue
+
+                    # Cooldown check
+                    last_alert = alert_last_fired.get(slot)
+                    if last_alert and (now_utc - last_alert).total_seconds() < ALERT_COOLDOWN_SECS:
+                        continue
+
+                    fired = False
+
+                    # Trigger 1: cumulative swing
+                    swing = abs(wp_now - wp_start)
+                    alert_score = lev * swing
+                    if alert_score >= ALERT_SWING_THRESHOLD:
+                        teams = (db_games.get(slot, {}).get('teams') or {})
+                        t1 = teams.get('team1', 'TBD')
+                        t2 = teams.get('team2', 'TBD')
+                        print(f'  ⚡ ALERT (swing): slot {slot} {t1} vs {t2} '
+                              f'leverage={lev:.1f}% wp_shift={swing:.2f} score={alert_score:.1f}')
+                        alert_slots.append(slot)
+                        fired = True
+
+                    # Trigger 2: favorite flip (wp crosses 50%, first time only)
+                    if not fired and slot not in wp_flipped and lev >= ALERT_FLIP_MIN_LEVERAGE:
+                        started_above = wp_start >= 0.5
+                        now_above = wp_now >= 0.5
+                        if started_above != now_above:
+                            teams = (db_games.get(slot, {}).get('teams') or {})
+                            t1 = teams.get('team1', 'TBD')
+                            t2 = teams.get('team2', 'TBD')
+                            print(f'  ⚡ ALERT (flip): slot {slot} {t1} vs {t2} '
+                                  f'leverage={lev:.1f}% wp {wp_start:.2f}→{wp_now:.2f}')
+                            alert_slots.append(slot)
+                            wp_flipped.add(slot)
+                            fired = True
+
+                    if fired:
+                        alert_last_fired[slot] = now_utc
+
+                if alert_slots:
+                    print(f'  → Firing alert sim for {len(alert_slots)} game(s)…')
+                    run_sim(sim_script, pool_ids, (
+                        '--narrative-model', NARRATIVE_MODEL,
+                        '--narrative-type', 'alert',
+                    ))
+
+                # Clean up: remove start-wp for games no longer live
+                live_slots = set(current_wps.keys())
+                for slot in list(wp_at_game_start.keys()):
+                    if slot not in live_slots:
+                        del wp_at_game_start[slot]
+                        wp_flipped.discard(slot)
 
             # ── Game-completion sim: fire immediately when a game goes final ──
             current_final_set = {
@@ -384,6 +493,18 @@ def run_poller(pool_ids, client):
                              '--narrative-type', 'game_end'))
                     locked_narrative_done.update(newly_locked)
                     last_hourly_sim_time = datetime.now(timezone.utc)
+
+                # ── Deep-dive narrative: every ~12 min while games are live ──
+                elif live_count > 0:
+                    deep_elapsed = (datetime.now(timezone.utc) - last_deep_dive_time).total_seconds()
+                    if deep_elapsed >= DEEP_DIVE_INTERVAL_SECS:
+                        print(f'  → Deep-dive commentary (live games active)…')
+                        run_sim(sim_script, pool_ids, (
+                            '--narrative-model', DEEP_DIVE_MODEL,
+                            '--narrative-type', 'deep_dive',
+                        ))
+                        last_deep_dive_time = datetime.now(timezone.utc)
+                        last_hourly_sim_time = datetime.now(timezone.utc)
 
                 # ── Overnight narrative: 3–4 AM ET, attributed to the previous
                 #    calendar day so a 3 AM Friday run covers Thursday's games.

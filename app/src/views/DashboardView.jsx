@@ -3,7 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
+import { useNarrativeFeed } from "../hooks/useNarrativeFeed";
 import { supabase } from "../lib/supabase";
+import LiveFeed from "../components/LiveFeed";
 
 // ─── Pre-game gate ────────────────────────────────────────────────────────────
 const FIRST_TIPOFF = new Date("2026-03-19T12:15:00-04:00");
@@ -776,6 +778,7 @@ export default function Dashboard() {
   const { pool, members } = usePool();
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const { entries: feedEntries, loading: feedLoading } = useNarrativeFeed(pool?.id);
 
   const isLocked   = pool?.locked === true;
   const isAdmin    = profile?.is_admin === true;
@@ -907,12 +910,20 @@ export default function Dashboard() {
       {/* ── 1. Stat Bar ──────────────────────────────────────────────────────── */}
       <StatBar player={player} poolSize={PLAYERS.length} bestPath={bestPath} />
 
-      {/* ── 2. Narrative ─────────────────────────────────────────────────────── */}
-      <NarrativeCard
-        poolNarrative={poolNarrative}
-        playerNarrative={playerNarrative}
-        hasLiveGames={hasLiveGames}
-      />
+      {/* ── 2. Live Feed / Narrative ────────────────────────────────────────── */}
+      {feedEntries.length > 0 || feedLoading ? (
+        <LiveFeed
+          entries={feedEntries}
+          playerName={player.name}
+          loading={feedLoading}
+        />
+      ) : (
+        <NarrativeCard
+          poolNarrative={poolNarrative}
+          playerNarrative={playerNarrative}
+          hasLiveGames={hasLiveGames}
+        />
+      )}
 
       {/* ── 3. Score Grid ────────────────────────────────────────────────────── */}
       <ScoreGrid
