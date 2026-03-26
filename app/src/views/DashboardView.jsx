@@ -801,14 +801,18 @@ export default function Dashboard() {
     }
   }
 
-  // Default to current user
+  // Set default player once: current user if found, else first player.
+  // Intentionally excludes PLAYERS from deps — PLAYERS referential changes
+  // on every poll cycle and must not reset a user's manual selection.
   useEffect(() => {
+    if (selectedName) return;  // user already chose someone
     if (profile?.username && PLAYERS.find(p => p.name === profile.username)) {
       setSelectedName(profile.username);
-    } else if (PLAYERS.length > 0 && !selectedName) {
+    } else if (PLAYERS.length > 0) {
       setSelectedName(PLAYERS[0].name);
     }
-  }, [profile?.username, PLAYERS]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.username]);
 
   const player = useMemo(() => {
     const name = isLocked ? selectedName : (profile?.username ?? selectedName);
