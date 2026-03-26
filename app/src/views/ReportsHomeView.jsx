@@ -16,6 +16,12 @@ const REPORT_CARDS = [
     eyebrow: "Bracket showdown",
     description: "Compare two entries directly, see who is favored, and isolate the games that decide it.",
   },
+  {
+    to: "/reports/dependency",
+    title: "Dependency Heatmap",
+    eyebrow: "Outcome dependencies",
+    description: "See at a glance which team results help or hurt each player's pool-win chances across every remaining F4 and title contender.",
+  },
 ];
 
 function StatCard({ label, value, hint }) {

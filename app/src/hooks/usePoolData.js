@@ -309,6 +309,11 @@ export function usePoolData() {
   // 5. AI narratives: { playerName: "sentence" }
   const NARRATIVES = simResult?.narratives ?? {}
 
+  // 6. Outcome deltas for dependency heatmap
+  const OUTCOME_DELTAS = hasLivePool && simResult?.outcome_deltas?.length
+    ? simResult.outcome_deltas
+    : []
+
   return {
     PLAYERS:            PLAYERS_WITH_PROBS,
     GAMES:              hasLiveGames ? liveGames : MOCK_GAMES,
@@ -323,6 +328,7 @@ export function usePoolData() {
     PLAYER_LEVERAGE:    PLAYER_LEVERAGE_LIVE,
     LEVERAGE_THRESHOLD: MOCK_LEVERAGE_THRESHOLD,
     NARRATIVES,
+    OUTCOME_DELTAS,
     TEAM_ABBREV: teamAbbrevMap,
     simResult,
     userPicks,

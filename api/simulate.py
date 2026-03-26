@@ -912,9 +912,71 @@ No markdown, no explanation — just the JSON object."""
         return {}
 
 
+def calculate_outcome_deltas(players, all_outcomes, sim_winners, player_probs,
+                             min_bucket=50):
+    """
+    For each remaining team, compute per-player win-probability delta if that
+    team reaches F4 (slots 60 or 61) or wins the Championship (slot 62).
+
+    Delta = conditional_win_rate - baseline_win_rate.
+    Only included when the bucket has >= min_bucket simulations.
+
+    Returns a list of dicts:
+      [{"team": str, "outcome": "F4"|"Champ", "deltas": {player_name: float}}, ...]
+    """
+    n_sims = len(all_outcomes)
+    if n_sims == 0 or not players:
+        return []
+
+    player_names = [p['username'] for p in players]
+
+    # Collect all teams that appear in F4/Champ slots across sims
+    remaining_teams = set()
+    for sim in all_outcomes:
+        for slot in (60, 61, 62):
+            t = sim.get(slot)
+            if t:
+                remaining_teams.add(t)
+
+    # Build per-iteration winner sets for fast lookup
+    # sim_winner_sets[i] = set of player names who won iteration i (fractional share)
+    # We store fractional shares: {player: share} per iteration
+    iter_shares = []
+    for winners in sim_winners:
+        if winners:
+            share = 1.0 / len(winners)
+            iter_shares.append({w: share for w in winners})
+        else:
+            iter_shares.append({})
+
+    results = []
+
+    for team in sorted(remaining_teams):
+        for outcome_type, slots in (('F4', (60, 61)), ('Champ', (62,))):
+            # Bucket: iterations where team reached this outcome
+            bucket_indices = [
+                i for i, sim in enumerate(all_outcomes)
+                if any(sim.get(s) == team for s in slots)
+            ]
+            if len(bucket_indices) < min_bucket:
+                continue
+
+            n_bucket = len(bucket_indices)
+            deltas = {}
+            for name in player_names:
+                base = player_probs.get(name, 0.0)
+                cond = sum(iter_shares[i].get(name, 0.0) for i in bucket_indices) / n_bucket
+                deltas[name] = round(cond - base, 4)
+
+            results.append({'team': team, 'outcome': outcome_type, 'deltas': deltas})
+
+    return results
+
+
 def upsert_sim_results(client, pool_id, player_probs, leverage_games,
                        player_leverage, best_paths, prev_player_probs,
-                       narratives, iterations, dry_run, narrative_day=0):
+                       narratives, iterations, dry_run, narrative_day=0,
+                       outcome_deltas=None):
     payload = {
         'pool_id':             pool_id,
         'iterations':          iterations,
@@ -925,6 +987,7 @@ def upsert_sim_results(client, pool_id, player_probs, leverage_games,
         'prev_player_probs':   prev_player_probs,
         'narratives':          narratives,
         'narrative_day':       narrative_day,
+        'outcome_deltas':      outcome_deltas or [],
     }
     if dry_run:
         print('\n[DRY RUN] Would upsert to sim_results:')
@@ -1016,6 +1079,10 @@ def main():
     print(f'  {len(leverage_games)} game(s) with leverage data')
     print(f'  Per-player top games computed for {len(player_leverage)} player(s)')
 
+    print('\nCalculating outcome deltas (F4 / Championship dependency)…')
+    outcome_deltas = calculate_outcome_deltas(players, all_outcomes, sim_winners, player_probs)
+    print(f'  {len(outcome_deltas)} outcome columns computed')
+
     best_paths = derive_best_paths(players, games_by_slot, all_outcomes, player_probs)
 
     if args.no_narratives:
@@ -1038,7 +1105,7 @@ def main():
         client, args.pool_id, player_probs, leverage_games, player_leverage,
         best_paths, prev_player_probs=prev_probs, narratives=narratives,
         iterations=args.iterations, dry_run=args.dry_run,
-        narrative_day=current_day,
+        narrative_day=current_day, outcome_deltas=outcome_deltas,
     )
     print('\nDone.')
 
