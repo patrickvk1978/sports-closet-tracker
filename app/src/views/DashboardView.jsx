@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
@@ -1023,6 +1023,19 @@ export default function Dashboard() {
       )}
 
     </div>
+
+    {/* Admin backdoor — floating pill, mobile only, bottom-right */}
+    {profile?.is_admin && (
+      <NavLink
+        to="/admin"
+        className="sm:hidden fixed bottom-5 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/90 border border-slate-700/60 text-cyan-500/70 text-[11px] font-semibold shadow-lg backdrop-blur-sm"
+      >
+        <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M8.34 1.804A1 1 0 019.32 1h1.36a1 1 0 01.98.804l.295 1.473c.497.144.971.342 1.406.594l1.259-.751a1 1 0 011.23.153l.962.962a1 1 0 01.153 1.23l-.75 1.259c.251.435.45.909.594 1.406l1.473.295a1 1 0 01.804.98v1.361a1 1 0 01-.804.98l-1.473.295a6.95 6.95 0 01-.594 1.406l.75 1.259a1 1 0 01-.153 1.23l-.962.962a1 1 0 01-1.23.153l-1.259-.75a6.957 6.957 0 01-1.406.594l-.295 1.473a1 1 0 01-.98.804H9.32a1 1 0 01-.98-.804l-.295-1.473a6.957 6.957 0 01-1.406-.594l-1.259.75a1 1 0 01-1.23-.153l-.962-.962a1 1 0 01-.153-1.23l.75-1.259a6.95 6.95 0 01-.594-1.406L1.804 10.3A1 1 0 011 9.32V7.96a1 1 0 01.804-.98l1.473-.295a6.95 6.95 0 01.594-1.406l-.75-1.259a1 1 0 01.153-1.23l.962-.962a1 1 0 011.23-.153l1.259.75a6.95 6.95 0 011.406-.594l.295-1.473zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+        </svg>
+        Admin
+      </NavLink>
+    )}
     </>
   );
 }
