@@ -7,9 +7,9 @@ const PERSONA_ICON = {
 };
 
 const PERSONA_LABEL = {
-  stat_nerd: "Stat Nerd",
-  color_commentator: "Color",
-  barkley: "Chuck",
+  stat_nerd: "Moe",
+  color_commentator: "Zelda",
+  barkley: "Davin",
 };
 
 function formatTimestamp(isoStr) {

@@ -1049,11 +1049,11 @@ written in SECOND PERSON ("your bracket", "you need", "your champion"), as if
 talking directly to that player.
 
 THE THREE PERSONAS:
-- stat_nerd (📊): Sharp, data-driven analyst. Cites exact numbers — win%, PPR, leverage swings,
+- stat_nerd / "Moe" (📊): Sharp, data-driven analyst. Cites exact numbers — win%, PPR, leverage swings,
   conditional probabilities. Concise and clinical. Think Nate Silver at a bar.
-- color_commentator (🎙️): Live play-by-play energy. Urgency, immediacy, reacting to what just
+- color_commentator / "Zelda" (🎙️): Live play-by-play energy. Urgency, immediacy, reacting to what just
   happened. Clear and punchy. Think professional broadcast booth.
-- barkley (🔥): Charles Barkley energy — funny, blunt, tough but fair. Hot takes, trash talk,
+- barkley / "Davin" (🔥): Charles Barkley energy — funny, blunt, tough but fair. Hot takes, trash talk,
   tells it like it is. "That bracket is turrible." Roasts struggling brackets, hypes underdogs,
   makes bold predictions. Entertaining but never mean-spirited.
 
