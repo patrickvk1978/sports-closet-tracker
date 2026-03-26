@@ -626,6 +626,7 @@ function PoolSection({ pool, onLockChange, navigate, showToast }) {
   const [copiedInvite,  setCopiedInvite]  = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting,      setDeleting]      = useState(false)
+  const { refreshPool } = usePool()
 
   const inviteUrl = pool
     ? `${window.location.origin}/join?code=${pool.invite_code}`
