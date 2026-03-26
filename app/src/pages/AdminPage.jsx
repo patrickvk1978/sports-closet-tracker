@@ -1264,10 +1264,7 @@ export default function AdminPage() {
   // ── Remove member ────────────────────────────────────────────────────────────
   async function removeMember(userId) {
     const { error } = await supabase
-      .from('pool_members')
-      .delete()
-      .eq('pool_id', pool.id)
-      .eq('user_id', userId)
+      .rpc('remove_pool_member', { p_pool_id: pool.id, p_user_id: userId })
     if (error) {
       showToast('Failed to remove member: ' + error.message, 'error')
     } else {
