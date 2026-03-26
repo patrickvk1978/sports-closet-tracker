@@ -216,7 +216,7 @@ export default function NavBar() {
               to={to}
               end={to === "/"}
               className={({ isActive }) =>
-                `${mobileHidden ? "hidden sm:flex " : ""}px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                `${mobileHidden && isActive ? "hidden " : ""}px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   isActive
                     ? "bg-slate-700 text-white shadow"
                     : "text-slate-400 hover:text-white"
