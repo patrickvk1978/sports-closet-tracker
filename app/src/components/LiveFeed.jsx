@@ -53,6 +53,9 @@ function EntryBubble({ entry }) {
 
       {/* Content */}
       <div className={`ml-2 ${isAlert ? "ml-3" : ""}`}>
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
+          {label}
+        </span>
         {isAlert && (
           <div className="flex items-center gap-2 mb-1">
             <span
