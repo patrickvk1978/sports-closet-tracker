@@ -1245,10 +1245,20 @@ No markdown, no explanation — just the JSON array."""
         return [], {}
 
 
-def insert_feed_entries(client, pool_id, entries):
-    """Insert feed entries into the narrative_feed table."""
+def insert_feed_entries(client, pool_id, entries, clear_previous=False):
+    """Insert feed entries into the narrative_feed table.
+
+    If clear_previous=True, deletes all existing entries for this pool first.
+    Used for overnight briefings to start each day with a clean feed.
+    """
     if not entries:
         return
+    if clear_previous:
+        try:
+            client.table('narrative_feed').delete().eq('pool_id', pool_id).execute()
+            print(f'  Cleared previous feed entries for pool {pool_id}')
+        except Exception as err:
+            print(f'  Failed to clear feed: {err}')
     rows = []
     for e in entries:
         row = {
@@ -1481,9 +1491,13 @@ def main():
             outcome_deltas=outcome_deltas,
             round_points=pool_round_points,
         )
-        # Insert into narrative_feed table (append-only)
+        # Insert into narrative_feed table
+        # Overnight briefings clear the previous day's feed for a fresh start
         if feed_entries and not args.dry_run:
-            insert_feed_entries(client, args.pool_id, feed_entries)
+            insert_feed_entries(
+                client, args.pool_id, feed_entries,
+                clear_previous=(args.narrative_type == 'overnight'),
+            )
         # Fall back to existing if generation failed
         if not narratives:
             narratives = existing_narratives
