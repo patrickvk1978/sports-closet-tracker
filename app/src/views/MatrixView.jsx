@@ -119,7 +119,7 @@ export default function MatrixView() {
     <div className="flex flex-col" style={{ height: "calc(100vh - 61px)" }}>
 
       {/* ── Filter / sort bar (not sticky — it's always at top of this flex column) ── */}
-      <div className="shrink-0 bg-slate-950 border-b border-slate-800/60 px-4 py-2 flex items-center gap-2 overflow-x-auto">
+      <div className="shrink-0 bg-slate-950 border-b border-slate-800/60 px-4 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none">
         <span className="text-[11px] text-slate-500 font-medium mr-1 whitespace-nowrap" style={{ fontFamily: "Space Mono, monospace" }}>
           {PLAYERS.length} players
         </span>
@@ -138,10 +138,11 @@ export default function MatrixView() {
             }`}
           >
             {r === 'Live' && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />}
-            {r}
+            {r === 'Final Four' ? <><span className="sm:hidden">F4</span><span className="hidden sm:inline">Final Four</span></> : r}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-1 shrink-0">
+        {/* Sort — hidden on mobile to keep pill row uncluttered */}
+        <div className="ml-auto items-center gap-1 shrink-0 hidden sm:flex">
           <span className="text-[11px] text-slate-600 mr-1">Sort:</span>
           {SORT_OPTIONS.map((opt) => (
             <button
@@ -193,23 +194,23 @@ export default function MatrixView() {
       {/* ── Table — flex-1 fills remaining height, overflow auto handles both axes ── */}
       {/* With a single scroll container, sticky top-0 on <th> works perfectly.     */}
       <div className="flex-1 overflow-auto">
-        <table className="border-collapse" style={{ minWidth: 860, width: "100%" }}>
+        <table className="border-collapse" style={{ minWidth: 560, width: "100%" }}>
           <thead>
             <tr>
               {/* Player name — sticky top-0 AND left-0 */}
               <th
-                className="sticky top-0 left-0 z-30 bg-slate-900 px-4 py-3 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap border-r border-b border-slate-800"
-                style={{ fontFamily: "Space Mono, monospace", minWidth: 160 }}
+                className="sticky top-0 left-0 z-30 bg-slate-900 px-3 py-2 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap border-r border-b border-slate-800"
+                style={{ fontFamily: "Space Mono, monospace", minWidth: 120 }}
               >
                 Player
               </th>
 
-              {/* Stat columns — sticky top only */}
-              {SORT_OPTIONS.slice(1).map((opt) => (
+              {/* Stat columns — Points + Win% only (PPR removed) */}
+              {SORT_OPTIONS.slice(1).filter(opt => opt.key !== 'ppr').map((opt) => (
                 <th
                   key={opt.key}
                   onClick={() => setSortBy(opt.key)}
-                  className={`sticky top-0 z-20 bg-slate-900 border-b border-slate-800 px-3 py-3 text-left text-[11px] font-bold cursor-pointer uppercase tracking-wider whitespace-nowrap transition-colors ${
+                  className={`sticky top-0 z-20 bg-slate-900 border-b border-slate-800 px-2 py-2 text-left text-[11px] font-bold cursor-pointer uppercase tracking-wider whitespace-nowrap transition-colors ${
                     sortBy === opt.key ? "text-orange-400" : "text-slate-500 hover:text-slate-300"
                   }`}
                   style={{ fontFamily: "Space Mono, monospace" }}
@@ -306,12 +307,12 @@ export default function MatrixView() {
                 }`}
               >
                 <td
-                  className={`sticky left-0 z-10 px-4 py-2.5 border-r border-slate-800 transition-colors ${
+                  className={`sticky left-0 z-10 px-3 py-1.5 border-r border-slate-800 transition-colors ${
                     hoveredRow === pi ? "bg-slate-800/60" : "bg-slate-950"
                   }`}
-                  style={{ minWidth: 160 }}
+                  style={{ minWidth: 120 }}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span className="text-[10px] text-slate-600 w-4 text-right tabular-nums shrink-0" style={{ fontFamily: "Space Mono, monospace" }}>
                       {player.rank}
                     </span>
@@ -320,35 +321,20 @@ export default function MatrixView() {
                   </div>
                 </td>
 
-                <td className="px-3 py-2.5 text-xs font-bold tabular-nums text-white" style={{ fontFamily: "Space Mono, monospace" }}>
+                <td className="px-2 py-1.5 text-xs font-bold tabular-nums text-white" style={{ fontFamily: "Space Mono, monospace" }}>
                   {player.points.toLocaleString()}
                 </td>
 
-                <td className="px-3 py-2.5 text-xs text-slate-400 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                  {player.ppr}
-                </td>
-
-                <td className="px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="text-xs font-bold tabular-nums"
-                      style={{
-                        fontFamily: "Space Mono, monospace",
-                        color: player.winProb > 10 ? "#34d399" : player.winProb > 5 ? "#fbbf24" : "#94a3b8",
-                      }}
-                    >
-                      {player.winProb}%
-                    </span>
-                    <div className="w-12 h-1 bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.min(player.winProb * 4, 100)}%`,
-                          background: player.winProb > 10 ? "#34d399" : player.winProb > 5 ? "#fbbf24" : "#64748b",
-                        }}
-                      />
-                    </div>
-                  </div>
+                <td className="px-2 py-1.5">
+                  <span
+                    className="text-xs font-bold tabular-nums"
+                    style={{
+                      fontFamily: "Space Mono, monospace",
+                      color: player.winProb > 10 ? "#34d399" : player.winProb > 5 ? "#fbbf24" : "#94a3b8",
+                    }}
+                  >
+                    {player.winProb}%
+                  </span>
                 </td>
 
                 {filteredGames.map((game) => {
@@ -372,7 +358,7 @@ export default function MatrixView() {
                   return (
                     <td
                       key={game.id}
-                      className={`px-2 py-1.5 text-center text-[11px] font-semibold border-l border-slate-800/30 ${
+                      className={`px-1.5 py-1.5 text-center text-[11px] font-semibold border-l border-slate-800/30 ${
                         hidden ? "bg-slate-900/40 text-slate-700" : getCellStyle(pick, game)
                       }`}
                     >
