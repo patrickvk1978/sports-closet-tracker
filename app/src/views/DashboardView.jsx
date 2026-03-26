@@ -862,7 +862,7 @@ export default function Dashboard() {
 
       {/* ── Pool Header ────────────────────────────────────────────────────── */}
       <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-3 flex items-center gap-4 flex-wrap">
-        <div className="min-w-0">
+        <div className="min-w-0 hidden sm:block">
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-bold text-white truncate">{pool?.name ?? "Pool"}</h2>
             <span className="text-xs text-slate-500 shrink-0">
@@ -878,7 +878,7 @@ export default function Dashboard() {
         <div className="ml-auto flex items-center gap-3 shrink-0 flex-wrap">
           {isLocked ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Viewing:</span>
+              <span className="text-xs text-slate-500 hidden sm:inline">Viewing:</span>
               <select
                 value={selectedName}
                 onChange={e => setSelectedName(e.target.value)}

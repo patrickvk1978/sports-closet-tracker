@@ -71,7 +71,7 @@ function PoolSwitcher({ pool, allPools, switchPool, isLoading }) {
     return (
       <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50">
         <PoolIcon />
-        <span className="text-xs font-medium text-slate-200 max-w-[140px] truncate">
+        <span className="text-xs font-medium text-slate-200 max-w-[140px] truncate hidden sm:block">
           {pool ? pool.name : allPools[0].name}
         </span>
       </div>
@@ -90,7 +90,7 @@ function PoolSwitcher({ pool, allPools, switchPool, isLoading }) {
         }`}
       >
         <PoolIcon />
-        <span className="text-xs font-medium max-w-[140px] truncate">
+        <span className="text-xs font-medium max-w-[140px] truncate hidden sm:block">
           {pool ? pool.name : "Select a pool"}
         </span>
         <svg
@@ -207,8 +207,9 @@ export default function NavBar() {
         {/* Divider */}
         <div className="w-px h-5 bg-slate-700/80 shrink-0" />
 
-        {/* Page nav tabs */}
-        <nav className="flex items-center gap-1 bg-slate-800/50 rounded-xl p-1">
+        {/* Page nav tabs — scrollable on mobile so overflow doesn't scroll the page */}
+        <nav className="overflow-x-auto scrollbar-none flex-1 min-w-0">
+        <div className="flex items-center gap-1 bg-slate-800/50 rounded-xl p-1 w-max">
           {NAV_LINKS.map(({ to, label }) => (
             <NavLink
               key={to}
@@ -272,6 +273,7 @@ export default function NavBar() {
             </NavLink>
           )}
 
+        </div>
         </nav>
 
         {/* Auth widget — pushed to right */}
