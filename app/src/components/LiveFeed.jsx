@@ -35,7 +35,7 @@ function EntryBubble({ entry }) {
 
   return (
     <div
-      className={`relative pl-8 pb-4 ${
+      className={`relative pl-8 pb-3 ${
         isAlert ? "" : "border-l border-slate-800/50 ml-3"
       }`}
     >
@@ -133,7 +133,7 @@ export default function LiveFeed({ entries, playerName, loading }) {
   return (
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-3 border-b border-slate-800/40 flex items-center justify-between">
+      <div className="px-5 py-2 border-b border-slate-800/40 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
           <span
@@ -148,11 +148,11 @@ export default function LiveFeed({ entries, playerName, loading }) {
         </span>
       </div>
 
-      {/* Scrollable feed */}
+      {/* Scrollable feed — compact: ~1.5 entries visible before scroll */}
       <div
         ref={scrollRef}
-        className="px-5 py-4 max-h-80 overflow-y-auto"
-        style={{ scrollBehavior: "smooth" }}
+        className="px-5 py-3 overflow-y-auto"
+        style={{ scrollBehavior: "smooth", maxHeight: 130 }}
       >
         {filtered.map((entry) => (
           <EntryBubble key={entry.id} entry={entry} />
