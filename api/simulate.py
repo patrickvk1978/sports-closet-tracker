@@ -1050,8 +1050,8 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
         mini_pool_note = f"""
 IMPORTANT — THIS IS A {pool_start_round} MINI-POOL:
 - Players only submitted picks starting from {pool_start_round}. Earlier rounds were auto-filled.
-- DO NOT reference R64, R32, or any round before {pool_start_round}. Those are not real player picks.
-- DO NOT mention "perfect records", "X-for-X in R64/R32", or any early-round stats.
+- DO NOT reference any rounds before {pool_start_round}. Those are not real player picks.
+- DO NOT mention "perfect records" or stats from rounds before {pool_start_round}.
 - Treat this as the FIRST round of competition. Write the overnight as a tournament kickoff/preview.
 - Focus on: who each player picked to win from {pool_start_round} onward, their champion pick,
   today's upcoming matchups, win%, PPR, and which games matter most.
