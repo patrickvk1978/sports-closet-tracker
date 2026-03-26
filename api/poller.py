@@ -479,12 +479,27 @@ def run_poller(pool_ids, client):
                 for g in db_games.values()
             )
 
-            # Also consider tournament "ready" if games have teams assigned
-            # (pre-tournament: brackets submitted, games seeded, but no results yet)
-            tournament_ready = not tournament_active and any(
-                (g.get('teams') or {}).get('team1') and (g.get('teams') or {}).get('team2')
-                for g in db_games.values()
-            )
+            # Pre-tournament: a scheduled game tips off within 24 hours
+            tournament_ready = False
+            if not tournament_active:
+                now_utc = datetime.now(timezone.utc)
+                for event in events:
+                    t = transform_event(event)
+                    if not t or not t.get('espn_id'):
+                        continue
+                    if espn_map.get(t['espn_id']) is None:
+                        continue
+                    if t['status'] != 'pending':
+                        continue
+                    raw_date = event.get('date') or event.get('competitions', [{}])[0].get('date')
+                    if raw_date:
+                        try:
+                            tip = datetime.fromisoformat(raw_date.replace('Z', '+00:00'))
+                            if 0 < (tip - now_utc).total_seconds() <= 86400:
+                                tournament_ready = True
+                                break
+                        except Exception:
+                            pass
 
             if tournament_active:
                 # ── Bracket lock: one-off narrative per pool when admin locks brackets
