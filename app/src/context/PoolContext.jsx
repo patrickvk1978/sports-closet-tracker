@@ -126,7 +126,15 @@ export function PoolProvider({ children }) {
       .from('pool_members')
       .insert({ pool_id: targetPool.id, user_id: session.user.id })
 
-    if (joinError) return { error: joinError.message }
+    if (joinError) {
+      // Already a member (unique constraint) — just switch to that pool
+      if (joinError.code === '23505') {
+        localStorage.setItem('activePoolId', targetPool.id)
+        await loadPoolData(targetPool.id)
+        return { pool: targetPool }
+      }
+      return { error: joinError.message }
+    }
 
     // Set the newly joined pool as active
     localStorage.setItem('activePoolId', targetPool.id)
