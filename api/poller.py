@@ -473,9 +473,16 @@ def run_poller(pool_ids, client):
             hour_et   = now_et.hour
             elapsed   = (datetime.now(timezone.utc) - last_hourly_sim_time).total_seconds()
 
-            # Dynamic tournament detection: active if any game is live or final
+            # Dynamic tournament detection: active if any game has a result or is live
             tournament_active = any(
-                g.get('status') in ('live', 'final')
+                g.get('winner') or g.get('status') in ('live', 'final')
+                for g in db_games.values()
+            )
+
+            # Also consider tournament "ready" if games have teams assigned
+            # (pre-tournament: brackets submitted, games seeded, but no results yet)
+            tournament_ready = not tournament_active and any(
+                (g.get('teams') or {}).get('team1') and (g.get('teams') or {}).get('team2')
                 for g in db_games.values()
             )
 
@@ -525,8 +532,20 @@ def run_poller(pool_ids, client):
                     last_hourly_sim_time = datetime.now(timezone.utc)
 
             else:
-                # ── Pre-tournament: trigger on round completion only
-                if newly_done:
+                # ── Pre-tournament / between rounds ──────────────────────────
+                # Overnight briefing: fire even before first tip-off if games are seeded
+                if tournament_ready and OVERNIGHT_HOUR_ET <= hour_et < OVERNIGHT_CUTOFF_ET:
+                    game_day = (now_et - timedelta(days=1)).strftime('%Y%m%d')
+                    if game_day != overnight_narrative_done_date:
+                        print(f'  → Pre-tournament overnight briefing (game day {game_day})…')
+                        run_sim(sim_script, pool_ids,
+                                ('--narrative-model', NARRATIVE_MODEL,
+                                 '--narrative-type', 'overnight'))
+                        overnight_narrative_done_date = game_day
+                        last_hourly_sim_time = datetime.now(timezone.utc)
+
+                # Round completion trigger
+                elif newly_done:
                     rounds_str = ', '.join(sorted(newly_done, key=lambda r: ROUND_ORDER.index(r)))
                     print(f'  ✓ Round(s) complete: {rounds_str} — running simulate.py…')
                     run_sim(sim_script, pool_ids)
