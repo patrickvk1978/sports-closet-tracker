@@ -404,7 +404,7 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
             <div className="flex items-center gap-1.5 mb-2">
               {isLive && <LivePing />}
               <span className={`text-[9px] uppercase tracking-wider font-bold ${
-                isLive ? 'text-amber-400' : isFinal ? 'text-slate-500' : 'text-slate-600'
+                isLive ? 'text-amber-400' : isFinal ? 'text-slate-500' : 'text-slate-400'
               }`} style={{ fontFamily: "Space Mono, monospace" }}>
                 {isLive ? (game.gameNote || 'Live') : isFinal ? 'Final' : game.gameTime || 'Soon'}
               </span>
@@ -472,7 +472,7 @@ function ScoreGrid({ games, leverageGames, playerLeverage, player, players }) {
                       {pi.delta >= 0 ? '+' : ''}{pi.delta.toFixed(1)}%
                     </span>
                     {' '}
-                    <span className="text-slate-600">w/ {shortTeam(pi.team)} win</span>
+                    <span className="text-slate-400">w/ {shortTeam(pi.team)} win</span>
                   </div>
                 ))}
               </div>
@@ -537,7 +537,7 @@ function ComingUp({ games, leverageGames, playerLeverage, player }) {
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
           Coming Up
         </p>
-        <p className="text-[10px] text-slate-600 mt-0.5">Games that matter for your bracket</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">Games that matter for your bracket</p>
       </div>
       <div className="divide-y divide-slate-800/40">
         {upcomingGames.map(({ game, deltaT1, deltaT2 }) => (
@@ -547,7 +547,7 @@ function ComingUp({ games, leverageGames, playerLeverage, player }) {
                 {game.abbrev1 || shortTeam(game.team1)} vs {game.abbrev2 || shortTeam(game.team2)}
               </span>
               {game.gameTime && (
-                <span className="text-[10px] text-slate-600 shrink-0" style={{ fontFamily: "Space Mono, monospace" }}>
+                <span className="text-[10px] text-slate-400 shrink-0" style={{ fontFamily: "Space Mono, monospace" }}>
                   {game.gameTime}
                 </span>
               )}
