@@ -29,6 +29,7 @@ import math
 import os
 import random
 import sys
+import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -46,6 +47,26 @@ load_dotenv(_script_dir.parent / '.env')
 
 SUPABASE_URL              = os.environ.get('SUPABASE_URL', '')
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+
+
+# ─── Structured logging ───────────────────────────────────────────────────────
+
+def log_event(client, pool_id, source, level, event_type, message, metadata=None):
+    """Insert a structured log entry into narrative_log. Never raises."""
+    try:
+        row = {
+            'source':     source,
+            'level':      level,
+            'event_type': event_type,
+            'message':    message,
+            'metadata':   metadata or {},
+        }
+        if pool_id:
+            row['pool_id'] = pool_id
+        client.table('narrative_log').insert(row).execute()
+    except Exception:
+        pass  # logging must never crash the process
+
 
 # ─── Bracket topology ─────────────────────────────────────────────────────────
 #
@@ -965,6 +986,81 @@ def _fetch_recent_feed(supabase_client, pool_id, limit=15):
         return ''
 
 
+def load_narrative_config(client, pool_id):
+    """Load active narrative_config rows for this pool plus global rows (pool_id IS NULL)."""
+    try:
+        resp = client.table('narrative_config') \
+            .select('*') \
+            .eq('active', True) \
+            .or_(f'pool_id.eq.{pool_id},pool_id.is.null') \
+            .execute()
+        return resp.data or []
+    except Exception:
+        return []
+
+
+def check_feed_enabled(configs):
+    """Return True if narratives are enabled (default). False if admin disabled them."""
+    for c in configs:
+        if c.get('config_type') == 'setting' and c.get('config_key') == 'feed_enabled':
+            val = c.get('config_value')
+            if isinstance(val, bool):
+                return val
+            if isinstance(val, dict):
+                return bool(val.get('enabled', True))
+    return True
+
+
+def apply_persona_overrides(static_prompt, configs):
+    """Replace persona sections in static_prompt with any active DB overrides."""
+    key_map = {
+        'persona_mo':    '# Mo (persona:',
+        'persona_zelda': '# Zelda (persona:',
+        'persona_davin': '# Davin (persona:',
+    }
+    for c in configs:
+        if c.get('config_type') != 'persona_override':
+            continue
+        config_key = c.get('config_key', '')
+        header = key_map.get(config_key)
+        if not header:
+            continue
+        override_text = (c.get('config_value') or {}).get('content', '')
+        if not override_text:
+            continue
+        # Find the section starting with this header and ending at the next '---' separator
+        parts = static_prompt.split('\n\n---\n\n')
+        new_parts = []
+        for part in parts:
+            if part.strip().startswith(header):
+                new_parts.append(override_text)
+            else:
+                new_parts.append(part)
+        static_prompt = '\n\n---\n\n'.join(new_parts)
+    return static_prompt
+
+
+def get_one_shot_instructions(client, configs):
+    """Return next-cycle instruction text and deactivate consumed one-shot rows."""
+    instructions = []
+    for c in configs:
+        if c.get('config_type') != 'instruction':
+            continue
+        val = c.get('config_value') or {}
+        text = val.get('text', '')
+        if text:
+            instructions.append(text)
+        if val.get('one_shot', True):
+            try:
+                client.table('narrative_config') \
+                    .update({'active': False, 'updated_at': 'now()'}) \
+                    .eq('id', c['id']) \
+                    .execute()
+            except Exception:
+                pass
+    return instructions
+
+
 def generate_feed_entries(player_probs, prev_probs, best_paths, players,
                           games_by_slot, leverage_games=None,
                           model='claude-haiku-4-5-20251001',
@@ -975,7 +1071,9 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
                           round_points=None,
                           pool_start_round='R64',
                           supabase_client=None,
-                          pool_id=None):
+                          pool_id=None,
+                          one_shot_instructions=None,
+                          static_prompt_override=None):
     """
     Generate narrative feed entries using the broadcast booth agent.
 
@@ -1135,7 +1233,14 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
 
     # ── Load static prompt files (cacheable) ──────────────────────────────────
 
-    static_prompt = _load_prompt_files()
+    static_prompt = static_prompt_override if static_prompt_override else _load_prompt_files()
+
+    # Append one-shot admin instructions to the dynamic context
+    if one_shot_instructions:
+        instruction_block = '\n\nSPECIAL INSTRUCTIONS FOR THIS CYCLE (from admin):\n'
+        for instr in one_shot_instructions:
+            instruction_block += f'- {instr}\n'
+        dynamic_context = dynamic_context + instruction_block
 
     # Debug: print the full prompt when --debug-prompt is used
     if os.environ.get('DEBUG_NARRATIVE_PROMPT'):
@@ -1149,6 +1254,7 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
         print(dynamic_context)
         print('=' * 80 + '\n')
 
+    _t0 = time.time()
     try:
         anthropic_client = anthropic.Anthropic(api_key=api_key)
         resp = anthropic_client.messages.create(
@@ -1179,6 +1285,20 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
         n_pool   = sum(1 for e in entries if e.get('player_name') == '_pool')
         print(f'  Generated {narrative_type} feed: {n_player} player + {n_pool} pool entries')
 
+        if supabase_client:
+            log_event(supabase_client, pool_id, 'simulate', 'info', 'narrative_call',
+                      f'{narrative_type}: {n_player} player + {n_pool} pool entries',
+                      metadata={
+                          'model': model,
+                          'narrative_type': narrative_type,
+                          'latency_ms': round((time.time() - _t0) * 1000),
+                          'input_tokens': getattr(resp.usage, 'input_tokens', 0),
+                          'output_tokens': getattr(resp.usage, 'output_tokens', 0),
+                          'cache_read_tokens': getattr(resp.usage, 'cache_read_input_tokens', 0),
+                          'cache_creation_tokens': getattr(resp.usage, 'cache_creation_input_tokens', 0),
+                          'entries_generated': len(entries),
+                      })
+
         # Build legacy narratives dict for backward compat with sim_results
         legacy = {}
         for e in entries:
@@ -1190,6 +1310,10 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
 
     except Exception as e:
         print(f'  Narrative generation failed: {e}')
+        if supabase_client:
+            log_event(supabase_client, pool_id, 'simulate', 'error', 'narrative_call',
+                      f'Narrative generation failed: {e}',
+                      metadata={'model': model, 'narrative_type': narrative_type, 'error': str(e)})
         return [], {}
 
 
@@ -1222,8 +1346,14 @@ def insert_feed_entries(client, pool_id, entries, clear_previous=False):
     try:
         client.table('narrative_feed').insert(rows).execute()
         print(f'  Inserted {len(rows)} feed entries into narrative_feed')
+        log_event(client, pool_id, 'simulate', 'info', 'narrative_insert',
+                  f'Inserted {len(rows)} feed entries',
+                  metadata={'count': len(rows), 'clear_previous': clear_previous})
     except Exception as err:
         print(f'  Failed to insert feed entries: {err}')
+        log_event(client, pool_id, 'simulate', 'error', 'narrative_insert',
+                  f'Failed to insert feed entries: {err}',
+                  metadata={'error': str(err)})
 
 
 # ─── Legacy wrapper (backward compat for old poller calls) ────────────────────
@@ -1424,11 +1554,26 @@ def main():
         leverage_games, outcome_deltas, pool_round_points,
     )
 
-    if args.no_narratives:
-        print('\nSkipping narrative generation (--no-narratives); preserving existing.')
+    # ── Load narrative config (persona overrides, instructions, settings) ────────
+    narrative_configs = load_narrative_config(client, args.pool_id)
+    feed_enabled = check_feed_enabled(narrative_configs)
+
+    if args.no_narratives or not feed_enabled:
+        if not feed_enabled:
+            print('\nSkipping narrative generation (disabled via admin config).')
+        else:
+            print('\nSkipping narrative generation (--no-narratives); preserving existing.')
         narratives = existing_narratives
     else:
         print(f'\nGenerating AI narratives (model: {args.narrative_model}, type: {args.narrative_type})…')
+
+        # Apply persona overrides and collect one-shot instructions
+        base_prompt = _load_prompt_files()
+        static_prompt_with_overrides = apply_persona_overrides(base_prompt, narrative_configs)
+        one_shot = get_one_shot_instructions(client, narrative_configs)
+        if one_shot:
+            print(f'  Applying {len(one_shot)} one-shot instruction(s) from admin.')
+
         feed_entries, narratives = generate_feed_entries(
             player_probs, prev_probs, best_paths, players, games_by_slot,
             leverage_games=leverage_games,
@@ -1441,6 +1586,8 @@ def main():
             pool_start_round=pool_start_round,
             supabase_client=client,
             pool_id=args.pool_id,
+            one_shot_instructions=one_shot,
+            static_prompt_override=static_prompt_with_overrides,
         )
         # Insert into narrative_feed table
         # Overnight briefings clear the previous day's feed for a fresh start

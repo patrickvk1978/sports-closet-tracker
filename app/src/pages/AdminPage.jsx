@@ -1,10 +1,13 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { usePool } from '../hooks/usePool'
 import { useEspnPoller } from '../hooks/useEspnPoller'
 import { useSimResults } from '../hooks/useSimResults'
+import { useNarrativeFeed } from '../hooks/useNarrativeFeed'
+import { useNarrativeLog } from '../hooks/useNarrativeLog'
+import { useNarrativeConfig } from '../hooks/useNarrativeConfig'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1041,6 +1044,430 @@ function SimulationSection() {
   )
 }
 
+// ─── Narrative Section ─────────────────────────────────────────────────────────
+
+const PERSONA_LABEL = { stat_nerd: 'Mo', color_commentator: 'Zelda', barkley: 'Davin' }
+const PERSONA_COLOR = { stat_nerd: 'text-cyan-400', color_commentator: 'text-violet-400', barkley: 'text-orange-400' }
+const PERSONA_KEYS  = ['persona_mo', 'persona_zelda', 'persona_davin']
+const PERSONA_NAMES = { persona_mo: 'Mo', persona_zelda: 'Zelda', persona_davin: 'Davin' }
+
+function FeedViewer({ poolId, showToast }) {
+  const { entries, loading } = useNarrativeFeed(poolId, { limit: 100 })
+  const [personaFilter, setPersonaFilter] = useState('all')
+  const [typeFilter, setTypeFilter]       = useState('all')
+  const [playerFilter, setPlayerFilter]   = useState('')
+  const [clearing, setClearing]           = useState(false)
+  const [showClearModal, setShowClearModal] = useState(false)
+
+  const filtered = entries.filter((e) => {
+    if (personaFilter !== 'all' && e.persona !== personaFilter) return false
+    if (typeFilter !== 'all' && e.entry_type !== typeFilter) return false
+    if (playerFilter && !e.player_name?.toLowerCase().includes(playerFilter.toLowerCase())) return false
+    return true
+  })
+
+  async function clearFeed() {
+    setClearing(true)
+    try {
+      await supabase.from('narrative_feed').delete().eq('pool_id', poolId)
+      showToast('Feed cleared.')
+    } catch {
+      showToast('Failed to clear feed.', 'error')
+    }
+    setClearing(false)
+    setShowClearModal(false)
+  }
+
+  const entryTypeBadge = (t) => {
+    const map = { alert: 'bg-red-900/40 text-red-400', game_end: 'bg-emerald-900/40 text-emerald-400',
+                  deep_dive: 'bg-blue-900/40 text-blue-400', overnight: 'bg-violet-900/40 text-violet-400' }
+    return map[t] || 'bg-slate-800 text-slate-400'
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={personaFilter} onChange={(e) => setPersonaFilter(e.target.value)}
+          className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500">
+          <option value="all">All Personas</option>
+          <option value="stat_nerd">Mo</option>
+          <option value="color_commentator">Zelda</option>
+          <option value="barkley">Davin</option>
+        </select>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
+          className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500">
+          <option value="all">All Types</option>
+          <option value="alert">Alert</option>
+          <option value="game_end">Game End</option>
+          <option value="deep_dive">Deep Dive</option>
+          <option value="overnight">Overnight</option>
+        </select>
+        <input value={playerFilter} onChange={(e) => setPlayerFilter(e.target.value)}
+          placeholder="Filter by player…"
+          className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-orange-500" />
+        <button onClick={() => setShowClearModal(true)}
+          className="ml-auto px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-900/40 hover:bg-red-900/60 border border-red-800/60 text-red-400 transition-all">
+          Clear Feed
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="text-xs text-slate-600 italic">Loading…</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-xs text-slate-600 italic">No entries match filters.</p>
+      ) : (
+        <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+          {filtered.map((e) => (
+            <div key={e.id} className={`rounded-xl p-3 border ${e.entry_type === 'alert' ? 'border-red-800/40 bg-red-900/10' : 'border-slate-800/60 bg-slate-900/40'}`}>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className={`text-xs font-bold ${PERSONA_COLOR[e.persona] || 'text-cyan-400'}`}>
+                  {PERSONA_LABEL[e.persona] || e.persona}
+                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${entryTypeBadge(e.entry_type)}`}>
+                  {e.entry_type}
+                </span>
+                <span className="text-xs text-slate-500">{e.player_name}</span>
+                <span className="text-xs text-slate-600 ml-auto">
+                  {new Date(e.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">{e.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <p className="text-sm font-bold text-white mb-1">Clear Narrative Feed?</p>
+            <p className="text-xs text-slate-400 mb-4">This removes all feed entries for this pool. Cannot be undone.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowClearModal(false)}
+                className="flex-1 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all">
+                Cancel
+              </button>
+              <button onClick={clearFeed} disabled={clearing}
+                className="flex-1 px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 text-white transition-all disabled:opacity-50">
+                {clearing ? 'Clearing…' : 'Clear Feed'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LogViewer({ poolId }) {
+  const { entries, loading } = useNarrativeLog(poolId)
+  const [levelFilter, setLevelFilter]     = useState('all')
+  const [sourceFilter, setSourceFilter]   = useState('all')
+  const [typeFilter, setTypeFilter]       = useState('all')
+  const [expandedId, setExpandedId]       = useState(null)
+
+  const filtered = entries.filter((e) => {
+    if (levelFilter !== 'all' && e.level !== levelFilter) return false
+    if (sourceFilter !== 'all' && e.source !== sourceFilter) return false
+    if (typeFilter !== 'all' && e.event_type !== typeFilter) return false
+    return true
+  })
+
+  // Compute today's stats from narrative_call entries
+  const today = new Date().toISOString().slice(0, 10)
+  const todayEntries = entries.filter((e) => e.created_at?.startsWith(today))
+  const todayErrors  = todayEntries.filter((e) => e.level === 'error').length
+  const callEntries  = todayEntries.filter((e) => e.event_type === 'narrative_call' && e.metadata?.latency_ms)
+  const avgLatency   = callEntries.length
+    ? Math.round(callEntries.reduce((s, e) => s + (e.metadata.latency_ms || 0), 0) / callEntries.length)
+    : null
+  const cacheHits    = callEntries.filter((e) => (e.metadata?.cache_read_tokens || 0) > 0).length
+  const cacheRate    = callEntries.length ? Math.round((cacheHits / callEntries.length) * 100) : null
+
+  const levelClass = (l) => ({ error: 'text-red-400', warn: 'text-amber-400', info: 'text-slate-400' }[l] || 'text-slate-400')
+  const levelBg    = (l) => ({ error: 'bg-red-900/10 border-red-800/30', warn: 'bg-amber-900/10 border-amber-800/30', info: 'bg-slate-900/40 border-slate-800/40' }[l] || '')
+
+  const eventTypes = [...new Set(entries.map((e) => e.event_type))].sort()
+
+  return (
+    <div className="space-y-3">
+      {/* Stats bar */}
+      <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+        <span>Today: <span className="text-white font-semibold">{todayEntries.length}</span> events</span>
+        <span>Errors: <span className={todayErrors > 0 ? 'text-red-400 font-semibold' : 'text-white font-semibold'}>{todayErrors}</span></span>
+        {avgLatency !== null && <span>Avg latency: <span className="text-white font-semibold">{avgLatency}ms</span></span>}
+        {cacheRate !== null && <span>Cache hit: <span className="text-white font-semibold">{cacheRate}%</span></span>}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)}
+          className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500">
+          <option value="all">All Levels</option>
+          <option value="error">Error</option>
+          <option value="warn">Warn</option>
+          <option value="info">Info</option>
+        </select>
+        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}
+          className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500">
+          <option value="all">All Sources</option>
+          <option value="poller">Poller</option>
+          <option value="simulate">Simulate</option>
+        </select>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
+          className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500">
+          <option value="all">All Events</option>
+          {eventTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+
+      {loading ? (
+        <p className="text-xs text-slate-600 italic">Loading…</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-xs text-slate-600 italic">No log entries yet.</p>
+      ) : (
+        <div className="max-h-96 overflow-y-auto space-y-1 pr-1">
+          {filtered.map((e) => (
+            <div key={e.id}
+              className={`rounded-xl border px-3 py-2 cursor-pointer transition-all ${levelBg(e.level)}`}
+              onClick={() => setExpandedId(expandedId === e.id ? null : e.id)}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`text-xs font-bold ${levelClass(e.level)}`}>{e.level.toUpperCase()}</span>
+                <span className="text-xs text-slate-500 bg-slate-800/60 px-1.5 py-0.5 rounded">{e.source}</span>
+                <span className="text-xs text-slate-400">{e.event_type}</span>
+                <span className="text-xs text-slate-300 flex-1 truncate">{e.message}</span>
+                <span className="text-xs text-slate-600 ml-auto whitespace-nowrap">
+                  {new Date(e.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET
+                </span>
+              </div>
+              {expandedId === e.id && e.metadata && Object.keys(e.metadata).length > 0 && (
+                <pre className="mt-2 bg-slate-800 rounded-lg p-3 text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(e.metadata, null, 2)}
+                </pre>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function NarrativeControls({ poolId, showToast }) {
+  const { configs, loading, upsertConfig, deactivateConfig, getConfig } = useNarrativeConfig(poolId)
+  const [personaTexts, setPersonaTexts] = useState({ persona_mo: '', persona_zelda: '', persona_davin: '' })
+  const [instruction, setInstruction]   = useState('')
+  const [triggerType, setTriggerType]   = useState('deep_dive')
+  const [saving, setSaving]             = useState({})
+
+  // Load existing persona overrides into textareas
+  useEffect(() => {
+    if (loading) return
+    const updated = {}
+    for (const key of PERSONA_KEYS) {
+      const val = getConfig('persona_override', key)
+      updated[key] = val?.content || ''
+    }
+    setPersonaTexts(updated)
+  }, [configs, loading]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function savePersona(key) {
+    setSaving((s) => ({ ...s, [key]: true }))
+    const { error } = await upsertConfig('persona_override', key, { content: personaTexts[key] }, poolId)
+    setSaving((s) => ({ ...s, [key]: false }))
+    if (error) showToast('Failed to save persona.', 'error')
+    else showToast(`${PERSONA_NAMES[key]} persona saved.`)
+  }
+
+  async function resetPersona(key) {
+    const existing = configs.find((c) => c.config_type === 'persona_override' && c.config_key === key)
+    if (!existing) return
+    const { error } = await deactivateConfig(existing.id)
+    if (error) showToast('Failed to reset.', 'error')
+    else {
+      setPersonaTexts((t) => ({ ...t, [key]: '' }))
+      showToast(`${PERSONA_NAMES[key]} reset to default.`)
+    }
+  }
+
+  async function sendInstruction() {
+    if (!instruction.trim()) return
+    const { error } = await upsertConfig('instruction', 'next_instruction',
+      { text: instruction.trim(), one_shot: true }, poolId)
+    if (error) showToast('Failed to send instruction.', 'error')
+    else {
+      setInstruction('')
+      showToast('Instruction queued for next cycle.')
+    }
+  }
+
+  async function fireTrigger() {
+    const { error } = await upsertConfig('trigger', 'manual_trigger',
+      { narrative_type: triggerType }, null) // global trigger (pool_id=null so poller catches it)
+    if (error) showToast('Failed to queue trigger.', 'error')
+    else showToast('Trigger queued — poller picks up within 60s.')
+  }
+
+  const feedEnabled = getConfig('setting', 'feed_enabled')
+  const isFeedEnabled = feedEnabled === null ? true : Boolean(feedEnabled)
+  async function toggleFeed() {
+    await upsertConfig('setting', 'feed_enabled', !isFeedEnabled, poolId)
+    showToast(`Narratives ${!isFeedEnabled ? 'enabled' : 'disabled'}.`)
+  }
+
+  const activeInstruction = getConfig('instruction', 'next_instruction')
+
+  return (
+    <div className="space-y-5">
+      {/* Feed enabled toggle */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-bold text-white">Narrative Feed</p>
+          <p className="text-xs text-slate-400">{isFeedEnabled ? 'Narratives are enabled for this pool.' : 'Narratives are disabled — no new entries will be generated.'}</p>
+        </div>
+        <button onClick={toggleFeed}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            isFeedEnabled ? 'bg-emerald-600/30 border border-emerald-600/40 text-emerald-400 hover:bg-emerald-600/50'
+                          : 'bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700'
+          }`}>
+          {isFeedEnabled ? 'Enabled' : 'Disabled'}
+        </button>
+      </div>
+
+      {/* Manual trigger */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4">
+        <p className="text-sm font-bold text-white mb-0.5">Manual Trigger</p>
+        <p className="text-xs text-slate-400 mb-3">Fire a narrative cycle immediately. Poller picks up within 60s.</p>
+        <div className="flex gap-2">
+          <select value={triggerType} onChange={(e) => setTriggerType(e.target.value)}
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-500">
+            <option value="overnight">Overnight</option>
+            <option value="deep_dive">Deep Dive</option>
+            <option value="game_end">Game End</option>
+            <option value="alert">Alert</option>
+          </select>
+          <button onClick={fireTrigger}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-white transition-all">
+            Fire Now
+          </button>
+        </div>
+      </div>
+
+      {/* Next-cycle instruction */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4">
+        <p className="text-sm font-bold text-white mb-0.5">Next Cycle Instruction</p>
+        <p className="text-xs text-slate-400 mb-3">One-shot instruction injected into the next narrative call, then auto-consumed.</p>
+        {activeInstruction && (
+          <div className="mb-3 px-3 py-2 bg-amber-900/20 border border-amber-800/40 rounded-xl text-xs text-amber-300">
+            Queued: "{activeInstruction.text}"
+          </div>
+        )}
+        <div className="flex gap-2">
+          <input value={instruction} onChange={(e) => setInstruction(e.target.value)}
+            placeholder="e.g. roast danhudder, focus on Iowa game, tone it down…"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-orange-500" />
+          <button onClick={sendInstruction} disabled={!instruction.trim()}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+            Send
+          </button>
+        </div>
+      </div>
+
+      {/* Persona editors */}
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4">
+        <p className="text-sm font-bold text-white mb-0.5">Persona Overrides</p>
+        <p className="text-xs text-slate-400 mb-4">
+          Override a persona's system prompt for this pool. Leave blank to use the default file from disk.
+          Changes take effect on the next narrative cycle.
+        </p>
+        <div className="space-y-4">
+          {PERSONA_KEYS.map((key) => {
+            const hasOverride = configs.some((c) => c.config_type === 'persona_override' && c.config_key === key)
+            return (
+              <div key={key}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs font-bold text-white">{PERSONA_NAMES[key]}</span>
+                  {hasOverride && (
+                    <span className="text-xs px-2 py-0.5 bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded-full">Override active</span>
+                  )}
+                </div>
+                <textarea
+                  value={personaTexts[key]}
+                  onChange={(e) => setPersonaTexts((t) => ({ ...t, [key]: e.target.value }))}
+                  placeholder={`Enter custom system prompt for ${PERSONA_NAMES[key]}. Leave blank to use default persona_${key.split('_')[1]}.md`}
+                  rows={5}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-y font-mono"
+                />
+                <div className="flex gap-2 mt-1.5">
+                  <button onClick={() => savePersona(key)} disabled={saving[key] || !personaTexts[key].trim()}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-orange-500 hover:bg-orange-400 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    {saving[key] ? 'Saving…' : 'Save Override'}
+                  </button>
+                  {hasOverride && (
+                    <button onClick={() => resetPersona(key)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-400 transition-all">
+                      Reset to Default
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function NarrativeSection({ pool, showToast }) {
+  const [subTab, setSubTab] = useState('feed')
+  const SUB_TABS = [
+    { key: 'feed',     label: 'Feed' },
+    { key: 'logs',     label: 'Logs' },
+    { key: 'controls', label: 'Controls' },
+  ]
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-1">
+        {SUB_TABS.map((t) => (
+          <button key={t.key} onClick={() => setSubTab(t.key)}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              subTab === t.key
+                ? 'bg-orange-500/15 border border-orange-500/40 text-orange-400'
+                : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">
+        {subTab === 'feed' && (
+          <>
+            <p className="text-sm font-bold text-white mb-0.5">Narrative Feed</p>
+            <p className="text-xs text-slate-400 mb-4">Live broadcast booth entries for this pool.</p>
+            <FeedViewer poolId={pool?.id} showToast={showToast} />
+          </>
+        )}
+        {subTab === 'logs' && (
+          <>
+            <p className="text-sm font-bold text-white mb-0.5">Event Log</p>
+            <p className="text-xs text-slate-400 mb-4">Structured events from poller and narrative generation. 7-day retention.</p>
+            <LogViewer poolId={pool?.id} />
+          </>
+        )}
+        {subTab === 'controls' && (
+          <>
+            <p className="text-sm font-bold text-white mb-0.5">Narrative Controls</p>
+            <p className="text-xs text-slate-400 mb-4">Manage personas, inject instructions, and trigger narrative cycles.</p>
+            <NarrativeControls poolId={pool?.id} showToast={showToast} />
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Admin tab bar ─────────────────────────────────────────────────────────────
 
 const ADMIN_TABS = [
@@ -1048,6 +1475,7 @@ const ADMIN_TABS = [
   { key: 'members',   label: 'Members' },
   { key: 'pool',      label: 'Pool' },
   { key: 'simulation', label: 'Simulation' },
+  { key: 'narrative',  label: 'Narrative' },
 ]
 
 function AdminTabBar({ activeTab, onTabChange }) {
@@ -1443,6 +1871,11 @@ export default function AdminPage() {
       {/* Tab: Simulation */}
       {adminTab === 'simulation' && (
         <SimulationSection />
+      )}
+
+      {/* Tab: Narrative */}
+      {adminTab === 'narrative' && (
+        <NarrativeSection pool={pool} showToast={showToast} />
       )}
 
       {/* Toast */}

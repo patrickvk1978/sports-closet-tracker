@@ -43,6 +43,26 @@ SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
 ET = ZoneInfo('America/New_York')
 
+
+# ─── Structured logging ───────────────────────────────────────────────────────
+
+def log_event(client, pool_id, source, level, event_type, message, metadata=None):
+    """Insert a structured log entry into narrative_log. Never raises."""
+    try:
+        row = {
+            'source':     source,
+            'level':      level,
+            'event_type': event_type,
+            'message':    message,
+            'metadata':   metadata or {},
+        }
+        if pool_id:
+            row['pool_id'] = pool_id
+        client.table('narrative_log').insert(row).execute()
+    except Exception:
+        pass  # logging must never crash the process
+
+
 # ─── ESPN API ─────────────────────────────────────────────────────────────────
 
 ESPN_SCOREBOARD = (
@@ -434,6 +454,12 @@ def run_poller(pool_ids, client):
                         t2 = teams.get('team2', 'TBD')
                         print(f'  ⚡ ALERT (swing): slot {slot} {t1} vs {t2} '
                               f'leverage={lev:.1f}% wp_shift={swing:.2f} score={alert_score:.1f}')
+                        log_event(client, None, 'poller', 'info', 'alert_fired',
+                                  f'Swing alert: {t1} vs {t2} (slot {slot})',
+                                  metadata={'trigger': 'swing', 'slot': slot,
+                                            'team1': t1, 'team2': t2,
+                                            'leverage': lev, 'wp_shift': round(swing, 3),
+                                            'alert_score': round(alert_score, 2)})
                         alert_slots.append(slot)
                         fired = True
 
@@ -447,6 +473,12 @@ def run_poller(pool_ids, client):
                             t2 = teams.get('team2', 'TBD')
                             print(f'  ⚡ ALERT (flip): slot {slot} {t1} vs {t2} '
                                   f'leverage={lev:.1f}% wp {wp_start:.2f}→{wp_now:.2f}')
+                            log_event(client, None, 'poller', 'info', 'alert_fired',
+                                      f'Flip alert: {t1} vs {t2} (slot {slot})',
+                                      metadata={'trigger': 'flip', 'slot': slot,
+                                                'team1': t1, 'team2': t2,
+                                                'leverage': lev, 'wp_start': round(wp_start, 3),
+                                                'wp_now': round(wp_now, 3)})
                             alert_slots.append(slot)
                             wp_flipped.add(slot)
                             fired = True
@@ -468,6 +500,10 @@ def run_poller(pool_ids, client):
                                 names = [u for _, u in affected]
                                 champ_danger_fired.add(slot)
                                 print(f'  ⚠️ CHAMP IN DANGER: {trailing_team} (wp={trailing_wp:.2f}) — {names}')
+                                log_event(client, None, 'poller', 'warn', 'champ_danger',
+                                          f'Champ in danger: {trailing_team} (wp={trailing_wp:.2f})',
+                                          metadata={'team': trailing_team, 'wp': round(trailing_wp, 3),
+                                                    'affected_players': names, 'slot': slot})
                                 run_sim(sim_script, pool_ids, (
                                     '--narrative-model', NARRATIVE_MODEL,
                                     '--narrative-type', 'alert',
@@ -538,6 +574,9 @@ def run_poller(pool_ids, client):
                         champ_elim_fired.add(loser)
                         score = f"{t.get('score1')}-{t.get('score2')}" if t.get('score1') is not None else ''
                         print(f'  💀 CHAMP ELIMINATED: {loser} — affects {names}')
+                        log_event(client, None, 'poller', 'warn', 'champ_eliminated',
+                                  f'Champ eliminated: {loser} (affects {names})',
+                                  metadata={'team': loser, 'score': score, 'affected_players': names})
                         run_sim(sim_script, pool_ids, (
                             '--narrative-model', NARRATIVE_MODEL,
                             '--narrative-type', 'alert',
@@ -603,6 +642,8 @@ def run_poller(pool_ids, client):
                     deep_elapsed = (datetime.now(timezone.utc) - last_deep_dive_time).total_seconds()
                     if deep_elapsed >= DEEP_DIVE_INTERVAL_SECS:
                         print(f'  → Deep-dive commentary (live games active)…')
+                        log_event(client, None, 'poller', 'info', 'deep_dive_trigger',
+                                  'Deep-dive commentary triggered', metadata={'live_count': live_count})
                         run_sim(sim_script, pool_ids, (
                             '--narrative-model', DEEP_DIVE_MODEL,
                             '--narrative-type', 'deep_dive',
@@ -616,6 +657,9 @@ def run_poller(pool_ids, client):
                     game_day = (now_et - timedelta(days=1)).strftime('%Y%m%d')
                     if game_day != overnight_narrative_done_date:
                         print(f'  → Overnight narrative run (game day {game_day})…')
+                        log_event(client, None, 'poller', 'info', 'overnight_trigger',
+                                  f'Overnight narrative triggered (game day {game_day})',
+                                  metadata={'game_day': game_day})
                         run_sim(sim_script, pool_ids,
                                 ('--narrative-model', NARRATIVE_MODEL,
                                  '--narrative-type', 'overnight'))
@@ -650,6 +694,8 @@ def run_poller(pool_ids, client):
         except Exception as poll_err:
             error_msg = str(poll_err)
             print(f'ERROR: {poll_err}')
+            log_event(client, None, 'poller', 'error', 'poll_cycle',
+                      f'Poll cycle error: {poll_err}', metadata={'error': str(poll_err)})
 
         # ── Write heartbeat ───────────────────────────────────────────────────
         try:
@@ -663,6 +709,36 @@ def run_poller(pool_ids, client):
             }).execute()
         except Exception as hb_err:
             print(f'  [heartbeat] write failed: {hb_err}')
+
+        # ── Check for manual triggers from admin UI ───────────────────────────
+        try:
+            trigger_resp = client.table('narrative_config') \
+                .select('id, config_value') \
+                .eq('config_type', 'trigger') \
+                .eq('active', True) \
+                .execute()
+            for trigger in (trigger_resp.data or []):
+                nt = (trigger.get('config_value') or {}).get('narrative_type', 'deep_dive')
+                model = NARRATIVE_MODEL if nt == 'overnight' else DEEP_DIVE_MODEL
+                print(f'  → Manual trigger: {nt}')
+                log_event(client, None, 'poller', 'info', 'trigger_manual',
+                          f'Manual trigger fired: {nt}',
+                          metadata={'narrative_type': nt, 'trigger_id': trigger['id']})
+                run_sim(sim_script, pool_ids, ('--narrative-model', model, '--narrative-type', nt))
+                client.table('narrative_config') \
+                    .update({'active': False}) \
+                    .eq('id', trigger['id']) \
+                    .execute()
+        except Exception as trig_err:
+            print(f'  [trigger check] error: {trig_err}')
+
+        # ── Prune old log entries (once per hour, piggybacked on sleep) ───────
+        try:
+            from datetime import timedelta as _td
+            seven_days_ago = (datetime.now(timezone.utc) - _td(days=7)).isoformat()
+            client.table('narrative_log').delete().lt('created_at', seven_days_ago).execute()
+        except Exception:
+            pass
 
         # ── Sleep ────────────────────────────────────────────────────────────
         time.sleep(30 if live_count > 0 else 60)
