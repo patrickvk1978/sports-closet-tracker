@@ -925,6 +925,46 @@ def build_enriched_player_stats(players, games_by_slot, player_probs, prev_probs
 
 # ─── Narrative feed generation ────────────────────────────────────────────────
 
+def _load_prompt_files():
+    """Load static prompt markdown files from api/prompts/ directory."""
+    prompts_dir = os.path.join(os.path.dirname(__file__), 'prompts')
+    parts = []
+    for fname in ('booth_director.md', 'persona_mo.md', 'persona_zelda.md', 'persona_davin.md'):
+        fpath = os.path.join(prompts_dir, fname)
+        try:
+            with open(fpath, 'r') as f:
+                parts.append(f.read())
+        except FileNotFoundError:
+            print(f'  Warning: prompt file not found: {fpath}')
+    return '\n\n---\n\n'.join(parts)
+
+
+def _fetch_recent_feed(supabase_client, pool_id, limit=15):
+    """Fetch recent feed entries for this pool to give the LLM context about what was already said."""
+    if not supabase_client or not pool_id:
+        return ''
+    try:
+        resp = supabase_client.table('narrative_feed') \
+            .select('persona, player_name, content, entry_type, created_at') \
+            .eq('pool_id', pool_id) \
+            .order('created_at', desc=True) \
+            .limit(limit) \
+            .execute()
+        rows = resp.data or []
+        if not rows:
+            return ''
+        persona_map = {'stat_nerd': 'Mo', 'color_commentator': 'Zelda', 'barkley': 'Davin'}
+        lines = []
+        for r in reversed(rows):
+            name = persona_map.get(r.get('persona', ''), 'Mo')
+            target = r.get('player_name', '_pool')
+            lines.append(f"- {name} (to {target}): {r.get('content', '')}")
+        return 'Recent feed history (DO NOT repeat these — say something new):\n' + '\n'.join(lines)
+    except Exception as e:
+        print(f'  Warning: could not fetch recent feed: {e}')
+        return ''
+
+
 def generate_feed_entries(player_probs, prev_probs, best_paths, players,
                           games_by_slot, leverage_games=None,
                           model='claude-haiku-4-5-20251001',
@@ -933,20 +973,15 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
                           enriched_stats=None,
                           outcome_deltas=None,
                           round_points=None,
-                          pool_start_round='R64'):
+                          pool_start_round='R64',
+                          supabase_client=None,
+                          pool_id=None):
     """
-    Generate narrative feed entries for the live broadcast booth system.
+    Generate narrative feed entries using the broadcast booth agent.
 
-    Three personas:
-      - stat_nerd (📊): data-driven analysis, leverages enriched stats
-      - color_commentator (🎙️): live play-by-play energy, game reactions
-      - barkley (🔥): Charles Barkley energy — funny, blunt, hot takes
-
-    Persona assignments by entry type:
-      - overnight: stat_nerd + barkley (morning briefing)
-      - deep_dive: stat_nerd + barkley alternating (studio show during live games)
-      - game_end: color_commentator (immediate reactions)
-      - alert: color_commentator (breaking news)
+    A single agent manages three personas (Mo/stat_nerd, Zelda/color_commentator,
+    Davin/barkley). It sees recent feed history, decides who speaks, and produces
+    entries that blend pool context with personal stakes.
 
     Returns list of dicts ready to insert into narrative_feed table:
       [{ player_name, entry_type, persona, content, leverage_pct }, ...]
@@ -1043,7 +1078,7 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
         leverage_parts.append(header + ('\n' + '\n'.join(impact_strs) if impact_strs else ''))
     leverage_lines = '\n'.join(leverage_parts) or '  None calculated yet'
 
-    # ── Shared context header ─────────────────────────────────────────────────
+    # ── Mini-pool note ────────────────────────────────────────────────────────
 
     mini_pool_note = ''
     if pool_start_round and pool_start_round != 'R64':
@@ -1052,37 +1087,24 @@ IMPORTANT — THIS IS A {pool_start_round} MINI-POOL:
 - Players only submitted picks starting from {pool_start_round}. Earlier rounds were auto-filled.
 - DO NOT reference any rounds before {pool_start_round}. Those are not real player picks.
 - DO NOT mention "perfect records" or stats from rounds before {pool_start_round}.
-- Treat this as the FIRST round of competition. Write the overnight as a tournament kickoff/preview.
-- Focus on: who each player picked to win from {pool_start_round} onward, their champion pick,
-  today's upcoming matchups, win%, PPR, and which games matter most.
 """
 
-    context_block = f"""You are the voice of a March Madness bracket pool live feed — a broadcast booth
-with THREE personas who take turns. The feed is personalized: each player entry is
-written in SECOND PERSON ("your bracket", "you need", "your champion"), as if
-talking directly to that player.
-{mini_pool_note}
+    # ── Recent feed history ───────────────────────────────────────────────────
 
-THE THREE PERSONAS:
-- stat_nerd / "Mo" (📊): Sharp, data-driven analyst. Cites exact numbers — win%, PPR, leverage swings,
-  conditional probabilities. Concise and clinical. Think Nate Silver at a bar.
-- color_commentator / "Zelda" (🎙️): Live play-by-play energy. Urgency, immediacy, reacting to what just
-  happened. Clear and punchy. Think professional broadcast booth.
-- barkley / "Davin" (🔥): Charles Barkley energy — funny, blunt, tough but fair. Hot takes, trash talk,
-  tells it like it is. "That bracket is turrible." Roasts struggling brackets, hypes underdogs,
-  makes bold predictions. Entertaining but never mean-spirited.
+    recent_feed = _fetch_recent_feed(supabase_client, pool_id)
 
-CRITICAL RULES:
-- "Score" / "Points" = current ranking points earned from correct picks. This determines rank/standings.
-- "PPR" (Points Possible Remaining) = maximum future points still earnable. High PPR = upside potential.
-- "Win %" / "Win probability" = simulated chance of winning the entire pool. NOT used for current ranking.
-  A player can be 3rd in points but 1st in win% if their remaining picks are strong.
-- NEVER confuse these. When saying "1st place" always mean points rank. When saying "best odds" mean win%.
-- NEVER invent numbers. Only cite numbers that appear EXACTLY in the player stats above.
-  Do NOT make up game scores (e.g. "73-72"), point totals, or rankings.
-  You may reference: win%, PPR, rank, points, and leverage% — but ONLY by copying them from the data.
-  For game outcomes, describe qualitatively: "a tight one", "a blowout", "went down to the wire".
+    # ── Build dynamic context (changes every call) ────────────────────────────
 
+    just_finished_line = f"\nEVENT: {just_finished}\n" if just_finished else ''
+
+    trigger_hints = {
+        'overnight': 'Morning briefing. Set the table for today. No games are live right now.',
+        'deep_dive': 'Live games in progress — ~20 min since last check-in. What has changed? New angles only.',
+        'game_end':  f'Game(s) just finished. React to the result and its pool impact.{just_finished_line}',
+        'alert':     f'BREAKING — high-leverage moment or champion pick in danger.{just_finished_line}',
+    }
+
+    dynamic_context = f"""{mini_pool_note}
 Tournament context:
 - Today: Day {ctx['day_number']} | Current round: {ctx['current_round']}
 - Games completed: {ctx['n_final']} | Today remaining: {ctx['n_today_upcoming']}
@@ -1099,134 +1121,45 @@ Pool ({pool_size} entries) — enriched player stats:
 {player_block}
 
 Highest-leverage games:
-{leverage_lines}"""
+{leverage_lines}
 
-    # ── Prompt variants ───────────────────────────────────────────────────────
+{recent_feed}
 
-    if narrative_type == 'overnight':
-        tasks_block = f"""Morning briefing. Two personas tag-team: stat_nerd sets the table, barkley adds flavor.
+TRIGGER: {trigger_hints.get(narrative_type, trigger_hints['deep_dive'])}
 
-Generate a JSON array. For EACH player, produce TWO entries (one stat_nerd, one barkley).
-Also produce TWO "_pool" entries (one stat_nerd, one barkley).
+Generate the next beat of the broadcast. Return a JSON array — no markdown, no explanation.
+Entry type should be "{narrative_type}". Produce entries for the most relevant players (not necessarily all).
+Each entry addresses one player in second person, weaving in pool context. Use "_pool" sparingly — only for
+truly pool-wide announcements where no personal angle exists.
+For alert entries, include a "leverage_pct" field with the numeric swing value."""
 
-stat_nerd entries:
-- Max 60 words. Lead with yesterday's impact, then set up today.
-- Reference specific stats: rank change, PPR, win% movement, which picks got hurt.
-- Tone: sharp morning newsletter — concise, data-rich.
+    # ── Load static prompt files (cacheable) ──────────────────────────────────
 
-barkley entries:
-- Max 50 words. React to their situation with personality.
-- Hot takes, predictions, roasts for bad picks, hype for good ones.
-- Playful trash talk is encouraged. "That bracket is turrible" energy.
-- Keep it fun — tough but fair, never genuinely mean.
-
-Rules for both:
-- Second person ("Your bracket…", "You need…")
-- NEVER confuse score (ranking points) with win probability
-
-Return JSON array:
-[
-  {{"player_name": "playerName", "entry_type": "overnight", "persona": "stat_nerd", "content": "..."}},
-  {{"player_name": "playerName", "entry_type": "overnight", "persona": "barkley", "content": "..."}},
-  ...
-  {{"player_name": "_pool", "entry_type": "overnight", "persona": "stat_nerd", "content": "..."}},
-  {{"player_name": "_pool", "entry_type": "overnight", "persona": "barkley", "content": "..."}}
-]
-No markdown, no explanation — just the JSON array."""
-
-    elif narrative_type == 'deep_dive':
-        tasks_block = f"""Studio show deep-dive during live action. stat_nerd and barkley go back and forth.
-
-Generate a JSON array of 4-6 entries total (mix of pool-wide "_pool" and individual player entries).
-Pick the 2-3 players with the most at stake right now. Alternate personas.
-
-stat_nerd entries:
-- Cite specific numbers: win%, PPR, leverage swing, conditional probabilities
-- What do the live scores mean for the pool standings if they hold?
-- Reference ESPN win probabilities if available in the live game data
-
-barkley entries:
-- React to what's happening with personality and humor
-- Call out who should be sweating, who's getting lucky, who's bracket is falling apart
-- Bold predictions: "If this score holds, [player] is DONE"
-- Playful roasts and hype — keep the energy flowing
-
-Rules for both:
-- Max 50 words per entry
-- Second person for player entries
-- Focus on what's happening NOW in live games
-
-Return JSON array:
-[
-  {{"player_name": "_pool", "entry_type": "deep_dive", "persona": "barkley", "content": "..."}},
-  {{"player_name": "playerName", "entry_type": "deep_dive", "persona": "stat_nerd", "content": "..."}},
-  {{"player_name": "playerName", "entry_type": "deep_dive", "persona": "barkley", "content": "..."}},
-  ...
-]
-No markdown, no explanation — just the JSON array."""
-
-    elif narrative_type == 'alert':
-        # Alert entries are generated for specific high-leverage moments
-        tasks_block = f"""BREAKING: A high-leverage moment has been detected. color_commentator delivers the alerts.
-
-Generate a JSON array of 2-4 entries: one pool-wide alert + alerts for the 1-3 most affected players.
-
-Rules:
-- All entries use persona "color_commentator" — this is live breaking news
-- Max 35 words per entry
-- URGENT tone — this is a turning point, treat it like a breaking score alert
-- Cite the leverage swing percentage in the content
-- Include leverage_pct field with the numeric swing value
-- Second person for player entries
-
-Return JSON array:
-[
-  {{"player_name": "_pool", "entry_type": "alert", "persona": "color_commentator", "content": "...", "leverage_pct": 25.0}},
-  {{"player_name": "playerName", "entry_type": "alert", "persona": "color_commentator", "content": "...", "leverage_pct": 18.5}},
-  ...
-]
-No markdown, no explanation — just the JSON array."""
-
-    else:  # game_end
-        just_finished_line = f"\nGame(s) just finished: {just_finished}\n" if just_finished else ''
-        tasks_block = f"""{just_finished_line}Game just ended. color_commentator delivers the immediate reactions.
-
-Generate a JSON array: for each player one entry + one "_pool" entry.
-All entries use persona "color_commentator" — this is live play-by-play reaction.
-
-Rules:
-- Max 45 words per entry
-- Second person for player entries ("That result just boosted your win% to…")
-- React to the game(s) that just ended — did it help or hurt?
-- Reference specific stats where impactful: win% delta, points gained/lost
-- If games are still live, flag what's at stake next
-- Urgency and energy — this just happened, react to it
-- NEVER confuse score (ranking points) with win probability
-
-Return JSON array:
-[
-  {{"player_name": "_pool", "entry_type": "game_end", "persona": "color_commentator", "content": "..."}},
-  {{"player_name": "playerName", "entry_type": "game_end", "persona": "color_commentator", "content": "..."}},
-  ...
-]
-No markdown, no explanation — just the JSON array."""
-
-    prompt = context_block + '\n\n' + tasks_block
+    static_prompt = _load_prompt_files()
 
     # Debug: print the full prompt when --debug-prompt is used
     if os.environ.get('DEBUG_NARRATIVE_PROMPT'):
         print('\n' + '=' * 80)
-        print('NARRATIVE PROMPT (what the LLM receives):')
+        print('SYSTEM PROMPT (static, cached):')
         print('=' * 80)
-        print(prompt)
+        print(static_prompt[:500] + '...' if len(static_prompt) > 500 else static_prompt)
+        print('\n' + '=' * 80)
+        print('USER PROMPT (dynamic):')
+        print('=' * 80)
+        print(dynamic_context)
         print('=' * 80 + '\n')
 
     try:
-        client = anthropic.Anthropic(api_key=api_key)
-        resp = client.messages.create(
+        anthropic_client = anthropic.Anthropic(api_key=api_key)
+        resp = anthropic_client.messages.create(
             model=model,
             max_tokens=4096,
-            messages=[{'role': 'user', 'content': prompt}],
+            system=[{
+                'type': 'text',
+                'text': static_prompt,
+                'cache_control': {'type': 'ephemeral'},
+            }],
+            messages=[{'role': 'user', 'content': dynamic_context}],
         )
         raw = resp.content[0].text.strip()
         # Strip markdown code fences if model ignores the instruction
@@ -1506,6 +1439,8 @@ def main():
             outcome_deltas=outcome_deltas,
             round_points=pool_round_points,
             pool_start_round=pool_start_round,
+            supabase_client=client,
+            pool_id=args.pool_id,
         )
         # Insert into narrative_feed table
         # Overnight briefings clear the previous day's feed for a fresh start

@@ -191,7 +191,7 @@ NARRATIVE_MODEL            = 'claude-opus-4-6'
 HOURLY_NARRATIVE_MODEL     = 'claude-opus-4-6'
 DEEP_DIVE_MODEL            = 'claude-sonnet-4-6'  # faster model for frequent deep dives
 SIM_INTERVAL_SECS          = 3600  # hourly odds refresh (no narrative)
-DEEP_DIVE_INTERVAL_SECS   = 720   # ~12 min between deep-dive commentaries during live games
+DEEP_DIVE_INTERVAL_SECS   = 1200  # ~20 min between deep-dive commentaries during live games
 ALERT_SWING_THRESHOLD      = 5.0   # leverage% × |wp_now - wp_at_start| must exceed this
 ALERT_FLIP_MIN_LEVERAGE    = 10.0  # min leverage% for a favorite-flip alert
 ALERT_COOLDOWN_SECS        = 600   # min 10 min between alerts for the same game slot
@@ -211,6 +211,29 @@ def slot_meta(slot):
     if slot in (60, 61): return 'F4',   None
     if slot == 62:        return 'Champ', None
     return 'R64', None
+
+
+def load_champ_picks(client, pool_ids):
+    """Load championship picks (slot 62) for all players across all pools.
+
+    Returns { pool_id: { player_username: team_name } }
+    """
+    result = {}
+    for pid in pool_ids:
+        result[pid] = {}
+        try:
+            resp = client.table('brackets') \
+                .select('profiles(username), picks') \
+                .eq('pool_id', pid) \
+                .execute()
+            for row in (resp.data or []):
+                picks = row.get('picks') or []
+                username = (row.get('profiles') or {}).get('username', '')
+                if username and len(picks) > 62 and picks[62]:
+                    result[pid][username] = picks[62]
+        except Exception as e:
+            print(f'  Warning: could not load champ picks for pool {pid}: {e}')
+    return result
 
 
 def completed_rounds(db_games):
@@ -256,6 +279,9 @@ def run_poller(pool_ids, client):
     wp_at_game_start = {}          # { slot_index: win_prob_home } when game first went live
     wp_flipped = set()             # slot_indices where favorite already flipped (fire once)
     alert_last_fired = {}          # { slot_index: datetime } cooldown tracker
+    champ_danger_fired = set()     # slot_indices where champ-in-danger alert already fired
+    champ_elim_fired = set()       # team names where champ-eliminated alert already fired
+    champ_team_players = {}        # team → [(pool_id, username), ...] cached per session
 
     # ── Seed prev_final_set from DB so first cycle doesn't false-trigger ─────
     resp = client.table('games').select('espn_id, status, slot_index, win_prob_home').execute()
@@ -338,11 +364,21 @@ def run_poller(pool_ids, client):
                               if (t := transform_event(event)) and t.get('status') == 'final')
             print(f'{updated_count} updated  {live_count} live  {final_count} final')
 
+            # ── Load champion picks for alert detection (cached per session) ────
+            if not champ_team_players:
+                champ_picks_by_pool = load_champ_picks(client, pool_ids)
+                for pid, picks in champ_picks_by_pool.items():
+                    for username, team in picks.items():
+                        champ_team_players.setdefault(team, []).append((pid, username))
+                if champ_team_players:
+                    print(f'  Loaded champ picks: {len(champ_team_players)} unique teams')
+
             # ── Alert detection: leverage × cumulative wp swing ──────────────
             #
-            # Two triggers (either fires):
+            # Three trigger types (any can fire):
             #   1. Cumulative swing: leverage% × |wp_now - wp_at_start| > threshold
             #   2. Favorite flip: wp crosses 50% in a game with leverage > min (once)
+            #   3. Champ in danger: champ-pick team wp drops below 0.30 (once per game)
             #
             # Leverage data comes from last sim run (sim_results.leverage_games).
             if live_count > 0:
@@ -418,6 +454,28 @@ def run_poller(pool_ids, client):
                     if fired:
                         alert_last_fired[slot] = now_utc
 
+                    # Trigger 3: champ in danger (champ-pick team wp drops below 0.30)
+                    if slot not in champ_danger_fired:
+                        game = db_games.get(slot, {})
+                        teams = (game.get('teams') or {})
+                        t1, t2 = teams.get('team1', ''), teams.get('team2', '')
+                        # Determine which team is trailing (wp_home is team1's perspective)
+                        trailing_team = t2 if wp_now > 0.5 else t1
+                        trailing_wp = (1.0 - wp_now) if wp_now > 0.5 else wp_now
+                        if trailing_team and trailing_wp <= 0.30:
+                            affected = champ_team_players.get(trailing_team, [])
+                            if affected:
+                                names = [u for _, u in affected]
+                                champ_danger_fired.add(slot)
+                                print(f'  ⚠️ CHAMP IN DANGER: {trailing_team} (wp={trailing_wp:.2f}) — {names}')
+                                run_sim(sim_script, pool_ids, (
+                                    '--narrative-model', NARRATIVE_MODEL,
+                                    '--narrative-type', 'alert',
+                                    '--just-finished',
+                                    f'CHAMP IN DANGER: {trailing_team} trailing '
+                                    f'(championship pick for: {", ".join(names)})',
+                                ))
+
                 if alert_slots:
                     print(f'  → Firing alert sim for {len(alert_slots)} game(s)…')
                     run_sim(sim_script, pool_ids, (
@@ -463,6 +521,30 @@ def run_poller(pool_ids, client):
                     '--just-finished', just_finished,
                 ))
                 last_hourly_sim_time = now_utc
+
+                # ── Champ-eliminated alert: fire if a losing team was anyone's champ pick
+                for event in events:
+                    t = transform_event(event)
+                    if not t or t.get('espn_id') not in newly_final:
+                        continue
+                    winner = t.get('winner', '')
+                    teams = t.get('teams', {})
+                    loser = teams.get('team2') if winner == teams.get('team1') else teams.get('team1')
+                    if not loser or loser in champ_elim_fired:
+                        continue
+                    affected = champ_team_players.get(loser, [])
+                    if affected:
+                        names = [u for _, u in affected]
+                        champ_elim_fired.add(loser)
+                        score = f"{t.get('score1')}-{t.get('score2')}" if t.get('score1') is not None else ''
+                        print(f'  💀 CHAMP ELIMINATED: {loser} — affects {names}')
+                        run_sim(sim_script, pool_ids, (
+                            '--narrative-model', NARRATIVE_MODEL,
+                            '--narrative-type', 'alert',
+                            '--just-finished',
+                            f'CHAMP ELIMINATED: {loser} lost {score} '
+                            f'(championship pick for: {", ".join(names)})',
+                        ))
 
             # ── Sim scheduling ───────────────────────────────────────────────────
             current_done = completed_rounds(db_games)
