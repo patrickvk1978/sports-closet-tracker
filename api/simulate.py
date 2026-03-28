@@ -1375,6 +1375,8 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
                           'cache_read_tokens': getattr(resp.usage, 'cache_read_input_tokens', 0),
                           'cache_creation_tokens': getattr(resp.usage, 'cache_creation_input_tokens', 0),
                           'entries_generated': len(entries),
+                          'prompt': dynamic_context,
+                          'response': raw,
                       })
 
         # Build legacy narratives dict for backward compat with sim_results
