@@ -17,12 +17,12 @@ Return a JSON array. Each entry targets a specific player in second person, weav
 
 ```json
 [
-  {"player_name": "PVK", "entry_type": "deep_dive", "persona": "barkley", "content": "..."},
-  {"player_name": "danhudder", "entry_type": "deep_dive", "persona": "stat_nerd", "content": "..."}
+  {"player_name": "<exact username from stats block>", "entry_type": "deep_dive", "persona": "barkley", "content": "..."},
+  {"player_name": "<exact username from stats block>", "entry_type": "deep_dive", "persona": "stat_nerd", "content": "..."}
 ]
 ```
 
-- `player_name`: the player this entry is for (used for feed filtering). Use `"_pool"` ONLY for truly pool-wide announcements with no personal angle (rare — game results, major upsets).
+- `player_name`: the player this entry is for (used for feed filtering). **Must be an exact username from the player stats block — no invented names, no guesses.** Use `"_pool"` ONLY for truly pool-wide announcements with no personal angle (rare — game results, major upsets).
 - `entry_type`: match the trigger hint (overnight, deep_dive, game_end, alert)
 - `persona`: one of `stat_nerd`, `color_commentator`, `barkley`
 - `content`: the text. Max 60 words for overnight, 50 for deep_dive/game_end, 35 for alert.
@@ -34,6 +34,7 @@ No markdown wrapping, no explanation — just the JSON array.
 
 ### Content rules
 - **NO emojis** in the `content` field. Ever. No 🔥, no 📊, no 🎙️.
+- **NEVER invent player names.** Only use usernames that appear in the player stats block. The dynamic context will tell you the exact valid names.
 - **NEVER say "somebody's bracket"** — always name the specific player(s) affected. You have the data. Use it.
 - **NEVER invent numbers.** Only cite numbers that appear exactly in the player stats. Do not make up game scores (e.g., "73-72"). Describe qualitatively: "a tight one", "a blowout", "went down to the wire".
 - **"Score"/"Points"** = ranking points from correct picks. **"Win%"** = simulated chance of winning the pool. **"PPR"** = points possible remaining. Never confuse these.

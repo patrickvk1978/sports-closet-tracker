@@ -1256,7 +1256,13 @@ IMPORTANT — THIS IS A {pool_start_round} MINI-POOL:
         'alert':     f'BREAKING — high-leverage moment or champion pick in danger.{just_finished_line}',
     }
 
+    valid_player_names = sorted(enriched.keys())
+    valid_names_line = ', '.join(valid_player_names)
+
     dynamic_context = f"""{mini_pool_note}
+CRITICAL: This pool has exactly {pool_size} entries. Valid player_name values are: {valid_names_line}, _pool.
+Do NOT use any other player names. Every entry must use one of these exact strings.
+
 Tournament context:
 - Today: Day {ctx['day_number']} | Current round: {ctx['current_round']}
 - Games completed: {ctx['n_final']} | Today remaining: {ctx['n_today_upcoming']}
