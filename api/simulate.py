@@ -1341,6 +1341,18 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
                 for k, v in entries.items()
             ]
 
+        # Validate player names — drop entries with names not in this pool
+        valid_names = set(enriched.keys()) | {'_pool'}
+        rejected = [e for e in entries if e.get('player_name', '_pool') not in valid_names]
+        if rejected:
+            bad_names = [e.get('player_name') for e in rejected]
+            print(f'  WARNING: Dropping {len(rejected)} entries with invalid player names: {bad_names}')
+            if supabase_client:
+                log_event(supabase_client, pool_id, 'simulate', 'warn', 'narrative_invalid_names',
+                          f'Dropped {len(rejected)} entries with names not in pool: {bad_names}',
+                          metadata={'invalid_names': bad_names, 'valid_names': sorted(enriched.keys())})
+            entries = [e for e in entries if e.get('player_name', '_pool') in valid_names]
+
         n_player = sum(1 for e in entries if e.get('player_name') != '_pool')
         n_pool   = sum(1 for e in entries if e.get('player_name') == '_pool')
         print(f'  Generated {narrative_type} feed: {n_player} player + {n_pool} pool entries')
