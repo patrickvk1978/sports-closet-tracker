@@ -499,6 +499,7 @@ def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners):
             'score1':        (game.get('teams') or {}).get('score1'),
             'score2':        (game.get('teams') or {}).get('score2'),
             'gameNote':      (game.get('teams') or {}).get('gameNote'),
+            'gameTime':      (game.get('teams') or {}).get('gameTime', ''),
             'leverage':      round(max_swing, 1),
             'pickPct1':      pct1,
             'pickPct2':      100 - pct1,
@@ -883,6 +884,7 @@ def build_enriched_player_stats(players, games_by_slot, player_probs, prev_probs
                 'root_for': pi['rootFor'],
                 'status': g.get('status', 'pending'),
                 'game_note': g.get('gameNote', ''),
+                'game_time': g.get('gameTime', ''),
             })
 
     REGION_NAMES = {0: 'Midwest', 15: 'West', 30: 'South', 45: 'East'}
@@ -1183,7 +1185,7 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
         region_str = ', '.join(f"{r}:{c}" for r, c in s['region_health'].items() if c > 0)
         unique_str = '; '.join(s['unique_picks'][:3]) if s['unique_picks'] else 'none'
         lev_str = ' | '.join(
-            f"{g['matchup']} (±{g['swing']}%, root for {g['root_for']})"
+            f"{g['matchup']} (±{g['swing']}%, root for {g['root_for']}{', ' + g['game_time'] if g.get('game_time') else ''})"
             for g in s['personal_leverage']
         ) or 'none'
 
@@ -1219,9 +1221,10 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
     top_leverage = (leverage_games or [])[:5]
     leverage_parts = []
     for g in top_leverage:
+        time_note = f", {g['gameTime']}" if g.get('gameTime') else ''
         header = (f"  - {g['team1']} vs {g['team2']} "
                   f"({g['leverage']}% pool swing, "
-                  f"{round(g['pickPct1'])}% of pool on {g['team1'].split()[-1]})")
+                  f"{round(g['pickPct1'])}% of pool on {g['team1'].split()[-1]}{time_note})")
         impacts = g.get('playerImpacts', [])[:3]
         impact_strs = [
             f"    {pi['player']} needs {pi['rootFor'].split()[-1]} (±{pi['swing']}%)"
