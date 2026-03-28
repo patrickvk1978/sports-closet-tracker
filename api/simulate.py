@@ -1350,7 +1350,13 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
             if supabase_client:
                 log_event(supabase_client, pool_id, 'simulate', 'warn', 'narrative_invalid_names',
                           f'Dropped {len(rejected)} entries with names not in pool: {bad_names}',
-                          metadata={'invalid_names': bad_names, 'valid_names': sorted(enriched.keys())})
+                          metadata={
+                              'invalid_names': bad_names,
+                              'valid_names': sorted(enriched.keys()),
+                              'rejected_entries': [{'player_name': e.get('player_name'), 'content': e.get('content', '')[:200]} for e in rejected],
+                              'recent_feed_snippet': recent_feed[:500] if recent_feed else '',
+                              'raw_response': raw[:1000],
+                          })
             entries = [e for e in entries if e.get('player_name', '_pool') in valid_names]
 
         n_player = sum(1 for e in entries if e.get('player_name') != '_pool')
