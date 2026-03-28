@@ -1229,11 +1229,12 @@ def _build_review_metadata(entries, enriched, ctx, narrative_type, just_finished
             if not today_games and not live_games:
                 flags.append(f"time_error:{ed['player_name']}:tonight_but_no_games_today")
 
-    # Flag: entry for 0% eliminated player during live game trigger
+    # Flag: entry for fully eliminated player (0% win prob AND 0% any prize)
     if narrative_type in ('deep_dive', 'game_end', 'alert'):
         for ed in entry_details:
             pn = ed['player_name']
-            if pn != '_pool' and player_snapshot.get(pn, {}).get('eliminated'):
+            snap = player_snapshot.get(pn, {})
+            if pn != '_pool' and snap.get('eliminated') and snap.get('any_prize', 0) == 0:
                 flags.append(f"dead_player_entry:{pn}")
 
     return {
