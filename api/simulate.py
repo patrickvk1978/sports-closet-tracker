@@ -614,10 +614,11 @@ def load_pool_data(client, pool_id):
     Returns (players, games_by_slot, team_seeds, round_points).
     """
     # Pool scoring config
-    pool_resp = client.table('pools').select('scoring_config, start_round').eq('id', pool_id).execute()
+    pool_resp = client.table('pools').select('scoring_config, start_round, prize_places').eq('id', pool_id).execute()
     pool_row  = (pool_resp.data or [{}])[0]
     round_points = pool_row.get('scoring_config') or ROUND_POINTS
     pool_start_round = pool_row.get('start_round') or 'R64'
+    prize_places = pool_row.get('prize_places') or [1]
 
     # Games
     resp         = client.table('games').select('*').execute()
@@ -666,7 +667,7 @@ def load_pool_data(client, pool_id):
             'current_points': points,
         })
 
-    return players, games_by_slot, team_seeds, round_points, pool_start_round
+    return players, games_by_slot, team_seeds, round_points, pool_start_round, prize_places
 
 
 def load_prev_sim_data(client, pool_id):
@@ -824,12 +825,15 @@ def build_tournament_context(games_by_slot):
 
 
 def build_enriched_player_stats(players, games_by_slot, player_probs, prev_probs,
-                                 leverage_games, outcome_deltas, round_points=None):
+                                 leverage_games, outcome_deltas, round_points=None,
+                                 finish_probs=None, prize_places=None):
     """
     Build enriched per-player stats for narrative prompts.
 
     Returns { player_name: { ...stats } } with:
       - rank, points, ppr, win_prob, win_prob_delta, trajectory
+      - finish_place_probs: probability of finishing 1st, 2nd, 3rd etc.
+      - any_prize_prob / no_prize_prob: aggregate prize odds
       - picks_correct / picks_eliminated / picks_alive by round
       - region_health: per-region count of alive picks in S16+
       - unique_picks: picks no other player shares (differentiators)
@@ -976,6 +980,13 @@ def build_enriched_player_stats(players, games_by_slot, player_probs, prev_probs
         champ_pick = picks[62] if len(picks) > 62 else None
         champ_alive = champ_pick is not None and champ_pick not in eliminated
 
+        # Finish place probabilities
+        fp = (finish_probs or {}).get(name, {})
+        pp = prize_places or [1]
+        place_probs = {int(k): round(v * 100, 1) for k, v in fp.items() if float(v) > 0}
+        any_prize = round(sum(float(fp.get(str(p), 0)) for p in pp) * 100, 1)
+        no_prize = round(100 - any_prize, 1) if any_prize > 0 else 100.0
+
         stats[name] = {
             'rank': rank_map.get(name, '?'),
             'points': pts,
@@ -983,6 +994,9 @@ def build_enriched_player_stats(players, games_by_slot, player_probs, prev_probs
             'win_prob': wp,
             'win_prob_delta': wp_delta,
             'trajectory': trajectory,
+            'finish_place_probs': place_probs,
+            'any_prize_prob': any_prize,
+            'no_prize_prob': no_prize,
             'correct_by_round': correct_by_round,
             'eliminated_by_round': eliminated_by_round,
             'alive_by_round': alive_by_round,
@@ -1126,6 +1140,7 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
                           outcome_deltas=None,
                           round_points=None,
                           pool_start_round='R64',
+                          prize_places=None,
                           supabase_client=None,
                           pool_id=None,
                           one_shot_instructions=None,
@@ -1197,12 +1212,22 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
         path_bullets = best_paths.get(name, best_paths.get('_default', []))
         path_text = '; '.join(b['text'] for b in path_bullets[:3]) if path_bullets else 'N/A'
 
+        # Finish place probabilities line
+        fp = s['finish_place_probs']
+        if fp:
+            place_parts = [f"{p}st:{fp[p]}%" if p == 1 else f"{p}nd:{fp[p]}%" if p == 2 else f"{p}rd:{fp[p]}%" if p == 3 else f"{p}th:{fp[p]}%" for p in sorted(fp.keys())]
+            finish_str = ', '.join(place_parts)
+            finish_line = f"    Finish odds: {finish_str} | Any prize: {s['any_prize_prob']}% | No prize: {s['no_prize_prob']}%\n"
+        else:
+            finish_line = ''
+
         block = (
             f"- {name}:\n"
             f"    Rank: {s['rank']}/{pool_size} | Points: {s['points']} | "
             f"PPR (points possible remaining): {s['ppr']} | "
             f"Win%: {s['win_prob']}% (delta {'+' if s['win_prob_delta'] > 0 else ''}{s['win_prob_delta']}%) | "
             f"Trajectory: {s['trajectory']}\n"
+            f"{finish_line}"
             f"    Picks correct: {correct_str or 'none'} | Eliminated: {elim_str or 'none'} | "
             f"Still alive: {alive_str or 'none'}\n"
             f"    Region health (S16+ alive): {region_str or 'all regions dead'}\n"
@@ -1278,7 +1303,7 @@ Tournament context:
 - Live right now:
 {live_lines}
 
-Pool ({pool_size} entries) — enriched player stats:
+Pool ({pool_size} entries) — prize places: {', '.join(str(p) for p in (prize_places or [1]))} — enriched player stats:
 {player_block}
 
 Highest-leverage games:
@@ -1571,7 +1596,7 @@ def main():
     bpi_ratings = load_ratings()
 
     print(f'Loading pool data for pool {args.pool_id}…')
-    players, games_by_slot, team_seeds, pool_round_points, pool_start_round = load_pool_data(client, args.pool_id)
+    players, games_by_slot, team_seeds, pool_round_points, pool_start_round, prize_places = load_pool_data(client, args.pool_id)
 
     if not players:
         print('ERROR: No brackets found for this pool.', file=sys.stderr)
@@ -1646,6 +1671,7 @@ def main():
     enriched_stats = build_enriched_player_stats(
         players, games_by_slot, player_probs, prev_probs,
         leverage_games, outcome_deltas, pool_round_points,
+        finish_probs=finish_probs, prize_places=prize_places,
     )
 
     # ── Load narrative config (persona overrides, instructions, settings) ────────
@@ -1678,6 +1704,7 @@ def main():
             outcome_deltas=outcome_deltas,
             round_points=pool_round_points,
             pool_start_round=pool_start_round,
+            prize_places=prize_places,
             supabase_client=client,
             pool_id=args.pool_id,
             one_shot_instructions=one_shot,
