@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePool } from '../hooks/usePool'
 import { useAuth } from '../hooks/useAuth'
+import { DEFAULT_PRIZE_PLACES, normalizePrizePlaces } from '../lib/finishProbabilities'
 
 const START_ROUND_OPTIONS = [
   { value: 'R64', label: 'Full Tournament (Round of 64)' },
@@ -23,13 +24,21 @@ export default function CreatePoolPage() {
   const [created,    setCreated]    = useState(null)
   const [error,      setError]      = useState(null)
   const [loading,    setLoading]    = useState(false)
+  const [prizePlacesInput, setPrizePlacesInput] = useState(DEFAULT_PRIZE_PLACES.join(','))
 
   async function handleCreate(e) {
     e.preventDefault()
     setError(null)
     setLoading(true)
     const scoringConfig = SCORING_PRESETS[startRound] ?? SCORING_PRESETS.R64
-    const { pool, error } = await createPool(name.trim(), startRound, scoringConfig)
+    const prizePlaces = normalizePrizePlaces(prizePlacesInput)
+    if (!prizePlaces.length) {
+      setLoading(false)
+      setError('Enter at least one prize finish, like 1 or 1,2,3.')
+      return
+    }
+
+    const { pool, error } = await createPool(name.trim(), startRound, scoringConfig, prizePlaces)
     setLoading(false)
     if (error) { setError(error); return }
     setCreated(pool)
@@ -118,6 +127,20 @@ export default function CreatePoolPage() {
                   Players pick Sweet 16 through Championship. R64/R32 results are auto-filled.
                 </p>
               )}
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Prize Finishes</label>
+              <input
+                type="text"
+                value={prizePlacesInput}
+                onChange={(e) => setPrizePlacesInput(e.target.value)}
+                placeholder="e.g. 1 or 1,2,3"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              />
+              <p className="text-xs text-slate-500 mt-1.5">
+                Comma-separated finishing places that get paid. Example: <span className="text-slate-400">1,2,3</span>
+              </p>
             </div>
 
             {error && (

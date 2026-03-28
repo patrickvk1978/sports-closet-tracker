@@ -8,6 +8,12 @@ import { useSimResults } from '../hooks/useSimResults'
 import { useNarrativeFeed } from '../hooks/useNarrativeFeed'
 import { useNarrativeLog } from '../hooks/useNarrativeLog'
 import { useNarrativeConfig } from '../hooks/useNarrativeConfig'
+import {
+  DEFAULT_PRIZE_PLACES,
+  extractPlaceProbabilityMaps,
+  getPrizePlacesFromPool,
+  normalizePrizePlaces,
+} from '../lib/finishProbabilities'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -143,13 +149,22 @@ const ROUND_LABELS = [
 const DEFAULT_SCORING = { R64: 10, R32: 20, S16: 40, E8: 80, F4: 160, Champ: 320 }
 
 function ScoringConfigEditor({ pool }) {
-  const initial = pool?.scoring_config ?? DEFAULT_SCORING
+  const { updatePoolLocally } = usePool()
+  const initial = {
+    ...DEFAULT_SCORING,
+    ...(pool?.scoring_config ?? {}),
+    prize_places: getPrizePlacesFromPool(pool),
+  }
   const [config, setConfig] = useState(initial)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved]   = useState(false)
 
   useEffect(() => {
-    setConfig(pool?.scoring_config ?? DEFAULT_SCORING)
+    setConfig({
+      ...DEFAULT_SCORING,
+      ...(pool?.scoring_config ?? {}),
+      prize_places: getPrizePlacesFromPool(pool),
+    })
   }, [pool?.scoring_config])
 
   function handleChange(key, val) {
@@ -160,17 +175,20 @@ function ScoringConfigEditor({ pool }) {
 
   async function save() {
     setSaving(true)
-    await supabase
+    const { data, error } = await supabase
       .from('pools')
       .update({ scoring_config: config })
       .eq('id', pool.id)
+      .select('id')
     setSaving(false)
+    if (error || !data?.length) return
+    updatePoolLocally?.(pool.id, { scoring_config: config })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
   function reset() {
-    setConfig(DEFAULT_SCORING)
+    setConfig({ ...DEFAULT_SCORING, prize_places: getPrizePlacesFromPool(pool) })
     setSaved(false)
   }
 
@@ -215,6 +233,109 @@ function ScoringConfigEditor({ pool }) {
   )
 }
 
+function PrizePlacesEditor({ pool, refreshPool }) {
+  const { updatePoolLocally } = usePool()
+  const [value, setValue] = useState(getPrizePlacesFromPool(pool).join(','))
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setValue(getPrizePlacesFromPool(pool).join(','))
+    setError('')
+  }, [pool?.id, pool?.scoring_config, pool?.prize_places])
+
+  async function save() {
+    const prizePlaces = normalizePrizePlaces(value)
+    if (!prizePlaces.length) {
+      setError('Enter at least one prize place, like 1 or 1,2,3.')
+      return
+    }
+
+    setSaving(true)
+    setError('')
+    const nextScoring = {
+      ...DEFAULT_SCORING,
+      ...(pool?.scoring_config ?? {}),
+      prize_places: prizePlaces,
+    }
+    const { data, error: saveError } = await supabase
+      .from('pools')
+      .update({ scoring_config: nextScoring })
+      .eq('id', pool.id)
+      .select('id, scoring_config')
+    setSaving(false)
+
+    if (saveError || !data?.length) {
+      setError(saveError?.message || 'Pool settings update was not permitted.')
+      return
+    }
+
+    const savedPrizePlaces = normalizePrizePlaces(data[0]?.scoring_config?.prize_places)
+    const persisted =
+      savedPrizePlaces.length === prizePlaces.length &&
+      savedPrizePlaces.every((place, index) => place === prizePlaces[index])
+
+    if (!persisted) {
+      setError('Prize places did not persist. Please try saving again.')
+      if (refreshPool) await refreshPool(pool.id)
+      return
+    }
+
+    updatePoolLocally?.(pool.id, {
+      scoring_config: nextScoring,
+      prize_places: prizePlaces,
+    })
+    if (refreshPool) await refreshPool(pool.id)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  function reset() {
+    setValue(DEFAULT_PRIZE_PLACES.join(','))
+    setError('')
+    setSaved(false)
+  }
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">
+      <p className="text-sm font-bold text-white mb-0.5">Prize Structure</p>
+      <p className="text-xs text-slate-400 max-w-xl mb-3">
+        Choose which finishing places get paid. The standings will use this to calculate Any Prize %
+        and the finish outcomes report will break down prize and non-prize finishes.
+      </p>
+      <div className="flex items-center gap-3 flex-wrap">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="e.g. 1 or 1,2,3"
+          className="min-w-[220px] bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+        />
+        <button
+          onClick={save}
+          disabled={saving || !pool}
+          className="px-4 py-2 rounded-xl text-xs font-semibold bg-orange-500 hover:bg-orange-400 text-white transition-all disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
+        </button>
+        <button
+          onClick={reset}
+          className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+        >
+          Reset to 1st Only
+        </button>
+      </div>
+      <p className="mt-2 text-[11px] text-slate-500">
+        Comma-separated places. Example: <span className="text-slate-400">1,2,3</span>
+      </p>
+      {error && (
+        <p className="mt-2 text-xs text-red-400">{error}</p>
+      )}
+    </div>
+  )
+}
+
 // ─── Next tipoff picker ─────────────────────────────────────────────────────────
 
 function NextTipoffPicker({ pool, refreshPool }) {
@@ -236,12 +357,13 @@ function NextTipoffPicker({ pool, refreshPool }) {
   async function save(newValue) {
     setSaving(true)
     const tipoff = newValue ? new Date(newValue).toISOString() : null
-    await supabase
+    const { data, error } = await supabase
       .from('pools')
       .update({ next_tipoff: tipoff })
       .eq('id', pool.id)
+      .select('id')
     setSaving(false)
-    if (refreshPool) await refreshPool(pool.id)
+    if (!error && data?.length && refreshPool) await refreshPool(pool.id)
   }
 
   return (
@@ -285,6 +407,7 @@ function NextTipoffPicker({ pool, refreshPool }) {
 // ─── Lock toggle ────────────────────────────────────────────────────────────────
 
 function LockToggle({ pool, onLockChange }) {
+  const { updatePoolLocally } = usePool()
   const [locked, setLocked]     = useState(pool?.locked ?? false)
   const [saving, setSaving]     = useState(false)
   const [confirm, setConfirm]   = useState(false)
@@ -295,13 +418,15 @@ function LockToggle({ pool, onLockChange }) {
 
   async function doToggle(newLocked) {
     setSaving(true)
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('pools')
       .update({ locked: newLocked })
       .eq('id', pool.id)
+      .select('id')
     setSaving(false)
-    if (!error) {
+    if (!error && data?.length) {
       setLocked(newLocked)
+      updatePoolLocally?.(pool.id, { locked: newLocked })
       onLockChange(newLocked)
     }
     return error
@@ -669,6 +794,9 @@ function PoolSection({ pool, onLockChange, navigate, showToast }) {
       {/* Scoring config */}
       <ScoringConfigEditor pool={pool} />
 
+      {/* Prize structure */}
+      <PrizePlacesEditor pool={pool} refreshPool={refreshPool} />
+
       {/* Invite link */}
       <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5">
         <p className="text-sm font-bold text-white mb-0.5">Invite Link</p>
@@ -947,6 +1075,22 @@ function SimulationSection() {
       .slice(0, 5)
   }, [simResult])
 
+  const placeLeaders = useMemo(() => {
+    const { current } = extractPlaceProbabilityMaps(simResult)
+
+    return [2, 3]
+      .map((place) => {
+        const leaders = Object.entries(current)
+          .map(([name, places]) => ({ name, prob: places?.[place] ?? 0 }))
+          .filter((row) => row.prob > 0)
+          .sort((a, b) => b.prob - a.prob)
+          .slice(0, 3)
+
+        return { place, leaders }
+      })
+      .filter((section) => section.leaders.length > 0)
+  }, [simResult])
+
   const runAt = simResult?.run_at
     ? new Date(simResult.run_at).toLocaleString(undefined, {
         month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
@@ -961,7 +1105,7 @@ function SimulationSection() {
         <div>
           <p className="text-sm font-bold text-white mb-0.5">Monte Carlo Simulation</p>
           <p className="text-xs text-slate-400 max-w-lg">
-            Run this command from your terminal after each round to update win probabilities,
+            Run this command from your terminal after each round to update win and place probabilities,
             leverage games, and best paths. Results push to all players' browsers via Realtime.
           </p>
         </div>
@@ -1038,6 +1182,28 @@ function SimulationSection() {
         <p className="text-xs text-slate-600 italic">
           No simulation results yet. Run the command above to generate win probabilities.
         </p>
+      )}
+
+      {placeLeaders.length > 0 && (
+        <div className="grid gap-3 md:grid-cols-2">
+          {placeLeaders.map(({ place, leaders }) => (
+            <div key={place} className="rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3">
+              <p className="text-[11px] font-semibold text-slate-400 mb-2">
+                Best {place === 2 ? '2nd-place' : '3rd-place'} odds
+              </p>
+              <div className="space-y-2">
+                {leaders.map(({ name, prob }) => (
+                  <div key={`${place}-${name}`} className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-slate-300 truncate">{name}</span>
+                    <span className="text-[11px] font-semibold text-amber-300 tabular-nums" style={{ fontFamily: 'Space Mono, monospace' }}>
+                      {(prob * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
     </div>
@@ -1861,7 +2027,6 @@ export default function AdminPage() {
           pool={pool}
           onLockChange={(locked) => {
             showToast(locked ? 'Pool locked.' : 'Pool unlocked.')
-            refreshPool()
           }}
           navigate={navigate}
           showToast={showToast}

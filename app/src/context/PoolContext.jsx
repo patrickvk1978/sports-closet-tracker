@@ -40,6 +40,15 @@ export function PoolProvider({ children }) {
     loadPoolData()
   }, [session])
 
+  function updatePoolLocally(poolId, patch) {
+    setAllPools((prev) => prev.map((item) => (
+      item.id === poolId ? { ...item, ...patch } : item
+    )))
+    setPool((prev) => (
+      prev?.id === poolId ? { ...prev, ...patch } : prev
+    ))
+  }
+
   async function loadPoolData(overrideActiveId) {
     setIsLoading(true)
 
@@ -142,9 +151,10 @@ export function PoolProvider({ children }) {
     return { pool: targetPool }
   }
 
-  async function createPool(name, startRound = 'R64', scoringConfig) {
+  async function createPool(name, startRound = 'R64', scoringConfig, prizePlaces = [1]) {
     const inviteCode = generateInviteCode()
     const defaultScoring = { R64: 10, R32: 20, S16: 40, E8: 80, F4: 160, Champ: 320 }
+    const poolScoringConfig = { ...(scoringConfig ?? defaultScoring), prize_places: prizePlaces }
 
     const { data: newPool, error } = await supabase
       .from('pools')
@@ -152,7 +162,7 @@ export function PoolProvider({ children }) {
         name,
         admin_id: session.user.id,
         invite_code: inviteCode,
-        scoring_config: scoringConfig ?? defaultScoring,
+        scoring_config: poolScoringConfig,
         start_round: startRound,
         locked: false,
       })
@@ -192,6 +202,7 @@ export function PoolProvider({ children }) {
       createPool,
       switchPool,
       refreshPool: loadPoolData,
+      updatePoolLocally,
     }}>
       {children}
     </PoolContext.Provider>

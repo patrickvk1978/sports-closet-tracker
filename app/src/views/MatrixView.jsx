@@ -2,6 +2,14 @@ import { useState, useMemo, useEffect } from "react";
 import { usePoolData } from "../hooks/usePoolData";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
+import {
+  getFinishMetricColor,
+  getFinishMetricDelta,
+  getFinishMetricOptions,
+  getPrimaryStandingsMetrics,
+  getPrizePlacesFromPool,
+  getFinishMetricValue,
+} from "../lib/finishProbabilities";
 
 const teamLabel = (game, which) => {
   const abbrev = which === 1 ? game.abbrev1 : game.abbrev2;
@@ -15,7 +23,6 @@ const SORT_OPTIONS = [
   { key: "rank",    label: "Rank"    },
   { key: "points",  label: "Points"  },
   { key: "ppr",     label: "PPR"     },
-  { key: "winProb", label: "Win %"   },
 ];
 
 const COL_WIDTHS = { R64: 76, R32: 88, S16: 96, E8: 106, F4: 112, Champ: 120 }
@@ -57,6 +64,13 @@ export default function MatrixView() {
   const [selectedRound, setSelectedRound] = useState("All");
   const [hoveredGame, setHoveredGame]   = useState(null);
   const [hoveredRow, setHoveredRow]     = useState(null);
+  const prizePlaces = useMemo(() => getPrizePlacesFromPool(pool), [pool]);
+  const finishMetricOptions = useMemo(() => getFinishMetricOptions(PLAYERS, prizePlaces), [PLAYERS, prizePlaces]);
+  const primaryMetricOptions = useMemo(() => getPrimaryStandingsMetrics(PLAYERS, prizePlaces), [PLAYERS, prizePlaces]);
+  const sortOptions = useMemo(
+    () => [...SORT_OPTIONS, ...finishMetricOptions],
+    [finishMetricOptions]
+  );
 
   // When pool is not locked, each user sees only their own picks
   const isLocked = pool?.locked === true;
@@ -79,14 +93,20 @@ export default function MatrixView() {
     if (!hasLiveGames && selectedRound === 'Live') setSelectedRound('All');
   }, [hasLiveGames]);
 
+  useEffect(() => {
+    if (!sortOptions.some((option) => option.key === sortBy)) {
+      setSortBy("rank");
+    }
+  }, [sortBy, sortOptions]);
+
   const sortedPlayers = useMemo(() => {
     return [...PLAYERS].sort((a, b) => {
-      if (sortBy === "winProb") return b.winProb - a.winProb;
       if (sortBy === "points")  return b.points  - a.points;
       if (sortBy === "ppr")     return b.ppr     - a.ppr;
+      if (sortBy !== "rank") return getFinishMetricValue(b, sortBy) - getFinishMetricValue(a, sortBy);
       return a.rank - b.rank;
     });
-  }, [sortBy]);
+  }, [PLAYERS, sortBy]);
 
   // Build leverage lookup by slot_index for cell deltas
   const leverageBySlot = useMemo(() => {
@@ -144,7 +164,7 @@ export default function MatrixView() {
         {/* Sort — hidden on mobile to keep pill row uncluttered */}
         <div className="ml-auto items-center gap-1 shrink-0 hidden sm:flex">
           <span className="text-[11px] text-slate-600 mr-1">Sort:</span>
-          {SORT_OPTIONS.map((opt) => (
+          {sortOptions.map((opt) => (
             <button
               key={opt.key}
               onClick={() => setSortBy(opt.key)}
@@ -206,7 +226,7 @@ export default function MatrixView() {
               </th>
 
               {/* Stat columns — Points + Win% only (PPR removed) */}
-              {SORT_OPTIONS.slice(1).filter(opt => opt.key !== 'ppr').map((opt) => (
+              {[{ key: "points", label: "Points" }, ...primaryMetricOptions].map((opt) => (
                 <th
                   key={opt.key}
                   onClick={() => setSortBy(opt.key)}
@@ -325,17 +345,35 @@ export default function MatrixView() {
                   {player.points.toLocaleString()}
                 </td>
 
-                <td className="px-2 py-1.5">
-                  <span
-                    className="text-xs font-bold tabular-nums"
-                    style={{
-                      fontFamily: "Space Mono, monospace",
-                      color: player.winProb > 10 ? "#34d399" : player.winProb > 5 ? "#fbbf24" : "#94a3b8",
-                    }}
-                  >
-                    {player.winProb}%
-                  </span>
-                </td>
+                {primaryMetricOptions.map((metric) => {
+                  const value = getFinishMetricValue(player, metric.key);
+                  const delta = getFinishMetricDelta(player, metric.key);
+                  return (
+                    <td key={metric.key} className="px-2 py-1.5">
+                      <div className="flex flex-col">
+                        <span
+                          className="text-xs font-bold tabular-nums"
+                          style={{
+                            fontFamily: "Space Mono, monospace",
+                            color: getFinishMetricColor(metric.key, value),
+                          }}
+                        >
+                          {value.toFixed(1)}%
+                        </span>
+                        {delta != null && (
+                          <span
+                            className={`text-[9px] font-bold tabular-nums ${
+                              delta > 0 ? "text-emerald-400" : delta < 0 ? "text-red-400" : "text-slate-500"
+                            }`}
+                            style={{ fontFamily: "Space Mono, monospace" }}
+                          >
+                            {delta > 0 ? "+" : ""}{delta.toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  );
+                })}
 
                 {filteredGames.map((game) => {
                   // Use slot_index for correct picks lookup across all 63 slots

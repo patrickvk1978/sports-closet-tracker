@@ -22,6 +22,12 @@ const REPORT_CARDS = [
     eyebrow: "Outcome dependencies",
     description: "See at a glance which team results help or hurt each player's pool-win chances across every remaining F4 and title contender.",
   },
+  {
+    to: "/reports/finish-outcomes",
+    title: "Finish Outcomes",
+    eyebrow: "Prize ladder",
+    description: "See every entry's exact finish-position odds, plus Any Prize and No Prize probabilities based on the pool's configured payout places.",
+  },
 ];
 
 function StatCard({ label, value, hint }) {

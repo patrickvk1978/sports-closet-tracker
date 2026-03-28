@@ -17,6 +17,7 @@ import ReportsHomeView from "./views/ReportsHomeView";
 import ReportsRootingView from "./views/ReportsRootingView";
 import ReportsHeadToHeadView from "./views/ReportsHeadToHeadView";
 import ReportsDependencyView from "./views/ReportsDependencyView";
+import ReportsFinishOutcomesView from "./views/ReportsFinishOutcomesView";
 
 export default function App() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
                     <Route path="/reports/rooting" element={<ReportsRootingView />} />
                     <Route path="/reports/head-to-head" element={<ReportsHeadToHeadView />} />
                     <Route path="/reports/dependency"   element={<ReportsDependencyView />} />
+                    <Route path="/reports/finish-outcomes" element={<ReportsFinishOutcomesView />} />
                   </Route>
                 </Route>
               </Routes>

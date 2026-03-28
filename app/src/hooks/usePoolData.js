@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { usePool } from './usePool'
 import { useAuth } from './useAuth'
 import { KEY_SLOTS } from '../lib/scoring'
+import { extractPlaceProbabilityMaps, getPrizePlacesFromPool } from '../lib/finishProbabilities'
 import {
   PLAYERS       as MOCK_PLAYERS,
   GAMES         as MOCK_GAMES,
@@ -221,6 +222,24 @@ function computeConsensus(players, liveGames) {
     .filter((c) => c.team1 !== 'TBD')
 }
 
+function buildMockFinishProbabilities(players) {
+  return players.reduce((acc, player) => {
+    const win = player.winProb ?? 0
+    const rank = player.rank ?? players.length
+    const top2 = Math.min(92, Math.max(win, win + Math.max(0, 18 - rank) * 1.8 + 4))
+    const top3 = Math.min(98, Math.max(top2, top2 + Math.max(1.5, (16 - rank) * 1.25 + 2.5)))
+    const place2 = Math.max(0, top2 - win)
+    const place3 = Math.max(0, top3 - top2)
+
+    acc[player.name] = {
+      1: win / 100,
+      2: place2 / 100,
+      3: place3 / 100,
+    }
+    return acc
+  }, {})
+}
+
 /**
  * Adapter hook: returns the exact same shape as mockData.js so that all
  * existing views work without logic changes. Falls back to mock data when
@@ -276,19 +295,67 @@ export function usePoolData() {
   // 1. Win probabilities: merge player_probs + deltas from simResult into PLAYERS_LIVE
   const PLAYERS_WITH_PROBS = useMemo(() => {
     const base = hasLivePlayers ? PLAYERS_LIVE : MOCK_PLAYERS
-    if (!simResult?.player_probs) return base
-    const prev = simResult?.prev_player_probs ?? {}
+    const { current, prev } = extractPlaceProbabilityMaps(simResult)
+    const prizePlaces = getPrizePlacesFromPool(pool)
+    const exactPlaceMap = Object.keys(current).length > 0
+      ? current
+      : !hasLivePlayers ? buildMockFinishProbabilities(base) : {}
     const hasPrev = Object.keys(prev).length > 0
+
     return base.map((p) => {
-      const current = (simResult.player_probs[p.name] ?? 0) * 100
-      const prevPct = (prev[p.name] ?? 0) * 100
+      const currentPlaces = exactPlaceMap[p.name] ?? {}
+      const prevPlaces = prev[p.name] ?? {}
+      const currentWin = currentPlaces[1] != null
+        ? currentPlaces[1] * 100
+        : (p.winProb ?? 0)
+      const prevWin = prevPlaces[1] != null ? prevPlaces[1] * 100 : null
+      const finishProbs = Object.fromEntries(
+        Object.entries(currentPlaces).map(([place, prob]) => [place, parseFloat((prob * 100).toFixed(1))])
+      )
+      const finishProbDeltas = Object.fromEntries(
+        Object.entries(currentPlaces)
+          .filter(([place]) => hasPrev && prevPlaces[place] != null)
+          .map(([place, prob]) => [place, parseFloat(((prob - prevPlaces[place]) * 100).toFixed(1))])
+      )
+      const topFinishProbs = {}
+      const topFinishProbDeltas = {}
+      let runningCurrent = 0
+      let runningPrev = 0
+
+      Object.keys(finishProbs)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .forEach((place) => {
+          runningCurrent += finishProbs[place] ?? 0
+          topFinishProbs[place] = parseFloat(runningCurrent.toFixed(1))
+
+          const prevValue = prevPlaces[place] != null ? prevPlaces[place] * 100 : null
+          if (hasPrev && prevValue != null) {
+            runningPrev += prevValue
+            topFinishProbDeltas[place] = parseFloat((runningCurrent - runningPrev).toFixed(1))
+          }
+        })
+
+      const anyPrizeProb = prizePlaces.reduce((sum, place) => sum + (finishProbs[place] ?? 0), 0)
+      const anyPrizePrev = prizePlaces.reduce((sum, place) => {
+        const value = prevPlaces[place] != null ? prevPlaces[place] * 100 : 0
+        return sum + value
+      }, 0)
+
       return {
         ...p,
-        winProb: parseFloat(current.toFixed(1)),
-        winProbDelta: hasPrev ? parseFloat((current - prevPct).toFixed(1)) : null,
+        winProb: parseFloat(currentWin.toFixed(1)),
+        winProbDelta: hasPrev && prevWin != null ? parseFloat((currentWin - prevWin).toFixed(1)) : null,
+        finishProbs,
+        finishProbDeltas,
+        topFinishProbs,
+        topFinishProbDeltas,
+        anyPrizeProb: parseFloat(anyPrizeProb.toFixed(1)),
+        anyPrizeProbDelta: hasPrev ? parseFloat((anyPrizeProb - anyPrizePrev).toFixed(1)) : null,
+        noPrizeProb: parseFloat((Math.max(0, 100 - anyPrizeProb)).toFixed(1)),
       }
     })
-  }, [hasLivePlayers, PLAYERS_LIVE, simResult])
+  }, [hasLivePlayers, PLAYERS_LIVE, pool, simResult])
 
   // 2. Leverage games: use sim result if available; if current pool is live but
   // sim data is missing, prefer an empty set over stale mock tournament games.

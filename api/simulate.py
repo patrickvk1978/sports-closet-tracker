@@ -314,6 +314,41 @@ def score_additional(picks, sim_outcomes, games_by_slot, round_points=None):
     return total
 
 
+def allocate_finish_shares(scores):
+    """
+    Convert one simulated scoreboard into per-player shares by finishing place.
+
+    Ties split the occupied places evenly. Example:
+      A/B tied for 1st, C alone in 3rd
+      -> A gets 0.5 of 1st and 0.5 of 2nd
+      -> B gets 0.5 of 1st and 0.5 of 2nd
+      -> C gets 1.0 of 3rd
+    """
+    finish_shares = {name: {} for name in scores}
+    if not scores:
+        return finish_shares
+
+    ordered = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+    place = 1
+    idx = 0
+
+    while idx < len(ordered):
+        score = ordered[idx][1]
+        tied_names = []
+        while idx < len(ordered) and ordered[idx][1] == score:
+            tied_names.append(ordered[idx][0])
+            idx += 1
+
+        group_size = len(tied_names)
+        share = 1.0 / group_size
+        for name in tied_names:
+            for occupied_place in range(place, place + group_size):
+                finish_shares[name][occupied_place] = finish_shares[name].get(occupied_place, 0.0) + share
+        place += group_size
+
+    return finish_shares
+
+
 # ─── Main simulation loop ──────────────────────────────────────────────────────
 
 def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
@@ -322,12 +357,21 @@ def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
     Run Monte Carlo simulation.
 
     players: list of { username, picks (list[str|None]), current_points (int) }
-    Returns: (player_probs dict, win_counts dict, all_outcomes list, sim_winners list)
+    Returns:
+      (
+        player_probs dict,
+        finish_probs dict,
+        win_counts dict,
+        finish_counts dict,
+        all_outcomes list,
+        sim_winners list,
+      )
 
     sim_winners[i] = list of pool-winning player names for iteration i
     all_outcomes[i] = { slot: winning_team } for iteration i
     """
     win_counts  = {p['username']: 0.0 for p in players}
+    finish_counts = {p['username']: {} for p in players}
     all_outcomes = []
     sim_winners  = []  # per-iteration pool winner(s) for leverage bucketing
 
@@ -343,6 +387,11 @@ def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
             sim_winners.append([])
             continue
 
+        finish_shares = allocate_finish_shares(scores)
+        for name, place_map in finish_shares.items():
+            for place, share in place_map.items():
+                finish_counts[name][place] = finish_counts[name].get(place, 0.0) + share
+
         max_score = max(scores.values())
         winners   = [name for name, s in scores.items() if s == max_score]
         share     = 1.0 / len(winners)
@@ -351,7 +400,11 @@ def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
         sim_winners.append(winners)
 
     player_probs = {name: count / iterations for name, count in win_counts.items()}
-    return player_probs, win_counts, all_outcomes, sim_winners
+    finish_probs = {
+        name: {str(place): count / iterations for place, count in sorted(place_counts.items())}
+        for name, place_counts in finish_counts.items()
+    }
+    return player_probs, finish_probs, win_counts, finish_counts, all_outcomes, sim_winners
 
 
 # ─── Leverage calculation ──────────────────────────────────────────────────────
@@ -616,23 +669,24 @@ def load_pool_data(client, pool_id):
 
 
 def load_prev_sim_data(client, pool_id):
-    """Load previous player_probs, narratives, and narrative_day from sim_results
+    """Load previous player_probs, finish_probs, narratives, and narrative_day from sim_results
     for delta tracking and narrative preservation across hourly (no-narrative) runs."""
     try:
         resp = (client.table('sim_results')
-                .select('player_probs, narratives, narrative_day')
+                .select('player_probs, finish_probs, narratives, narrative_day')
                 .eq('pool_id', pool_id)
                 .execute())
         if resp.data:
             row = resp.data[0]
             return (
                 row.get('player_probs') or {},
+                row.get('finish_probs') or {},
                 row.get('narratives') or {},
                 row.get('narrative_day') or 0,
             )
     except Exception:
         pass
-    return {}, {}, 0
+    return {}, {}, {}, 0
 
 
 TOURNAMENT_START_ET = date(2026, 3, 19)  # Day 1 = Selection Sunday / dashboard launch
@@ -1436,18 +1490,20 @@ def calculate_outcome_deltas(players, all_outcomes, sim_winners, player_probs,
     return results
 
 
-def upsert_sim_results(client, pool_id, player_probs, leverage_games,
+def upsert_sim_results(client, pool_id, player_probs, finish_probs, leverage_games,
                        player_leverage, best_paths, prev_player_probs,
-                       narratives, iterations, dry_run, narrative_day=0,
+                       prev_finish_probs, narratives, iterations, dry_run, narrative_day=0,
                        outcome_deltas=None):
     payload = {
         'pool_id':             pool_id,
         'iterations':          iterations,
         'player_probs':        player_probs,
+        'finish_probs':        finish_probs,
         'leverage_games':      leverage_games,
         'player_leverage':     player_leverage,
         'best_paths':          best_paths,
         'prev_player_probs':   prev_player_probs,
+        'prev_finish_probs':   prev_finish_probs,
         'narratives':          narratives,
         'narrative_day':       narrative_day,
         'outcome_deltas':      outcome_deltas or [],
@@ -1515,14 +1571,14 @@ def main():
             print(f'    - {t}')
 
     # Load previous sim data for delta tracking and narrative preservation
-    prev_probs, existing_narratives, prev_narrative_day = load_prev_sim_data(client, args.pool_id)
+    prev_probs, prev_finish_probs, existing_narratives, prev_narrative_day = load_prev_sim_data(client, args.pool_id)
     if prev_probs:
         print(f'  Loaded previous win probs for {len(prev_probs)} player(s)')
     else:
         print('  No previous sim results (first run — deltas will be suppressed)')
 
     print(f'\nRunning {args.iterations:,} simulations…')
-    player_probs, _, all_outcomes, sim_winners = run_simulation(
+    player_probs, finish_probs, _, _, all_outcomes, sim_winners = run_simulation(
         players, games_by_slot, team_seeds, bpi_ratings,
         iterations=args.iterations, round_points=pool_round_points
     )
@@ -1534,6 +1590,15 @@ def main():
         delta = prob * 100 - prev_pct
         delta_str = f' ({("+" if delta > 0 else "")}{delta:.1f})' if prev_probs else ''
         print(f'  {name:<20} {prob * 100:5.1f}%{delta_str}  {bar}')
+
+    print('\nPrize/finish outlook:')
+    for name, place_map in sorted(finish_probs.items(), key=lambda item: -sum(item[1].values())):
+        top_places = []
+        for place in ('1', '2', '3'):
+            if place in place_map:
+                top_places.append(f'{place}:{place_map[place] * 100:4.1f}%')
+        if top_places:
+            print(f'  {name:<20} {"  ".join(top_places)}')
 
     print(f'\nCalculating leverage (bucket-split from {args.iterations:,} base sims)…')
     leverage_games, player_leverage = calculate_leverage(
@@ -1602,8 +1667,8 @@ def main():
 
     current_day = (date.today() - TOURNAMENT_START_ET).days + 1
     upsert_sim_results(
-        client, args.pool_id, player_probs, leverage_games, player_leverage,
-        best_paths, prev_player_probs=prev_probs, narratives=narratives,
+        client, args.pool_id, player_probs, finish_probs, leverage_games, player_leverage,
+        best_paths, prev_player_probs=prev_probs, prev_finish_probs=prev_finish_probs, narratives=narratives,
         iterations=args.iterations, dry_run=args.dry_run,
         narrative_day=current_day, outcome_deltas=outcome_deltas,
     )

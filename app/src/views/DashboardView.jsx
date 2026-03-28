@@ -5,6 +5,14 @@ import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
 import { useNarrativeFeed } from "../hooks/useNarrativeFeed";
 import { supabase } from "../lib/supabase";
+import {
+  getFinishMetricColor,
+  getFinishMetricDelta,
+  getFinishMetricOptions,
+  getPrizePlacesFromPool,
+  getFinishMetricValue,
+} from "../lib/finishProbabilities";
+import { SLOT_ROUND } from "../lib/scoring";
 import LiveFeed from "../components/LiveFeed";
 
 // ─── Pre-game gate ────────────────────────────────────────────────────────────
@@ -141,11 +149,77 @@ function shortTeam(name) {
   return name;
 }
 
+const ROUND_MODE_ORDER = ["R64", "R32", "S16", "E8", "F4", "Champ"];
+const ROUND_MODE_LABELS = {
+  R64: "R64",
+  R32: "R32",
+  S16: "S16",
+  E8: "E8",
+  F4: "F4",
+  Champ: "Champ",
+};
+
+function getVisibleRoundKeys(pool, games) {
+  const startRound = pool?.start_round ?? "R64";
+  const startIndex = Math.max(0, ROUND_MODE_ORDER.indexOf(startRound));
+  const scoringConfig = pool?.scoring_config ?? {};
+
+  return ROUND_MODE_ORDER.slice(startIndex).filter((roundKey) => {
+    const configuredValue = Number(scoringConfig?.[roundKey] ?? 0);
+    if (configuredValue > 0) return true;
+    return games.some((game) => SLOT_ROUND[game.slot_index] === roundKey);
+  });
+}
+
+function buildRoundPointsByPlayer(players, games, roundPoints) {
+  return players.reduce((acc, player) => {
+    const totals = ROUND_MODE_ORDER.reduce((roundAcc, roundKey) => {
+      roundAcc[roundKey] = 0;
+      return roundAcc;
+    }, {});
+
+    games.forEach((game) => {
+      const roundKey = SLOT_ROUND[game.slot_index];
+      if (!roundKey || !game.winner) return;
+      if (player.picks?.[game.slot_index] !== game.winner) return;
+      totals[roundKey] += Number(roundPoints?.[roundKey] ?? 0);
+    });
+
+    acc[player.name] = totals;
+    return acc;
+  }, {});
+}
+
+function FinishMetricPicker({ options, value, onChange, compact = false }) {
+  if (!options?.length || options.length <= 1) return null;
+
+  return (
+    <div className={`flex items-center gap-1 ${compact ? "flex-wrap" : "flex-wrap"}`}>
+      {options.map((option) => (
+        <button
+          key={option.key}
+          onClick={() => onChange(option.key)}
+          className={`rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+            value === option.key
+              ? "bg-orange-500/15 text-orange-300 ring-1 ring-orange-500/30"
+              : "bg-slate-800/50 text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          {compact ? option.shortLabel : option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── 1. Stat Bar ─────────────────────────────────────────────────────────────
 
-function StatBar({ player, poolSize, bestPath }) {
+function StatBar({ player, poolSize, bestPath, finishMetric, finishMetricOptions, onFinishMetricChange }) {
   if (!player) return null;
-  const winProbColor = player.winProb > 15 ? "text-emerald-400" : player.winProb > 8 ? "text-amber-400" : "text-slate-400";
+  const finishValue = getFinishMetricValue(player, finishMetric);
+  const finishDelta = getFinishMetricDelta(player, finishMetric);
+  const finishLabel = finishMetricOptions.find((option) => option.key === finishMetric)?.label ?? "Win %";
+  const finishColor = getFinishMetricColor(finishMetric, finishValue);
 
   // Compress best path into "Need: X, Y, Z"
   const needs = (bestPath || [])
@@ -156,6 +230,16 @@ function StatBar({ player, poolSize, bestPath }) {
 
   return (
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl px-5 py-3">
+      <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500" style={{ fontFamily: "Space Mono, monospace" }}>
+          Standings Lens
+        </span>
+        <FinishMetricPicker
+          options={finishMetricOptions}
+          value={finishMetric}
+          onChange={onFinishMetricChange}
+        />
+      </div>
       <div className="flex items-center gap-4 flex-wrap">
         {/* Rank */}
         <div className="flex items-baseline gap-1 shrink-0">
@@ -167,7 +251,7 @@ function StatBar({ player, poolSize, bestPath }) {
 
         <div className="w-px h-6 bg-slate-700/60 shrink-0 hidden sm:block" />
 
-        {/* Points + Win Prob */}
+        {/* Points + Selected finish probability */}
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-baseline gap-1">
             <span className="text-lg font-bold text-white tabular-nums leading-none" style={{ fontFamily: "Space Mono, monospace" }}>
@@ -175,11 +259,12 @@ function StatBar({ player, poolSize, bestPath }) {
             </span>
             <span className="text-[10px] text-slate-500">pts</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className={`text-lg font-bold tabular-nums leading-none ${winProbColor}`} style={{ fontFamily: "Space Mono, monospace" }}>
-              {player.winProb}%
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-slate-500">{finishLabel}</span>
+            <span className="text-lg font-bold tabular-nums leading-none" style={{ fontFamily: "Space Mono, monospace", color: finishColor }}>
+              {finishValue.toFixed(1)}%
             </span>
-            <DeltaArrow delta={player.winProbDelta} />
+            <DeltaArrow delta={finishDelta} />
           </div>
           {player.champAlive ? (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-400 font-semibold border border-emerald-800/40">
@@ -580,24 +665,77 @@ function ComingUp({ games, leverageGames, playerLeverage, player }) {
 
 // ─── 5. Leaderboard ──────────────────────────────────────────────────────────
 
-const SORT_OPTIONS = [
-  { key: "points",  label: "Points"  },
-  { key: "winProb", label: "Win %"   },
-  { key: "ppr",     label: "PPR"     },
-]
-
-function winProbColor(wp) {
-  if (wp > 15) return '#34d399'
-  if (wp > 8)  return '#fbbf24'
-  return '#94a3b8'
-}
-
-function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
+function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer, finishMetricOptions, games, pool }) {
   const [sortBy, setSortBy] = useState("points")
+  const [sortDir, setSortDir] = useState("desc")
+  const [viewMode, setViewMode] = useState("summary")
+  const visibleMetricOptions = viewMode === "summary" ? finishMetricOptions : finishMetricOptions
+  const roundColumns = useMemo(() => getVisibleRoundKeys(pool, games), [pool, games])
+  const roundPointsByPlayer = useMemo(
+    () => buildRoundPointsByPlayer(players, games, pool?.scoring_config ?? {}),
+    [players, games, pool?.scoring_config]
+  )
+
+  function toggleSort(nextKey) {
+    if (sortBy === nextKey) {
+      setSortDir((dir) => (dir === "desc" ? "asc" : "desc"))
+      return
+    }
+    setSortBy(nextKey)
+    setSortDir("desc")
+  }
+
+  function getSortValue(player, key) {
+    if (key === "points") return player.points
+    if (key === "rank") return player.rank
+    if (ROUND_MODE_ORDER.includes(key)) return roundPointsByPlayer[player.name]?.[key] ?? 0
+    return getFinishMetricValue(player, key)
+  }
 
   const leaderboard = useMemo(() => {
-    return [...players].sort((a, b) => b[sortBy] - a[sortBy])
-  }, [players, sortBy])
+    const direction = sortDir === "desc" ? -1 : 1
+    return [...players].sort((a, b) => {
+      const diff = getSortValue(a, sortBy) - getSortValue(b, sortBy)
+
+      if (diff !== 0) return diff * direction
+      return a.name.localeCompare(b.name)
+    })
+  }, [players, sortBy, sortDir, roundPointsByPlayer])
+
+  const leaderboardWithDisplayRank = useMemo(() => {
+    let currentRank = 1
+
+    return leaderboard.map((player, index) => {
+      if (index > 0) {
+        const previousPlayer = leaderboard[index - 1]
+        if (getSortValue(player, sortBy) !== getSortValue(previousPlayer, sortBy)) {
+          currentRank = index + 1
+        }
+      }
+
+      return {
+        ...player,
+        displayRank: currentRank,
+      }
+    })
+  }, [leaderboard, sortBy, roundPointsByPlayer])
+
+  function SortableHeader({ sortKey, label, className = "", align = "right" }) {
+    const active = sortBy === sortKey
+    const arrow = active ? (sortDir === "desc" ? "▼" : "▲") : ""
+    return (
+      <th
+        onClick={() => toggleSort(sortKey)}
+        className={`px-2 sm:px-4 py-2.5 ${align === "right" ? "text-right" : "text-left"} cursor-pointer select-none hover:text-slate-300 whitespace-nowrap ${className}`}
+        style={{ fontFamily: "Space Mono, monospace" }}
+      >
+        <span className="inline-flex items-center gap-1">
+          <span>{label}</span>
+          <span className={`${active ? "text-orange-400" : "text-slate-700"}`}>{arrow || "↕"}</span>
+        </span>
+      </th>
+    )
+  }
 
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-900/60">
@@ -605,38 +743,59 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
           Leaderboard
         </p>
-        <div className="flex items-center gap-1">
-          {SORT_OPTIONS.map(opt => (
-            <button
-              key={opt.key}
-              onClick={() => setSortBy(opt.key)}
-              className={`text-[10px] px-2 py-0.5 rounded-md font-semibold transition-colors ${
-                sortBy === opt.key
-                  ? "bg-slate-700 text-white"
-                  : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-1 rounded-lg bg-slate-950/60 p-1">
+            {[
+              { key: "summary", label: "Summary" },
+              { key: "detailed", label: "Detailed" },
+              { key: "byRound", label: "By Round" },
+            ].map((mode) => (
+              <button
+                key={mode.key}
+                onClick={() => setViewMode(mode.key)}
+                className={`text-[10px] px-2 py-1 rounded-md font-semibold transition-colors ${
+                  viewMode === mode.key
+                    ? "bg-slate-700 text-white"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+          <span className="text-[10px] text-slate-500" style={{ fontFamily: "Space Mono, monospace" }}>
+            Click a column header to sort
+          </span>
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse">
+        <table className="min-w-full border-collapse md:min-w-0">
           <thead>
             <tr className="border-b border-slate-800 bg-slate-950/80 text-left text-[11px] uppercase tracking-[0.18em] text-slate-500">
               <th className="px-2 sm:px-4 py-2.5 w-8 sm:w-10">#</th>
               <th className="px-2 sm:px-4 py-2.5">Entry</th>
-              <th className="px-2 sm:px-4 py-2.5 text-right" style={{ fontFamily: "Space Mono, monospace" }}>Pts</th>
-              <th className="px-2 sm:px-4 py-2.5 text-right hidden sm:table-cell" style={{ fontFamily: "Space Mono, monospace" }}>PPR</th>
-              <th className="px-2 sm:px-4 py-2.5 text-left">Win %</th>
+              <SortableHeader sortKey="points" label="Pts" />
+              {viewMode === "byRound"
+                ? roundColumns.map((roundKey) => (
+                    <SortableHeader
+                      key={roundKey}
+                      sortKey={roundKey}
+                      label={ROUND_MODE_LABELS[roundKey] ?? roundKey}
+                    />
+                  ))
+                : visibleMetricOptions.map((option) => (
+                    <SortableHeader
+                      key={option.key}
+                      sortKey={option.key}
+                      label={option.label}
+                    />
+                  ))}
               <th className="px-2 sm:px-4 py-2.5 text-center w-10 sm:w-auto"></th>
             </tr>
           </thead>
           <tbody>
-            {leaderboard.map(p => {
+            {leaderboardWithDisplayRank.map(p => {
               const isActive = p.name === currentPlayer?.name
-              const wp = p.winProb ?? 0
               return (
                 <tr
                   key={p.name}
@@ -647,7 +806,7 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
                   }`}
                 >
                   <td className="px-2 sm:px-4 py-2 text-sm font-semibold text-slate-500 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
-                    {p.rank}
+                    {p.displayRank}
                   </td>
                   <td className="px-2 sm:px-4 py-2">
                     <span className={`text-sm font-semibold ${isActive ? 'text-orange-400' : 'text-white'}`}>
@@ -657,20 +816,34 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
                   <td className="px-2 sm:px-4 py-2 text-right text-sm font-bold text-white tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
                     {p.points.toLocaleString()}
                   </td>
-                  <td className="px-2 sm:px-4 py-2 text-right text-sm text-slate-400 tabular-nums hidden sm:table-cell" style={{ fontFamily: "Space Mono, monospace" }}>
-                    {p.ppr}
-                  </td>
-                  <td className="px-2 sm:px-4 py-2">
-                    <div className="flex items-center gap-1">
-                      <span
-                        className="text-sm font-bold tabular-nums"
-                        style={{ fontFamily: "Space Mono, monospace", color: winProbColor(wp) }}
-                      >
-                        {wp.toFixed(1)}%
-                      </span>
-                      <DeltaArrow delta={p.winProbDelta} />
-                    </div>
-                  </td>
+                  {viewMode === "byRound"
+                    ? roundColumns.map((roundKey) => (
+                        <td key={roundKey} className="px-2 sm:px-4 py-2 text-right whitespace-nowrap">
+                          <span
+                            className="text-sm font-bold text-white tabular-nums"
+                            style={{ fontFamily: "Space Mono, monospace" }}
+                          >
+                            {(roundPointsByPlayer[p.name]?.[roundKey] ?? 0).toLocaleString()}
+                          </span>
+                        </td>
+                      ))
+                    : visibleMetricOptions.map((option) => {
+                        const finishValue = getFinishMetricValue(p, option.key)
+                        const finishDelta = getFinishMetricDelta(p, option.key)
+                        return (
+                          <td key={option.key} className="px-2 sm:px-4 py-2 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              <span
+                                className="text-sm font-bold tabular-nums"
+                                style={{ fontFamily: "Space Mono, monospace", color: getFinishMetricColor(option.key, finishValue) }}
+                              >
+                                {finishValue.toFixed(1)}%
+                              </span>
+                              {viewMode === "detailed" && <DeltaArrow delta={finishDelta} />}
+                            </div>
+                          </td>
+                        )
+                      })}
                   <td className="px-2 sm:px-4 py-2 text-center">
                     <span
                       className={`inline-flex rounded-full border px-1.5 sm:px-2 py-0.5 text-[10px] font-semibold ${
@@ -695,7 +868,7 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer }) {
 
 // ─── 6. Between-Rounds Screen ───────────────────────────────────────────────
 
-function BetweenRoundsScreen({ pool, players, ownerName, tipoff }) {
+function BetweenRoundsScreen({ pool, players, ownerName, tipoff, finishMetricOptions, games }) {
   const tipoffDate = new Date(tipoff);
   const { days, hours, mins, secs, done } = useCountdown(tipoffDate.getTime());
 
@@ -757,6 +930,9 @@ function BetweenRoundsScreen({ pool, players, ownerName, tipoff }) {
         currentPlayer={null}
         isLocked={false}
         onSelectPlayer={() => {}}
+        finishMetricOptions={finishMetricOptions}
+        games={games}
+        pool={pool}
       />
     </div>
   );
@@ -787,6 +963,9 @@ export default function Dashboard() {
   const [selectedName, setSelectedName] = useState("");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const prizePlaces = useMemo(() => getPrizePlacesFromPool(pool), [pool]);
+  const finishMetricOptions = useMemo(() => getFinishMetricOptions(PLAYERS, prizePlaces), [PLAYERS, prizePlaces]);
+  const [finishMetric, setFinishMetric] = useState("winProb");
 
   async function handleLeavePool() {
     setLeaving(true);
@@ -819,6 +998,12 @@ export default function Dashboard() {
     return PLAYERS.find(p => p.name === name) ?? PLAYERS[0] ?? null;
   }, [selectedName, PLAYERS, isLocked, profile?.username]);
 
+  useEffect(() => {
+    if (!finishMetricOptions.some((option) => option.key === finishMetric)) {
+      setFinishMetric(finishMetricOptions[0]?.key ?? "winProb");
+    }
+  }, [finishMetric, finishMetricOptions]);
+
   // Gate: non-admins see the holding screen until the pool is locked
   if (!isLocked && !isAdmin) {
     return (
@@ -841,6 +1026,8 @@ export default function Dashboard() {
         players={PLAYERS}
         ownerName={ownerName}
         tipoff={pool.next_tipoff}
+        finishMetricOptions={finishMetricOptions}
+        games={GAMES}
       />
     );
   }
@@ -857,9 +1044,10 @@ export default function Dashboard() {
   const bestPath        = BEST_PATH?.[player.name] ?? BEST_PATH?.['_default'] ?? [];
   const hasLiveGames    = GAMES.some(g => g.status === 'live');
 
-  const winProbColor = player
-    ? player.winProb > 15 ? "text-emerald-400" : player.winProb > 8 ? "text-amber-400" : "text-slate-400"
-    : "text-slate-400";
+  const selectedFinishValue = player ? getFinishMetricValue(player, finishMetric) : 0;
+  const selectedFinishDelta = player ? getFinishMetricDelta(player, finishMetric) : null;
+  const selectedFinishLabel = finishMetricOptions.find((option) => option.key === finishMetric)?.shortLabel ?? "Win %";
+  const selectedFinishColor = getFinishMetricColor(finishMetric, selectedFinishValue);
 
   return (
     <>
@@ -888,10 +1076,11 @@ export default function Dashboard() {
         </span>
         <span className="text-[10px] text-slate-500">pts</span>
         <span className="text-slate-700">·</span>
-        <span className={`text-sm font-bold tabular-nums ${winProbColor}`} style={{ fontFamily: "Space Mono, monospace" }}>
-          {player.winProb}%
+        <span className="text-[10px] uppercase tracking-wider text-slate-500">{selectedFinishLabel}</span>
+        <span className="text-sm font-bold tabular-nums" style={{ fontFamily: "Space Mono, monospace", color: selectedFinishColor }}>
+          {selectedFinishValue.toFixed(1)}%
         </span>
-        <DeltaArrow delta={player.winProbDelta} />
+        <DeltaArrow delta={selectedFinishDelta} />
       </div>
     )}
 
@@ -950,7 +1139,14 @@ export default function Dashboard() {
 
       {/* ── 1. Stat Bar — desktop only (mobile uses sticky hero bar above) ──── */}
       <div className="hidden sm:block">
-        <StatBar player={player} poolSize={PLAYERS.length} bestPath={bestPath} />
+        <StatBar
+          player={player}
+          poolSize={PLAYERS.length}
+          bestPath={bestPath}
+          finishMetric={finishMetric}
+          finishMetricOptions={finishMetricOptions}
+          onFinishMetricChange={setFinishMetric}
+        />
       </div>
 
       {/* ── 2. Live Feed / Narrative ────────────────────────────────────────── */}
@@ -991,6 +1187,9 @@ export default function Dashboard() {
         currentPlayer={player}
         isLocked={isLocked}
         onSelectPlayer={setSelectedName}
+        finishMetricOptions={finishMetricOptions}
+        games={GAMES}
+        pool={pool}
       />
 
       {/* Leave pool confirm modal */}
