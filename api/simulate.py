@@ -1131,6 +1131,124 @@ def get_one_shot_instructions(client, configs):
     return instructions
 
 
+def _build_review_metadata(entries, enriched, ctx, narrative_type, just_finished,
+                           recent_feed, valid_names):
+    """
+    Build structured review metadata for batch narrative quality checks.
+    Stored in narrative_log alongside prompt/response for morning reviews.
+    """
+    import re
+    from datetime import date
+
+    # ── Snapshot: what was true when the model spoke ──────────────────────────
+    today_str = date.today().isoformat()
+    today_games = ctx.get('today_upcoming', [])
+    live_games = ctx.get('live_games', [])
+
+    player_snapshot = {}
+    for name, s in enriched.items():
+        player_snapshot[name] = {
+            'win_prob': s['win_prob'],
+            'rank': s['rank'],
+            'points': s['points'],
+            'champ_pick': s.get('champ_pick'),
+            'champ_alive': s.get('champ_alive'),
+            'eliminated': s['win_prob'] == 0 and s['ppr'] == 0,
+            'any_prize': s.get('any_prize_prob', 0),
+            'finish_1st': s.get('finish_place_probs', {}).get(1, 0),
+        }
+
+    # ── Response quality signals ─────────────────────────────────────────────
+
+    # Extract all team names mentioned in content
+    # Build set of known teams from enriched stats (champ picks, leverage matchups)
+    all_content = ' '.join(e.get('content', '') for e in entries)
+
+    # Persona distribution
+    persona_counts = {}
+    for e in entries:
+        p = e.get('persona', 'unknown')
+        persona_counts[p] = persona_counts.get(p, 0) + 1
+
+    # Per-entry details
+    entry_details = []
+    for e in entries:
+        content = e.get('content', '')
+        word_count = len(content.split())
+
+        # Extract percentages cited in content
+        numbers_cited = re.findall(r'[\d]+\.?\d*%', content)
+
+        # Time words
+        time_words = []
+        for tw in ('tonight', 'today', 'right now', 'this evening', 'tomorrow', 'yesterday', 'Sunday', 'Saturday'):
+            if tw.lower() in content.lower():
+                time_words.append(tw)
+
+        # Player names mentioned in content text (not just player_name field)
+        players_in_content = [n for n in valid_names if n != '_pool' and n.lower() in content.lower()]
+
+        entry_details.append({
+            'player_name': e.get('player_name', '_pool'),
+            'persona': e.get('persona', 'unknown'),
+            'word_count': word_count,
+            'numbers_cited': numbers_cited,
+            'time_words': time_words,
+            'players_in_content': players_in_content,
+        })
+
+    # Aggregate flags for quick filtering
+    flags = []
+
+    # Flag: entry count vs pool size mismatch
+    pool_size = len(enriched)
+    player_entries = sum(1 for e in entries if e.get('player_name') != '_pool')
+    if player_entries > pool_size:
+        flags.append(f'more_entries_than_players:{player_entries}>{pool_size}')
+
+    # Flag: persona imbalance (one persona has 60%+ of entries)
+    total_entries = len(entries)
+    for persona, count in persona_counts.items():
+        if total_entries > 2 and count / total_entries > 0.6:
+            flags.append(f'persona_heavy:{persona}:{count}/{total_entries}')
+
+    # Flag: word count violations (overnight max 60, deep_dive/game_end max 50, alert max 35)
+    limits = {'overnight': 60, 'deep_dive': 50, 'game_end': 50, 'alert': 35}
+    limit = limits.get(narrative_type, 50)
+    for ed in entry_details:
+        if ed['word_count'] > limit * 1.2:  # 20% grace
+            flags.append(f"verbose:{ed['player_name']}:{ed['word_count']}w>{limit}")
+
+    # Flag: time word + not today's game
+    today_game_text = ' '.join(today_games).lower()
+    for ed in entry_details:
+        if any(tw in ('tonight', 'today', 'this evening') for tw in ed['time_words']):
+            # Check if content mentions a team not in today's games
+            content_lower = (next((e['content'] for e in entries if e.get('player_name') == ed['player_name']), '')).lower()
+            # Simple heuristic: flag if "tonight" appears but no today games are live/upcoming
+            if not today_games and not live_games:
+                flags.append(f"time_error:{ed['player_name']}:tonight_but_no_games_today")
+
+    # Flag: entry for 0% eliminated player during live game trigger
+    if narrative_type in ('deep_dive', 'game_end', 'alert'):
+        for ed in entry_details:
+            pn = ed['player_name']
+            if pn != '_pool' and player_snapshot.get(pn, {}).get('eliminated'):
+                flags.append(f"dead_player_entry:{pn}")
+
+    return {
+        'today_date': today_str,
+        'today_games': today_games[:6],
+        'live_games': live_games[:4],
+        'trigger_type': narrative_type,
+        'just_finished': just_finished or None,
+        'player_snapshot': player_snapshot,
+        'persona_distribution': persona_counts,
+        'entry_details': entry_details,
+        'flags': flags,
+    }
+
+
 def generate_feed_entries(player_probs, prev_probs, best_paths, players,
                           games_by_slot, leverage_games=None,
                           model='claude-haiku-4-5-20251001',
@@ -1392,6 +1510,11 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
         print(f'  Generated {narrative_type} feed: {n_player} player + {n_pool} pool entries')
 
         if supabase_client:
+            # ── Build review metadata for batch quality checks ────────────
+            review = _build_review_metadata(
+                entries, enriched, ctx, narrative_type, just_finished,
+                recent_feed, valid_names,
+            )
             log_event(supabase_client, pool_id, 'simulate', 'info', 'narrative_call',
                       f'{narrative_type}: {n_player} player + {n_pool} pool entries',
                       metadata={
@@ -1405,6 +1528,7 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
                           'entries_generated': len(entries),
                           'prompt': dynamic_context,
                           'response': raw,
+                          'review': review,
                       })
 
         # Build legacy narratives dict for backward compat with sim_results
