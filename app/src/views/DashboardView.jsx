@@ -665,6 +665,13 @@ function ComingUp({ games, leverageGames, playerLeverage, player }) {
 
 // ─── 5. Leaderboard ──────────────────────────────────────────────────────────
 
+function getSortValue(player, key, roundPointsByPlayer) {
+  if (key === "points") return player.points
+  if (key === "rank") return player.rank
+  if (ROUND_MODE_ORDER.includes(key)) return roundPointsByPlayer[player.name]?.[key] ?? 0
+  return getFinishMetricValue(player, key)
+}
+
 function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer, finishMetricOptions, games, pool }) {
   const [sortBy, setSortBy] = useState("points")
   const [sortDir, setSortDir] = useState("desc")
@@ -685,17 +692,10 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer, finishM
     setSortDir("desc")
   }
 
-  function getSortValue(player, key) {
-    if (key === "points") return player.points
-    if (key === "rank") return player.rank
-    if (ROUND_MODE_ORDER.includes(key)) return roundPointsByPlayer[player.name]?.[key] ?? 0
-    return getFinishMetricValue(player, key)
-  }
-
   const leaderboard = useMemo(() => {
     const direction = sortDir === "desc" ? -1 : 1
     return [...players].sort((a, b) => {
-      const diff = getSortValue(a, sortBy) - getSortValue(b, sortBy)
+      const diff = getSortValue(a, sortBy, roundPointsByPlayer) - getSortValue(b, sortBy, roundPointsByPlayer)
 
       if (diff !== 0) return diff * direction
       return a.name.localeCompare(b.name)
@@ -708,7 +708,7 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer, finishM
     return leaderboard.map((player, index) => {
       if (index > 0) {
         const previousPlayer = leaderboard[index - 1]
-        if (getSortValue(player, sortBy) !== getSortValue(previousPlayer, sortBy)) {
+        if (getSortValue(player, sortBy, roundPointsByPlayer) !== getSortValue(previousPlayer, sortBy, roundPointsByPlayer)) {
           currentRank = index + 1
         }
       }
