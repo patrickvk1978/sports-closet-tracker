@@ -614,11 +614,12 @@ def load_pool_data(client, pool_id):
     Returns (players, games_by_slot, team_seeds, round_points).
     """
     # Pool scoring config
-    pool_resp = client.table('pools').select('scoring_config, start_round, prize_places').eq('id', pool_id).execute()
+    pool_resp = client.table('pools').select('scoring_config, start_round').eq('id', pool_id).execute()
     pool_row  = (pool_resp.data or [{}])[0]
-    round_points = pool_row.get('scoring_config') or ROUND_POINTS
+    scoring_cfg = pool_row.get('scoring_config') or {}
+    prize_places = scoring_cfg.pop('prize_places', None) or [1]
+    round_points = scoring_cfg if scoring_cfg else ROUND_POINTS
     pool_start_round = pool_row.get('start_round') or 'R64'
-    prize_places = pool_row.get('prize_places') or [1]
 
     # Games
     resp         = client.table('games').select('*').execute()

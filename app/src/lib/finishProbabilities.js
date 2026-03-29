@@ -107,11 +107,11 @@ export function normalizePrizePlaces(rawPrizePlaces) {
 }
 
 export function getPrizePlacesFromPool(pool) {
-  const direct = normalizePrizePlaces(pool?.prize_places)
-  if (direct.length > 0) return direct
-
   const nested = normalizePrizePlaces(pool?.scoring_config?.prize_places)
   if (nested.length > 0) return nested
+
+  const direct = normalizePrizePlaces(pool?.prize_places)
+  if (direct.length > 0) return direct
 
   return [...DEFAULT_PRIZE_PLACES]
 }
