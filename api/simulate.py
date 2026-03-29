@@ -1442,10 +1442,10 @@ IMPORTANT — THIS IS A {pool_start_round} MINI-POOL:
     just_finished_line = f"\nEVENT: {just_finished}\n" if just_finished else ''
 
     trigger_hints = {
-        'overnight': 'Morning briefing. Set the table for today. No games are live right now.',
-        'deep_dive': 'Live games in progress — ~20 min since last check-in. What has changed? New angles only.',
-        'game_end':  f'Game(s) just finished. React to the result and its pool impact.{just_finished_line}',
-        'alert':     f'BREAKING — high-leverage moment or champion pick in danger.{just_finished_line}',
+        'overnight': 'Morning briefing. No games are live. Set the table for today.',
+        'deep_dive': f'Live games in progress. Follow the plan — write the assigned angles only.',
+        'game_end':  f'Game(s) just finished.{just_finished_line}Follow the plan — lead with the biggest pool impact.',
+        'alert':     f'BREAKING.{just_finished_line}Follow the plan — urgent, specific, name the players.',
     }
 
     valid_player_names = sorted(enriched.keys())
@@ -1480,9 +1480,8 @@ Highest-leverage games:
 TRIGGER: {trigger_hints.get(narrative_type, trigger_hints['deep_dive'])}
 
 Generate the next beat of the broadcast. Return a JSON array — no markdown, no explanation.
-Follow the NARRATIVE PLAN above. Use the assigned persona, angle, and headline for each player.
-Each entry addresses one player in second person, weaving in pool context.
-For alert entries, include a "leverage_pct" field with the numeric swing value."""
+Follow the NARRATIVE PLAN exactly — assigned personas, angles, and headlines. One entry per assignment.
+For alert entries include a "leverage_pct" field with the numeric swing value."""
 
     # ── Load static prompt files (cacheable) ──────────────────────────────────
 
