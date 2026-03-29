@@ -295,6 +295,9 @@ def run_poller(pool_ids, client):
     overnight_narrative_done_date = ''    # game-day date (YYYYMMDD) already covered
     locked_narrative_done         = set() # pool IDs that have had their lock-trigger narrative
 
+    # ── Deep-dive delta gate state ──────────────────────────────────────────
+    last_deep_dive_scores = {}     # { slot_index: (score1, score2) } at last deep_dive
+
     # ── Alert state ──────────────────────────────────────────────────────────
     wp_at_game_start = {}          # { slot_index: win_prob_home } when game first went live
     wp_flipped = set()             # slot_indices where favorite already flipped (fire once)
@@ -637,19 +640,37 @@ def run_poller(pool_ids, client):
                     locked_narrative_done.update(newly_locked)
                     last_hourly_sim_time = datetime.now(timezone.utc)
 
-                # ── Deep-dive narrative: every ~12 min while games are live ──
+                # ── Deep-dive narrative: every ~15 min while games are live,
+                #    but ONLY if scores actually changed (delta gate) ──────
                 elif live_count > 0:
                     deep_elapsed = (datetime.now(timezone.utc) - last_deep_dive_time).total_seconds()
                     if deep_elapsed >= DEEP_DIVE_INTERVAL_SECS:
-                        print(f'  → Deep-dive commentary (live games active)…')
-                        log_event(client, None, 'poller', 'info', 'deep_dive_trigger',
-                                  'Deep-dive commentary triggered', metadata={'live_count': live_count})
-                        run_sim(sim_script, pool_ids, (
-                            '--narrative-model', DEEP_DIVE_MODEL,
-                            '--narrative-type', 'deep_dive',
-                        ))
-                        last_deep_dive_time = datetime.now(timezone.utc)
-                        last_hourly_sim_time = datetime.now(timezone.utc)
+                        # Delta gate: check if any live game score changed
+                        current_scores = {}
+                        for g in db_games.values():
+                            if g.get('status') == 'live':
+                                teams = g.get('teams', {})
+                                current_scores[g['slot_index']] = (
+                                    teams.get('score1', 0), teams.get('score2', 0))
+                        score_changed = current_scores != last_deep_dive_scores
+                        new_live = bool(set(current_scores.keys()) - set(last_deep_dive_scores.keys()))
+
+                        if score_changed or new_live:
+                            reason = 'new_game' if new_live else 'score_change'
+                            print(f'  → Deep-dive commentary ({reason}, {live_count} live)…')
+                            log_event(client, None, 'poller', 'info', 'deep_dive_trigger',
+                                      f'Deep-dive commentary triggered ({reason})',
+                                      metadata={'live_count': live_count, 'reason': reason})
+                            run_sim(sim_script, pool_ids, (
+                                '--narrative-model', DEEP_DIVE_MODEL,
+                                '--narrative-type', 'deep_dive',
+                            ))
+                            last_deep_dive_time = datetime.now(timezone.utc)
+                            last_hourly_sim_time = datetime.now(timezone.utc)
+                            last_deep_dive_scores = current_scores.copy()
+                        else:
+                            print(f'  → Deep-dive skipped (no score change, {live_count} live)')
+                            last_deep_dive_time = datetime.now(timezone.utc)  # reset timer
 
                 # ── Overnight narrative: 3–4 AM ET, attributed to the previous
                 #    calendar day so a 3 AM Friday run covers Thursday's games.

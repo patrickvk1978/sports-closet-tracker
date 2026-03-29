@@ -1133,7 +1133,7 @@ def get_one_shot_instructions(client, configs):
 
 
 def _build_review_metadata(entries, enriched, ctx, narrative_type, just_finished,
-                           recent_feed, valid_names):
+                           recent_feed, valid_names, plan=None):
     """
     Build structured review metadata for batch narrative quality checks.
     Stored in narrative_log alongside prompt/response for morning reviews.
@@ -1237,6 +1237,35 @@ def _build_review_metadata(entries, enriched, ctx, narrative_type, just_finished
             snap = player_snapshot.get(pn, {})
             if pn != '_pool' and snap.get('eliminated') and snap.get('any_prize', 0) == 0:
                 flags.append(f"dead_player_entry:{pn}")
+
+    # Flag: planner compliance — did the LLM follow the plan?
+    if plan and plan.get('assignments'):
+        planned_players = {a['player_name'] for a in plan['assignments']}
+        planned_personas = {a['player_name']: a['persona'] for a in plan['assignments']}
+        actual_players = {e.get('player_name') for e in entries if e.get('player_name') != '_pool'}
+
+        # Unplanned entries (LLM added players not in the plan)
+        unplanned = actual_players - planned_players
+        if unplanned:
+            flags.append(f"unplanned_entries:{','.join(sorted(unplanned))}")
+
+        # Missed assignments (planner requested but LLM didn't produce)
+        missed = planned_players - actual_players
+        if missed:
+            flags.append(f"missed_assignments:{','.join(sorted(missed))}")
+
+        # Persona swaps (LLM used different persona than planned)
+        for e in entries:
+            pn = e.get('player_name', '_pool')
+            if pn in planned_personas and e.get('persona') != planned_personas[pn]:
+                flags.append(f"persona_swap:{pn}:{planned_personas[pn]}->{e.get('persona')}")
+
+        # Entries for skipped players
+        skipped_set = set(plan.get('skipped_players', []))
+        for e in entries:
+            pn = e.get('player_name', '_pool')
+            if pn in skipped_set:
+                flags.append(f"entry_for_skipped:{pn}")
 
     return {
         'today_date': today_str,
@@ -1393,6 +1422,21 @@ IMPORTANT — THIS IS A {pool_start_round} MINI-POOL:
 
     recent_feed = _fetch_recent_feed(supabase_client, pool_id)
 
+    # ── Run narrative planner ─────────────────────────────────────────────────
+
+    from narrative_planner import plan_narrative_cycle, format_plan_for_prompt
+
+    plan = plan_narrative_cycle(
+        enriched_stats=enriched,
+        recent_feed_str=recent_feed,
+        narrative_type=narrative_type,
+        just_finished=just_finished,
+        tournament_context=ctx,
+        prize_places=prize_places or [1],
+    )
+    plan_block = format_plan_for_prompt(plan)
+    print(f'  Planner: {len(plan["assignments"])} assignments, {len(plan["skipped_players"])} skipped')
+
     # ── Build dynamic context (changes every call) ────────────────────────────
 
     just_finished_line = f"\nEVENT: {just_finished}\n" if just_finished else ''
@@ -1431,12 +1475,13 @@ Highest-leverage games:
 
 {recent_feed}
 
+{plan_block}
+
 TRIGGER: {trigger_hints.get(narrative_type, trigger_hints['deep_dive'])}
 
 Generate the next beat of the broadcast. Return a JSON array — no markdown, no explanation.
-Entry type should be "{narrative_type}". Produce entries for the most relevant players (not necessarily all).
-Each entry addresses one player in second person, weaving in pool context. Use "_pool" sparingly — only for
-truly pool-wide announcements where no personal angle exists.
+Follow the NARRATIVE PLAN above. Use the assigned persona, angle, and headline for each player.
+Each entry addresses one player in second person, weaving in pool context.
 For alert entries, include a "leverage_pct" field with the numeric swing value."""
 
     # ── Load static prompt files (cacheable) ──────────────────────────────────
@@ -1515,7 +1560,7 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
             # ── Build review metadata for batch quality checks ────────────
             review = _build_review_metadata(
                 entries, enriched, ctx, narrative_type, just_finished,
-                recent_feed, valid_names,
+                recent_feed, valid_names, plan=plan,
             )
             log_event(supabase_client, pool_id, 'simulate', 'info', 'narrative_call',
                       f'{narrative_type}: {n_player} player + {n_pool} pool entries',
@@ -1531,6 +1576,18 @@ For alert entries, include a "leverage_pct" field with the numeric swing value."
                           'prompt': dynamic_context,
                           'response': raw,
                           'review': review,
+                          'planner': {
+                              'assignments': [{
+                                  'player_name': a['player_name'],
+                                  'angle': a['angle'],
+                                  'persona': a['persona'],
+                                  'headline_fact': a['headline_fact'],
+                                  'banned_count': len(a.get('banned_phrases', [])),
+                              } for a in plan.get('assignments', [])],
+                              'skipped': plan.get('skipped_players', []),
+                              'pool_entry': plan.get('pool_entry', False),
+                              'feed_analysis': plan.get('feed_analysis', {}),
+                          },
                       })
 
         # Build legacy narratives dict for backward compat with sim_results
