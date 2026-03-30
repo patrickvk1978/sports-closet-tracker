@@ -352,7 +352,7 @@ def allocate_finish_shares(scores):
 # ─── Main simulation loop ──────────────────────────────────────────────────────
 
 def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
-                   iterations=20_000, round_points=None):
+                   iterations=20_000, round_points=None, prize_places=None):
     """
     Run Monte Carlo simulation.
 
@@ -365,15 +365,19 @@ def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
         finish_counts dict,
         all_outcomes list,
         sim_winners list,
+        sim_prize_finishers list,
       )
 
     sim_winners[i] = list of pool-winning player names for iteration i
+    sim_prize_finishers[i] = list of player names finishing in any prize place for iteration i
     all_outcomes[i] = { slot: winning_team } for iteration i
     """
+    pp = set(prize_places or [1])
     win_counts  = {p['username']: 0.0 for p in players}
     finish_counts = {p['username']: {} for p in players}
     all_outcomes = []
     sim_winners  = []  # per-iteration pool winner(s) for leverage bucketing
+    sim_prize_finishers = []  # per-iteration players finishing in any prize place
 
     for _ in range(iterations):
         sim = simulate_tournament(games_by_slot, team_seeds, bpi_ratings)
@@ -385,6 +389,7 @@ def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
         }
         if not scores:
             sim_winners.append([])
+            sim_prize_finishers.append([])
             continue
 
         finish_shares = allocate_finish_shares(scores)
@@ -399,24 +404,33 @@ def run_simulation(players, games_by_slot, team_seeds, bpi_ratings,
             win_counts[name] += share
         sim_winners.append(winners)
 
+        # Track players finishing in any prize position
+        prize_names = [
+            name for name, place_map in finish_shares.items()
+            if any(place in pp for place in place_map)
+        ]
+        sim_prize_finishers.append(prize_names)
+
     player_probs = {name: count / iterations for name, count in win_counts.items()}
     finish_probs = {
         name: {str(place): count / iterations for place, count in sorted(place_counts.items())}
         for name, place_counts in finish_counts.items()
     }
-    return player_probs, finish_probs, win_counts, finish_counts, all_outcomes, sim_winners
+    return player_probs, finish_probs, win_counts, finish_counts, all_outcomes, sim_winners, sim_prize_finishers
 
 
 # ─── Leverage calculation ──────────────────────────────────────────────────────
 
-def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners):
+def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners,
+                       sim_prize_finishers=None):
     """
     For each pending/live game with known teams, split the base simulation
     outcomes into two buckets (team1 won vs team2 won) and compute each
     player's conditional win probability from the same simulation run.
 
-    This is zero-sum by construction: all player deltas for a given game
-    outcome sum to zero against the base probabilities.
+    Also computes prize probability per bucket (any prize place) and uses
+    that for rootFor when win probability is negligible — prevents giving
+    meaningless rooting advice to eliminated players who still have prize odds.
 
     Returns:
       leverage_games  — all games with computed impacts, sorted by leverage
@@ -427,6 +441,8 @@ def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners):
     n_sims        = len(all_outcomes)
     if n_players == 0 or n_sims == 0:
         return [], {}
+
+    has_prize_data = sim_prize_finishers is not None and len(sim_prize_finishers) == n_sims
 
     pending_slots = sorted([
         slot for slot, game in games_by_slot.items()
@@ -445,6 +461,8 @@ def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners):
         # Split simulations into two buckets based on who won this slot
         wins_if_t1 = {p['username']: 0.0 for p in players}
         wins_if_t2 = {p['username']: 0.0 for p in players}
+        prize_if_t1 = {p['username']: 0.0 for p in players}
+        prize_if_t2 = {p['username']: 0.0 for p in players}
         count_t1 = 0
         count_t2 = 0
 
@@ -455,11 +473,17 @@ def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners):
                 share = 1.0 / len(sim_winners[i]) if sim_winners[i] else 0
                 for name in sim_winners[i]:
                     wins_if_t1[name] += share
+                if has_prize_data:
+                    for name in sim_prize_finishers[i]:
+                        prize_if_t1[name] += 1.0
             elif winner_of_slot == team2:
                 count_t2 += 1
                 share = 1.0 / len(sim_winners[i]) if sim_winners[i] else 0
                 for name in sim_winners[i]:
                     wins_if_t2[name] += share
+                if has_prize_data:
+                    for name in sim_prize_finishers[i]:
+                        prize_if_t2[name] += 1.0
 
         # Skip games where one bucket has too few simulations (< 50)
         if count_t1 < 50 or count_t2 < 50:
@@ -474,12 +498,22 @@ def calculate_leverage(players, games_by_slot, all_outcomes, sim_winners):
             p2   = (wins_if_t2[name] / count_t2) * 100
             swing = abs(p1 - p2)
             max_swing = max(max_swing, swing)
+
+            # rootFor: use prize probability when win probability is negligible
+            if has_prize_data and p1 < 1.0 and p2 < 1.0:
+                # Win prob too small to be meaningful — use any-prize prob
+                prize_p1 = (prize_if_t1[name] / count_t1) * 100
+                prize_p2 = (prize_if_t2[name] / count_t2) * 100
+                root_for = team1 if prize_p1 >= prize_p2 else team2
+            else:
+                root_for = team1 if p1 >= p2 else team2
+
             player_impacts.append({
                 'player':  name,
                 'ifTeam1': round(p1, 1),
                 'ifTeam2': round(p2, 1),
                 'swing':   round(swing, 1),
-                'rootFor': team1 if p1 >= p2 else team2,
+                'rootFor': root_for,
             })
 
         n    = n_players or 1
@@ -1814,9 +1848,10 @@ def main():
         print('  No previous sim results (first run — deltas will be suppressed)')
 
     print(f'\nRunning {args.iterations:,} simulations…')
-    player_probs, finish_probs, _, _, all_outcomes, sim_winners = run_simulation(
+    player_probs, finish_probs, _, _, all_outcomes, sim_winners, sim_prize_finishers = run_simulation(
         players, games_by_slot, team_seeds, bpi_ratings,
-        iterations=args.iterations, round_points=pool_round_points
+        iterations=args.iterations, round_points=pool_round_points,
+        prize_places=prize_places
     )
 
     print('\nWin probabilities:')
@@ -1838,7 +1873,8 @@ def main():
 
     print(f'\nCalculating leverage (bucket-split from {args.iterations:,} base sims)…')
     leverage_games, player_leverage = calculate_leverage(
-        players, games_by_slot, all_outcomes, sim_winners
+        players, games_by_slot, all_outcomes, sim_winners,
+        sim_prize_finishers=sim_prize_finishers
     )
     print(f'  {len(leverage_games)} game(s) with leverage data')
     print(f'  Per-player top games computed for {len(player_leverage)} player(s)')
