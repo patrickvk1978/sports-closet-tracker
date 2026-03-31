@@ -231,6 +231,15 @@ const SCOREBOARD = [
   { name: "Maya", exact: 0, position: 0, points: 0, projected: "+7" },
 ];
 
+const POOL_LOCKS = [
+  { name: "Patrick", status: "locked", pick: "Cam Ward", result: "exact" },
+  { name: "Sarah", status: "locked", pick: "Cam Ward", result: "exact" },
+  { name: "Davin", status: "waiting", pick: null, result: null },
+  { name: "Maya", status: "locked", pick: "Travis Hunter", result: "miss" },
+  { name: "Susan", status: "waiting", pick: null, result: null },
+  { name: "Matt", status: "locked", pick: "Abdul Carter", result: "position" },
+];
+
 function getProspect(id) {
   return PROSPECTS.find((prospect) => prospect.id === id) ?? null;
 }
@@ -336,6 +345,30 @@ function LeaderboardTable() {
   );
 }
 
+function PoolStatusGrid({ revealed = false }) {
+  return (
+    <div className="pool-status-grid">
+      {POOL_LOCKS.map((entry) => (
+        <div
+          key={entry.name}
+          className={
+            revealed && entry.result
+              ? `pool-member-card revealed ${entry.result}`
+              : `pool-member-card ${entry.status}`
+          }
+        >
+          <strong>{entry.name}</strong>
+          {!revealed ? (
+            <span>{entry.status === "locked" ? "Locked in" : "Waiting"}</span>
+          ) : (
+            <span>{entry.pick ?? "No pick"}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("draft");
   const [selectedPick, setSelectedPick] = useState(1);
@@ -380,6 +413,18 @@ function App() {
     boardIds,
     fallbackMode,
     manualPickId: selectedManual,
+  });
+  const queueSuggestion = resolveBoardFallback({
+    boardIds,
+    takenIds,
+    teamCode: selectedPickData.currentTeam,
+    fallbackMode: "queue_only",
+  });
+  const needSuggestion = resolveBoardFallback({
+    boardIds,
+    takenIds,
+    teamCode: selectedPickData.currentTeam,
+    fallbackMode: "queue_plus_team_need",
   });
 
   function assignPlayerToPick(prospectId, pickNumber) {
@@ -460,179 +505,133 @@ function App() {
       {activeTab === "draft" ? (
         <div className="draft-layout">
           <section className="panel board-panel">
-            <div className="headline-strip">
-              <div className="headline-card live">
-                <span className="label">Current pick</span>
-                <strong>#1 Tennessee Titans</strong>
-                <span className="subtle">Needs: QB, EDGE, WR</span>
-              </div>
-              <div className="headline-card">
-                <span className="label">Best available</span>
-                <strong>Cam Ward</strong>
-                <span className="subtle">QB · Miami · consensus #1</span>
-              </div>
-              <div className="headline-card">
-                <span className="label">Pool race</span>
-                <strong>Patrick leads projections</strong>
-                <span className="subtle">Sarah and Davin within one exact hit</span>
-              </div>
-            </div>
-
-            <div className="panel-header">
-              <div>
-                <span className="label">Round 1 board</span>
-                <h2>Live draft predictions</h2>
-              </div>
-              <span className="subtle">Predictions stay attached to the slot. Trades only change the team on the clock.</span>
-            </div>
-
-            <div className="pick-list">
-              {INITIAL_PICKS.map((pick) => {
-                const prediction = getProspect(predictions[pick.number]);
-                const manual = manualPicks[pick.number] ? getProspect(manualPicks[pick.number]) : null;
-                const status = buildPickStatus({
-                  pick,
-                  prediction: predictions[pick.number],
-                  takenIds,
-                  boardIds,
-                  fallbackMode,
-                  manualPickId: manualPicks[pick.number],
-                });
-
-                return (
-                  <button
-                    key={pick.number}
-                    className={selectedPick === pick.number ? "pick-row active" : "pick-row"}
-                    onClick={() => setSelectedPick(pick.number)}
-                  >
-                    <div className="pick-num">{pick.number}</div>
-                    <div className="pick-main">
-                      <div className="pick-topline">
-                        <strong>{TEAMS[pick.currentTeam].name}</strong>
-                        <span className="team-needs-inline">Needs {TEAMS[pick.currentTeam].needs.join(" · ")}</span>
-                        <span className={pick.status === "on_clock" ? "live-dot" : "slot-status"}>
-                          {pick.status === "on_clock" ? "On clock" : "Upcoming"}
-                        </span>
-                        {pick.trade ? <span className="trade-badge">Trade</span> : null}
-                      </div>
-                      <div className="pick-columns">
-                        <div>
-                          <span className="micro-label">Prediction</span>
-                          <ProspectPill prospect={prediction} />
-                        </div>
-                        <div>
-                          <span className="micro-label">Effective pick</span>
-                          <ProspectPill prospect={manual ?? status.effective} />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="pick-right">
-                      <span className="status-badge">{status.label}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <aside className="panel detail-panel">
-            <div className="panel-header">
-              <div>
-                <span className="label">Selected pick</span>
-                <h2>Pick {selectedPickData.number}</h2>
-              </div>
-              <span className="subtle">{TEAMS[selectedPickData.currentTeam].name} needs {TEAMS[selectedPickData.currentTeam].needs.join(", ")}</span>
-            </div>
-
-            <div className="detail-stack">
-              <div className="detail-card spotlight">
-                <div className="detail-row">
+            <div className="hero-modules">
+              <div className="detail-card spotlight your-pick-module">
+                <div className="module-header">
                   <div>
-                    <span className="micro-label">Current team on clock</span>
-                    <strong>{TEAMS[selectedPickData.currentTeam].name}</strong>
+                    <span className="label">Your pick</span>
+                    <h2>Pick {selectedPickData.number}</h2>
                   </div>
-                  {selectedPickData.trade ? <span className="trade-badge">{selectedPickData.trade}</span> : null}
+                  <span className="status-badge">{selectedStatus.label}</span>
                 </div>
-                <p>{selectedStatus.detail}</p>
-              </div>
 
-              <div className="detail-card">
-                <span className="micro-label">Your slot prediction</span>
-                <ProspectPill prospect={getProspect(selectedPrediction)} />
-              </div>
+                <div className="your-pick-primary">
+                  <div>
+                    <span className="micro-label">Current selection</span>
+                    <ProspectPill prospect={getProspect(selectedManual ?? selectedPrediction)} />
+                  </div>
+                  <p>{selectedStatus.detail}</p>
+                </div>
 
-              <div className="detail-card">
-                <span className="micro-label">Projected auto result</span>
-                <div className="suggestion-grid">
-                  <button
-                    className="suggestion-card"
-                    onClick={() => {
-                      const fallback = resolveBoardFallback({
-                        boardIds,
-                        takenIds,
-                        teamCode: selectedPickData.currentTeam,
-                        fallbackMode: "queue_only",
-                      });
-                      if (fallback) applySuggestion(fallback.id);
-                    }}
-                  >
-                    <span className="micro-label">Best available</span>
-                    <ProspectPill
-                      prospect={resolveBoardFallback({
-                        boardIds,
-                        takenIds,
-                        teamCode: selectedPickData.currentTeam,
-                        fallbackMode: "queue_only",
-                      })}
-                    />
+                <div className="your-pick-suggestions">
+                  <button className="suggestion-card" onClick={() => queueSuggestion && applySuggestion(queueSuggestion.id)}>
+                    <span className="micro-label">Best available from your board</span>
+                    <ProspectPill prospect={queueSuggestion} />
                   </button>
-                  <button
-                    className="suggestion-card"
-                    onClick={() => {
-                      const fallback = resolveBoardFallback({
-                        boardIds,
-                        takenIds,
-                        teamCode: selectedPickData.currentTeam,
-                        fallbackMode: "queue_plus_team_need",
-                      });
-                      if (fallback) applySuggestion(fallback.id);
-                    }}
-                  >
-                    <span className="micro-label">Need match</span>
-                    <ProspectPill
-                      prospect={resolveBoardFallback({
-                        boardIds,
-                        takenIds,
-                        teamCode: selectedPickData.currentTeam,
-                        fallbackMode: "queue_plus_team_need",
-                      })}
-                    />
+                  <button className="suggestion-card" onClick={() => needSuggestion && applySuggestion(needSuggestion.id)}>
+                    <span className="micro-label">Best need match from your board</span>
+                    <ProspectPill prospect={needSuggestion} />
                   </button>
                 </div>
               </div>
 
+              <div className="detail-card on-clock-module">
+                <div className="module-header">
+                  <div>
+                    <span className="label">On the clock</span>
+                    <h2>{TEAMS[selectedPickData.currentTeam].name}</h2>
+                  </div>
+                  <span className={selectedPickData.status === "on_clock" ? "live-dot" : "slot-status"}>
+                    {selectedPickData.status === "on_clock" ? "On clock" : "Upcoming"}
+                  </span>
+                </div>
+
+                <div className="official-pick-shell">
+                  <span className="micro-label">Official pick</span>
+                  <div className="official-pick-placeholder">Hidden until announced</div>
+                </div>
+
+                <div className="needs-line">
+                  <span className="micro-label">Team needs</span>
+                  <div className="needs-pills">
+                    {TEAMS[selectedPickData.currentTeam].needs.map((need) => (
+                      <span className="pill-meta" key={need}>{need}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pool-picks-shell">
+                  <span className="micro-label">Pool status</span>
+                  <PoolStatusGrid revealed={false} />
+                </div>
+              </div>
+            </div>
+
+            <div className="bottom-modules">
               <div className="detail-card">
-                <span className="micro-label">Revealed pool picks</span>
-                <div className="mini-list">
-                  {(REVEALED_PICKS[selectedPickData.number] ?? [
-                    { name: "Patrick", player: "Hidden until pick declared", status: "pending" },
-                    { name: "Sarah", player: "Hidden until pick declared", status: "pending" },
-                    { name: "Davin", player: "Hidden until pick declared", status: "pending" },
-                  ]).map((item) => (
-                    <div className="mini-row" key={`${selectedPickData.number}-${item.name}`}>
-                      <strong>{item.name}</strong>
-                      <span>{item.player}</span>
-                    </div>
-                  ))}
+                <div className="module-header">
+                  <div>
+                    <span className="label">Upcoming</span>
+                    <h2>Next decisions</h2>
+                  </div>
+                  <span className="subtle">This is where the draft list and big board meet.</span>
+                </div>
+
+                <div className="pick-list">
+                  {INITIAL_PICKS.slice(0, 6).map((pick) => {
+                    const prediction = getProspect(predictions[pick.number]);
+                    const manual = manualPicks[pick.number] ? getProspect(manualPicks[pick.number]) : null;
+                    const status = buildPickStatus({
+                      pick,
+                      prediction: predictions[pick.number],
+                      takenIds,
+                      boardIds,
+                      fallbackMode,
+                      manualPickId: manualPicks[pick.number],
+                    });
+
+                    return (
+                      <button
+                        key={pick.number}
+                        className={selectedPick === pick.number ? "pick-row active" : "pick-row"}
+                        onClick={() => setSelectedPick(pick.number)}
+                      >
+                        <div className="pick-num">{pick.number}</div>
+                        <div className="pick-main">
+                          <div className="pick-topline">
+                            <strong>{TEAMS[pick.currentTeam].name}</strong>
+                            <span className="team-needs-inline">Needs {TEAMS[pick.currentTeam].needs.join(" · ")}</span>
+                            {pick.trade ? <span className="trade-badge">Trade</span> : null}
+                          </div>
+                          <div className="pick-columns">
+                            <div>
+                              <span className="micro-label">Prediction</span>
+                              <ProspectPill prospect={prediction} />
+                            </div>
+                            <div>
+                              <span className="micro-label">Fallback right now</span>
+                              <ProspectPill prospect={manual ?? status.effective} />
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="detail-card">
-                <span className="micro-label">Competition</span>
+                <div className="module-header">
+                  <div>
+                    <span className="label">Competition</span>
+                    <h2>Pool standings</h2>
+                  </div>
+                  <span className="subtle">Make the race visible without overpowering the current pick.</span>
+                </div>
                 <LeaderboardTable />
               </div>
             </div>
-          </aside>
+          </section>
         </div>
       ) : (
         <div className="board-layout">

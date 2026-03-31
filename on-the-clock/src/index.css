@@ -205,7 +205,7 @@ select {
 .draft-layout,
 .board-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(360px, 0.85fr);
+  grid-template-columns: 1fr;
   gap: 16px;
 }
 
@@ -227,33 +227,119 @@ select {
   line-height: 1.15;
 }
 
-.headline-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.headline-card {
-  padding: 12px 14px;
-  display: grid;
-  gap: 4px;
-}
-
-.headline-card.live {
-  border-top: 4px solid var(--red);
-}
-
-.headline-card strong {
-  font-size: 1rem;
-}
-
 .pick-list,
 .detail-stack,
 .research-table,
 .mini-list {
   display: grid;
   gap: 10px;
+}
+
+.hero-modules,
+.bottom-modules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.module-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.module-header h2 {
+  margin: 4px 0 0;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.your-pick-module,
+.on-clock-module {
+  min-height: 100%;
+}
+
+.your-pick-primary {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.your-pick-suggestions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.official-pick-shell,
+.pool-picks-shell,
+.needs-line {
+  margin-top: 12px;
+}
+
+.official-pick-placeholder {
+  min-height: 72px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  background: #eef1f4;
+  color: #8b93a3;
+  font-weight: 700;
+}
+
+.needs-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pool-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pool-member-card {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.pool-member-card strong {
+  font-size: 0.92rem;
+}
+
+.pool-member-card span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pool-member-card.locked {
+  border-left: 4px solid var(--red);
+}
+
+.pool-member-card.waiting {
+  background: #f4f5f7;
+}
+
+.pool-member-card.revealed.exact {
+  background: #eaf7ef;
+  border-color: #bfe0ca;
+}
+
+.pool-member-card.revealed.position {
+  background: #fff8e5;
+  border-color: #ead49a;
+}
+
+.pool-member-card.revealed.miss {
+  background: #f7f8fa;
 }
 
 .pick-row {
@@ -589,9 +675,11 @@ select {
     grid-template-columns: 1fr;
   }
 
-  .headline-strip,
+  .hero-modules,
+  .bottom-modules,
   .pick-columns,
-  .suggestion-grid {
+  .suggestion-grid,
+  .your-pick-suggestions {
     grid-template-columns: 1fr;
   }
 }
@@ -610,6 +698,10 @@ select {
   .filter-row,
   .research-actions {
     width: 100%;
+  }
+
+  .pool-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .pick-row,
