@@ -450,27 +450,15 @@ function App() {
 
   return (
     <div className="app-shell">
-      <div className="top-ribbon">ESPN-style wireframe direction · draft board, best available, team needs, and pool competition in one workspace</div>
       <header className="hero">
         <div>
-          <div className="eyebrow">Sports Closet prototype</div>
           <h1>On the Clock</h1>
-          <p className="hero-copy">
-            A cleaner Round 1 draft tracker where the left side behaves like live draft coverage and the right side explains your pick, your fallback, and the pool race.
-          </p>
         </div>
-        <div className="hero-meta">
-          <div className="hero-card">
-            <span className="label">Pool</span>
-            <strong>Friday Night Room</strong>
-            <span className="subtle">12 players · Round 1 only · all pools share one live draft feed</span>
-          </div>
-          <div className="hero-card hot">
-            <span className="label">On the clock</span>
-            <strong>Pick 1 · Tennessee</strong>
-            <span className="subtle">Cam Ward leads your board · manual override available if feed lags</span>
-          </div>
-        </div>
+        <button className="pool-picker" type="button">
+          <span className="micro-label">Pool</span>
+          <strong>Friday Night Room</strong>
+          <span className="pool-picker-caret">▾</span>
+        </button>
       </header>
 
       <section className="workspace-nav">

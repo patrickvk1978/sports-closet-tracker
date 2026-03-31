@@ -42,16 +42,7 @@ select {
 .app-shell {
   max-width: 1460px;
   margin: 0 auto;
-  padding: 0 16px 28px;
-}
-
-.top-ribbon {
-  margin: 0 -16px;
-  padding: 10px 16px;
-  background: var(--black);
-  color: #fff;
-  font-size: 12px;
-  letter-spacing: 0.02em;
+  padding: 16px 16px 28px;
 }
 
 .hero,
@@ -62,11 +53,11 @@ select {
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
+  align-items: center;
 }
 
-.eyebrow,
 .label,
 .micro-label,
 .subtle,
@@ -81,56 +72,19 @@ select {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.eyebrow {
-  color: var(--red);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
 .hero h1 {
-  margin: 6px 0 10px;
+  margin: 0;
   font-size: clamp(2.2rem, 4.2vw, 3.5rem);
   line-height: 1;
   letter-spacing: -0.03em;
 }
 
-.hero-copy {
-  margin: 0;
-  max-width: 760px;
-  color: var(--muted-strong);
-  font-size: 1rem;
-  line-height: 1.6;
-}
-
-.hero-meta {
-  display: grid;
-  gap: 12px;
-}
-
-.hero-card,
 .panel,
-.suggestion-card,
-.headline-card {
+.suggestion-card {
   background: var(--page);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 1px 0 rgba(17, 19, 24, 0.02);
-}
-
-.hero-card {
-  padding: 16px 18px;
-  display: grid;
-  gap: 6px;
-}
-
-.hero-card strong {
-  font-size: 1.1rem;
-}
-
-.hero-card.hot {
-  border-left: 5px solid var(--red);
 }
 
 .label {
@@ -145,6 +99,32 @@ select {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.pool-picker {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 12px;
+  min-width: 220px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.pool-picker strong {
+  font-size: 0.98rem;
+}
+
+.pool-picker-caret {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .workspace-nav {
@@ -686,11 +666,7 @@ select {
 
 @media (max-width: 760px) {
   .app-shell {
-    padding: 0 12px 24px;
-  }
-
-  .top-ribbon {
-    margin: 0 -12px;
+    padding: 12px 12px 24px;
   }
 
   .workspace-nav,
