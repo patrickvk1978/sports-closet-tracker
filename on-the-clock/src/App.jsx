@@ -16,174 +16,20 @@ const TEAMS = {
 };
 
 const PROSPECTS = [
-  {
-    id: "cam-ward",
-    name: "Cam Ward",
-    position: "QB",
-    school: "Miami",
-    age: 22,
-    consensus: 1,
-    espn: 1,
-    pff: 2,
-    dane: 1,
-    notes: "Creative off-platform thrower with starter traits and top-of-board buzz.",
-  },
-  {
-    id: "travis-hunter",
-    name: "Travis Hunter",
-    position: "CB/WR",
-    school: "Colorado",
-    age: 21,
-    consensus: 2,
-    espn: 2,
-    pff: 1,
-    dane: 2,
-    notes: "True two-way star. Elite ball skills and instant spotlight value.",
-  },
-  {
-    id: "abdul-carter",
-    name: "Abdul Carter",
-    position: "EDGE",
-    school: "Penn State",
-    age: 21,
-    consensus: 3,
-    espn: 3,
-    pff: 4,
-    dane: 3,
-    notes: "Explosive pass-rusher who consistently shows up in top-three scenarios.",
-  },
-  {
-    id: "tet-mcmillan",
-    name: "Tetairoa McMillan",
-    position: "WR",
-    school: "Arizona",
-    age: 21,
-    consensus: 4,
-    espn: 5,
-    pff: 3,
-    dane: 5,
-    notes: "Boundary receiver with size, catch radius, and red-zone gravity.",
-  },
-  {
-    id: "will-campbell",
-    name: "Will Campbell",
-    position: "OT",
-    school: "LSU",
-    age: 21,
-    consensus: 5,
-    espn: 4,
-    pff: 6,
-    dane: 4,
-    notes: "High-floor tackle prospect and frequent fit for tackle-needy teams.",
-  },
-  {
-    id: "mason-graham",
-    name: "Mason Graham",
-    position: "DT",
-    school: "Michigan",
-    age: 21,
-    consensus: 6,
-    espn: 7,
-    pff: 5,
-    dane: 6,
-    notes: "Quick disruptive interior defender with day-one impact profile.",
-  },
-  {
-    id: "ashton-jeanty",
-    name: "Ashton Jeanty",
-    position: "RB",
-    school: "Boise State",
-    age: 21,
-    consensus: 7,
-    espn: 6,
-    pff: 7,
-    dane: 8,
-    notes: "Feature back talent who could crash the top ten in the right script.",
-  },
-  {
-    id: "will-johnson",
-    name: "Will Johnson",
-    position: "CB",
-    school: "Michigan",
-    age: 22,
-    consensus: 8,
-    espn: 9,
-    pff: 9,
-    dane: 7,
-    notes: "Long corner with clear CB1 upside and sticky coverage traits.",
-  },
-  {
-    id: "mykel-williams",
-    name: "Mykel Williams",
-    position: "EDGE",
-    school: "Georgia",
-    age: 20,
-    consensus: 9,
-    espn: 10,
-    pff: 10,
-    dane: 9,
-    notes: "Traits-heavy edge defender who fits several pressure-needy teams.",
-  },
-  {
-    id: "jalen-milroe",
-    name: "Jalen Milroe",
-    position: "QB",
-    school: "Alabama",
-    age: 22,
-    consensus: 10,
-    espn: 12,
-    pff: 14,
-    dane: 11,
-    notes: "High-variance quarterback with movement skills and upside appeal.",
-  },
-  {
-    id: "malaki-starks",
-    name: "Malaki Starks",
-    position: "S",
-    school: "Georgia",
-    age: 21,
-    consensus: 11,
-    espn: 11,
-    pff: 12,
-    dane: 10,
-    notes: "Versatile safety who brings range and coverage flexibility.",
-  },
-  {
-    id: "colston-loveland",
-    name: "Colston Loveland",
-    position: "TE",
-    school: "Michigan",
-    age: 21,
-    consensus: 12,
-    espn: 13,
-    pff: 11,
-    dane: 12,
-    notes: "Modern receiving tight end who changes the middle of the field.",
-  },
-  {
-    id: "kelvin-banks",
-    name: "Kelvin Banks Jr.",
-    position: "OT",
-    school: "Texas",
-    age: 21,
-    consensus: 13,
-    espn: 14,
-    pff: 8,
-    dane: 13,
-    notes: "Athletic tackle with some of the strongest board variance in the class.",
-  },
-  {
-    id: "walter-nolen",
-    name: "Walter Nolen",
-    position: "DT",
-    school: "Ole Miss",
-    age: 21,
-    consensus: 14,
-    espn: 15,
-    pff: 13,
-    dane: 15,
-    notes: "Penetrating interior lineman with splash-play upside.",
-  },
+  { id: "cam-ward", name: "Cam Ward", position: "QB", school: "Miami", consensus: 1, espn: 1, pff: 2, dane: 1, notes: "Creative off-platform thrower with starter traits and top-of-board buzz." },
+  { id: "travis-hunter", name: "Travis Hunter", position: "CB/WR", school: "Colorado", consensus: 2, espn: 2, pff: 1, dane: 2, notes: "True two-way star. Elite ball skills and instant spotlight value." },
+  { id: "abdul-carter", name: "Abdul Carter", position: "EDGE", school: "Penn State", consensus: 3, espn: 3, pff: 4, dane: 3, notes: "Explosive pass-rusher who consistently shows up in top-three scenarios." },
+  { id: "tet-mcmillan", name: "Tetairoa McMillan", position: "WR", school: "Arizona", consensus: 4, espn: 5, pff: 3, dane: 5, notes: "Boundary receiver with size, catch radius, and red-zone gravity." },
+  { id: "will-campbell", name: "Will Campbell", position: "OT", school: "LSU", consensus: 5, espn: 4, pff: 6, dane: 4, notes: "High-floor tackle prospect and frequent fit for tackle-needy teams." },
+  { id: "mason-graham", name: "Mason Graham", position: "DT", school: "Michigan", consensus: 6, espn: 7, pff: 5, dane: 6, notes: "Quick disruptive interior defender with day-one impact profile." },
+  { id: "ashton-jeanty", name: "Ashton Jeanty", position: "RB", school: "Boise State", consensus: 7, espn: 6, pff: 7, dane: 8, notes: "Feature back talent who could crash the top ten in the right script." },
+  { id: "will-johnson", name: "Will Johnson", position: "CB", school: "Michigan", consensus: 8, espn: 9, pff: 9, dane: 7, notes: "Long corner with clear CB1 upside and sticky coverage traits." },
+  { id: "mykel-williams", name: "Mykel Williams", position: "EDGE", school: "Georgia", consensus: 9, espn: 10, pff: 10, dane: 9, notes: "Traits-heavy edge defender who fits several pressure-needy teams." },
+  { id: "jalen-milroe", name: "Jalen Milroe", position: "QB", school: "Alabama", consensus: 10, espn: 12, pff: 14, dane: 11, notes: "High-variance quarterback with movement skills and upside appeal." },
+  { id: "malaki-starks", name: "Malaki Starks", position: "S", school: "Georgia", consensus: 11, espn: 11, pff: 12, dane: 10, notes: "Versatile safety who brings range and coverage flexibility." },
+  { id: "colston-loveland", name: "Colston Loveland", position: "TE", school: "Michigan", consensus: 12, espn: 13, pff: 11, dane: 12, notes: "Modern receiving tight end who changes the middle of the field." },
+  { id: "kelvin-banks", name: "Kelvin Banks Jr.", position: "OT", school: "Texas", consensus: 13, espn: 14, pff: 8, dane: 13, notes: "Athletic tackle with some of the strongest board variance in the class." },
+  { id: "walter-nolen", name: "Walter Nolen", position: "DT", school: "Ole Miss", consensus: 14, espn: 15, pff: 13, dane: 15, notes: "Penetrating interior lineman with splash-play upside." },
 ];
 
 const INITIAL_PICKS = [
@@ -216,14 +62,6 @@ const INITIAL_PREDICTIONS = {
   12: "walter-nolen",
 };
 
-const REVEALED_PICKS = {
-  1: [
-    { name: "Patrick", player: "Cam Ward", status: "locked" },
-    { name: "Sarah", player: "Cam Ward", status: "locked" },
-    { name: "Davin", player: "Travis Hunter", status: "locked" },
-  ],
-};
-
 const SCOREBOARD = [
   { name: "Patrick", exact: 0, position: 0, points: 0, projected: "+11" },
   { name: "Sarah", exact: 0, position: 0, points: 0, projected: "+9" },
@@ -240,12 +78,79 @@ const POOL_LOCKS = [
   { name: "Matt", status: "locked", pick: "Abdul Carter", result: "position" },
 ];
 
+const MOCK_SCOREBOARD = [
+  { name: "Patrick", points: 9, picksScored: 4, trend: "+3" },
+  { name: "Sarah", points: 8, picksScored: 4, trend: "+2" },
+  { name: "Davin", points: 6, picksScored: 4, trend: "+1" },
+  { name: "Maya", points: 5, picksScored: 4, trend: "+1" },
+  { name: "Susan", points: 4, picksScored: 4, trend: "+0" },
+];
+
+const MOCK_TRACKING_ROWS = [
+  {
+    pick: 3,
+    team: "NYG",
+    actual: "Abdul Carter",
+    me: { player: "Abdul Carter", state: "exact", score: "+3" },
+    opponents: [
+      { name: "Sarah", player: "Abdul Carter", state: "exact" },
+      { name: "Davin", player: "Travis Hunter", state: "miss" },
+      { name: "Maya", player: "Abdul Carter", state: "exact" },
+      { name: "Susan", player: "Jalen Milroe", state: "miss" },
+    ],
+  },
+  {
+    pick: 4,
+    team: "NE",
+    actual: "Will Campbell",
+    me: { player: "Tetairoa McMillan", state: "near", score: "+1" },
+    opponents: [
+      { name: "Sarah", player: "Will Campbell", state: "exact" },
+      { name: "Davin", player: "Kelvin Banks Jr.", state: "near" },
+      { name: "Maya", player: "Will Campbell", state: "exact" },
+      { name: "Susan", player: "Tetairoa McMillan", state: "near" },
+    ],
+  },
+  {
+    pick: 5,
+    team: "JAX",
+    actual: null,
+    me: { player: "Mason Graham", state: "current", score: null },
+    opponents: [
+      { name: "Sarah", player: "Mason Graham", state: "current" },
+      { name: "Davin", player: "Will Johnson", state: "alive" },
+      { name: "Maya", player: "Mason Graham", state: "current" },
+      { name: "Susan", player: "Mykel Williams", state: "alive" },
+    ],
+  },
+  {
+    pick: 6,
+    team: "LV",
+    actual: null,
+    me: { player: "Ashton Jeanty", state: "alive", score: null },
+    opponents: [
+      { name: "Sarah", player: "Ashton Jeanty", state: "alive" },
+      { name: "Davin", player: "Jalen Milroe", state: "alive" },
+      { name: "Maya", player: "Ashton Jeanty", state: "alive" },
+      { name: "Susan", player: "Ashton Jeanty", state: "alive" },
+    ],
+  },
+  {
+    pick: 7,
+    team: "CHI",
+    actual: null,
+    me: { player: "Tetairoa McMillan", state: "alive", score: null },
+    opponents: [
+      { name: "Sarah", player: "Tetairoa McMillan", state: "alive" },
+      { name: "Davin", player: "Will Johnson", state: "alive" },
+      { name: "Maya", player: "Mykel Williams", state: "alive" },
+      { name: "Susan", player: "Tetairoa McMillan", state: "alive" },
+    ],
+  },
+];
+
 function getProspect(id) {
   return PROSPECTS.find((prospect) => prospect.id === id) ?? null;
-}
-
-function getAvailableProspects(takenIds) {
-  return PROSPECTS.filter((prospect) => !takenIds.has(prospect.id));
 }
 
 function resolveBoardFallback({ boardIds, takenIds, teamCode, fallbackMode }) {
@@ -269,19 +174,10 @@ function resolveBoardFallback({ boardIds, takenIds, teamCode, fallbackMode }) {
 function buildPickStatus({ pick, prediction, takenIds, boardIds, fallbackMode, manualPickId }) {
   const predictionProspect = prediction ? getProspect(prediction) : null;
   const manualProspect = manualPickId ? getProspect(manualPickId) : null;
-  const fallbackProspect = resolveBoardFallback({
-    boardIds,
-    takenIds,
-    teamCode: pick.currentTeam,
-    fallbackMode,
-  });
+  const fallbackProspect = resolveBoardFallback({ boardIds, takenIds, teamCode: pick.currentTeam, fallbackMode });
 
   if (manualProspect && !takenIds.has(manualProspect.id)) {
-    return {
-      effective: manualProspect,
-      label: "Manual override",
-      detail: "Live draft-night change will lock if the pick happens now.",
-    };
+    return { effective: manualProspect, label: "Manual override", detail: "Live draft-night change will lock if the pick happens now." };
   }
 
   if (predictionProspect && !takenIds.has(predictionProspect.id)) {
@@ -293,11 +189,7 @@ function buildPickStatus({ pick, prediction, takenIds, boardIds, fallbackMode, m
   }
 
   if (!fallbackProspect) {
-    return {
-      effective: null,
-      label: "No available fallback",
-      detail: "Board is exhausted or unresolved.",
-    };
+    return { effective: null, label: "No available fallback", detail: "Board is exhausted or unresolved." };
   }
 
   return {
@@ -316,6 +208,32 @@ function ProspectPill({ prospect }) {
       <span>{prospect.name}</span>
       <span className="pill-meta">{prospect.position}</span>
     </span>
+  );
+}
+
+function PoolPicker() {
+  return (
+    <button className="pool-picker" type="button">
+      <span className="micro-label">Pool</span>
+      <strong>Friday Night Room</strong>
+      <span className="pool-picker-caret">▾</span>
+    </button>
+  );
+}
+
+function TopBar({ title, onBack }) {
+  return (
+    <header className="hero hero-simple">
+      <div className="title-wrap">
+        {onBack ? (
+          <button className="back-link" type="button" onClick={onBack}>
+            ← All pool types
+          </button>
+        ) : null}
+        <h1>{title}</h1>
+      </div>
+      <PoolPicker />
+    </header>
   );
 }
 
@@ -358,18 +276,57 @@ function PoolStatusGrid({ revealed = false }) {
           }
         >
           <strong>{entry.name}</strong>
-          {!revealed ? (
-            <span>{entry.status === "locked" ? "Locked in" : "Waiting"}</span>
-          ) : (
-            <span>{entry.pick ?? "No pick"}</span>
-          )}
+          {!revealed ? <span>{entry.status === "locked" ? "Locked in" : "Waiting"}</span> : <span>{entry.pick ?? "No pick"}</span>}
         </div>
       ))}
     </div>
   );
 }
 
-function App() {
+function SelectionScreen({ onSelect }) {
+  return (
+    <div className="screen-stack">
+      <TopBar title="On the Clock" />
+      <section className="panel selection-panel">
+        <div className="panel-header">
+          <div>
+            <span className="label">Create pool</span>
+            <h2>Choose the game type</h2>
+          </div>
+          <span className="subtle">Name + short description + bullets gives people enough information to self-sort quickly.</span>
+        </div>
+
+        <div className="mode-grid">
+          <button className="mode-card" type="button" onClick={() => onSelect("live")}>
+            <span className="label">Live Draft</span>
+            <h3>Make picks during the draft, react to trades, and compete in real time.</h3>
+            <ul className="mode-bullets">
+              <li>Edit picks live as teams come on the clock</li>
+              <li>Use your big board and team-need suggestions</li>
+              <li>Can still auto-pick from your board if you step away</li>
+              <li>Best for highly engaged draft-night groups</li>
+            </ul>
+            <span className="mode-link">Open live wireframe →</span>
+          </button>
+
+          <button className="mode-card" type="button" onClick={() => onSelect("mock")}>
+            <span className="label">Mock Challenge</span>
+            <h3>Submit your Round 1 predictions before the draft and watch the results unfold live.</h3>
+            <ul className="mode-bullets">
+              <li>Fill out your picks once before the deadline</li>
+              <li>No need to be online during the draft</li>
+              <li>Closest to a bracket-pool experience</li>
+              <li>Best for larger or more casual groups</li>
+            </ul>
+            <span className="mode-link">Open mock wireframe →</span>
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function LiveDraftWireframe({ onBack }) {
   const [activeTab, setActiveTab] = useState("draft");
   const [selectedPick, setSelectedPick] = useState(1);
   const [fallbackMode, setFallbackMode] = useState("queue_plus_team_need");
@@ -379,27 +336,17 @@ function App() {
   const [positionFilter, setPositionFilter] = useState("ALL");
   const [boardSort, setBoardSort] = useState("my_board");
 
-  const takenIds = useMemo(() => {
-    const ids = new Set();
-    INITIAL_PICKS.forEach((pick) => {
-      if (pick.actual) ids.add(pick.actual);
-    });
-    return ids;
-  }, []);
+  const takenIds = useMemo(() => new Set(INITIAL_PICKS.filter((pick) => pick.actual).map((pick) => pick.actual)), []);
 
   const visibleProspects = useMemo(() => {
     const ordered = boardIds.map(getProspect).filter(Boolean);
-    const filtered = ordered.filter((prospect) => (
-      positionFilter === "ALL" || prospect.position.includes(positionFilter)
-    ));
-
+    const filtered = ordered.filter((prospect) => positionFilter === "ALL" || prospect.position.includes(positionFilter));
     const sorters = {
       my_board: (a, b) => boardIds.indexOf(a.id) - boardIds.indexOf(b.id),
       consensus: (a, b) => a.consensus - b.consensus,
       espn: (a, b) => a.espn - b.espn,
       pff: (a, b) => a.pff - b.pff,
     };
-
     return [...filtered].sort(sorters[boardSort]);
   }, [boardIds, positionFilter, boardSort]);
 
@@ -414,18 +361,9 @@ function App() {
     fallbackMode,
     manualPickId: selectedManual,
   });
-  const queueSuggestion = resolveBoardFallback({
-    boardIds,
-    takenIds,
-    teamCode: selectedPickData.currentTeam,
-    fallbackMode: "queue_only",
-  });
-  const needSuggestion = resolveBoardFallback({
-    boardIds,
-    takenIds,
-    teamCode: selectedPickData.currentTeam,
-    fallbackMode: "queue_plus_team_need",
-  });
+
+  const queueSuggestion = resolveBoardFallback({ boardIds, takenIds, teamCode: selectedPickData.currentTeam, fallbackMode: "queue_only" });
+  const needSuggestion = resolveBoardFallback({ boardIds, takenIds, teamCode: selectedPickData.currentTeam, fallbackMode: "queue_plus_team_need" });
 
   function assignPlayerToPick(prospectId, pickNumber) {
     setPredictions((current) => ({ ...current, [pickNumber]: prospectId }));
@@ -449,43 +387,20 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="hero">
-        <div>
-          <h1>On the Clock</h1>
-        </div>
-        <button className="pool-picker" type="button">
-          <span className="micro-label">Pool</span>
-          <strong>Friday Night Room</strong>
-          <span className="pool-picker-caret">▾</span>
-        </button>
-      </header>
+    <div className="screen-stack">
+      <TopBar title="On the Clock" onBack={onBack} />
 
       <section className="workspace-nav">
         <div className="tab-set">
-          <button className={activeTab === "draft" ? "tab active" : "tab"} onClick={() => setActiveTab("draft")}>
-            Draft
-          </button>
-          <button className={activeTab === "board" ? "tab active" : "tab"} onClick={() => setActiveTab("board")}>
-            Board
-          </button>
+          <button className={activeTab === "draft" ? "tab active" : "tab"} onClick={() => setActiveTab("draft")}>Draft</button>
+          <button className={activeTab === "board" ? "tab active" : "tab"} onClick={() => setActiveTab("board")}>Board</button>
         </div>
         <div className="tab-actions">
           <span className="chip">Exact player: 5</span>
           <span className="chip">Position: 2</span>
           <div className="toggle-group">
-            <button
-              className={fallbackMode === "queue_only" ? "mini-toggle active" : "mini-toggle"}
-              onClick={() => setFallbackMode("queue_only")}
-            >
-              Queue only
-            </button>
-            <button
-              className={fallbackMode === "queue_plus_team_need" ? "mini-toggle active" : "mini-toggle"}
-              onClick={() => setFallbackMode("queue_plus_team_need")}
-            >
-              Need match
-            </button>
+            <button className={fallbackMode === "queue_only" ? "mini-toggle active" : "mini-toggle"} onClick={() => setFallbackMode("queue_only")}>Queue only</button>
+            <button className={fallbackMode === "queue_plus_team_need" ? "mini-toggle active" : "mini-toggle"} onClick={() => setFallbackMode("queue_plus_team_need")}>Need match</button>
           </div>
         </div>
       </section>
@@ -564,7 +479,6 @@ function App() {
                   </div>
                   <span className="subtle">This is where the draft list and big board meet.</span>
                 </div>
-
                 <div className="pick-list">
                   {INITIAL_PICKS.slice(0, 6).map((pick) => {
                     const prediction = getProspect(predictions[pick.number]);
@@ -579,11 +493,7 @@ function App() {
                     });
 
                     return (
-                      <button
-                        key={pick.number}
-                        className={selectedPick === pick.number ? "pick-row active" : "pick-row"}
-                        onClick={() => setSelectedPick(pick.number)}
-                      >
+                      <button key={pick.number} className={selectedPick === pick.number ? "pick-row active" : "pick-row"} onClick={() => setSelectedPick(pick.number)}>
                         <div className="pick-num">{pick.number}</div>
                         <div className="pick-main">
                           <div className="pick-topline">
@@ -678,59 +588,226 @@ function App() {
                     <div className="research-actions">
                       <button className="small-button" onClick={() => moveBoardItem(prospect.id, "up")}>↑</button>
                       <button className="small-button" onClick={() => moveBoardItem(prospect.id, "down")}>↓</button>
-                      <button className="primary-button" onClick={() => assignPlayerToPick(prospect.id, selectedPick)}>
-                        Assign to Pick {selectedPick}
-                      </button>
+                      <button className="primary-button" onClick={() => assignPlayerToPick(prospect.id, selectedPick)}>Assign to Pick {selectedPick}</button>
                     </div>
                   </div>
                 );
               })}
             </div>
           </section>
+        </div>
+      )}
+    </div>
+  );
+}
 
-          <aside className="panel side-board-panel">
-            <div className="panel-header">
+function MockTrackingGrid() {
+  return (
+    <div className="mock-grid">
+      {MOCK_TRACKING_ROWS.map((row, index) => (
+        <div className={index === 2 ? "mock-row current" : "mock-row"} key={row.pick}>
+          <div className="mock-main-card">
+            <div className="mock-row-head">
               <div>
-                <span className="label">Shared state</span>
-                <h2>What changes in Draft</h2>
+                <span className="label">Pick {row.pick}</span>
+                <h3>{TEAMS[row.team].name}</h3>
               </div>
-              <span className="subtle">This panel explains the connection between research and live decisioning.</span>
+              <span className={row.actual ? "result-badge announced" : "result-badge live"}>
+                {row.actual ? "Announced" : "On clock"}
+              </span>
             </div>
 
-            <div className="detail-stack">
-              <div className="detail-card">
-                <span className="micro-label">Current pick target</span>
-                <strong>Pick {selectedPick} · {TEAMS[selectedPickData.currentTeam].name}</strong>
-                <p>Any player you assign here updates the mock draft immediately.</p>
+            <div className="mock-comparison-grid">
+              <div className="mock-box actual-box">
+                <span className="micro-label">Correct pick</span>
+                <strong>{row.actual ?? "Hidden until announced"}</strong>
               </div>
-
-              <div className="detail-card">
-                <span className="micro-label">Big board default</span>
-                <p>
-                  Every user starts with a global board. If they never show up on draft night, the system still has an ordered queue to use.
-                </p>
+              <div className={`mock-box my-pick-box ${row.me.state}`}>
+                <span className="micro-label">My pick</span>
+                <strong>{row.me.player}</strong>
+                <span>{row.me.score ?? mockStateLabel(row.me.state)}</span>
               </div>
+            </div>
+          </div>
 
-              <div className="detail-card">
-                <span className="micro-label">Fallback mode</span>
-                <p>
-                  Right now the prototype is set to <strong>{fallbackMode === "queue_only" ? "Queue only" : "Need match"}</strong>.
-                  That changes which player becomes the auto-pick if a slot prediction breaks.
-                </p>
-              </div>
-
-              <div className="detail-card">
-                <span className="micro-label">Useful partner talking points</span>
-                <div className="mini-list">
-                  <div className="mini-row"><strong>Prep matters</strong><span>Your board powers all fallback logic.</span></div>
-                  <div className="mini-row"><strong>Mock stays fun</strong><span>Predictions remain a separate artifact from the board.</span></div>
-                  <div className="mini-row"><strong>Trades are survivable</strong><span>The slot stays fixed and the app recomputes suggestions.</span></div>
+          <div className="mock-opponents-card">
+            <span className="micro-label">Opponent picks</span>
+            <div className="mock-opponent-grid">
+              {row.opponents.map((opponent) => (
+                <div className={`mock-opponent-pill ${opponent.state}`} key={`${row.pick}-${opponent.name}`}>
+                  <strong>{opponent.name}</strong>
+                  <span>{opponent.player}</span>
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-              <div className="detail-card">
-                <span className="micro-label">Pool standings preview</span>
-                <LeaderboardTable />
+function mockStateLabel(state) {
+  if (state === "exact") return "Exact hit";
+  if (state === "near") return "Within 2 picks";
+  if (state === "alive") return "Still alive";
+  if (state === "current") return "In play now";
+  return "Missed";
+}
+
+function MockChallengeWireframe({ onBack }) {
+  const [mockPhase, setMockPhase] = useState("entry");
+  const [positionFilter, setPositionFilter] = useState("ALL");
+  const [boardSort, setBoardSort] = useState("consensus");
+  const [selectedPick, setSelectedPick] = useState(5);
+  const [predictions] = useState(INITIAL_PREDICTIONS);
+
+  const visibleProspects = useMemo(() => {
+    const filtered = PROSPECTS.filter((prospect) => positionFilter === "ALL" || prospect.position.includes(positionFilter));
+    const sorters = {
+      consensus: (a, b) => a.consensus - b.consensus,
+      espn: (a, b) => a.espn - b.espn,
+      pff: (a, b) => a.pff - b.pff,
+    };
+    return [...filtered].sort(sorters[boardSort]);
+  }, [positionFilter, boardSort]);
+
+  return (
+    <div className="screen-stack">
+      <TopBar title="Mock Challenge" onBack={onBack} />
+
+      <section className="workspace-nav">
+        <div className="tab-set">
+          <button className={mockPhase === "entry" ? "tab active" : "tab"} onClick={() => setMockPhase("entry")}>Pre-draft entry</button>
+          <button className={mockPhase === "tracking" ? "tab active" : "tab"} onClick={() => setMockPhase("tracking")}>Tracking mode</button>
+        </div>
+        <div className="tab-actions">
+          <span className="chip">Correct pick: 3</span>
+          <span className="chip">1 pick away: 2</span>
+          <span className="chip">2 picks away: 1</span>
+        </div>
+      </section>
+
+      {mockPhase === "entry" ? (
+        <div className="mock-entry-layout">
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <span className="label">Mock Challenge</span>
+                <h2>Submit your Round 1 predictions</h2>
+              </div>
+              <span className="subtle">This should feel close to the live draft prep experience, but simpler and one-time.</span>
+            </div>
+
+            <div className="pick-list">
+              {INITIAL_PICKS.map((pick) => (
+                <button key={pick.number} className={selectedPick === pick.number ? "pick-row active" : "pick-row"} onClick={() => setSelectedPick(pick.number)}>
+                  <div className="pick-num">{pick.number}</div>
+                  <div className="pick-main">
+                    <div className="pick-topline">
+                      <strong>{TEAMS[pick.currentTeam].name}</strong>
+                      <span className="team-needs-inline">Needs {TEAMS[pick.currentTeam].needs.join(" · ")}</span>
+                    </div>
+                    <div className="pick-columns">
+                      <div>
+                        <span className="micro-label">Your prediction</span>
+                        <ProspectPill prospect={getProspect(predictions[pick.number])} />
+                      </div>
+                      <div>
+                        <span className="micro-label">Scoring window</span>
+                        <span className="subtle">3 pts exact · 2 pts within 1 · 1 pt within 2</span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <aside className="panel">
+            <div className="panel-header">
+              <div>
+                <span className="label">Board helper</span>
+                <h2>Research and sort</h2>
+              </div>
+              <span className="subtle">Optional support tool, not a required second game system.</span>
+            </div>
+
+            <div className="filter-row">
+              <select value={positionFilter} onChange={(event) => setPositionFilter(event.target.value)}>
+                <option value="ALL">All positions</option>
+                <option value="QB">QB</option>
+                <option value="WR">WR</option>
+                <option value="OT">OT</option>
+                <option value="EDGE">EDGE</option>
+                <option value="CB">CB</option>
+                <option value="DT">DT</option>
+              </select>
+              <select value={boardSort} onChange={(event) => setBoardSort(event.target.value)}>
+                <option value="consensus">Consensus</option>
+                <option value="espn">ESPN</option>
+                <option value="pff">PFF</option>
+              </select>
+            </div>
+
+            <div className="research-table compact">
+              {visibleProspects.slice(0, 8).map((prospect) => (
+                <div className="research-row compact" key={prospect.id}>
+                  <div className="rank-cell">#{prospect.consensus}</div>
+                  <div className="research-main">
+                    <div className="research-title">
+                      <strong>{prospect.name}</strong>
+                      <span className="pill-meta">{prospect.position}</span>
+                    </div>
+                    <div className="rank-strip">
+                      <span>{prospect.school}</span>
+                      <span>ESPN {prospect.espn}</span>
+                      <span>PFF {prospect.pff}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </aside>
+        </div>
+      ) : (
+        <div className="mock-tracking-layout">
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <span className="label">Tracking mode</span>
+                <h2>Rolling scoring grid</h2>
+              </div>
+              <span className="subtle">Current pick stays visually dominant, with the last two picks above it and future picks directly below.</span>
+            </div>
+            <MockTrackingGrid />
+          </section>
+
+          <aside className="panel">
+            <div className="panel-header">
+              <div>
+                <span className="label">Competition</span>
+                <h2>Live standings</h2>
+              </div>
+              <span className="subtle">Standings stay visible while picks roll in.</span>
+            </div>
+            <div className="mock-standings-table">
+              {MOCK_SCOREBOARD.map((player, index) => (
+                <div className={index === 0 ? "mock-standings-row top" : "mock-standings-row"} key={player.name}>
+                  <strong>{index + 1}. {player.name}</strong>
+                  <span>{player.points} pts</span>
+                  <span>{player.picksScored} scored</span>
+                  <span className="projection-chip">{player.trend}</span>
+                </div>
+              ))}
+            </div>
+            <div className="detail-card inset-card">
+              <span className="micro-label">Color system</span>
+              <div className="legend-list">
+                <div className="legend-row"><span className="legend-swatch exact" /> Exact hit</div>
+                <div className="legend-row"><span className="legend-swatch near" /> Within two picks</div>
+                <div className="legend-row"><span className="legend-swatch alive" /> Still in contention</div>
+                <div className="legend-row"><span className="legend-swatch miss" /> Scoring window missed</div>
               </div>
             </div>
           </aside>
@@ -740,4 +817,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  const [screen, setScreen] = useState("select");
+
+  if (screen === "live") return <LiveDraftWireframe onBack={() => setScreen("select")} />;
+  if (screen === "mock") return <MockChallengeWireframe onBack={() => setScreen("select")} />;
+  return <SelectionScreen onSelect={setScreen} />;
+}
