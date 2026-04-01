@@ -402,7 +402,7 @@ select {
 
 .mock-grid-header {
   display: grid;
-  grid-template-columns: 700px minmax(0, 1fr);
+  grid-template-columns: 460px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
 }
@@ -420,7 +420,7 @@ select {
 }
 
 .mock-fixed-header {
-  grid-template-columns: 82px 170px 190px repeat(3, 64px);
+  grid-template-columns: 82px 170px 190px;
 }
 
 .mock-scroll-header {
@@ -430,7 +430,7 @@ select {
 .mock-grid-row {
   position: relative;
   display: grid;
-  grid-template-columns: 700px minmax(0, 1fr);
+  grid-template-columns: 460px minmax(0, 1fr);
   gap: 12px;
   align-items: stretch;
   padding: 10px;
@@ -471,7 +471,7 @@ select {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 82px 170px 190px repeat(3, 64px);
+  grid-template-columns: 82px 170px 190px;
   gap: 8px;
   align-items: stretch;
 }
@@ -520,16 +520,6 @@ select {
   font-size: 0.98rem;
 }
 
-.score-count-cell {
-  place-items: center;
-  align-content: center;
-  background: #f6f7fa;
-}
-
-.score-count-cell strong {
-  font-size: 1.1rem;
-}
-
 .my-pick-cell.exact,
 .mock-opponent-cell.exact {
   background: #dff2e4;
@@ -566,11 +556,24 @@ select {
   gap: 8px;
 }
 
+.mock-standings-head,
 .mock-standings-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) 0.7fr 0.8fr auto;
+  grid-template-columns: minmax(0, 1.4fr) 0.8fr 0.55fr 0.55fr 0.55fr 0.9fr auto;
   gap: 10px;
   align-items: center;
+}
+
+.mock-standings-head {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0 12px;
+}
+
+.mock-standings-row {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -958,7 +961,9 @@ select {
   .mock-entry-layout,
   .mock-tracking-layout,
   .mock-grid-header,
-  .mock-grid-row {
+  .mock-grid-row,
+  .mock-standings-head,
+  .mock-standings-row {
     grid-template-columns: 1fr;
   }
 

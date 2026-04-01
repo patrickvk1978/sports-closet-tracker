@@ -79,11 +79,11 @@ const POOL_LOCKS = [
 ];
 
 const MOCK_SCOREBOARD = [
-  { name: "Patrick", points: 9, picksScored: 4, trend: "+3" },
-  { name: "Sarah", points: 8, picksScored: 4, trend: "+2" },
-  { name: "Davin", points: 6, picksScored: 4, trend: "+1" },
-  { name: "Maya", points: 5, picksScored: 4, trend: "+1" },
-  { name: "Susan", points: 4, picksScored: 4, trend: "+0" },
+  { name: "Patrick", points: 9, picksScored: 4, exact: 2, oneOff: 1, twoOff: 1, trend: "+3" },
+  { name: "Sarah", points: 8, picksScored: 4, exact: 1, oneOff: 2, twoOff: 0, trend: "+2" },
+  { name: "Davin", points: 6, picksScored: 4, exact: 1, oneOff: 1, twoOff: 1, trend: "+1" },
+  { name: "Maya", points: 5, picksScored: 4, exact: 1, oneOff: 0, twoOff: 2, trend: "+1" },
+  { name: "Susan", points: 4, picksScored: 4, exact: 0, oneOff: 1, twoOff: 2, trend: "+0" },
 ];
 
 const MOCK_TRACKING_ROWS = [
@@ -92,7 +92,6 @@ const MOCK_TRACKING_ROWS = [
     team: "NYG",
     actual: "Abdul Carter",
     me: { player: "Abdul Carter", state: "exact", score: "+3" },
-    breakdown: { exact: 2, oneOff: 0, twoOff: 0 },
     opponents: [
       { name: "Sarah", player: "Abdul Carter", state: "exact" },
       { name: "Davin", player: "Travis Hunter", state: "miss" },
@@ -105,7 +104,6 @@ const MOCK_TRACKING_ROWS = [
     team: "NE",
     actual: "Will Campbell",
     me: { player: "Tetairoa McMillan", state: "near", score: "+1" },
-    breakdown: { exact: 2, oneOff: 1, twoOff: 2 },
     opponents: [
       { name: "Sarah", player: "Will Campbell", state: "exact" },
       { name: "Davin", player: "Kelvin Banks Jr.", state: "near" },
@@ -118,7 +116,6 @@ const MOCK_TRACKING_ROWS = [
     team: "JAX",
     actual: null,
     me: { player: "Mason Graham", state: "current", score: null },
-    breakdown: { exact: 0, oneOff: 0, twoOff: 0 },
     opponents: [
       { name: "Sarah", player: "Mason Graham", state: "current" },
       { name: "Davin", player: "Will Johnson", state: "alive" },
@@ -131,7 +128,6 @@ const MOCK_TRACKING_ROWS = [
     team: "LV",
     actual: null,
     me: { player: "Ashton Jeanty", state: "alive", score: null },
-    breakdown: { exact: 0, oneOff: 0, twoOff: 0 },
     opponents: [
       { name: "Sarah", player: "Ashton Jeanty", state: "alive" },
       { name: "Davin", player: "Jalen Milroe", state: "alive" },
@@ -144,7 +140,6 @@ const MOCK_TRACKING_ROWS = [
     team: "CHI",
     actual: null,
     me: { player: "Tetairoa McMillan", state: "alive", score: null },
-    breakdown: { exact: 0, oneOff: 0, twoOff: 0 },
     opponents: [
       { name: "Sarah", player: "Tetairoa McMillan", state: "alive" },
       { name: "Davin", player: "Will Johnson", state: "alive" },
@@ -614,9 +609,6 @@ function MockTrackingGrid() {
           <span>Pick</span>
           <span>Actual</span>
           <span>My Pick</span>
-          <span>3</span>
-          <span>2</span>
-          <span>1</span>
         </div>
         <div className="mock-scroll-header">
           {["Sarah", "Davin", "Maya", "Susan"].map((name) => (
@@ -647,16 +639,6 @@ function MockTrackingGrid() {
                   <span className="micro-label">My pick</span>
                   <strong>{row.me.player}</strong>
                   <span>{row.me.score ?? mockStateLabel(row.me.state)}</span>
-                </div>
-
-                <div className="mock-cell score-count-cell">
-                  <strong>{row.breakdown.exact}</strong>
-                </div>
-                <div className="mock-cell score-count-cell">
-                  <strong>{row.breakdown.oneOff}</strong>
-                </div>
-                <div className="mock-cell score-count-cell">
-                  <strong>{row.breakdown.twoOff}</strong>
                 </div>
               </div>
 
@@ -821,10 +803,22 @@ function MockChallengeWireframe({ onBack }) {
               <span className="subtle">Standings stay visible while picks roll in.</span>
             </div>
             <div className="mock-standings-table">
+              <div className="mock-standings-head">
+                <span>Player</span>
+                <span>Pts</span>
+                <span>3</span>
+                <span>2</span>
+                <span>1</span>
+                <span>Scored</span>
+                <span>Trend</span>
+              </div>
               {MOCK_SCOREBOARD.map((player, index) => (
                 <div className={index === 0 ? "mock-standings-row top" : "mock-standings-row"} key={player.name}>
                   <strong>{index + 1}. {player.name}</strong>
                   <span>{player.points} pts</span>
+                  <span>{player.exact}</span>
+                  <span>{player.oneOff}</span>
+                  <span>{player.twoOff}</span>
                   <span>{player.picksScored} scored</span>
                   <span className="projection-chip">{player.trend}</span>
                 </div>
