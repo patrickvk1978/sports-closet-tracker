@@ -92,6 +92,7 @@ const MOCK_TRACKING_ROWS = [
     team: "NYG",
     actual: "Abdul Carter",
     me: { player: "Abdul Carter", state: "exact", score: "+3" },
+    breakdown: { exact: 2, oneOff: 0, twoOff: 0 },
     opponents: [
       { name: "Sarah", player: "Abdul Carter", state: "exact" },
       { name: "Davin", player: "Travis Hunter", state: "miss" },
@@ -104,6 +105,7 @@ const MOCK_TRACKING_ROWS = [
     team: "NE",
     actual: "Will Campbell",
     me: { player: "Tetairoa McMillan", state: "near", score: "+1" },
+    breakdown: { exact: 2, oneOff: 1, twoOff: 2 },
     opponents: [
       { name: "Sarah", player: "Will Campbell", state: "exact" },
       { name: "Davin", player: "Kelvin Banks Jr.", state: "near" },
@@ -116,6 +118,7 @@ const MOCK_TRACKING_ROWS = [
     team: "JAX",
     actual: null,
     me: { player: "Mason Graham", state: "current", score: null },
+    breakdown: { exact: 0, oneOff: 0, twoOff: 0 },
     opponents: [
       { name: "Sarah", player: "Mason Graham", state: "current" },
       { name: "Davin", player: "Will Johnson", state: "alive" },
@@ -128,6 +131,7 @@ const MOCK_TRACKING_ROWS = [
     team: "LV",
     actual: null,
     me: { player: "Ashton Jeanty", state: "alive", score: null },
+    breakdown: { exact: 0, oneOff: 0, twoOff: 0 },
     opponents: [
       { name: "Sarah", player: "Ashton Jeanty", state: "alive" },
       { name: "Davin", player: "Jalen Milroe", state: "alive" },
@@ -140,6 +144,7 @@ const MOCK_TRACKING_ROWS = [
     team: "CHI",
     actual: null,
     me: { player: "Tetairoa McMillan", state: "alive", score: null },
+    breakdown: { exact: 0, oneOff: 0, twoOff: 0 },
     opponents: [
       { name: "Sarah", player: "Tetairoa McMillan", state: "alive" },
       { name: "Davin", player: "Will Johnson", state: "alive" },
@@ -603,46 +608,70 @@ function LiveDraftWireframe({ onBack }) {
 
 function MockTrackingGrid() {
   return (
-    <div className="mock-grid">
-      {MOCK_TRACKING_ROWS.map((row, index) => (
-        <div className={index === 2 ? "mock-row current" : "mock-row"} key={row.pick}>
-          <div className="mock-main-card">
-            <div className="mock-row-head">
-              <div>
-                <span className="label">Pick {row.pick}</span>
-                <h3>{TEAMS[row.team].name}</h3>
-              </div>
-              <span className={row.actual ? "result-badge announced" : "result-badge live"}>
-                {row.actual ? "Announced" : "On clock"}
-              </span>
-            </div>
-
-            <div className="mock-comparison-grid">
-              <div className="mock-box actual-box">
-                <span className="micro-label">Correct pick</span>
-                <strong>{row.actual ?? "Hidden until announced"}</strong>
-              </div>
-              <div className={`mock-box my-pick-box ${row.me.state}`}>
-                <span className="micro-label">My pick</span>
-                <strong>{row.me.player}</strong>
-                <span>{row.me.score ?? mockStateLabel(row.me.state)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mock-opponents-card">
-            <span className="micro-label">Opponent picks</span>
-            <div className="mock-opponent-grid">
-              {row.opponents.map((opponent) => (
-                <div className={`mock-opponent-pill ${opponent.state}`} key={`${row.pick}-${opponent.name}`}>
-                  <strong>{opponent.name}</strong>
-                  <span>{opponent.player}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+    <div className="mock-grid-shell">
+      <div className="mock-grid-header">
+        <div className="mock-fixed-header">
+          <span>Pick</span>
+          <span>Actual</span>
+          <span>My Pick</span>
+          <span>3</span>
+          <span>2</span>
+          <span>1</span>
         </div>
-      ))}
+        <div className="mock-scroll-header">
+          {["Sarah", "Davin", "Maya", "Susan"].map((name) => (
+            <span key={name}>{name}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="mock-grid">
+        {MOCK_TRACKING_ROWS.map((row, index) => {
+          const isCurrent = index === 2;
+          return (
+            <div className={isCurrent ? "mock-grid-row current" : "mock-grid-row"} key={row.pick}>
+              <div className={`scoring-window scoring-window-${Math.max(0, 2 - Math.abs(index - 2))}`} />
+
+              <div className="mock-fixed-columns">
+                <div className="mock-cell pick-cell">
+                  <strong>{row.pick}</strong>
+                  <span>{TEAMS[row.team].name}</span>
+                </div>
+
+                <div className="mock-cell actual-cell">
+                  <span className="micro-label">{row.actual ? "Correct pick" : "On clock"}</span>
+                  <strong>{row.actual ?? "Hidden"}</strong>
+                </div>
+
+                <div className={`mock-cell my-pick-cell ${row.me.state}`}>
+                  <span className="micro-label">My pick</span>
+                  <strong>{row.me.player}</strong>
+                  <span>{row.me.score ?? mockStateLabel(row.me.state)}</span>
+                </div>
+
+                <div className="mock-cell score-count-cell">
+                  <strong>{row.breakdown.exact}</strong>
+                </div>
+                <div className="mock-cell score-count-cell">
+                  <strong>{row.breakdown.oneOff}</strong>
+                </div>
+                <div className="mock-cell score-count-cell">
+                  <strong>{row.breakdown.twoOff}</strong>
+                </div>
+              </div>
+
+              <div className="mock-scroll-columns">
+                {row.opponents.map((opponent) => (
+                  <div className={`mock-opponent-cell ${opponent.state}`} key={`${row.pick}-${opponent.name}`}>
+                    <strong>{opponent.player}</strong>
+                    <span>{mockStateLabel(opponent.state)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
