@@ -214,7 +214,7 @@ function FinishMetricPicker({ options, value, onChange, compact = false }) {
 
 // ─── 1. Stat Bar ─────────────────────────────────────────────────────────────
 
-function StatBar({ player, poolSize, bestPath, finishMetric, finishMetricOptions, onFinishMetricChange }) {
+function StatBar({ player, poolSize, bestPath, finishMetric, finishMetricOptions, onFinishMetricChange, isAdmin }) {
   if (!player) return null;
   const finishValue = getFinishMetricValue(player, finishMetric);
   const finishDelta = getFinishMetricDelta(player, finishMetric);
@@ -277,8 +277,18 @@ function StatBar({ player, poolSize, bestPath, finishMetric, finishMetricOptions
           )}
         </div>
 
-        {/* Needs */}
-        {needs.length > 0 && (
+        {/* Needs / Biography link */}
+        {isAdmin ? (
+          <>
+            <div className="w-px h-6 bg-slate-700/60 shrink-0 hidden sm:block" />
+            <Link
+              to={`/reports/biography/${encodeURIComponent(player.name)}`}
+              className="text-[11px] text-orange-300/80 hover:text-orange-300 transition-colors"
+            >
+              View Biography →
+            </Link>
+          </>
+        ) : needs.length > 0 && (
           <>
             <div className="w-px h-6 bg-slate-700/60 shrink-0 hidden sm:block" />
             <div className="text-[11px] text-slate-400">
@@ -1146,6 +1156,7 @@ export default function Dashboard() {
           finishMetric={finishMetric}
           finishMetricOptions={finishMetricOptions}
           onFinishMetricChange={setFinishMetric}
+          isAdmin={isAdmin}
         />
       </div>
 

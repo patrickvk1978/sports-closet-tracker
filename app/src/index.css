@@ -13,3 +13,26 @@ body {
   min-height: 100vh;
   background-color: #020617;
 }
+
+/* ── Print styles (biography PDF) ─────────────────────────────────────────── */
+@media print {
+  body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  nav, footer, .no-print { display: none !important; }
+  * { color: #1e293b !important; border-color: #e2e8f0 !important; }
+  [class*="bg-slate"], [class*="bg-gradient"] { background: white !important; }
+  .text-white { color: #0f172a !important; }
+  .text-orange-300, .text-orange-300\/80 { color: #c2410c !important; }
+  .text-emerald-400 { color: #059669 !important; }
+  .text-red-400, .text-red-300\/80 { color: #dc2626 !important; }
+  .text-amber-400, .text-amber-300\/80 { color: #d97706 !important; }
+  .bg-red-900\/10 { background: #fef2f2 !important; }
+  .bg-amber-900\/10 { background: #fffbeb !important; }
+  .bg-emerald-500\/10 { background: #f0fdf4 !important; }
+  .bg-orange-500\/15 { background: #fff7ed !important; }
+  .border-l-emerald-500 { border-left-color: #059669 !important; }
+  .border-l-orange-500 { border-left-color: #ea580c !important; }
+  .border-red-800\/40 { border-color: #dc2626 !important; }
+  .border-amber-700\/40 { border-color: #d97706 !important; }
+  .rounded-3xl, .rounded-2xl, .rounded-xl { border: 1px solid #e2e8f0 !important; border-radius: 0.5rem !important; }
+  .ring-1 { box-shadow: none !important; }
+}

@@ -2,24 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { usePoolData } from "../hooks/usePoolData";
-
-const BRACKET_TREE = (() => {
-  const tree = {};
-  for (const base of [0, 15, 30, 45]) {
-    for (let i = 0; i < 8; i += 1) tree[base + i] = [null, null];
-    tree[base + 8] = [base + 0, base + 1];
-    tree[base + 9] = [base + 2, base + 3];
-    tree[base + 10] = [base + 4, base + 5];
-    tree[base + 11] = [base + 6, base + 7];
-    tree[base + 12] = [base + 8, base + 9];
-    tree[base + 13] = [base + 10, base + 11];
-    tree[base + 14] = [base + 12, base + 13];
-  }
-  tree[60] = [14, 29];
-  tree[61] = [44, 59];
-  tree[62] = [60, 61];
-  return tree;
-})();
+import { BRACKET_TREE } from "../lib/bracketTree";
 
 const ROUND_PRIORITY = {
   Champ: 6,
