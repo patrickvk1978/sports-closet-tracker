@@ -1065,6 +1065,23 @@ def _load_prompt_files():
     return '\n\n---\n\n'.join(parts)
 
 
+def _fetch_recent_feed_rows(supabase_client, pool_id, limit=20):
+    """Fetch recent feed entries as raw row dicts for v3 pipeline."""
+    if not supabase_client or not pool_id:
+        return []
+    try:
+        resp = supabase_client.table('narrative_feed') \
+            .select('persona, player_name, content, entry_type, created_at, metadata') \
+            .eq('pool_id', pool_id) \
+            .order('created_at', desc=True) \
+            .limit(limit) \
+            .execute()
+        return list(reversed(resp.data or []))
+    except Exception as e:
+        print(f'  Warning: could not fetch recent feed rows: {e}')
+        return []
+
+
 def _fetch_recent_feed(supabase_client, pool_id, limit=15):
     """Fetch recent feed entries for this pool to give the LLM context about what was already said."""
     if not supabase_client or not pool_id:
@@ -1802,6 +1819,10 @@ def main():
                         help='Type of narrative to generate')
     parser.add_argument('--just-finished', default='',
                         help='Semicolon-separated list of just-finished game results')
+    parser.add_argument('--narrative-v2', action='store_true',
+                        help='Use v2 narrative pipeline (Opus planner + Sonnet writer)')
+    parser.add_argument('--narrative-v3', action='store_true',
+                        help='Use v3 narrative pipeline (game map + player map + Sonnet planner/writer)')
     args = parser.parse_args()
 
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
@@ -1901,6 +1922,92 @@ def main():
             print('\nSkipping narrative generation (disabled via admin config).')
         else:
             print('\nSkipping narrative generation (--no-narratives); preserving existing.')
+        narratives = existing_narratives
+    elif getattr(args, 'narrative_v2', False):
+        # ── v2 narrative pipeline ─────────────────────────────────────────
+        print(f'\nGenerating AI narratives via v2 pipeline (type: {args.narrative_type})…')
+        from narrative_v2.pipeline import run_narrative_v2
+
+        ctx = build_tournament_context(games_by_slot)
+
+        # Build prev_enriched_stats from prev_probs for delta detection
+        prev_enriched = None
+        if prev_probs:
+            prev_enriched = build_enriched_player_stats(
+                players, games_by_slot, prev_probs, {},
+                leverage_games, outcome_deltas, pool_round_points,
+                finish_probs=prev_finish_probs or {}, prize_places=prize_places,
+            )
+
+        v2_entries, v2_usage = run_narrative_v2(
+            enriched_stats=enriched_stats,
+            prev_enriched_stats=prev_enriched,
+            tournament_context=ctx,
+            leverage_games=leverage_games,
+            narrative_type=args.narrative_type,
+            just_finished=args.just_finished,
+            pool_size=len(players),
+            prize_places=prize_places or [],
+            valid_player_names=[p['username'] for p in players],
+            supabase_client=client,
+            pool_id=args.pool_id,
+            dry_run=args.dry_run,
+        )
+
+        if v2_entries and not args.dry_run:
+            insert_feed_entries(
+                client, args.pool_id, v2_entries,
+                clear_previous=(args.narrative_type == 'overnight'),
+            )
+
+        print(f'  v2 usage: planner={v2_usage["planner_input_tokens"]}+{v2_usage["planner_output_tokens"]} tokens, '
+              f'writer={v2_usage["writer_input_tokens"]}+{v2_usage["writer_output_tokens"]} tokens, '
+              f'{v2_usage["total_latency_ms"]}ms total')
+
+        # v2 doesn't produce legacy narratives dict — use existing
+        narratives = existing_narratives
+    elif getattr(args, 'narrative_v3', False):
+        # ── v3 narrative pipeline ─────────────────────────────────────────
+        print(f'\nGenerating AI narratives via v3 pipeline (type: {args.narrative_type})…')
+        from narrative_v3.pipeline import run_narrative_v3
+
+        recent_feed = _fetch_recent_feed_rows(client, args.pool_id, limit=20)
+
+        prev_enriched = None
+        if prev_probs:
+            prev_enriched = build_enriched_player_stats(
+                players, games_by_slot, prev_probs, {},
+                leverage_games, outcome_deltas, pool_round_points,
+                finish_probs=prev_finish_probs or {}, prize_places=prize_places,
+            )
+
+        v3_entries, v3_usage = run_narrative_v3(
+            enriched_stats=enriched_stats,
+            prev_stats=prev_enriched,
+            leverage_games=leverage_games,
+            games_by_slot=games_by_slot,
+            narrative_type=args.narrative_type,
+            just_finished=args.just_finished,
+            pool_size=len(players),
+            prize_places=prize_places or [],
+            valid_player_names=[p['username'] for p in players],
+            players=players,
+            recent_feed=recent_feed,
+            supabase_client=client,
+            pool_id=args.pool_id,
+            dry_run=args.dry_run,
+        )
+
+        if v3_entries and not args.dry_run:
+            insert_feed_entries(
+                client, args.pool_id, v3_entries,
+                clear_previous=(args.narrative_type == 'overnight'),
+            )
+
+        print(f'  v3 usage: planner={v3_usage["planner_input_tokens"]}+{v3_usage["planner_output_tokens"]} tokens, '
+              f'writer={v3_usage["writer_input_tokens"]}+{v3_usage["writer_output_tokens"]} tokens, '
+              f'{v3_usage["total_latency_ms"]}ms total')
+
         narratives = existing_narratives
     else:
         print(f'\nGenerating AI narratives (model: {args.narrative_model}, type: {args.narrative_type})…')
