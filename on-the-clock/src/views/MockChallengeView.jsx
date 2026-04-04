@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import BigBoardTable from "../components/BigBoardTable";
 import { usePool } from "../hooks/usePool";
-import { DEFAULT_ACTUAL_PICKS, ROUND_ONE_PICKS, TEAMS, getPickLabel, getProspectById } from "../lib/draftData";
+import { ROUND_ONE_PICKS, TEAMS, getPickLabel, getProspectById } from "../lib/draftData";
 
 function stateLabel(state) {
   if (state === "exact") return "Exact hit (+3)";
@@ -26,11 +26,6 @@ export default function MockChallengeView() {
     saveMockPrediction,
     submitMockPredictions,
     resetMockPredictions,
-    startDraftNight,
-    setPickStatus,
-    revealCurrentPick,
-    advanceDraft,
-    resetDraftFeed,
   } = usePool();
   const [selectedPick, setSelectedPick] = useState(1);
   const [devMode, setDevMode] = useState("entry");
@@ -53,22 +48,27 @@ export default function MockChallengeView() {
   const remainingCount = ROUND_ONE_PICKS.length - completedPickCount;
   const currentIndex = Math.max(0, mockTrackingRows.findIndex((row) => row.pick.number === currentPickNumber));
   const visibleRows = mockTrackingRows.slice(Math.max(0, currentIndex - 2), Math.min(mockTrackingRows.length, currentIndex + 3));
+  const selectedPrediction = getProspectById(mockPredictions[selectedPick]);
+  const currentTrackingRow = mockTrackingRows.find((row) => row.pick.number === currentPickNumber);
+  const inPlayRangeStart = Math.max(1, currentPickNumber - 2);
+  const inPlayRangeEnd = Math.min(ROUND_ONE_PICKS.length, currentPickNumber + 2);
 
   return (
     <>
       <div className="workspace-nav">
         <div className="tab-set">
-          <button className={!trackingMode ? "tab active" : "tab"} onClick={() => setDevMode("entry")}>Pre-draft entry</button>
-          <button className={trackingMode ? "tab active" : "tab"} onClick={() => setDevMode("tracking")}>Tracking mode</button>
+          <button className={!trackingMode ? "tab active" : "tab"} type="button" onClick={() => setDevMode("entry")}>Pre-draft entry</button>
+          <button className={trackingMode ? "tab active" : "tab"} type="button" onClick={() => setDevMode("tracking")}>Tracking mode</button>
         </div>
         <div className="tab-actions">
           <span className="chip">{pool?.name ?? "Mock Pool"}</span>
           <span className="chip">Mock Challenge</span>
+          <span className="chip countdown-chip">{trackingMode ? `Current window ${inPlayRangeStart}-${inPlayRangeEnd}` : "Entries lock in 2h 14m"}</span>
         </div>
       </div>
 
       {!trackingMode ? (
-        <div className="mock-entry-layout">
+        <div className="mode-prep-layout">
           <section className="panel">
             <div className="panel-header">
               <div>
@@ -76,6 +76,24 @@ export default function MockChallengeView() {
                 <h2>Submit Predictions</h2>
               </div>
               <span className="subtle">{remainingCount} picks remaining · Entries lock in 2h 14m</span>
+            </div>
+
+            <div className="flow-helper-card">
+              <div className="flow-step">
+                <span className="micro-label">Step 1</span>
+                <strong>Select a team slot</strong>
+                <span>Pick the team slot you want to fill from the list below.</span>
+              </div>
+              <div className="flow-step">
+                <span className="micro-label">Step 2</span>
+                <strong>Choose from your Big Board</strong>
+                <span>The Big Board is your research and ranking engine for filling each prediction.</span>
+              </div>
+              <div className="flow-step">
+                <span className="micro-label">Step 3</span>
+                <strong>Submit once</strong>
+                <span>You can edit until lock. After that, the page switches into tracking mode automatically.</span>
+              </div>
             </div>
 
             <div className="pick-list">
@@ -101,24 +119,35 @@ export default function MockChallengeView() {
               ))}
             </div>
 
-            <div className="entry-actions">
+            <div className="future-pick-helper">
+              <div>
+                <span className="micro-label">Editing slot</span>
+                <strong>{getPickLabel(selectedPick)}</strong>
+              </div>
+              <div>
+                <span className="micro-label">Current prediction</span>
+                <span className="subtle">{selectedPrediction?.name ?? "Choose a player from the Big Board"}</span>
+              </div>
               <button className="primary-button" type="button" disabled={remainingCount > 0} onClick={submitMockPredictions}>
                 Submit Predictions
               </button>
-              <button className="secondary-button" type="button" onClick={() => { submitMockPredictions(); startDraftNight(); setDevMode("tracking"); }}>
-                Submit and Enter Tracking
+            </div>
+
+            <div className="entry-actions">
+              <button className="secondary-button" type="button" onClick={() => setDevMode("tracking")}>
+                Preview Tracking Mode
               </button>
             </div>
 
             <div className="detail-card inset-card">
-              <span className="micro-label">Pool</span>
-              <p>{members.length} entrants in this pool. The app will switch into tracking mode automatically once entries lock and the draft starts.</p>
+              <span className="micro-label">Pool participation</span>
+              <p>{members.length} entrants in this pool. {hasSubmittedMock ? "You have submitted your predictions." : "Your entry is still editable until the global lock time."}</p>
             </div>
           </section>
 
           <BigBoardTable
             title="Big Board"
-            subtitle="Research and map players to team slots"
+            subtitle="Use the board to power each team-based prediction"
             boardIds={bigBoardIds}
             onMove={moveBigBoardItem}
             draftedIds={draftedIds}
@@ -131,19 +160,26 @@ export default function MockChallengeView() {
       ) : (
         <div className="mock-tracking-layout">
           <section className="panel">
-            <div className="module-header">
-              <div>
+            <div className="tracking-hero">
+              <div className="tracking-current-card">
                 <span className="label">Current Pick</span>
-                <h2>{getPickLabel(currentPickNumber)} — {draftFeed.current_status === "revealed" ? "Revealed" : "On the Clock"}</h2>
+                <h2>{getPickLabel(currentPickNumber)}</h2>
+                <div className="tracking-current-detail">
+                  <div>
+                    <span className="micro-label">Actual</span>
+                    <strong>{currentTrackingRow?.actualProspect?.name ?? "Waiting to be revealed"}</strong>
+                  </div>
+                  <div>
+                    <span className="micro-label">Your pick</span>
+                    <strong>{currentTrackingRow?.myProspect?.name ?? "Open"}</strong>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="dev-control-row">
-              <button className="secondary-button" type="button" onClick={startDraftNight}>Start tracking</button>
-              <button className="secondary-button" type="button" onClick={() => setPickStatus("pick_is_in")}>Pick is in</button>
-              <button className="secondary-button" type="button" onClick={() => revealCurrentPick(DEFAULT_ACTUAL_PICKS[currentPickNumber])}>Reveal pick</button>
-              <button className="secondary-button" type="button" onClick={advanceDraft}>Next pick</button>
-              <button className="secondary-button" type="button" onClick={() => { resetDraftFeed(); resetMockPredictions(); setDevMode("entry"); }}>Reset</button>
+              <div className="tracking-window-card">
+                <span className="micro-label">Scoring window</span>
+                <strong>{`Picks ${inPlayRangeStart}-${inPlayRangeEnd}`}</strong>
+                <span>{currentTrackingRow?.myState === "in-play" ? "Your current pick is still in play." : stateLabel(currentTrackingRow?.myState ?? "out-of-range")}</span>
+              </div>
             </div>
 
             <div className="mock-grid-shell">
@@ -191,6 +227,10 @@ export default function MockChallengeView() {
                 <span className="label">Standings</span>
                 <h2>Live scoring</h2>
               </div>
+            </div>
+            <div className="detail-card inset-card">
+              <span className="micro-label">Scoring</span>
+              <p>Exact hit = 3, 1 away = 2, 2 away = 1. Yellow means the pick is still alive inside the current scoring window.</p>
             </div>
             <div className="mock-standings-table">
               <div className="mock-standings-head"><span>Player</span><span>Pts</span></div>

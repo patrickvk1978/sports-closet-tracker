@@ -50,6 +50,8 @@ export default function BigBoardTable({
   }, [boardIds, positionFilter, search, sortBy]);
 
   const selectedProspect = selectedProspectId ? getProspectById(selectedProspectId) : null;
+  const assignedCount = Object.keys(mappedPickByProspectId).length;
+  const draftedCount = boardIds.filter((prospectId) => draftedIds.has(prospectId)).length;
 
   return (
     <section className="panel">
@@ -58,6 +60,12 @@ export default function BigBoardTable({
           <span className="label">{title}</span>
           <h2>{subtitle}</h2>
         </div>
+      </div>
+
+      <div className="board-summary-bar">
+        <span className="chip">Assigned {assignedCount}</span>
+        <span className="chip">Available {boardIds.length - draftedCount}</span>
+        <span className="chip">Drafted {draftedCount}</span>
       </div>
 
       <div className="filter-row board-filter-row">
@@ -92,7 +100,7 @@ export default function BigBoardTable({
         <div>
           <span className="micro-label">Selected player</span>
           <strong>{selectedProspect?.name ?? "Choose a player"}</strong>
-          <p className="subtle">{selectedPickLabel ? `Mapped to ${selectedPickLabel}` : "Use your board to support live picks and predictions."}</p>
+          <p className="subtle">{selectedPickLabel ? `Currently mapping to ${selectedPickLabel}` : "Use the Big Board to support live picks, predictions, and auto-submit behavior."}</p>
         </div>
         {onAssignSelectedProspect ? (
           <button

@@ -13,18 +13,16 @@ function ProspectPill({ prospect }) {
   );
 }
 
-function poolStatusCards(currentLocked) {
-  return [
-    { name: "You", status: currentLocked ? "Submitted" : "Choosing", className: currentLocked ? "locked" : "waiting" },
-    { name: "Sarah", status: "Submitted", className: "locked" },
-    { name: "Davin", status: "Choosing", className: "waiting" },
-  ];
-}
-
 function statusCopy(status) {
   if (status === "on_clock") return "On the Clock";
   if (status === "pick_is_in") return "Pick is in";
   return "Revealed";
+}
+
+function countdownCopy(status) {
+  if (status === "on_clock") return "04:18";
+  if (status === "pick_is_in") return "00:24";
+  return "SCORED";
 }
 
 export default function LiveDraftView() {
@@ -42,11 +40,6 @@ export default function LiveDraftView() {
     saveLivePrediction,
     setLiveCurrentSelection,
     submitLiveCard,
-    startDraftNight,
-    setPickStatus,
-    revealCurrentPick,
-    advanceDraft,
-    resetDraftFeed,
   } = usePool();
   const [selectedPick, setSelectedPick] = useState(1);
 
@@ -75,29 +68,53 @@ export default function LiveDraftView() {
   const isPreDraft = draftFeed.phase === "pre_draft";
   const currentLocked = Boolean(liveCards[currentPickNumber]);
   const selectedFuturePrediction = getProspectById(livePredictions[selectedPickData.number]);
+  const preRevealPoolState = currentLivePoolState.map((member) => ({
+    ...member,
+    className: member.locked ? "locked" : "waiting",
+    status: member.locked ? "Submitted" : "Choosing",
+  }));
 
   return (
     <>
-      <div className="workspace-nav">
+      <div className="workspace-nav live-nav">
         <div className="tab-set">
-          <button className={isPreDraft ? "tab active" : "tab"} onClick={resetDraftFeed}>Pre-draft</button>
-          <button className={!isPreDraft ? "tab active" : "tab"} onClick={startDraftNight}>Draft night</button>
+          <button className={isPreDraft ? "tab active" : "tab"} type="button">Pre-draft</button>
+          <button className={!isPreDraft ? "tab active" : "tab"} type="button">Live Draft</button>
         </div>
         <div className="tab-actions">
           <span className="chip">{pool?.name ?? "Draft Pool"}</span>
           <span className="chip">Live Draft</span>
+          <span className="chip countdown-chip">{isPreDraft ? "Draft starts Thu 7:00 PM" : `Clock ${countdownCopy(draftFeed.current_status)}`}</span>
         </div>
       </div>
 
       {isPreDraft ? (
-        <div className="mock-entry-layout">
+        <div className="mode-prep-layout">
           <section className="panel">
             <div className="panel-header">
               <div>
                 <span className="label">Pre-draft</span>
                 <h2>Set up your team-based picks</h2>
               </div>
-              <button className="primary-button" type="button" onClick={startDraftNight}>Start Draft Night</button>
+              <span className="subtle">When the commissioner starts the draft, this page becomes your live command center.</span>
+            </div>
+
+            <div className="flow-helper-card">
+              <div className="flow-step">
+                <span className="micro-label">Step 1</span>
+                <strong>Select a team slot</strong>
+                <span>Use the left column to choose the pick you want to set up.</span>
+              </div>
+              <div className="flow-step">
+                <span className="micro-label">Step 2</span>
+                <strong>Use Big Board to pick a player</strong>
+                <span>The Big Board on the right powers your setup now and your fallback logic later.</span>
+              </div>
+              <div className="flow-step">
+                <span className="micro-label">Step 3</span>
+                <strong>Come back on draft night</strong>
+                <span>You can still auto-submit from your board if you step away.</span>
+              </div>
             </div>
 
             <div className="pick-list">
@@ -147,17 +164,24 @@ export default function LiveDraftView() {
         </div>
       ) : (
         <>
-          <section className="panel">
-            <div className={`live-state-banner ${draftFeed.current_status}`}>
-              <span className="label">Live state</span>
-              <strong>{`${currentTeam.name} (${currentPickNumber}) — ${statusCopy(draftFeed.current_status)}`}</strong>
-              <span>{draftFeed.current_status === "revealed" ? "Pool picks and scoring are now visible." : "Other players stay hidden until the reveal flips."}</span>
+          <section className="panel live-hero-panel">
+            <div className="live-hero-head">
+              <div className={`live-state-banner ${draftFeed.current_status}`}>
+                <span className="label">Current Pick</span>
+                <strong>{`${currentTeam.name} (${currentPickNumber}) — ${statusCopy(draftFeed.current_status)}`}</strong>
+                <span>{draftFeed.current_status === "revealed" ? "Pool picks and scoring are now visible." : "Other players stay hidden until the reveal flips."}</span>
+              </div>
+              <div className={`countdown-card ${draftFeed.current_status}`}>
+                <span className="micro-label">{draftFeed.current_status === "revealed" ? "Result" : "Global Clock"}</span>
+                <strong>{countdownCopy(draftFeed.current_status)}</strong>
+                <span>{draftFeed.current_status === "on_clock" ? "Time left to submit the card" : draftFeed.current_status === "pick_is_in" ? "Waiting for the reveal" : "Pick resolved"}</span>
+              </div>
             </div>
             <div className="hero-modules">
               <div className="detail-card spotlight your-pick-module">
                 <div className="module-header">
                   <div>
-                    <span className="label">On the Clock</span>
+                    <span className="label">Your Pick</span>
                     <h2>{currentTeam.name} ({currentPickNumber})</h2>
                   </div>
                   <span className="status-badge">
@@ -166,14 +190,14 @@ export default function LiveDraftView() {
                 </div>
                 <div className="your-pick-primary">
                   <div>
-                    <span className="micro-label">Your Pick</span>
+                    <span className="micro-label">{currentLocked ? "Submitted card" : "Current selection"}</span>
                     <ProspectPill prospect={currentSelection} />
                   </div>
                   <p>Leave it blank and the app auto-submits from your Big Board when the clock expires. If you choose a player but do not submit, that visible pick still locks on timeout.</p>
                 </div>
                 <div className="your-pick-suggestions">
                   <button className="suggestion-card" onClick={() => setLiveCurrentSelection(currentPickNumber, livePredictions[currentPickNumber])}>
-                    <span className="micro-label">Current prediction</span>
+                    <span className="micro-label">Use your setup pick</span>
                     <ProspectPill prospect={getProspectById(livePredictions[currentPickNumber])} />
                   </button>
                   <button className="primary-button" type="button" onClick={() => submitLiveCard(currentPickNumber)}>
@@ -186,7 +210,7 @@ export default function LiveDraftView() {
                 <div className="module-header">
                   <div>
                     <span className="label">Reveal</span>
-                    <h2>{draftFeed.current_status === "revealed" ? "Pick revealed" : "Pool waiting room"}</h2>
+                    <h2>{draftFeed.current_status === "revealed" ? "Card flipped" : "Waiting on the room"}</h2>
                   </div>
                   <span className="slot-status">{draftFeed.current_status === "revealed" ? "Scored" : "Awaiting reveal"}</span>
                 </div>
@@ -197,9 +221,9 @@ export default function LiveDraftView() {
                 <div className="pool-picks-shell">
                   <span className="micro-label">{draftFeed.current_status === "revealed" ? "Pool results" : "Pool lock state"}</span>
                   <div className="pool-status-grid">
-                    {(draftFeed.current_status === "revealed" ? currentLivePoolState : poolStatusCards(currentLocked)).map((member) => (
+                    {(draftFeed.current_status === "revealed" ? currentLivePoolState : preRevealPoolState).map((member) => (
                       <div
-                        key={member.name}
+                        key={member.id ?? member.name}
                         className={`pool-member-card ${
                           draftFeed.current_status === "revealed" ? `revealed ${member.result}` : member.className
                         }`}
@@ -216,21 +240,14 @@ export default function LiveDraftView() {
                 </div>
               </div>
             </div>
-
-            <div className="dev-control-row">
-              <button className="secondary-button" type="button" onClick={() => setPickStatus("on_clock")}>On the Clock</button>
-              <button className="secondary-button" type="button" onClick={() => setPickStatus("pick_is_in")}>Pick is in</button>
-              <button className="secondary-button" type="button" onClick={() => revealCurrentPick(liveCards[currentPickNumber] ?? livePredictions[currentPickNumber])}>Reveal pick</button>
-              <button className="secondary-button" type="button" onClick={advanceDraft}>Next pick</button>
-            </div>
           </section>
 
           <div className="bottom-modules">
             <div className="detail-card">
               <div className="module-header">
                 <div>
-                  <span className="label">Upcoming</span>
-                  <h2>Round 1 board</h2>
+                  <span className="label">Round 1 Flow</span>
+                  <h2>Current pick into upcoming setup</h2>
                 </div>
               </div>
               <div className="future-pick-helper">
@@ -310,14 +327,18 @@ export default function LiveDraftView() {
 
           <BigBoardTable
             title="Big Board"
-            subtitle="Sortable decision workspace"
+            subtitle="The ranking engine behind your setup picks and auto-submit behavior"
             boardIds={bigBoardIds}
             onMove={moveBigBoardItem}
             draftedIds={draftedIds}
             mappedPickByProspectId={mappedPickByProspectId}
-            selectedPickLabel={getPickLabel(currentPickNumber)}
-            assignLabel="Make Current Pick"
-            onAssignSelectedProspect={(prospectId) => setLiveCurrentSelection(currentPickNumber, prospectId)}
+            selectedPickLabel={getPickLabel(selectedPickData.number)}
+            assignLabel={`Use for ${getPickLabel(selectedPickData.number)}`}
+            onAssignSelectedProspect={(prospectId) =>
+              selectedPickData.number === currentPickNumber
+                ? setLiveCurrentSelection(currentPickNumber, prospectId)
+                : saveLivePrediction(selectedPickData.number, prospectId)
+            }
           />
         </>
       )}

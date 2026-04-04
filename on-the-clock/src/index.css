@@ -316,6 +316,7 @@ a {
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 1px 0 rgba(17, 19, 24, 0.02);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background-color 160ms ease;
 }
 
 .label {
@@ -503,6 +504,12 @@ a {
   gap: 16px;
 }
 
+.mode-prep-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.95fr);
+  gap: 16px;
+}
+
 .live-state-banner {
   display: grid;
   gap: 4px;
@@ -535,6 +542,78 @@ a {
 .live-state-banner.revealed {
   border-color: #bfe0ca;
   background: #eef8f1;
+}
+
+.live-hero-panel {
+  overflow: hidden;
+}
+
+.live-hero-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.countdown-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.countdown-card strong {
+  font-size: clamp(1.7rem, 3vw, 2.3rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.countdown-card span:last-child {
+  color: var(--muted-strong);
+  font-size: 0.9rem;
+}
+
+.countdown-card.on_clock {
+  border-color: #eed79a;
+  background: #fff9ea;
+}
+
+.countdown-card.pick_is_in {
+  border-color: #f2c9d1;
+  background: #fff4f6;
+}
+
+.countdown-card.revealed {
+  border-color: #bfe0ca;
+  background: #eef8f1;
+}
+
+.flow-helper-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #f9fafb;
+}
+
+.flow-step {
+  display: grid;
+  gap: 5px;
+}
+
+.flow-step strong {
+  font-size: 0.98rem;
+}
+
+.flow-step span:last-child {
+  color: var(--muted-strong);
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .module-header {
@@ -698,6 +777,7 @@ a {
   border-color: var(--red);
   background: #fff9fa;
   box-shadow: inset 0 0 0 1px rgba(207, 17, 45, 0.14);
+  transform: scale(1.01);
 }
 
 .scoring-window {
@@ -841,6 +921,55 @@ a {
 .mock-standings-row.top {
   background: #fff9fa;
   border-color: #efc2cc;
+}
+
+.tracking-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.tracking-current-card,
+.tracking-window-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.tracking-current-card {
+  background: linear-gradient(180deg, #fff 0%, #fff7f8 100%);
+  border-color: #efc2cc;
+}
+
+.tracking-current-card h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.tracking-current-detail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tracking-window-card {
+  background: #fff9ea;
+  border-color: #eed79a;
+}
+
+.tracking-window-card strong {
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+.tracking-window-card span:last-child {
+  color: var(--muted-strong);
+  font-size: 0.9rem;
 }
 
 .inset-card {
@@ -1106,6 +1235,13 @@ a {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) 180px 180px;
   gap: 10px;
+}
+
+.board-summary-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
 }
 
 .search-input {
@@ -1412,6 +1548,11 @@ select {
 
   .hero-modules,
   .bottom-modules,
+  .mode-prep-layout,
+  .live-hero-head,
+  .tracking-hero,
+  .flow-helper-card,
+  .tracking-current-detail,
   .pick-columns,
   .suggestion-grid,
   .your-pick-suggestions,
