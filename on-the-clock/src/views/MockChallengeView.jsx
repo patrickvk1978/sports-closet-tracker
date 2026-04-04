@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
 import BigBoardTable from "../components/BigBoardTable";
+import { SkeletonPanel } from "../components/Skeleton";
 import { usePool } from "../hooks/usePool";
-import { ROUND_ONE_PICKS, TEAMS, getPickLabel, getProspectById } from "../lib/draftData";
+import { useDraftFeed } from "../hooks/useDraftFeed";
+import { useBigBoard } from "../hooks/useBigBoard";
+import { useMockChallenge } from "../hooks/useMockChallenge";
+import { useReferenceData } from "../hooks/useReferenceData";
 
 function stateLabel(state) {
   if (state === "exact") return "Exact hit (+3)";
@@ -12,21 +16,18 @@ function stateLabel(state) {
 }
 
 export default function MockChallengeView() {
+  const { pool, members, memberList } = usePool();
+  const { draftFeed } = useDraftFeed();
+  const { bigBoardIds, moveBigBoardItem } = useBigBoard();
+  const { picks, teams, getPickLabel, getProspectById, loading: refLoading } = useReferenceData();
   const {
-    pool,
-    members,
-    memberList,
-    draftFeed,
-    bigBoardIds,
     mockPredictions,
     hasSubmittedMock,
     mockStandings,
     mockTrackingRows,
-    moveBigBoardItem,
     saveMockPrediction,
     submitMockPredictions,
-    resetMockPredictions,
-  } = usePool();
+  } = useMockChallenge({ draftFeed });
   const [selectedPick, setSelectedPick] = useState(1);
   const [devMode, setDevMode] = useState("entry");
 
@@ -45,13 +46,22 @@ export default function MockChallengeView() {
   }, {});
 
   const completedPickCount = Object.keys(mockPredictions).filter((pickNumber) => mockPredictions[pickNumber]).length;
-  const remainingCount = ROUND_ONE_PICKS.length - completedPickCount;
+  const remainingCount = picks.length - completedPickCount;
   const currentIndex = Math.max(0, mockTrackingRows.findIndex((row) => row.pick.number === currentPickNumber));
   const visibleRows = mockTrackingRows.slice(Math.max(0, currentIndex - 2), Math.min(mockTrackingRows.length, currentIndex + 3));
   const selectedPrediction = getProspectById(mockPredictions[selectedPick]);
   const currentTrackingRow = mockTrackingRows.find((row) => row.pick.number === currentPickNumber);
   const inPlayRangeStart = Math.max(1, currentPickNumber - 2);
-  const inPlayRangeEnd = Math.min(ROUND_ONE_PICKS.length, currentPickNumber + 2);
+  const inPlayRangeEnd = Math.min(picks.length, currentPickNumber + 2);
+
+  if (refLoading) {
+    return (
+      <div className="mode-prep-layout" style={{ marginTop: 16 }}>
+        <SkeletonPanel rows={6} />
+        <SkeletonPanel rows={8} />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -97,7 +107,7 @@ export default function MockChallengeView() {
             </div>
 
             <div className="pick-list">
-              {ROUND_ONE_PICKS.map((pick) => (
+              {picks.map((pick) => (
                 <button
                   key={pick.number}
                   className={selectedPick === pick.number ? "pick-row active" : "pick-row"}
@@ -106,7 +116,7 @@ export default function MockChallengeView() {
                   <div className="pick-num">{pick.number}</div>
                   <div className="pick-main">
                     <div className="pick-topline">
-                      <strong>{TEAMS[teamCodeForPick(pick)].name}</strong>
+                      <strong>{teams[teamCodeForPick(pick)]?.name}</strong>
                     </div>
                     <div className="pick-columns single-column">
                       <div>
@@ -195,7 +205,7 @@ export default function MockChallengeView() {
                     <div className="mock-fixed-columns">
                       <div className="mock-cell pick-cell">
                         <strong>{row.pick.number}</strong>
-                        <span>{TEAMS[teamCodeForPick(row.pick)].name}</span>
+                        <span>{teams[teamCodeForPick(row.pick)]?.name}</span>
                       </div>
                       <div className="mock-cell actual-cell">
                         <span className="micro-label">Actual</span>

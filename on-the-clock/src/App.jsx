@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { PoolProvider } from "./context/PoolContext";
+import { ReferenceDataProvider } from "./hooks/useReferenceData";
 import LoginPage from "./pages/LoginPage";
 import JoinPoolPage from "./pages/JoinPoolPage";
 import CreatePoolPage from "./pages/CreatePoolPage";
@@ -38,6 +39,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ReferenceDataProvider>
         <PoolProvider>
           <div className="app-shell app-shell-routed">
             <Routes>
@@ -59,6 +61,7 @@ export default function App() {
             </Routes>
           </div>
         </PoolProvider>
+        </ReferenceDataProvider>
       </AuthProvider>
     </BrowserRouter>
   );

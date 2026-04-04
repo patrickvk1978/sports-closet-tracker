@@ -1,85 +1,100 @@
-import { createContext, useEffect, useState } from "react";
+import { createContext, useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
-export const AuthContext = createContext(null);
-
-const SESSION_KEY = "otc_mock_session";
-const USERS_KEY = "otc_mock_users";
-
-function readUsers() {
-  try {
-    return JSON.parse(localStorage.getItem(USERS_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
-
-function writeUsers(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
+export const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(SESSION_KEY) ?? "null");
-      if (stored) {
-        setSession(stored);
-        setProfile(stored.user);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session) {
+        fetchProfile(session.user.id, session)
+      } else {
+        setLoading(false)
       }
-    } catch {
-      localStorage.removeItem(SESSION_KEY);
-    } finally {
-      setLoading(false);
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session)
+        if (session) {
+          fetchProfile(session.user.id, session)
+        } else {
+          setProfile(null)
+          setLoading(false)
+        }
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function fetchProfile(userId, session) {
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (!profileData && session?.user) {
+      await supabase.from('profiles').insert({
+        id: session.user.id,
+        username: session.user.user_metadata?.username || session.user.email.split('@')[0]
+      })
+      const { data: retried } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
+      setProfile(retried ?? null)
+    } else {
+      setProfile(profileData ?? null)
     }
-  }, []);
+
+    setLoading(false)
+  }
 
   async function signIn(email, password) {
-    const users = readUsers();
-    const found = users.find((user) => user.email.toLowerCase() === email.toLowerCase() && user.password === password);
-    if (!found) return { error: { message: "Invalid email or password" } };
-
-    const nextSession = { user: { id: found.id, username: found.username, email: found.email, is_admin: found.is_admin } };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
-    setSession(nextSession);
-    setProfile(nextSession.user);
-    return { data: nextSession };
+    return supabase.auth.signInWithPassword({ email, password })
   }
 
   async function signUp(email, password, username) {
-    const users = readUsers();
-    if (users.some((user) => user.email.toLowerCase() === email.toLowerCase())) {
-      return { error: { message: "User already registered" } };
-    }
-
-    const newUser = {
-      id: crypto.randomUUID(),
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      username,
-      is_admin: users.length === 0,
-    };
-    users.push(newUser);
-    writeUsers(users);
+      options: { data: { username } }
+    })
+    if (error || !data.user) return { error }
 
-    const nextSession = { user: { id: newUser.id, username: newUser.username, email: newUser.email, is_admin: newUser.is_admin } };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
-    setSession(nextSession);
-    setProfile(nextSession.user);
-    return { data: nextSession };
+    let profile = null
+    for (let i = 0; i < 3; i++) {
+      await new Promise(r => setTimeout(r, 1000))
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single()
+      if (p) { profile = p; break }
+    }
+
+    if (!profile) {
+      await supabase.from('profiles').insert({ id: data.user.id, username })
+    }
+
+    return { data }
   }
 
   async function signOut() {
-    localStorage.removeItem(SESSION_KEY);
-    setSession(null);
-    setProfile(null);
+    await supabase.auth.signOut()
   }
 
   return (
     <AuthContext.Provider value={{ session, profile, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
-  );
+  )
 }

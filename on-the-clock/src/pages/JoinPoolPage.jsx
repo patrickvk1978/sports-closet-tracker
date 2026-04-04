@@ -9,7 +9,7 @@ function routeForPool(pool) {
 export default function JoinPoolPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { joinPool, seedDemoPools } = usePool();
+  const { joinPool } = usePool();
   const [code, setCode] = useState(() => searchParams.get("code")?.toUpperCase() ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -25,13 +25,6 @@ export default function JoinPoolPage() {
       return;
     }
     navigate(routeForPool(result.pool));
-  }
-
-  async function handleSeedDemo() {
-    const result = await seedDemoPools();
-    if (result?.pool) {
-      navigate(routeForPool(result.pool));
-    }
   }
 
   return (
@@ -53,9 +46,6 @@ export default function JoinPoolPage() {
           </button>
           <button className="secondary-button full" type="button" onClick={() => navigate("/create-pool")}>
             Create a New Pool
-          </button>
-          <button className="secondary-button full" type="button" onClick={handleSeedDemo}>
-            Load Demo Pools
           </button>
         </form>
       </div>

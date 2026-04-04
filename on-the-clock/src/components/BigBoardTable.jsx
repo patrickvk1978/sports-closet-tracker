@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { PROSPECTS, getProspectById } from "../lib/draftData";
+import { useReferenceData } from "../hooks/useReferenceData";
+import { SkeletonBoardTable } from "./Skeleton";
+import EmptyState from "./EmptyState";
 
 function sortProspects(prospects, boardIds, sortBy) {
   const getBoardRank = (prospectId) => boardIds.indexOf(prospectId) + 1;
@@ -9,9 +11,9 @@ function sortProspects(prospects, boardIds, sortBy) {
     player: (a, b) => a.name.localeCompare(b.name),
     position: (a, b) => a.position.localeCompare(b.position),
     school: (a, b) => a.school.localeCompare(b.school),
-    consensus: (a, b) => a.consensus - b.consensus,
-    espn: (a, b) => a.espn - b.espn,
-    pff: (a, b) => a.pff - b.pff,
+    consensus: (a, b) => (a.consensus_rank ?? 999) - (b.consensus_rank ?? 999),
+    espn: (a, b) => (a.espn_rank ?? 999) - (b.espn_rank ?? 999),
+    pff: (a, b) => (a.pff_rank ?? 999) - (b.pff_rank ?? 999),
   };
 
   return [...prospects].sort(comparators[sortBy] ?? comparators.your_rank);
@@ -28,6 +30,7 @@ export default function BigBoardTable({
   assignLabel = "Make Current Pick",
   onAssignSelectedProspect,
 }) {
+  const { getProspectById, loading: refLoading } = useReferenceData();
   const [search, setSearch] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
   const [sortBy, setSortBy] = useState("your_rank");
@@ -47,7 +50,7 @@ export default function BigBoardTable({
       return matchesSearch && matchesPosition;
     });
     return sortProspects(filtered, boardIds, sortBy);
-  }, [boardIds, positionFilter, search, sortBy]);
+  }, [boardIds, positionFilter, search, sortBy, getProspectById]);
 
   const selectedProspect = selectedProspectId ? getProspectById(selectedProspectId) : null;
   const assignedCount = Object.keys(mappedPickByProspectId).length;
@@ -114,6 +117,15 @@ export default function BigBoardTable({
         ) : null}
       </div>
 
+      {refLoading ? (
+        <SkeletonBoardTable count={6} />
+      ) : visibleProspects.length === 0 ? (
+        <EmptyState
+          icon="🔍"
+          title="No players found"
+          body={boardIds.length === 0 ? "Prospects will appear here once synced." : "Try a different search or position filter."}
+        />
+      ) : (
       <div className="board-table">
         <div className="board-table-head">
           <span>Rank</span>
@@ -152,9 +164,9 @@ export default function BigBoardTable({
               <span>{prospect.position}</span>
               <span>{prospect.school}</span>
               <span>{yourRank}</span>
-              <span>{prospect.consensus}</span>
-              <span>{`E${prospect.espn} · P${prospect.pff}`}</span>
-              <span>{prospect.predictedRange}</span>
+              <span>{prospect.consensus_rank}</span>
+              <span>{`E${prospect.espn_rank} · P${prospect.pff_rank}`}</span>
+              <span>{prospect.predicted_range}</span>
               <span className={drafted ? "board-status drafted" : "board-status available"}>
                 {drafted ? "Drafted" : "Available"}
               </span>
@@ -166,6 +178,7 @@ export default function BigBoardTable({
           );
         })}
       </div>
+      )}
     </section>
   );
 }

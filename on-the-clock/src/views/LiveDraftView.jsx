@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
 import BigBoardTable from "../components/BigBoardTable";
+import { SkeletonPickList, SkeletonPanel } from "../components/Skeleton";
 import { usePool } from "../hooks/usePool";
-import { ROUND_ONE_PICKS, TEAMS, getPickLabel, getProspectById } from "../lib/draftData";
+import { useDraftFeed } from "../hooks/useDraftFeed";
+import { useBigBoard } from "../hooks/useBigBoard";
+import { useLiveDraft } from "../hooks/useLiveDraft";
+import { useReferenceData } from "../hooks/useReferenceData";
 
 function ProspectPill({ prospect }) {
   if (!prospect) return <span className="pill neutral">Open slot</span>;
@@ -26,32 +30,31 @@ function countdownCopy(status) {
 }
 
 export default function LiveDraftView() {
+  const { pool, members } = usePool();
+  const { draftFeed, teamCodeForPick } = useDraftFeed();
+  const { bigBoardIds, moveBigBoardItem } = useBigBoard();
+  const { picks, teams, getPickLabel, getProspectById, loading: refLoading } = useReferenceData();
   const {
-    pool,
-    members,
-    currentLivePoolState,
-    draftFeed,
-    bigBoardIds,
     livePredictions,
     liveSelections,
     liveCards,
     liveStandings,
-    moveBigBoardItem,
+    currentLivePoolState,
     saveLivePrediction,
     setLiveCurrentSelection,
     submitLiveCard,
-  } = usePool();
+  } = useLiveDraft({ draftFeed, teamCodeForPick });
   const [selectedPick, setSelectedPick] = useState(1);
 
-  function teamCodeForPick(pick) {
+  function teamForPick(pick) {
     return draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
   }
 
   const draftedIds = useMemo(() => new Set(Object.values(draftFeed.actual_picks ?? {})), [draftFeed.actual_picks]);
   const currentPickNumber = draftFeed.current_pick_number;
-  const currentPick = ROUND_ONE_PICKS.find((pick) => pick.number === currentPickNumber) ?? ROUND_ONE_PICKS[0];
-  const selectedPickData = ROUND_ONE_PICKS.find((pick) => pick.number === selectedPick) ?? currentPick;
-  const currentTeam = TEAMS[teamCodeForPick(currentPick)];
+  const currentPick = picks.find((pick) => pick.number === currentPickNumber) ?? picks[0] ?? { number: 1, currentTeam: "" };
+  const selectedPickData = picks.find((pick) => pick.number === selectedPick) ?? currentPick;
+  const currentTeam = teams[teamForPick(currentPick)] ?? {};
   const currentSelectionId =
     liveSelections[currentPickNumber] ??
     liveCards[currentPickNumber] ??
@@ -73,6 +76,23 @@ export default function LiveDraftView() {
     className: member.locked ? "locked" : "waiting",
     status: member.locked ? "Submitted" : "Choosing",
   }));
+
+  if (refLoading) {
+    return (
+      <>
+        <div className="workspace-nav live-nav" style={{ marginBottom: 16 }}>
+          <div className="tab-set">
+            <button className="tab active" type="button">Pre-draft</button>
+            <button className="tab" type="button">Live Draft</button>
+          </div>
+        </div>
+        <div className="mode-prep-layout">
+          <SkeletonPanel rows={5} />
+          <SkeletonPanel rows={8} />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -118,7 +138,7 @@ export default function LiveDraftView() {
             </div>
 
             <div className="pick-list">
-              {ROUND_ONE_PICKS.map((pick) => {
+              {picks.map((pick) => {
                 const prediction = getProspectById(livePredictions[pick.number]);
                 return (
                   <button
@@ -129,8 +149,8 @@ export default function LiveDraftView() {
                     <div className="pick-num">{pick.number}</div>
                     <div className="pick-main">
                       <div className="pick-topline">
-                        <strong>{TEAMS[teamCodeForPick(pick)].name}</strong>
-                        <span className="team-needs-inline">Needs {TEAMS[teamCodeForPick(pick)].needs.join(" · ")}</span>
+                        <strong>{teams[teamForPick(pick)]?.name}</strong>
+                        <span className="team-needs-inline">Needs {teams[teamForPick(pick)]?.needs?.join(" · ")}</span>
                       </div>
                       <div className="pick-columns single-column">
                         <div>
@@ -264,7 +284,7 @@ export default function LiveDraftView() {
                 </button>
               </div>
               <div className="pick-list">
-                {ROUND_ONE_PICKS.map((pick) => {
+                {picks.map((pick) => {
                   const prediction = getProspectById(livePredictions[pick.number]);
                   const lockedCard = getProspectById(liveCards[pick.number]);
                   const actualPick = getProspectById(draftFeed.actual_picks?.[pick.number]);
@@ -278,8 +298,8 @@ export default function LiveDraftView() {
                       <div className="pick-num">{pick.number}</div>
                       <div className="pick-main">
                         <div className="pick-topline">
-                          <strong>{TEAMS[teamCodeForPick(pick)].name}</strong>
-                          <span className="team-needs-inline">Needs {TEAMS[teamCodeForPick(pick)].needs.join(" · ")}</span>
+                          <strong>{teams[teamForPick(pick)]?.name}</strong>
+                          <span className="team-needs-inline">Needs {teams[teamForPick(pick)]?.needs?.join(" · ")}</span>
                         </div>
                         <div className="pick-columns">
                           <div>

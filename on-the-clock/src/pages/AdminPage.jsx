@@ -1,12 +1,16 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
-import { PROSPECTS, ROUND_ONE_PICKS, TEAMS, getProspectById } from "../lib/draftData";
+import { useDraftFeed } from "../hooks/useDraftFeed";
+import { useReferenceData } from "../hooks/useReferenceData";
+import { supabase } from "../lib/supabase";
+import prospectsData from "../data/prospects2026.json";
 
 export default function AdminPage() {
   const { profile } = useAuth();
+  const { allPools } = usePool();
+  const { picks, teams, prospects, getProspectById } = useReferenceData();
   const {
-    allPools,
     draftFeed,
     setDraftPhase,
     setCurrentPickNumber,
@@ -16,14 +20,32 @@ export default function AdminPage() {
     revealCurrentPick,
     rollbackPick,
     resetDraftFeed,
-  } = usePool();
+  } = useDraftFeed();
   const [selectedPick, setSelectedPick] = useState(draftFeed.current_pick_number);
   const [selectedProspectId, setSelectedProspectId] = useState("");
   const [selectedTeamCode, setSelectedTeamCode] = useState("");
+  const [syncStatus, setSyncStatus] = useState("");
+
+  async function syncProspects() {
+    setSyncStatus("Syncing…");
+    const rows = prospectsData.prospects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      position: p.position,
+      school: p.school,
+      consensus_rank: p.consensus_rank ?? null,
+      espn_rank: p.espn_rank ?? null,
+      pff_rank: p.pff_rank ?? null,
+      predicted_range: p.predicted_range ?? null,
+      notes: p.notes ?? null,
+    }));
+    const { error } = await supabase.from("prospects").upsert(rows, { onConflict: "id" });
+    setSyncStatus(error ? `Error: ${error.message}` : `Synced ${rows.length} prospects ✓`);
+  }
 
   const pick = useMemo(
-    () => ROUND_ONE_PICKS.find((item) => item.number === Number(selectedPick)) ?? ROUND_ONE_PICKS[0],
-    [selectedPick]
+    () => picks.find((item) => item.number === Number(selectedPick)) ?? picks[0] ?? { number: 1, currentTeam: "" },
+    [selectedPick, picks]
   );
   const effectiveTeamCode = draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
 
@@ -61,6 +83,27 @@ export default function AdminPage() {
       <section className="panel">
         <div className="panel-header">
           <div>
+            <span className="label">Prospect data</span>
+            <h2>Sync Prospects</h2>
+          </div>
+        </div>
+        <div className="settings-form-grid two-up">
+          <div className="detail-card">
+            <span className="micro-label">Source file</span>
+            <p>Reads <code>src/data/prospects2026.json</code> ({prospectsData.prospects.length} prospects) and upserts all rows to Supabase. Safe to run multiple times.</p>
+          </div>
+          <div className="entry-actions align-end">
+            <button className="primary-button" type="button" onClick={syncProspects}>
+              Sync Prospects
+            </button>
+            {syncStatus ? <span className="subtle">{syncStatus}</span> : null}
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
             <span className="label">Provider override</span>
             <h2>Draft feed controls</h2>
           </div>
@@ -77,8 +120,8 @@ export default function AdminPage() {
           <label className="field">
             <span>Current pick</span>
             <select value={selectedPick} onChange={(event) => { const next = Number(event.target.value); setSelectedPick(next); setCurrentPickNumber(next); }}>
-              {ROUND_ONE_PICKS.map((item) => (
-                <option key={item.number} value={item.number}>{`${item.number} · ${TEAMS[item.currentTeam].name}`}</option>
+              {picks.map((item) => (
+                <option key={item.number} value={item.number}>{`${item.number} · ${teams[item.currentTeam]?.name ?? item.currentTeam}`}</option>
               ))}
             </select>
           </label>
@@ -92,7 +135,7 @@ export default function AdminPage() {
           </label>
           <div className="detail-card">
             <span className="micro-label">Effective team on the clock</span>
-            <p>{TEAMS[effectiveTeamCode].name}</p>
+            <p>{teams[effectiveTeamCode]?.name ?? effectiveTeamCode}</p>
           </div>
         </div>
 
@@ -101,7 +144,7 @@ export default function AdminPage() {
             <span>Override team on the clock</span>
             <select value={selectedTeamCode} onChange={(event) => setSelectedTeamCode(event.target.value)}>
               <option value="">Select a team</option>
-              {Object.values(TEAMS).map((team) => (
+              {Object.values(teams).map((team) => (
                 <option key={team.code} value={team.code}>{team.name}</option>
               ))}
             </select>
@@ -121,7 +164,7 @@ export default function AdminPage() {
             <span>Reveal player manually</span>
             <select value={selectedProspectId} onChange={(event) => setSelectedProspectId(event.target.value)}>
               <option value="">Select a player</option>
-              {PROSPECTS.map((prospect) => (
+              {prospects.map((prospect) => (
                 <option key={prospect.id} value={prospect.id}>{prospect.name}</option>
               ))}
             </select>
@@ -147,7 +190,7 @@ export default function AdminPage() {
         </div>
 
         <div className="pick-list">
-          {ROUND_ONE_PICKS.map((item) => {
+          {picks.map((item) => {
             const actual = getProspectById(draftFeed.actual_picks?.[item.number]);
             const teamCode = draftFeed.team_overrides?.[item.number] ?? item.currentTeam;
             return (
@@ -155,7 +198,7 @@ export default function AdminPage() {
                 <div className="pick-num">{item.number}</div>
                 <div className="pick-main">
                   <div className="pick-topline">
-                    <strong>{TEAMS[teamCode].name}</strong>
+                    <strong>{teams[teamCode]?.name ?? teamCode}</strong>
                     {draftFeed.team_overrides?.[item.number] ? <span className="trade-badge">Team override</span> : null}
                   </div>
                   <div className="pick-columns">

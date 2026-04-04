@@ -1,4 +1,4 @@
-# On the Clock Project Overview
+# On the Clock — Project Overview
 
 ## What It Is
 
@@ -12,20 +12,15 @@ The app is designed around three core ideas:
 - reveal moments
 - competition
 
-The current prototype lives in:
+The app lives at:
 
-- `/Users/patrickvankeerbergen/Documents/Documents/Projects/SportsCloset/tournamenttracker/on-the-clock`
+- Local: `/Users/patrickvankeerbergen/Documents/Documents/Projects/SportsCloset/tournamenttracker/on-the-clock`
+- Supabase project: `On the Clock` (ID: `kkcbnpritiuqyobyrunp`, region: `us-east-1`)
+- Deployment: Vercel (Phase 9 — see Roadmap)
 
-It is intentionally separate from Tournament Tracker.
+It is intentionally separate from Tournament Tracker. Same org, different Supabase project, different deployment.
 
-We are reusing proven patterns from Tournament Tracker:
-
-- auth flow shape
-- create/join pool flow
-- pool membership patterns
-- commissioner/admin structure
-
-But the apps are not connected in runtime, backend, or deployment logic.
+---
 
 ## Product Direction
 
@@ -33,10 +28,9 @@ But the apps are not connected in runtime, backend, or deployment logic.
 
 ### Live Draft
 
-This is the interactive draft-night game.
+The interactive draft-night game.
 
 Players:
-
 - prepare with a Big Board
 - set up team-based picks before the draft
 - make or adjust `Current Pick` live during the draft
@@ -45,10 +39,9 @@ Players:
 
 ### Mock Challenge
 
-This is the lower-friction, bracket-like version.
+The lower-friction, bracket-like version.
 
 Players:
-
 - fill out their round-one predictions once
 - `Submit Predictions`
 - optionally keep editing until lock
@@ -56,13 +49,13 @@ Players:
 
 ### Tracking Mode
 
-Tracking is not a separate pool type.
+Not a separate pool type — it is the live scoring state of `Mock Challenge` after submission lock / draft start.
 
-It is the live scoring state of `Mock Challenge` after submission lock / draft start.
+---
 
 ## Core Product Terminology
 
-The product should use one vocabulary across the app:
+One consistent vocabulary across the app:
 
 - `Big Board`
 - `Current Pick`
@@ -78,268 +71,248 @@ The product should use one vocabulary across the app:
 
 `Consensus` always means external rankings, not crowd behavior inside the pool.
 
+---
+
 ## Core UX Structure
 
 ### Create / Join
 
-The target flow is:
-
 1. sign in / sign up
 2. create pool or join pool
 3. if creating, choose game mode
-4. if joining, the pool type is already set
+4. if joining, pool type is already set
 5. land directly in the correct pool experience
 
 ### Live Draft UX
 
-The live experience should be built around a hero state:
+The live experience is built around a hero state:
 
 - `Current Pick`
 - `Your Pick`
 - `Reveal`
 
-These should feel like one evolving game moment, not disconnected modules.
+These feel like one evolving game moment, not disconnected modules.
 
-Supporting surfaces:
-
-- standings
-- upcoming picks / round-one flow
-- Big Board
+Supporting surfaces: standings, upcoming picks / round-one flow, Big Board.
 
 ### Mock Challenge Pre-Draft
 
-The pre-draft experience should feel like one guided workflow:
+One guided workflow:
 
 1. select a team slot
 2. use the Big Board to choose a player
 3. submit the full prediction set
 
-The relationship between picks and Big Board should be obvious.
-
 ### Mock Challenge Tracking
 
-Tracking mode should feel like a live scoring event, not a static table.
-
-Priority order:
+Live scoring event, not a static table. Priority order:
 
 - current pick
 - actual pick + your pick
 - opponent comparison
 - leaderboard
 
-The current pick should be visually dominant.
+---
 
 ## Big Board
 
-The Big Board is not just a research page.
+The Big Board is a core system engine, not just a research page.
 
-It is a core system engine.
-
-It should support:
-
-- research
-- ranking
+Supports:
+- research and ranking
 - assignment to team slots
-- fallback logic
+- fallback logic for auto-submit
 - live auto-submit behavior
 
-Key features:
+Features:
+- search, filter by position, sort by multiple ranking columns
+- shows your rank + external ranks
+- shows assigned state and available vs drafted state
 
-- search
-- filter by position
-- sort by multiple ranking columns
-- show your rank + external ranks
-- show assigned state
-- show available vs drafted state
+---
 
 ## Scoring Model
 
-### Live Draft
-
-Default live draft scoring:
-
+### Live Draft (defaults)
 - exact player: `5`
 - correct position: `2`
 
-### Mock Challenge
-
-Default mock scoring:
-
+### Mock Challenge (defaults)
 - exact hit: `3`
 - 1 away: `2`
 - 2 away: `1`
+- scoring window: a pick in slot `N` becomes `Out of range` once pick `N+3` becomes live
 
-Mock scoring window rule:
-
-- a pick in slot `N` becomes `Out of range` once pick `N+3` becomes live
+---
 
 ## Color System
 
-The app should use one consistent state system:
+One consistent state system (tokenized in CSS):
 
-- exact hit = strong green
-- 1 away = medium green
-- 2 away = light green
-- in play = light yellow
-- out of range = neutral gray
+- exact hit → `--exact-*` (green)
+- 1 away → medium green
+- 2 away → light green
+- in play → `--near-*` (amber/yellow)
+- out of range → `--miss-*` (neutral gray)
 
-No gradients should carry meaning.
+Color is always paired with text or points — never color alone.
 
-Color should always be paired with text or points.
+---
 
 ## Live Data Strategy
 
-The long-term plan is to build around one shared canonical draft state.
+All pools read from one shared canonical draft state (`draft_feed` singleton + `draft_actual_picks`).
 
-Primary provider target:
-
-- ESPN draft data, if validated
-
-But the system must support admin override as a first-class control path.
-
-Admin needs to be able to override:
-
+Admin can override:
 - team on the clock
 - pick status
 - revealed player
 - rollback / correction
 - partial or full provider failure
 
-All pools should read from the same live draft state.
+Pool-specific data: membership, scoring, user picks, Big Board, standings.
 
-Pool-specific data should only cover:
+Long-term target: ESPN live draft ingestion (or equivalent validated provider).
 
-- membership
-- scoring
-- user picks
-- Big Board
-- standings
+---
 
-## Current Prototype State
+## Current Build State
 
-The current Vercel-ready build is a wired prototype backed by localStorage.
+**Status: Production-ready Supabase backend, full 32-pick data seeded, design-polished frontend. Ready for Vercel deployment.**
 
-It is not yet a shared production backend.
+### What is live and working
 
-What is already real in the prototype:
+- **Auth**: Supabase email/password, auto-profile creation trigger, 3-retry fallback
+- **Database**: 14 tables, RLS on all, RPC functions (`get_pool_members`, `get_pool_by_invite_code`), realtime on 6 tables
+- **Pool CRUD**: create, join, settings, member list — all Supabase
+- **Reference data**: 32 NFL teams, 32 round-1 picks, 200 prospects (50 real + 150 placeholders) — all in Supabase via `useReferenceData` hook
+- **Big Board**: per-user per-pool board order, seeded from prospect list, Supabase persistence
+- **Predictions & live cards**: `useLiveDraft`, `useMockChallenge` — read/write Supabase
+- **Shared draft feed**: `useDraftFeed` — singleton table, realtime subscriptions, admin controls
+- **Admin page**: full draft feed controls + **Sync Prospects** button (edit JSON → click → upserts all 200 rows)
+- **Design**: Inter font, dark nav, full design token system, skeleton loaders, empty states, hover/focus/active states, reveal animations
 
-- standalone auth shell
-- create / join flow
-- game mode selection
-- local pool creation
-- local membership model
-- commissioner settings page
-- global admin page
-- Live Draft workspace
-- Mock Challenge workspace
-- Tracking mode
-- persistent Big Board
-- persistent predictions
-- seeded demo pools
-- computed standings and reveal states
+### Architecture
 
-What is still mocked:
+| Layer | Technology |
+|---|---|
+| Frontend | React 19 + Vite + React Router 7 |
+| Styling | Custom CSS (design token system, ~2000 lines) |
+| Backend | Supabase (Postgres + Auth + Realtime + RLS) |
+| Deployment | Vercel (Phase 9) |
 
-- real backend / Supabase
-- real multi-device sync
-- real ESPN ingestion
-- real pool sharing across browsers
+### Key files
 
-So the current prototype is best described as:
+| File | Purpose |
+|---|---|
+| `src/lib/supabase.js` | Supabase client singleton |
+| `src/context/AuthContext.jsx` | Auth (sign in/up/out, profile fetch) |
+| `src/context/PoolContext.jsx` | Pool CRUD + membership |
+| `src/hooks/useReferenceData.js` | Loads teams/prospects/picks from DB |
+| `src/hooks/useDraftFeed.js` | Shared draft state + realtime + admin writes |
+| `src/hooks/useBigBoard.js` | Per-user board persistence |
+| `src/hooks/useLiveDraft.js` | Live draft picks, cards, scoring, standings |
+| `src/hooks/useMockChallenge.js` | Mock predictions, scoring, tracking rows |
+| `src/data/prospects2026.json` | Source of truth for prospect data (edit → Sync) |
+| `src/components/Skeleton.jsx` | Shimmer skeleton loaders |
+| `src/components/EmptyState.jsx` | Empty state component |
+| `vercel.json` | SPA rewrite + build config |
+| `.env.local` | `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (gitignored) |
 
-- a functional product mock
-- not yet a true shared multiplayer beta
+### Database tables
 
-## Current Design Priorities
+**Global (shared across all pools):**
+`profiles`, `nfl_teams`, `prospects`, `round_1_picks`, `draft_feed` (singleton id=1), `draft_actual_picks`, `draft_team_overrides`
 
-The current refinement direction is:
+**Pool-scoped:**
+`pools`, `pool_members`, `user_big_boards`, `user_predictions`, `user_live_cards`, `mock_submissions`, `pick_scores`
 
-1. stronger hierarchy
-2. clearer hero moments
-3. cleaner relationship between Big Board and pick entry
-4. more visible multiplayer comparison
-5. more energy in reveal and scoring states
+### Prospect update workflow
+
+1. Edit `src/data/prospects2026.json`
+2. Go to `/admin` → **Sync Prospects**
+3. 200 rows upserted to Supabase — no SQL, no redeploy
+
+### Draft pick order note
+
+The 32 round-1 picks are seeded in approximate order based on 2024 season records. For trade corrections, use the admin team override system (picks stay as-is, the override table tracks the current holder). For a full order correction, run a new SQL migration.
+
+---
 
 ## Open Product Decisions
 
-The major decisions still open:
+- Should Big Board always be visible in Live Draft, or become a stronger toggle?
+- In Mock pre-draft, should assignment flow be `team → player`, `player → team`, or both?
+- How visible should auto-pick logic be versus implicit?
+- For large pools, show all users in tracking or `You + top N` by default?
+- How immersive should motion be: functional/restrained or moderate broadcast-style?
 
-- should Big Board always be visible in Live Draft, or eventually become a stronger toggle?
-- in Mock pre-draft, should assignment be primarily `team -> player`, `player -> team`, or both?
-- how visible should auto-pick logic be versus implicit?
-- for large pools, should tracking show all users, or `You + top N` by default?
-- how immersive should motion be:
-  - functional and restrained
-  - or moderate broadcast-style emphasis
+---
 
-## Recommended Plan Going Forward
+## Implementation Roadmap
 
-### Phase 1: Finish the local prototype
+### Phase 0: Project Setup — ✅ DONE
+Supabase project, npm install, supabase client, env config, broke symlink to shared node_modules.
 
-Goal:
+### Phase 1: Database Schema — ✅ DONE
+14 tables, RLS + policies on all, RPC functions, realtime enabled on 6 tables, draft_feed singleton seeded.
 
-- make the prototype fully usable for design and product review
+### Phase 2: Auth Integration — ✅ DONE
+AuthContext rewritten to Supabase Auth. Sign up with 3-retry profile creation loop, orphan-account fallback, email confirmation handling.
 
-Work:
+### Phase 3: Pool CRUD & Membership — ✅ DONE
+810-line PoolContext decomposed. Pool CRUD, invite code join, member list — all Supabase.
 
-- refine hierarchy further
-- improve pick selection interactions
-- improve reveal transitions
-- deepen multiplayer simulation
-- polish countdown and scoring feedback
+### Phase 4: Big Board Persistence — ✅ DONE
+`useBigBoard` hook. Per-user per-pool board order, seeded from prospect list, optimistic updates.
 
-### Phase 2: Standalone backend
+### Phase 5: Predictions & Live Cards — ✅ DONE
+`useLiveDraft` and `useMockChallenge` hooks. Supabase read/write, realtime card subscriptions, fallback/resolution engine, standings computed from live data.
 
-Goal:
+### Phase 6: Shared Draft Feed & Realtime — ✅ DONE
+`useDraftFeed` hook. Singleton table, realtime subscriptions on 3 tables, full admin write API.
 
-- replace localStorage with a real standalone backend
+### Phase 7: Reference Data Layer — ✅ DONE
+- 32 NFL teams + 32 round-1 picks seeded into Supabase
+- 200 prospects in `prospects2026.json` + Admin Sync Prospects button
+- `useReferenceData` hook replaces all hardcoded `draftData.js` imports
+- `ReferenceDataProvider` added to App.jsx
+- All 8 consumer files migrated to DB field names (`consensus_rank`, `espn_rank`, `pff_rank`, `predicted_range`)
 
-Work:
+### Phase 8: Design & UX Polish — ✅ DONE
+- Full CSS rewrite: Inter font, dark nav (#111827), 50+ design tokens
+- Animations: `shimmer`, `fade-in`, `reveal-pop`, `score-flash-green/amber`, `live-pulse`
+- `Skeleton.jsx`: SkeletonLine, SkeletonBlock, SkeletonPickList, SkeletonBoardTable, SkeletonPanel
+- `EmptyState.jsx` component
+- Loading states in LiveDraftView, MockChallengeView, BigBoardTable
+- NavBar: dark, OTC branding, active route detection, aria labels
+- LoginPage: placeholders, autocomplete, info/error distinction, sign-up prompt
+- All interactive elements: hover + active + `:focus-visible` states
+- Mobile responsive: 1120px and 760px breakpoints refined
 
-- create a separate Supabase project for On the Clock
-- build standalone schema
-- wire real auth
-- wire pools / membership
-- wire settings and admin persistence
+### Phase 9: Deployment — 🔄 IN PROGRESS
+- `vercel.json` created (SPA rewrite, build config)
+- Deploy via Vercel CLI or GitHub integration
+- Set env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- Update Supabase Auth allowed URLs (site URL + redirect URLs)
 
-### Phase 3: Shared draft state
+### Phase 10: Real-Time Multiplayer Hardening
+- Stress-test realtime with multiple connected sessions
+- Add optimistic conflict resolution
+- Connection status indicator (reconnecting, offline)
+- Handle missed realtime events (re-fetch on reconnect)
 
-Goal:
+### Phase 11: Live Draft Feed Integration (Future)
+- ESPN or comparable live draft data ingestion
+- Edge function or server-side poller writing to `draft_actual_picks`
+- Admin override remains first-class fallback
 
-- support real live draft night usage
-
-Work:
-
-- canonical draft feed tables
-- provider abstraction
-- ESPN ingestion testing
-- admin overrides
-- rollback / correction logic
-
-### Phase 4: Real multiplayer beta
-
-Goal:
-
-- let multiple users participate in the same pool across devices
-
-Work:
-
-- realtime pool updates
-- shared standings
-- shared reveals
-- invite links
-- commissioner workflow
+---
 
 ## Summary
 
-`On the Clock` is shaping into a strong standalone sports game product.
+`On the Clock` is a production-ready NFL Draft pool app with a Supabase backend, real multiplayer via realtime subscriptions, and a polished design system.
 
-The concept is validated enough to keep building:
+Two game modes (Live Draft, Mock Challenge) share one auth model, one data layer, and one Big Board concept.
 
-- Live Draft for engaged draft-night players
-- Mock Challenge for lower-friction pools
-- one shared Big Board concept
-- one admin/control model
-- one long-term live draft feed
-
-The immediate objective is to keep the local prototype strong enough for fast design iteration, then transition into a real standalone backend once the UX is stable.
+The immediate next step is Vercel deployment.
