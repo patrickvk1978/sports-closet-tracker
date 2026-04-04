@@ -37,12 +37,18 @@ export default function CreatePoolPage() {
   const [name, setName] = useState("");
   const [gameMode, setGameMode] = useState("live_draft");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleCreate(event) {
     event.preventDefault();
     setLoading(true);
+    setError("");
     const result = await createPool({ name, gameMode });
     setLoading(false);
+    if (result?.error) {
+      setError(result.error);
+      return;
+    }
     navigate(routeForPool(result.pool));
   }
 
@@ -79,6 +85,7 @@ export default function CreatePoolPage() {
             ))}
           </div>
 
+          {error ? <div className="error-box">{error}</div> : null}
           <button className="primary-button" type="submit" disabled={loading || !name.trim()}>
             {loading ? "Creating…" : "Create Pool"}
           </button>
