@@ -134,7 +134,14 @@ export function PoolProvider({ children }) {
     })
 
     localStorage.setItem(ACTIVE_KEY, newPool.id)
-    await loadPools()
+
+    // Set pool state immediately so navigation guards see a non-null pool
+    setPool(newPool)
+    setAllPools(prev => [newPool, ...prev])
+
+    // Background sync to load members etc.
+    loadPools()
+
     return { pool: newPool }
   }
 
@@ -159,7 +166,14 @@ export function PoolProvider({ children }) {
     }
 
     localStorage.setItem(ACTIVE_KEY, target.id)
-    await loadPools()
+
+    // Set pool state immediately so navigation guards see a non-null pool
+    setPool(target)
+    setAllPools(prev => prev.find(p => p.id === target.id) ? prev : [target, ...prev])
+
+    // Background sync
+    loadPools()
+
     return { pool: target }
   }
 
