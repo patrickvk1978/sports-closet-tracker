@@ -158,8 +158,8 @@ export default function BigBoardTable({
         )}
       </div>
 
-      {/* Rankings mode: player select + assign */}
-      {viewMode === "rankings" && (
+      {/* Player select + assign */}
+      {(viewMode === "rankings" || (viewMode === "mocks" && onAssignSelectedProspect)) && (
         <div className="board-action-bar">
           <div>
             <span className="micro-label">Selected player</span>
@@ -259,8 +259,16 @@ export default function BigBoardTable({
               const pickNum = prospect[mockSourceCfg.field];
               const pickInfo = picks.find(p => p.number === pickNum);
               const teamName = teams[pickInfo?.currentTeam]?.name ?? pickInfo?.currentTeam ?? "—";
+              const selected = selectedProspectId === prospect.id;
               return (
-                <div key={prospect.id} className="board-row mock-row">
+                <div
+                  key={prospect.id}
+                  className={selected ? "board-row mock-row selected" : "board-row mock-row"}
+                  onClick={() => setSelectedProspectId(prospect.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedProspectId(prospect.id); } }}
+                  role="button"
+                  tabIndex={0}
+                >
                   <span className="board-rank">{pickNum}</span>
                   <span className="mock-team">{teamName}</span>
                   <span className="board-player"><strong>{prospect.name}</strong></span>
