@@ -50,7 +50,14 @@ export default function LiveDraftView() {
     return draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
   }
 
-  const draftedIds = useMemo(() => new Set(Object.values(draftFeed.actual_picks ?? {})), [draftFeed.actual_picks]);
+  const draftedIds = useMemo(() => {
+    const blocked = new Set(Object.values(draftFeed.actual_picks ?? {}));
+    // Also block players already submitted in past picks — can't reuse a card
+    Object.entries(liveCards).forEach(([pickNum, prospectId]) => {
+      if (Number(pickNum) < currentPickNumber) blocked.add(prospectId);
+    });
+    return blocked;
+  }, [draftFeed.actual_picks, liveCards, currentPickNumber]);
   const currentPickNumber = draftFeed.current_pick_number;
   const currentPick = picks.find((pick) => pick.number === currentPickNumber) ?? picks[0] ?? { number: 1, currentTeam: "" };
   const selectedPickData = picks.find((pick) => pick.number === selectedPick) ?? currentPick;
