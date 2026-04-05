@@ -89,12 +89,9 @@ export default function BigBoardTable({
           <option value="RB">RB</option>
         </select>
         <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-          <option value="your_rank">Your rank</option>
+          <option value="your_rank">Your Rank</option>
           <option value="consensus">Consensus</option>
-          <option value="player">Player</option>
-          <option value="position">Position</option>
-          <option value="school">School</option>
-          <option value="espn">ESPN</option>
+          <option value="espn">ESPN ScoutsINC</option>
           <option value="pff">PFF</option>
         </select>
       </div>
@@ -132,11 +129,8 @@ export default function BigBoardTable({
           <span>Player</span>
           <span>Pos</span>
           <span>School</span>
-          <span>Your</span>
-          <span>Cons</span>
-          <span>Sources</span>
-          <span>Range</span>
           <span>Status</span>
+          <span></span>
         </div>
         {visibleProspects.map((prospect) => {
           const yourRank = boardIds.indexOf(prospect.id) + 1;
@@ -163,10 +157,6 @@ export default function BigBoardTable({
               </span>
               <span>{prospect.position}</span>
               <span>{prospect.school}</span>
-              <span>{yourRank}</span>
-              <span>{prospect.consensus_rank}</span>
-              <span>{`E${prospect.espn_rank} · P${prospect.pff_rank}`}</span>
-              <span>{prospect.predicted_range}</span>
               <span className={drafted ? "board-status drafted" : "board-status available"}>
                 {drafted ? "Drafted" : "Available"}
               </span>

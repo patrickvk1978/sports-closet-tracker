@@ -1613,7 +1613,7 @@ select:focus {
 .board-table-head,
 .board-row {
   display: grid;
-  grid-template-columns: 52px minmax(160px, 1.6fr) 0.7fr 0.9fr 0.5fr 0.5fr 0.8fr 0.75fr 0.85fr auto;
+  grid-template-columns: 52px minmax(160px, 2fr) 0.6fr 1fr 0.9fr auto;
   gap: 10px;
   align-items: center;
 }
@@ -1957,15 +1957,7 @@ select:focus {
 
   .board-table-head,
   .board-row {
-    grid-template-columns: 42px minmax(140px, 1.5fr) 0.6fr 0.8fr 0.6fr 0.8fr 0.8fr auto;
-  }
-
-  /* Hide some board columns on medium screens */
-  .board-table-head span:nth-child(5),
-  .board-table-head span:nth-child(6),
-  .board-row > span:nth-child(5),
-  .board-row > span:nth-child(6) {
-    display: none;
+    grid-template-columns: 42px minmax(140px, 2fr) 0.6fr 1fr 0.9fr auto;
   }
 
   .board-action-bar {
