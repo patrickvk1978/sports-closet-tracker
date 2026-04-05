@@ -132,7 +132,10 @@ export default function MockChallengeView() {
                       {prediction ? (
                         <>
                           <strong className="pick-player-name">{prediction.name}</strong>
-                          <span className="pick-player-meta">{prediction.position} · {teamName}</span>
+                          <span className="pick-player-meta">
+                            {prediction.position} · {prediction.school}
+                            <span className="pick-to-team"> → {teamName}</span>
+                          </span>
                         </>
                       ) : (
                         <span className="pick-empty-team">{teamName}</span>

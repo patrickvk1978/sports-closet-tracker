@@ -1106,6 +1106,11 @@ select:focus {
   color: var(--text-3);
 }
 
+.pick-to-team {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
 .pick-num {
   width: 40px;
   height: 40px;
