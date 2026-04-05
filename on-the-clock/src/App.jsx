@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { PoolProvider } from "./context/PoolContext";
 import { ReferenceDataProvider } from "./hooks/useReferenceData";
 import LoginPage from "./pages/LoginPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import JoinPoolPage from "./pages/JoinPoolPage";
 import CreatePoolPage from "./pages/CreatePoolPage";
 import PoolSettingsPage from "./pages/PoolSettingsPage";
@@ -44,6 +45,7 @@ export default function App() {
           <div className="app-shell app-shell-routed">
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/join" element={<JoinPoolPage />} />

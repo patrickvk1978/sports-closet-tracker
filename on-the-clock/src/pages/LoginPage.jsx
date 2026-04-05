@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const [tab, setTab] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,6 +38,22 @@ export default function LoginPage() {
       navigate("/join");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!email) {
+      setError("Enter your email above first.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    const { error: resetError } = await resetPassword(email);
+    setLoading(false);
+    if (resetError) {
+      setError(resetError.message);
+    } else {
+      setInfo("Password reset email sent — check your inbox.");
     }
   }
 
@@ -110,6 +126,18 @@ export default function LoginPage() {
               required
             />
           </label>
+
+          {tab === "signin" ? (
+            <div style={{ textAlign: "right", marginTop: "-8px" }}>
+              <button
+                type="button"
+                style={{ background: "none", border: "none", padding: 0, color: "var(--text-muted)", fontSize: "0.8rem", cursor: "pointer" }}
+                onClick={handleResetPassword}
+              >
+                Forgot password?
+              </button>
+            </div>
+          ) : null}
 
           {info ? (
             <div
