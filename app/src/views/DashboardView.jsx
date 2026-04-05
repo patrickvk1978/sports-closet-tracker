@@ -285,7 +285,7 @@ function StatBar({ player, poolSize, bestPath, finishMetric, finishMetricOptions
               to={`/reports/biography/${encodeURIComponent(player.name)}`}
               className="text-[11px] text-orange-300/80 hover:text-orange-300 transition-colors"
             >
-              View Biography →
+              Post-Game Report →
             </Link>
           </>
         ) : needs.length > 0 && (

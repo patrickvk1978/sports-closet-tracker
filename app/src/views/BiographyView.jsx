@@ -15,6 +15,8 @@ import {
 
 const MONO = { fontFamily: "Space Mono, monospace" };
 
+const ROUNDS_ORDER = ["R64", "R32", "S16", "E8", "F4", "Champ"];
+
 function roundLabel(r) {
   return { R64: "R64", R32: "R32", S16: "S16", E8: "E8", F4: "F4", Champ: "Champ" }[r] ?? r;
 }
@@ -42,6 +44,21 @@ function accuracyBg(pct) {
   return "bg-red-500/10 border-red-500/20";
 }
 
+// ─── Placeholder ─────────────────────────────────────────────────────────────
+
+function Placeholder({ label }) {
+  return (
+    <div className="rounded-2xl border border-slate-800/60 bg-slate-900/60 px-6 py-5">
+      <div className="text-[11px] uppercase tracking-[0.24em] text-orange-300/80 mb-3" style={MONO}>
+        {label}
+      </div>
+      <p className="text-sm text-slate-600 italic">
+        Generate Post-Game Reports from the Admin panel to unlock this section.
+      </p>
+    </div>
+  );
+}
+
 // ─── Section Components ──────────────────────────────────────────────────────
 
 function ThesisSection({ thesis }) {
@@ -53,20 +70,32 @@ function ThesisSection({ thesis }) {
       {thesis ? (
         <p className="text-sm text-slate-200 leading-relaxed italic">{thesis}</p>
       ) : (
-        <p className="text-sm text-slate-500 italic">
-          Thesis not yet generated. Run biography_writer.py after the tournament ends.
+        <p className="text-sm text-slate-600 italic">
+          Generate Post-Game Reports from the Admin panel to unlock this section.
         </p>
       )}
     </div>
   );
 }
 
-function CorrectCallsSection({ calls, teamAbbrev }) {
+function WhatYouGotRightSection({ prose, calls, teamAbbrev }) {
+  if (prose) {
+    return (
+      <div className="rounded-2xl border border-slate-800/60 bg-slate-900/60 px-6 py-5">
+        <div className="text-[11px] uppercase tracking-[0.24em] text-orange-300/80 mb-3" style={MONO}>
+          What You Got Right
+        </div>
+        <p className="text-sm text-slate-200 leading-relaxed">{prose}</p>
+      </div>
+    );
+  }
+
+  // Fallback: show computed bullet list
   if (!calls || calls.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/60 px-6 py-5">
         <div className="text-[11px] uppercase tracking-[0.24em] text-orange-300/80 mb-3" style={MONO}>
-          You Were Right About
+          What You Got Right
         </div>
         <p className="text-sm text-slate-500">No standout contrarian calls — played it close to consensus.</p>
       </div>
@@ -76,7 +105,7 @@ function CorrectCallsSection({ calls, teamAbbrev }) {
   return (
     <div className="rounded-2xl border border-slate-800/60 bg-slate-900/60 px-6 py-5">
       <div className="text-[11px] uppercase tracking-[0.24em] text-orange-300/80 mb-4" style={MONO}>
-        You Were Right About
+        What You Got Right
       </div>
       <div className="space-y-3">
         {calls.map((c, i) => (
@@ -104,8 +133,20 @@ function CorrectCallsSection({ calls, teamAbbrev }) {
   );
 }
 
-function TheTurnSection({ turn, teamAbbrev }) {
-  if (!turn) return null;
+function TheTurnSection({ prose, turn, teamAbbrev }) {
+  if (prose) {
+    return (
+      <div className="rounded-2xl border border-red-800/40 bg-red-900/10 px-6 py-5">
+        <div className="text-[11px] uppercase tracking-[0.24em] text-red-300/80 mb-3" style={MONO}>
+          The Turn
+        </div>
+        <p className="text-sm text-slate-200 leading-relaxed">{prose}</p>
+      </div>
+    );
+  }
+
+  // Fallback: show computed structural view
+  if (!turn) return <Placeholder label="The Turn" />;
 
   if (turn.isClosestCall) {
     const margin = turn.margin;
@@ -161,16 +202,40 @@ function TheTurnSection({ turn, teamAbbrev }) {
   );
 }
 
-function RoundByRoundSection({ analysis }) {
+function ChampionPickStorySection({ prose }) {
+  return (
+    <div className="rounded-2xl border border-slate-800/60 bg-slate-900/60 px-6 py-5">
+      <div className="text-[11px] uppercase tracking-[0.24em] text-orange-300/80 mb-3" style={MONO}>
+        Champion Pick Story
+      </div>
+      {prose ? (
+        <p className="text-sm text-slate-200 leading-relaxed">{prose}</p>
+      ) : (
+        <p className="text-sm text-slate-600 italic">
+          Generate Post-Game Reports from the Admin panel to unlock this section.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function RoundByRoundSection({ analysis, startRound }) {
   if (!analysis || analysis.every(r => r.total === 0)) return null;
+
+  const startIdx = ROUNDS_ORDER.indexOf(startRound ?? "R64");
+  const filtered = analysis.filter((r) => ROUNDS_ORDER.indexOf(r.round) >= startIdx);
+
+  if (!filtered.length) return null;
+
+  const cols = filtered.length <= 3 ? filtered.length : 6;
 
   return (
     <div className="rounded-2xl border border-slate-800/60 bg-slate-900/60 px-6 py-5">
       <div className="text-[11px] uppercase tracking-[0.24em] text-orange-300/80 mb-4" style={MONO}>
         Round by Round
       </div>
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-        {analysis.map((r) => (
+      <div className={`grid grid-cols-${cols <= 3 ? cols : 3} sm:grid-cols-${Math.min(cols, 6)} gap-3`}>
+        {filtered.map((r) => (
           <div
             key={r.round}
             className={`rounded-xl border px-3 py-3 text-center ${r.total > 0 ? accuracyBg(r.accuracy) : "bg-slate-800/40 border-slate-700/40"}`}
@@ -200,54 +265,6 @@ function RoundByRoundSection({ analysis }) {
   );
 }
 
-function FinalStandingSection({ player, poolSize }) {
-  if (!player) return null;
-
-  return (
-    <div className="rounded-2xl border border-slate-800/60 bg-slate-900/60 px-6 py-5">
-      <div className="text-[11px] uppercase tracking-[0.24em] text-orange-300/80 mb-4" style={MONO}>
-        Final Standing
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1" style={MONO}>Rank</div>
-          <div className="text-2xl font-bold text-white" style={MONO}>
-            #{player.rank}
-            <span className="text-sm text-slate-500 ml-1">of {poolSize}</span>
-          </div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1" style={MONO}>Points</div>
-          <div className="text-2xl font-bold text-white" style={MONO}>{player.points}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1" style={MONO}>PPR</div>
-          <div className="text-2xl font-bold text-white" style={MONO}>{player.ppr}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1" style={MONO}>Win %</div>
-          <div className="text-2xl font-bold text-white" style={MONO}>
-            {(player.winProb ?? 0).toFixed(1)}%
-          </div>
-        </div>
-      </div>
-      <div className="mt-4 flex items-center gap-2">
-        <span className="text-xs text-slate-400">Championship pick:</span>
-        <span className="text-xs font-semibold text-white">{player.picks?.[62] ?? "—"}</span>
-        {player.champAlive ? (
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-400 font-semibold border border-emerald-800/40">
-            alive
-          </span>
-        ) : (
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-900/30 text-red-400 font-semibold border border-red-800/30">
-            eliminated
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function BiographyView() {
@@ -268,13 +285,11 @@ export default function BiographyView() {
 
   const playerPicks = player.picks || Array(63).fill(null);
 
-  // Build allBrackets shape for cross-player analysis
   const allBrackets = useMemo(
     () => PLAYERS.map((p) => ({ name: p.name, picks: p.picks || Array(63).fill(null) })),
     [PLAYERS]
   );
 
-  // Compute all biography sections
   const archetype = useMemo(
     () => computeArchetype(playerPicks, allBrackets, GAMES),
     [playerPicks, allBrackets, GAMES]
@@ -295,18 +310,14 @@ export default function BiographyView() {
     [playerPicks, allBrackets, GAMES]
   );
 
-  const thesis = simResult?.biography_theses?.[player.name] ?? null;
+  // Pull AI-generated report sections
+  const reportData = simResult?.biography_theses?.[player.name] ?? null;
+  const report = typeof reportData === "object" && reportData !== null ? reportData : null;
 
   function handlePlayerChange(name) {
     setSelectedName(name);
     navigate(`/reports/biography/${encodeURIComponent(name)}`, { replace: true });
   }
-
-  // Total points possible in tournament
-  const maxPossible = Object.entries(DEFAULT_ROUND_POINTS).reduce((sum, [round, pts]) => {
-    const count = { R64: 32, R32: 16, S16: 8, E8: 4, F4: 2, Champ: 1 }[round] ?? 0;
-    return sum + pts * count;
-  }, 0);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-5">
@@ -314,7 +325,7 @@ export default function BiographyView() {
       <div className="flex items-center gap-2 text-xs text-slate-500 no-print">
         <Link to="/reports" className="hover:text-slate-300 transition-colors">Reports</Link>
         <span>/</span>
-        <span className="text-slate-300">Bracket Biography</span>
+        <span className="text-slate-300">Post-Game Report</span>
       </div>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
@@ -344,48 +355,48 @@ export default function BiographyView() {
           </div>
         </div>
 
-        {/* Quick stats */}
+        {/* Quick stats — rank + points only */}
         <div className="mt-5 flex items-center gap-6 flex-wrap">
           <div>
             <div className="text-[10px] uppercase tracking-wider text-slate-500" style={MONO}>Rank</div>
-            <div className="text-xl font-bold text-white" style={MONO}>#{player.rank}<span className="text-xs text-slate-500 ml-1">of {PLAYERS.length}</span></div>
+            <div className="text-xl font-bold text-white" style={MONO}>
+              #{player.rank}<span className="text-xs text-slate-500 ml-1">of {PLAYERS.length}</span>
+            </div>
           </div>
           <div className="w-px h-8 bg-slate-700/60" />
           <div>
             <div className="text-[10px] uppercase tracking-wider text-slate-500" style={MONO}>Points</div>
             <div className="text-xl font-bold text-white" style={MONO}>{player.points}</div>
           </div>
-          <div className="w-px h-8 bg-slate-700/60" />
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-500" style={MONO}>PPR</div>
-            <div className="text-xl font-bold text-white" style={MONO}>{player.ppr}</div>
-          </div>
-          <div className="w-px h-8 bg-slate-700/60" />
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-500" style={MONO}>Win %</div>
-            <div className="text-xl font-bold text-white" style={MONO}>{(player.winProb ?? 0).toFixed(1)}%</div>
-          </div>
         </div>
       </div>
 
       {/* ── The Thesis ──────────────────────────────────────────────────────── */}
-      <ThesisSection thesis={thesis} />
+      <ThesisSection thesis={report?.thesis ?? null} />
 
-      {/* ── You Were Right About ────────────────────────────────────────────── */}
-      <CorrectCallsSection calls={correctCalls} teamAbbrev={TEAM_ABBREV} />
+      {/* ── What You Got Right ──────────────────────────────────────────────── */}
+      <WhatYouGotRightSection
+        prose={report?.what_you_got_right ?? null}
+        calls={correctCalls}
+        teamAbbrev={TEAM_ABBREV}
+      />
 
-      {/* ── The Turn / Closest Call ─────────────────────────────────────────── */}
-      <TheTurnSection turn={theTurn} teamAbbrev={TEAM_ABBREV} />
+      {/* ── The Turn ────────────────────────────────────────────────────────── */}
+      <TheTurnSection
+        prose={report?.the_turn ?? null}
+        turn={theTurn}
+        teamAbbrev={TEAM_ABBREV}
+      />
+
+      {/* ── Champion Pick Story ──────────────────────────────────────────────── */}
+      <ChampionPickStorySection prose={report?.champion_pick_story ?? null} />
 
       {/* ── Round by Round ──────────────────────────────────────────────────── */}
-      <RoundByRoundSection analysis={roundAnalysis} />
-
-      {/* ── Final Standing ──────────────────────────────────────────────────── */}
-      <FinalStandingSection player={player} poolSize={PLAYERS.length} />
+      <RoundByRoundSection analysis={roundAnalysis} startRound={pool?.start_round} />
 
       {/* Print footer */}
       <div className="hidden print:block text-center text-xs text-slate-500 mt-8 pt-4 border-t border-slate-300">
-        {pool?.name ?? "Bracket Pool"} — Generated {new Date().toLocaleDateString()}
+        {pool?.name ?? "Bracket Pool"} — Post-Game Report — {new Date().toLocaleDateString()}
       </div>
     </div>
   );

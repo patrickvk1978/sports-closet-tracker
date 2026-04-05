@@ -1210,6 +1210,98 @@ function SimulationSection() {
   )
 }
 
+// ─── Post-Game Reports Section ────────────────────────────────────────────────
+
+function PostGameReportSection() {
+  const { pool } = usePool()
+  const simResult = useSimResults(pool?.id)
+  const [copied, setCopied] = useState(false)
+
+  const command = pool ? `python api/biography_writer.py --pool-id ${pool.id}` : ''
+
+  function handleCopy() {
+    if (!command) return
+    navigator.clipboard.writeText(command).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const theses = simResult?.biography_theses ?? {}
+  const meta   = theses._meta ?? null
+  const playerCount = Object.keys(theses).filter((k) => k !== '_meta').length
+
+  const runAt = meta?.run_at
+    ? new Date(meta.run_at).toLocaleString(undefined, {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      })
+    : null
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 space-y-5">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-sm font-bold text-white mb-0.5">Post-Game Reports</p>
+          <p className="text-xs text-slate-400 max-w-lg">
+            Run this command after the tournament ends to generate an Opus-powered post-game report
+            for each player. Reports appear on each player's biography page.
+          </p>
+        </div>
+        {runAt && (
+          <div className="text-[11px] text-slate-500" style={{ fontFamily: 'Space Mono, monospace' }}>
+            Last run: <span className="text-slate-400">{runAt}</span>
+            {playerCount > 0 && (
+              <span className="ml-2 text-slate-600">· {playerCount} reports</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <code
+          className="flex-1 min-w-0 text-[11px] bg-slate-950 border border-slate-800 rounded-xl
+            px-4 py-2.5 text-emerald-400 font-mono truncate"
+        >
+          {command || 'Select a pool to see the command'}
+        </code>
+        <button
+          onClick={handleCopy}
+          disabled={!command}
+          className="px-4 py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap
+            disabled:opacity-40 disabled:cursor-not-allowed
+            border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+
+      <div className="text-[11px] text-slate-600 space-y-0.5" style={{ fontFamily: 'Space Mono, monospace' }}>
+        <p>Optional flags:</p>
+        <p className="pl-4 text-slate-700">--dry-run &nbsp;&nbsp;&nbsp;&nbsp; (compute stats, print briefs, skip API calls)</p>
+      </div>
+
+      {playerCount > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-400 mb-2">Reports generated</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.keys(theses)
+              .filter((k) => k !== '_meta')
+              .map((name) => (
+                <span
+                  key={name}
+                  className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-800/40"
+                  style={{ fontFamily: 'Space Mono, monospace' }}
+                >
+                  {name}
+                </span>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Narrative Section ─────────────────────────────────────────────────────────
 
 const PERSONA_LABEL = { stat_nerd: 'Mo', color_commentator: 'Zelda', barkley: 'Davin' }
@@ -1642,6 +1734,7 @@ const ADMIN_TABS = [
   { key: 'pool',      label: 'Pool' },
   { key: 'simulation', label: 'Simulation' },
   { key: 'narrative',  label: 'Narrative' },
+  { key: 'reports',    label: 'Reports' },
 ]
 
 function AdminTabBar({ activeTab, onTabChange }) {
@@ -2041,6 +2134,11 @@ export default function AdminPage() {
       {/* Tab: Narrative */}
       {adminTab === 'narrative' && (
         <NarrativeSection pool={pool} showToast={showToast} />
+      )}
+
+      {/* Tab: Reports */}
+      {adminTab === 'reports' && (
+        <PostGameReportSection />
       )}
 
       {/* Toast */}
