@@ -2128,6 +2128,20 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .mock-fixed-header,
+  .mock-fixed-columns {
+    grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .mock-scroll-header,
+  .mock-scroll-columns {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+  }
+
+  .mock-grid-row {
+    overflow: visible;
+  }
+
   .hero-modules,
   .bottom-modules,
   .mode-prep-layout,
