@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import BigBoardTable from "../components/BigBoardTable";
 import { SkeletonPickList, SkeletonPanel } from "../components/Skeleton";
+import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { useDraftFeed } from "../hooks/useDraftFeed";
 import { useBigBoard } from "../hooks/useBigBoard";
@@ -30,6 +31,8 @@ function countdownCopy(status) {
 }
 
 export default function LiveDraftView() {
+  const { profile } = useAuth();
+  const isAdmin = Boolean(profile?.is_admin);
   const { pool, members } = usePool();
   const { draftFeed, teamCodeForPick } = useDraftFeed();
   const { bigBoardIds, moveBigBoardItem } = useBigBoard();
@@ -76,7 +79,7 @@ export default function LiveDraftView() {
     return accumulator;
   }, {});
 
-  const isPreDraft = draftFeed.phase === "pre_draft";
+  const isPreDraft = draftFeed.phase === "pre_draft" || !isAdmin;
   const currentLocked = Boolean(liveCards[currentPickNumber]);
   const selectedFuturePrediction = getProspectById(livePredictions[selectedPickData.number]);
   const preRevealPoolState = currentLivePoolState.map((member) => ({

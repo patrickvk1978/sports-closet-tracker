@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import BigBoardTable from "../components/BigBoardTable";
 import { SkeletonPanel } from "../components/Skeleton";
+import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { useDraftFeed } from "../hooks/useDraftFeed";
 import { useBigBoard } from "../hooks/useBigBoard";
@@ -16,6 +17,8 @@ function stateLabel(state) {
 }
 
 export default function MockChallengeView() {
+  const { profile } = useAuth();
+  const isAdmin = Boolean(profile?.is_admin);
   const { pool, members, memberList } = usePool();
   const { draftFeed } = useDraftFeed();
   const { bigBoardIds, moveBigBoardItem } = useBigBoard();
@@ -37,7 +40,7 @@ export default function MockChallengeView() {
   }
 
   const draftedIds = useMemo(() => new Set(Object.values(draftFeed.actual_picks ?? {})), [draftFeed.actual_picks]);
-  const trackingMode = (hasSubmittedMock && draftFeed.phase === "live") || devMode === "tracking";
+  const trackingMode = isAdmin && ((hasSubmittedMock && draftFeed.phase === "live") || devMode === "tracking");
   const currentPickNumber = draftFeed.current_pick_number;
   const opponentMembers = memberList.filter((member) => !member.isCurrentUser);
 
@@ -74,7 +77,9 @@ export default function MockChallengeView() {
       <div className="workspace-nav">
         <div className="tab-set">
           <button className={!trackingMode ? "tab active" : "tab"} type="button" onClick={() => setDevMode("entry")}>Pre-draft entry</button>
-          <button className={trackingMode ? "tab active" : "tab"} type="button" onClick={() => setDevMode("tracking")}>Tracking mode</button>
+          {isAdmin ? (
+            <button className={trackingMode ? "tab active" : "tab"} type="button" onClick={() => setDevMode("tracking")}>Tracking mode</button>
+          ) : null}
         </div>
         <div className="tab-actions">
           <span className="chip">{pool?.name ?? "Mock Pool"}</span>
@@ -160,11 +165,13 @@ export default function MockChallengeView() {
               </button>
             </div>
 
-            <div className="entry-actions">
-              <button className="secondary-button" type="button" onClick={() => setDevMode("tracking")}>
-                Preview Tracking Mode
-              </button>
-            </div>
+            {isAdmin ? (
+              <div className="entry-actions">
+                <button className="secondary-button" type="button" onClick={() => setDevMode("tracking")}>
+                  Preview Tracking Mode
+                </button>
+              </div>
+            ) : null}
 
             <div className="detail-card inset-card">
               <span className="micro-label">Pool participation</span>
