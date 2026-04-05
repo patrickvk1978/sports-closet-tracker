@@ -14,6 +14,8 @@ function sortProspects(prospects, boardIds, sortBy) {
     consensus: (a, b) => (a.consensus_rank ?? 999) - (b.consensus_rank ?? 999),
     espn: (a, b) => (a.espn_rank ?? 999) - (b.espn_rank ?? 999),
     pff: (a, b) => (a.pff_rank ?? 999) - (b.pff_rank ?? 999),
+    ringer: (a, b) => (a.ringer_rank ?? 999) - (b.ringer_rank ?? 999),
+    athletic: (a, b) => (a.athletic_rank ?? 999) - (b.athletic_rank ?? 999),
   };
 
   return [...prospects].sort(comparators[sortBy] ?? comparators.your_rank);
@@ -93,6 +95,8 @@ export default function BigBoardTable({
           <option value="consensus">Consensus</option>
           <option value="espn">ESPN ScoutsINC</option>
           <option value="pff">PFF</option>
+          <option value="ringer">The Ringer</option>
+          <option value="athletic">The Athletic</option>
         </select>
       </div>
 

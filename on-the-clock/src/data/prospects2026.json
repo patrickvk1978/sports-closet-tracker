@@ -8,6 +8,8 @@
       "consensus_rank": 1,
       "espn_rank": 2,
       "pff_rank": 1,
+      "ringer_rank": 1,
+      "athletic_rank": 2,
       "predicted_range": "1-1",
       "notes": ""
     },
@@ -19,6 +21,8 @@
       "consensus_rank": 2,
       "espn_rank": 1,
       "pff_rank": 2,
+      "ringer_rank": 2,
+      "athletic_rank": 1,
       "predicted_range": "2-7",
       "notes": ""
     },
@@ -30,6 +34,8 @@
       "consensus_rank": 3,
       "espn_rank": 5,
       "pff_rank": 7,
+      "ringer_rank": 9,
+      "athletic_rank": 11,
       "predicted_range": "5-6",
       "notes": ""
     },
@@ -41,6 +47,8 @@
       "consensus_rank": 4,
       "espn_rank": 4,
       "pff_rank": 3,
+      "ringer_rank": 4,
+      "athletic_rank": 3,
       "predicted_range": "3-8",
       "notes": ""
     },
@@ -52,6 +60,8 @@
       "consensus_rank": 5,
       "espn_rank": 7,
       "pff_rank": 4,
+      "ringer_rank": 7,
+      "athletic_rank": 5,
       "predicted_range": "4-7",
       "notes": ""
     },
@@ -63,6 +73,8 @@
       "consensus_rank": 6,
       "espn_rank": 13,
       "pff_rank": 10,
+      "ringer_rank": 5,
+      "athletic_rank": 10,
       "predicted_range": "6-11",
       "notes": ""
     },
@@ -74,6 +86,8 @@
       "consensus_rank": 7,
       "espn_rank": 6,
       "pff_rank": 8,
+      "ringer_rank": 8,
+      "athletic_rank": 4,
       "predicted_range": "10-10",
       "notes": ""
     },
@@ -85,6 +99,8 @@
       "consensus_rank": 8,
       "espn_rank": 9,
       "pff_rank": 5,
+      "ringer_rank": 3,
+      "athletic_rank": 9,
       "predicted_range": "2-7",
       "notes": ""
     },
@@ -96,6 +112,8 @@
       "consensus_rank": 9,
       "espn_rank": 8,
       "pff_rank": 9,
+      "ringer_rank": 12,
+      "athletic_rank": 7,
       "predicted_range": "8-13",
       "notes": ""
     },
@@ -107,6 +125,8 @@
       "consensus_rank": 10,
       "espn_rank": 16,
       "pff_rank": 17,
+      "ringer_rank": 17,
+      "athletic_rank": 16,
       "predicted_range": "14-23",
       "notes": ""
     },
@@ -118,6 +138,8 @@
       "consensus_rank": 11,
       "espn_rank": 10,
       "pff_rank": 15,
+      "ringer_rank": 14,
+      "athletic_rank": 14,
       "predicted_range": "13-24",
       "notes": ""
     },
@@ -129,6 +151,8 @@
       "consensus_rank": 12,
       "espn_rank": 20,
       "pff_rank": 11,
+      "ringer_rank": 13,
+      "athletic_rank": 23,
       "predicted_range": "18-18",
       "notes": ""
     },
@@ -140,6 +164,8 @@
       "consensus_rank": 13,
       "espn_rank": 12,
       "pff_rank": 18,
+      "ringer_rank": 21,
+      "athletic_rank": 12,
       "predicted_range": "16-26",
       "notes": ""
     },
@@ -151,6 +177,8 @@
       "consensus_rank": 14,
       "espn_rank": 15,
       "pff_rank": 16,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": "16-22",
       "notes": ""
     },
@@ -162,6 +190,8 @@
       "consensus_rank": 15,
       "espn_rank": 18,
       "pff_rank": 19,
+      "ringer_rank": 20,
+      "athletic_rank": 19,
       "predicted_range": "15-17",
       "notes": ""
     },
@@ -173,6 +203,8 @@
       "consensus_rank": 16,
       "espn_rank": 24,
       "pff_rank": 23,
+      "ringer_rank": 36,
+      "athletic_rank": 27,
       "predicted_range": "19-23",
       "notes": ""
     },
@@ -184,6 +216,8 @@
       "consensus_rank": 17,
       "espn_rank": 14,
       "pff_rank": 13,
+      "ringer_rank": 19,
+      "athletic_rank": 21,
       "predicted_range": "12-25",
       "notes": ""
     },
@@ -195,6 +229,8 @@
       "consensus_rank": 18,
       "espn_rank": 27,
       "pff_rank": 32,
+      "ringer_rank": 24,
+      "athletic_rank": 33,
       "predicted_range": "16-30",
       "notes": ""
     },
@@ -206,6 +242,8 @@
       "consensus_rank": 19,
       "espn_rank": 11,
       "pff_rank": 14,
+      "ringer_rank": 16,
+      "athletic_rank": 20,
       "predicted_range": "9-15",
       "notes": ""
     },
@@ -217,6 +255,8 @@
       "consensus_rank": 20,
       "espn_rank": 22,
       "pff_rank": 22,
+      "ringer_rank": 18,
+      "athletic_rank": 18,
       "predicted_range": "29-32",
       "notes": ""
     },
@@ -228,6 +268,8 @@
       "consensus_rank": 21,
       "espn_rank": 17,
       "pff_rank": 26,
+      "ringer_rank": 27,
+      "athletic_rank": 17,
       "predicted_range": "12-22",
       "notes": ""
     },
@@ -239,6 +281,8 @@
       "consensus_rank": 22,
       "espn_rank": 25,
       "pff_rank": 21,
+      "ringer_rank": 23,
+      "athletic_rank": 15,
       "predicted_range": "12-27",
       "notes": ""
     },
@@ -250,6 +294,8 @@
       "consensus_rank": 23,
       "espn_rank": 52,
       "pff_rank": 24,
+      "ringer_rank": 51,
+      "athletic_rank": 42,
       "predicted_range": "19-31",
       "notes": ""
     },
@@ -261,6 +307,8 @@
       "consensus_rank": 24,
       "espn_rank": 23,
       "pff_rank": 30,
+      "ringer_rank": 22,
+      "athletic_rank": 25,
       "predicted_range": "20-30",
       "notes": ""
     },
@@ -272,6 +320,8 @@
       "consensus_rank": 25,
       "espn_rank": 26,
       "pff_rank": 27,
+      "ringer_rank": 39,
+      "athletic_rank": 26,
       "predicted_range": "22-28",
       "notes": ""
     },
@@ -283,6 +333,8 @@
       "consensus_rank": 26,
       "espn_rank": 53,
       "pff_rank": 28,
+      "ringer_rank": 33,
+      "athletic_rank": 36,
       "predicted_range": "15-19",
       "notes": ""
     },
@@ -294,6 +346,8 @@
       "consensus_rank": 27,
       "espn_rank": 28,
       "pff_rank": 37,
+      "ringer_rank": 29,
+      "athletic_rank": 30,
       "predicted_range": "23-28",
       "notes": ""
     },
@@ -305,6 +359,8 @@
       "consensus_rank": 28,
       "espn_rank": 47,
       "pff_rank": 35,
+      "ringer_rank": 40,
+      "athletic_rank": 79,
       "predicted_range": "26-30",
       "notes": ""
     },
@@ -316,6 +372,8 @@
       "consensus_rank": 29,
       "espn_rank": 31,
       "pff_rank": 33,
+      "ringer_rank": 32,
+      "athletic_rank": 28,
       "predicted_range": "20-32",
       "notes": ""
     },
@@ -327,6 +385,8 @@
       "consensus_rank": 30,
       "espn_rank": null,
       "pff_rank": null,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -338,6 +398,8 @@
       "consensus_rank": 31,
       "espn_rank": 30,
       "pff_rank": 25,
+      "ringer_rank": 34,
+      "athletic_rank": 29,
       "predicted_range": null,
       "notes": ""
     },
@@ -349,6 +411,8 @@
       "consensus_rank": null,
       "espn_rank": 3,
       "pff_rank": 6,
+      "ringer_rank": 6,
+      "athletic_rank": 6,
       "predicted_range": "3-9",
       "notes": ""
     },
@@ -360,6 +424,8 @@
       "consensus_rank": null,
       "espn_rank": 19,
       "pff_rank": 12,
+      "ringer_rank": 10,
+      "athletic_rank": 8,
       "predicted_range": "6-11",
       "notes": ""
     },
@@ -371,6 +437,8 @@
       "consensus_rank": null,
       "espn_rank": 21,
       "pff_rank": 20,
+      "ringer_rank": 25,
+      "athletic_rank": 31,
       "predicted_range": "19-26",
       "notes": ""
     },
@@ -382,6 +450,8 @@
       "consensus_rank": null,
       "espn_rank": 29,
       "pff_rank": 39,
+      "ringer_rank": 44,
+      "athletic_rank": 39,
       "predicted_range": null,
       "notes": ""
     },
@@ -393,6 +463,8 @@
       "consensus_rank": null,
       "espn_rank": 32,
       "pff_rank": 34,
+      "ringer_rank": 15,
+      "athletic_rank": 22,
       "predicted_range": "24-31",
       "notes": ""
     },
@@ -404,6 +476,8 @@
       "consensus_rank": null,
       "espn_rank": 33,
       "pff_rank": 47,
+      "ringer_rank": 60,
+      "athletic_rank": 43,
       "predicted_range": null,
       "notes": ""
     },
@@ -415,6 +489,8 @@
       "consensus_rank": null,
       "espn_rank": 34,
       "pff_rank": 31,
+      "ringer_rank": 31,
+      "athletic_rank": 24,
       "predicted_range": "19-25",
       "notes": ""
     },
@@ -426,6 +502,8 @@
       "consensus_rank": null,
       "espn_rank": 35,
       "pff_rank": 85,
+      "ringer_rank": 26,
+      "athletic_rank": 56,
       "predicted_range": "28-32",
       "notes": ""
     },
@@ -437,6 +515,8 @@
       "consensus_rank": null,
       "espn_rank": 36,
       "pff_rank": 52,
+      "ringer_rank": 47,
+      "athletic_rank": 48,
       "predicted_range": null,
       "notes": ""
     },
@@ -448,6 +528,8 @@
       "consensus_rank": null,
       "espn_rank": 37,
       "pff_rank": 41,
+      "ringer_rank": 48,
+      "athletic_rank": 34,
       "predicted_range": "18-22",
       "notes": ""
     },
@@ -459,6 +541,8 @@
       "consensus_rank": null,
       "espn_rank": 38,
       "pff_rank": 40,
+      "ringer_rank": 38,
+      "athletic_rank": 41,
       "predicted_range": "27-31",
       "notes": ""
     },
@@ -470,6 +554,8 @@
       "consensus_rank": null,
       "espn_rank": 39,
       "pff_rank": 45,
+      "ringer_rank": 28,
+      "athletic_rank": 38,
       "predicted_range": null,
       "notes": ""
     },
@@ -481,6 +567,8 @@
       "consensus_rank": null,
       "espn_rank": 40,
       "pff_rank": 74,
+      "ringer_rank": 57,
+      "athletic_rank": 75,
       "predicted_range": null,
       "notes": ""
     },
@@ -492,6 +580,8 @@
       "consensus_rank": null,
       "espn_rank": 41,
       "pff_rank": 29,
+      "ringer_rank": 30,
+      "athletic_rank": 44,
       "predicted_range": "22-26",
       "notes": ""
     },
@@ -503,6 +593,8 @@
       "consensus_rank": null,
       "espn_rank": 42,
       "pff_rank": 57,
+      "ringer_rank": 50,
+      "athletic_rank": 46,
       "predicted_range": null,
       "notes": ""
     },
@@ -514,6 +606,8 @@
       "consensus_rank": null,
       "espn_rank": 43,
       "pff_rank": 48,
+      "ringer_rank": 58,
+      "athletic_rank": 45,
       "predicted_range": null,
       "notes": ""
     },
@@ -525,6 +619,8 @@
       "consensus_rank": null,
       "espn_rank": 44,
       "pff_rank": 50,
+      "ringer_rank": 41,
+      "athletic_rank": 57,
       "predicted_range": null,
       "notes": ""
     },
@@ -536,6 +632,8 @@
       "consensus_rank": null,
       "espn_rank": 45,
       "pff_rank": null,
+      "ringer_rank": 37,
+      "athletic_rank": 32,
       "predicted_range": null,
       "notes": ""
     },
@@ -547,6 +645,8 @@
       "consensus_rank": null,
       "espn_rank": 46,
       "pff_rank": 44,
+      "ringer_rank": 43,
+      "athletic_rank": 64,
       "predicted_range": "29-33",
       "notes": ""
     },
@@ -558,6 +658,8 @@
       "consensus_rank": null,
       "espn_rank": 48,
       "pff_rank": 54,
+      "ringer_rank": 53,
+      "athletic_rank": 76,
       "predicted_range": null,
       "notes": ""
     },
@@ -569,6 +671,8 @@
       "consensus_rank": null,
       "espn_rank": 49,
       "pff_rank": 36,
+      "ringer_rank": 59,
+      "athletic_rank": 37,
       "predicted_range": null,
       "notes": ""
     },
@@ -580,6 +684,8 @@
       "consensus_rank": null,
       "espn_rank": 50,
       "pff_rank": 55,
+      "ringer_rank": 52,
+      "athletic_rank": 51,
       "predicted_range": null,
       "notes": ""
     },
@@ -591,6 +697,8 @@
       "consensus_rank": null,
       "espn_rank": 51,
       "pff_rank": 56,
+      "ringer_rank": null,
+      "athletic_rank": 84,
       "predicted_range": null,
       "notes": ""
     },
@@ -602,6 +710,8 @@
       "consensus_rank": null,
       "espn_rank": 54,
       "pff_rank": 53,
+      "ringer_rank": 45,
+      "athletic_rank": 93,
       "predicted_range": null,
       "notes": ""
     },
@@ -613,6 +723,8 @@
       "consensus_rank": null,
       "espn_rank": 55,
       "pff_rank": 58,
+      "ringer_rank": 56,
+      "athletic_rank": 47,
       "predicted_range": null,
       "notes": ""
     },
@@ -624,6 +736,8 @@
       "consensus_rank": null,
       "espn_rank": 56,
       "pff_rank": 51,
+      "ringer_rank": 55,
+      "athletic_rank": 58,
       "predicted_range": null,
       "notes": ""
     },
@@ -635,6 +749,8 @@
       "consensus_rank": null,
       "espn_rank": 57,
       "pff_rank": 68,
+      "ringer_rank": 64,
+      "athletic_rank": 61,
       "predicted_range": null,
       "notes": ""
     },
@@ -646,6 +762,8 @@
       "consensus_rank": null,
       "espn_rank": 58,
       "pff_rank": 73,
+      "ringer_rank": 69,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -657,6 +775,8 @@
       "consensus_rank": null,
       "espn_rank": 59,
       "pff_rank": 99,
+      "ringer_rank": null,
+      "athletic_rank": 49,
       "predicted_range": null,
       "notes": ""
     },
@@ -668,6 +788,8 @@
       "consensus_rank": null,
       "espn_rank": 60,
       "pff_rank": 64,
+      "ringer_rank": 49,
+      "athletic_rank": 52,
       "predicted_range": null,
       "notes": ""
     },
@@ -679,6 +801,8 @@
       "consensus_rank": null,
       "espn_rank": 61,
       "pff_rank": 65,
+      "ringer_rank": 72,
+      "athletic_rank": 66,
       "predicted_range": null,
       "notes": ""
     },
@@ -690,6 +814,8 @@
       "consensus_rank": null,
       "espn_rank": 62,
       "pff_rank": 118,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -701,6 +827,8 @@
       "consensus_rank": null,
       "espn_rank": 63,
       "pff_rank": 75,
+      "ringer_rank": 62,
+      "athletic_rank": 54,
       "predicted_range": null,
       "notes": ""
     },
@@ -712,6 +840,8 @@
       "consensus_rank": null,
       "espn_rank": 64,
       "pff_rank": 104,
+      "ringer_rank": null,
+      "athletic_rank": 90,
       "predicted_range": null,
       "notes": ""
     },
@@ -723,6 +853,8 @@
       "consensus_rank": null,
       "espn_rank": 65,
       "pff_rank": 42,
+      "ringer_rank": 42,
+      "athletic_rank": 40,
       "predicted_range": null,
       "notes": ""
     },
@@ -734,6 +866,8 @@
       "consensus_rank": null,
       "espn_rank": 66,
       "pff_rank": 116,
+      "ringer_rank": 61,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -745,6 +879,8 @@
       "consensus_rank": null,
       "espn_rank": 67,
       "pff_rank": 38,
+      "ringer_rank": 46,
+      "athletic_rank": 60,
       "predicted_range": null,
       "notes": ""
     },
@@ -756,6 +892,8 @@
       "consensus_rank": null,
       "espn_rank": 68,
       "pff_rank": 111,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -767,6 +905,8 @@
       "consensus_rank": null,
       "espn_rank": 69,
       "pff_rank": 70,
+      "ringer_rank": 65,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -778,6 +918,8 @@
       "consensus_rank": null,
       "espn_rank": 70,
       "pff_rank": 60,
+      "ringer_rank": null,
+      "athletic_rank": 77,
       "predicted_range": null,
       "notes": ""
     },
@@ -789,6 +931,8 @@
       "consensus_rank": null,
       "espn_rank": 71,
       "pff_rank": 96,
+      "ringer_rank": null,
+      "athletic_rank": 62,
       "predicted_range": null,
       "notes": ""
     },
@@ -800,6 +944,8 @@
       "consensus_rank": null,
       "espn_rank": 72,
       "pff_rank": 127,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -811,6 +957,8 @@
       "consensus_rank": null,
       "espn_rank": 73,
       "pff_rank": 59,
+      "ringer_rank": 68,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -822,6 +970,8 @@
       "consensus_rank": null,
       "espn_rank": 74,
       "pff_rank": 72,
+      "ringer_rank": 75,
+      "athletic_rank": 65,
       "predicted_range": null,
       "notes": ""
     },
@@ -833,6 +983,8 @@
       "consensus_rank": null,
       "espn_rank": 75,
       "pff_rank": 46,
+      "ringer_rank": 35,
+      "athletic_rank": 35,
       "predicted_range": null,
       "notes": ""
     },
@@ -844,6 +996,8 @@
       "consensus_rank": null,
       "espn_rank": 76,
       "pff_rank": 91,
+      "ringer_rank": null,
+      "athletic_rank": 67,
       "predicted_range": null,
       "notes": ""
     },
@@ -855,6 +1009,8 @@
       "consensus_rank": null,
       "espn_rank": 77,
       "pff_rank": 49,
+      "ringer_rank": 67,
+      "athletic_rank": 59,
       "predicted_range": null,
       "notes": ""
     },
@@ -866,6 +1022,8 @@
       "consensus_rank": null,
       "espn_rank": 78,
       "pff_rank": 43,
+      "ringer_rank": 66,
+      "athletic_rank": 53,
       "predicted_range": null,
       "notes": ""
     },
@@ -877,6 +1035,8 @@
       "consensus_rank": null,
       "espn_rank": 79,
       "pff_rank": 71,
+      "ringer_rank": 78,
+      "athletic_rank": 71,
       "predicted_range": null,
       "notes": ""
     },
@@ -888,6 +1048,8 @@
       "consensus_rank": null,
       "espn_rank": 80,
       "pff_rank": 89,
+      "ringer_rank": null,
+      "athletic_rank": 83,
       "predicted_range": null,
       "notes": ""
     },
@@ -899,6 +1061,8 @@
       "consensus_rank": null,
       "espn_rank": 81,
       "pff_rank": 83,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -910,6 +1074,8 @@
       "consensus_rank": null,
       "espn_rank": 82,
       "pff_rank": 77,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -921,6 +1087,8 @@
       "consensus_rank": null,
       "espn_rank": 83,
       "pff_rank": 103,
+      "ringer_rank": null,
+      "athletic_rank": 55,
       "predicted_range": null,
       "notes": ""
     },
@@ -932,6 +1100,8 @@
       "consensus_rank": null,
       "espn_rank": 84,
       "pff_rank": 86,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -943,6 +1113,8 @@
       "consensus_rank": null,
       "espn_rank": 85,
       "pff_rank": 63,
+      "ringer_rank": 76,
+      "athletic_rank": 63,
       "predicted_range": null,
       "notes": ""
     },
@@ -954,6 +1126,8 @@
       "consensus_rank": null,
       "espn_rank": 86,
       "pff_rank": 107,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -965,6 +1139,8 @@
       "consensus_rank": null,
       "espn_rank": 87,
       "pff_rank": 92,
+      "ringer_rank": 71,
+      "athletic_rank": 82,
       "predicted_range": null,
       "notes": ""
     },
@@ -976,6 +1152,8 @@
       "consensus_rank": null,
       "espn_rank": 88,
       "pff_rank": 101,
+      "ringer_rank": 73,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -987,6 +1165,8 @@
       "consensus_rank": null,
       "espn_rank": 89,
       "pff_rank": 80,
+      "ringer_rank": 54,
+      "athletic_rank": 70,
       "predicted_range": null,
       "notes": ""
     },
@@ -998,6 +1178,8 @@
       "consensus_rank": null,
       "espn_rank": 90,
       "pff_rank": 135,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1009,6 +1191,8 @@
       "consensus_rank": null,
       "espn_rank": 91,
       "pff_rank": 67,
+      "ringer_rank": null,
+      "athletic_rank": 50,
       "predicted_range": null,
       "notes": ""
     },
@@ -1020,6 +1204,8 @@
       "consensus_rank": null,
       "espn_rank": 92,
       "pff_rank": 128,
+      "ringer_rank": null,
+      "athletic_rank": 87,
       "predicted_range": null,
       "notes": ""
     },
@@ -1031,6 +1217,8 @@
       "consensus_rank": null,
       "espn_rank": 93,
       "pff_rank": 69,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1042,6 +1230,8 @@
       "consensus_rank": null,
       "espn_rank": 94,
       "pff_rank": 62,
+      "ringer_rank": 70,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1053,6 +1243,8 @@
       "consensus_rank": null,
       "espn_rank": 95,
       "pff_rank": 61,
+      "ringer_rank": 80,
+      "athletic_rank": 99,
       "predicted_range": null,
       "notes": ""
     },
@@ -1064,6 +1256,8 @@
       "consensus_rank": null,
       "espn_rank": 96,
       "pff_rank": 66,
+      "ringer_rank": 79,
+      "athletic_rank": 68,
       "predicted_range": null,
       "notes": ""
     },
@@ -1075,6 +1269,8 @@
       "consensus_rank": null,
       "espn_rank": 97,
       "pff_rank": 204,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1086,6 +1282,8 @@
       "consensus_rank": null,
       "espn_rank": 98,
       "pff_rank": 81,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1097,6 +1295,8 @@
       "consensus_rank": null,
       "espn_rank": 99,
       "pff_rank": 164,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1108,6 +1308,8 @@
       "consensus_rank": null,
       "espn_rank": 100,
       "pff_rank": 94,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1119,6 +1321,8 @@
       "consensus_rank": null,
       "espn_rank": 101,
       "pff_rank": 76,
+      "ringer_rank": 77,
+      "athletic_rank": 80,
       "predicted_range": null,
       "notes": ""
     },
@@ -1130,6 +1334,8 @@
       "consensus_rank": null,
       "espn_rank": 102,
       "pff_rank": 130,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1141,6 +1347,8 @@
       "consensus_rank": null,
       "espn_rank": 103,
       "pff_rank": 90,
+      "ringer_rank": null,
+      "athletic_rank": 78,
       "predicted_range": null,
       "notes": ""
     },
@@ -1152,6 +1360,8 @@
       "consensus_rank": null,
       "espn_rank": 104,
       "pff_rank": 125,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1163,6 +1373,8 @@
       "consensus_rank": null,
       "espn_rank": 105,
       "pff_rank": 105,
+      "ringer_rank": null,
+      "athletic_rank": 91,
       "predicted_range": null,
       "notes": ""
     },
@@ -1174,6 +1386,8 @@
       "consensus_rank": null,
       "espn_rank": 106,
       "pff_rank": 87,
+      "ringer_rank": null,
+      "athletic_rank": 81,
       "predicted_range": null,
       "notes": ""
     },
@@ -1185,6 +1399,8 @@
       "consensus_rank": null,
       "espn_rank": 107,
       "pff_rank": 109,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1196,6 +1412,8 @@
       "consensus_rank": null,
       "espn_rank": 108,
       "pff_rank": 79,
+      "ringer_rank": 74,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1207,6 +1425,8 @@
       "consensus_rank": null,
       "espn_rank": 109,
       "pff_rank": 113,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1218,6 +1438,8 @@
       "consensus_rank": null,
       "espn_rank": 110,
       "pff_rank": 145,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1229,6 +1451,8 @@
       "consensus_rank": null,
       "espn_rank": 111,
       "pff_rank": 142,
+      "ringer_rank": null,
+      "athletic_rank": 96,
       "predicted_range": null,
       "notes": ""
     },
@@ -1240,6 +1464,8 @@
       "consensus_rank": null,
       "espn_rank": 112,
       "pff_rank": 220,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1251,6 +1477,8 @@
       "consensus_rank": null,
       "espn_rank": 113,
       "pff_rank": 78,
+      "ringer_rank": null,
+      "athletic_rank": 69,
       "predicted_range": null,
       "notes": ""
     },
@@ -1262,6 +1490,8 @@
       "consensus_rank": null,
       "espn_rank": 114,
       "pff_rank": 124,
+      "ringer_rank": null,
+      "athletic_rank": 95,
       "predicted_range": null,
       "notes": ""
     },
@@ -1273,6 +1503,8 @@
       "consensus_rank": null,
       "espn_rank": 115,
       "pff_rank": 243,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1284,6 +1516,8 @@
       "consensus_rank": null,
       "espn_rank": 116,
       "pff_rank": 245,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1295,6 +1529,8 @@
       "consensus_rank": null,
       "espn_rank": 117,
       "pff_rank": 88,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1306,6 +1542,8 @@
       "consensus_rank": null,
       "espn_rank": 118,
       "pff_rank": 112,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1317,6 +1555,8 @@
       "consensus_rank": null,
       "espn_rank": 119,
       "pff_rank": 205,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1328,6 +1568,8 @@
       "consensus_rank": null,
       "espn_rank": 120,
       "pff_rank": 122,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1339,6 +1581,8 @@
       "consensus_rank": null,
       "espn_rank": 121,
       "pff_rank": 182,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1350,6 +1594,8 @@
       "consensus_rank": null,
       "espn_rank": 122,
       "pff_rank": 167,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1361,6 +1607,8 @@
       "consensus_rank": null,
       "espn_rank": 123,
       "pff_rank": 160,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1372,6 +1620,8 @@
       "consensus_rank": null,
       "espn_rank": 124,
       "pff_rank": 84,
+      "ringer_rank": null,
+      "athletic_rank": 73,
       "predicted_range": null,
       "notes": ""
     },
@@ -1383,6 +1633,8 @@
       "consensus_rank": null,
       "espn_rank": 125,
       "pff_rank": 148,
+      "ringer_rank": null,
+      "athletic_rank": 86,
       "predicted_range": null,
       "notes": ""
     },
@@ -1394,6 +1646,8 @@
       "consensus_rank": null,
       "espn_rank": 126,
       "pff_rank": 162,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1405,6 +1659,8 @@
       "consensus_rank": null,
       "espn_rank": 127,
       "pff_rank": 97,
+      "ringer_rank": null,
+      "athletic_rank": 72,
       "predicted_range": null,
       "notes": ""
     },
@@ -1416,6 +1672,8 @@
       "consensus_rank": null,
       "espn_rank": 128,
       "pff_rank": 136,
+      "ringer_rank": null,
+      "athletic_rank": 92,
       "predicted_range": null,
       "notes": ""
     },
@@ -1427,6 +1685,8 @@
       "consensus_rank": null,
       "espn_rank": 129,
       "pff_rank": 222,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1438,6 +1698,8 @@
       "consensus_rank": null,
       "espn_rank": 130,
       "pff_rank": 82,
+      "ringer_rank": null,
+      "athletic_rank": 88,
       "predicted_range": null,
       "notes": ""
     },
@@ -1449,6 +1711,8 @@
       "consensus_rank": null,
       "espn_rank": 131,
       "pff_rank": 95,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1460,6 +1724,8 @@
       "consensus_rank": null,
       "espn_rank": 132,
       "pff_rank": 210,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1471,6 +1737,8 @@
       "consensus_rank": null,
       "espn_rank": 133,
       "pff_rank": 159,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1482,6 +1750,8 @@
       "consensus_rank": null,
       "espn_rank": 134,
       "pff_rank": 133,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1493,6 +1763,8 @@
       "consensus_rank": null,
       "espn_rank": 135,
       "pff_rank": 93,
+      "ringer_rank": null,
+      "athletic_rank": 100,
       "predicted_range": null,
       "notes": ""
     },
@@ -1504,6 +1776,8 @@
       "consensus_rank": null,
       "espn_rank": 136,
       "pff_rank": 170,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1515,6 +1789,8 @@
       "consensus_rank": null,
       "espn_rank": 137,
       "pff_rank": null,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1526,6 +1802,8 @@
       "consensus_rank": null,
       "espn_rank": 138,
       "pff_rank": 183,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1537,6 +1815,8 @@
       "consensus_rank": null,
       "espn_rank": 139,
       "pff_rank": 166,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1548,6 +1828,8 @@
       "consensus_rank": null,
       "espn_rank": 140,
       "pff_rank": 120,
+      "ringer_rank": null,
+      "athletic_rank": 98,
       "predicted_range": null,
       "notes": ""
     },
@@ -1559,6 +1841,8 @@
       "consensus_rank": null,
       "espn_rank": 141,
       "pff_rank": 163,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1570,6 +1854,8 @@
       "consensus_rank": null,
       "espn_rank": 142,
       "pff_rank": 138,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1581,6 +1867,8 @@
       "consensus_rank": null,
       "espn_rank": 143,
       "pff_rank": null,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1592,6 +1880,8 @@
       "consensus_rank": null,
       "espn_rank": 144,
       "pff_rank": 149,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1603,6 +1893,8 @@
       "consensus_rank": null,
       "espn_rank": 145,
       "pff_rank": 115,
+      "ringer_rank": null,
+      "athletic_rank": 74,
       "predicted_range": null,
       "notes": ""
     },
@@ -1614,6 +1906,8 @@
       "consensus_rank": null,
       "espn_rank": 146,
       "pff_rank": 180,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1625,6 +1919,8 @@
       "consensus_rank": null,
       "espn_rank": 147,
       "pff_rank": 158,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1636,6 +1932,8 @@
       "consensus_rank": null,
       "espn_rank": 148,
       "pff_rank": 232,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1647,6 +1945,8 @@
       "consensus_rank": null,
       "espn_rank": 149,
       "pff_rank": 198,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1658,6 +1958,8 @@
       "consensus_rank": null,
       "espn_rank": 150,
       "pff_rank": 168,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1669,6 +1971,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 98,
+      "ringer_rank": 63,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1680,6 +1984,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 100,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1691,6 +1997,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 102,
+      "ringer_rank": null,
+      "athletic_rank": 85,
       "predicted_range": null,
       "notes": ""
     },
@@ -1702,6 +2010,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 106,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1713,6 +2023,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 108,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1724,6 +2036,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 110,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1735,6 +2049,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 114,
+      "ringer_rank": null,
+      "athletic_rank": 89,
       "predicted_range": null,
       "notes": ""
     },
@@ -1746,6 +2062,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 117,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1757,6 +2075,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 119,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1768,6 +2088,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 121,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1779,6 +2101,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 123,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1790,6 +2114,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 126,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1801,6 +2127,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 129,
+      "ringer_rank": null,
+      "athletic_rank": 94,
       "predicted_range": null,
       "notes": ""
     },
@@ -1812,6 +2140,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 131,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1823,6 +2153,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 132,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1834,6 +2166,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 134,
+      "ringer_rank": null,
+      "athletic_rank": 97,
       "predicted_range": null,
       "notes": ""
     },
@@ -1845,6 +2179,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 137,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1856,6 +2192,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 139,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1867,6 +2205,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 140,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1878,6 +2218,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 141,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1889,6 +2231,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 143,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1900,6 +2244,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 144,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1911,6 +2257,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 146,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1922,6 +2270,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 147,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1933,6 +2283,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 150,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1944,6 +2296,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 151,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1955,6 +2309,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 152,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1966,6 +2322,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 153,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1977,6 +2335,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 154,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1988,6 +2348,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 155,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -1999,6 +2361,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 156,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2010,6 +2374,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 157,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2021,6 +2387,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 161,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2032,6 +2400,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 165,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2043,6 +2413,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 169,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2054,6 +2426,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 171,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2065,6 +2439,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 172,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2076,6 +2452,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 173,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2087,6 +2465,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 174,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2098,6 +2478,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 175,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2109,6 +2491,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 176,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2120,6 +2504,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 177,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2131,6 +2517,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 178,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2142,6 +2530,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 179,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2153,6 +2543,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 181,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2164,6 +2556,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 184,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2175,6 +2569,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 185,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2186,6 +2582,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 186,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2197,6 +2595,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 187,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2208,6 +2608,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 188,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2219,6 +2621,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 189,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2230,6 +2634,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 190,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2241,6 +2647,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 191,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2252,6 +2660,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 192,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2263,6 +2673,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 193,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2274,6 +2686,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 194,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2285,6 +2699,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 195,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2296,6 +2712,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 196,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2307,6 +2725,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 197,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2318,6 +2738,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 199,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2329,6 +2751,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 200,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2340,6 +2764,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 201,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2351,6 +2777,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 202,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2362,6 +2790,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 203,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2373,6 +2803,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 206,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2384,6 +2816,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 207,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2395,6 +2829,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 208,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2406,6 +2842,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 209,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2417,6 +2855,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 211,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2428,6 +2868,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 212,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2439,6 +2881,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 213,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2450,6 +2894,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 214,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2461,6 +2907,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 215,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2472,6 +2920,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 216,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2483,6 +2933,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 217,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2494,6 +2946,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 218,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2505,6 +2959,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 219,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2516,6 +2972,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 221,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2527,6 +2985,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 223,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2538,6 +2998,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 224,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2549,6 +3011,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 225,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2560,6 +3024,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 226,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2571,6 +3037,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 227,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2582,6 +3050,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 228,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2593,6 +3063,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 229,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2604,6 +3076,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 230,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2615,6 +3089,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 231,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2626,6 +3102,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 233,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2637,6 +3115,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 234,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2648,6 +3128,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 235,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2659,6 +3141,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 236,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2670,6 +3154,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 237,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2681,6 +3167,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 238,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2692,6 +3180,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 239,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2703,6 +3193,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 240,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2714,6 +3206,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 241,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2725,6 +3219,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 242,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2736,6 +3232,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 244,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2747,6 +3245,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 246,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2758,6 +3258,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 247,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2769,6 +3271,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 248,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2780,6 +3284,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": 249,
+      "ringer_rank": null,
+      "athletic_rank": null,
       "predicted_range": null,
       "notes": ""
     },
@@ -2791,6 +3297,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": null,
+      "ringer_rank": 11,
+      "athletic_rank": 13,
       "predicted_range": "12-16",
       "notes": ""
     },
@@ -2802,6 +3310,8 @@
       "consensus_rank": null,
       "espn_rank": null,
       "pff_rank": null,
+      "ringer_rank": 81,
+      "athletic_rank": null,
       "predicted_range": "2024-2028",
       "notes": ""
     }

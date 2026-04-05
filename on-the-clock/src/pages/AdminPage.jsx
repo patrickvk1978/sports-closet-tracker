@@ -36,6 +36,8 @@ export default function AdminPage() {
       consensus_rank: p.consensus_rank ?? null,
       espn_rank: p.espn_rank ?? null,
       pff_rank: p.pff_rank ?? null,
+      ringer_rank: p.ringer_rank ?? null,
+      athletic_rank: p.athletic_rank ?? null,
       predicted_range: p.predicted_range ?? null,
       notes: p.notes ?? null,
     }));
