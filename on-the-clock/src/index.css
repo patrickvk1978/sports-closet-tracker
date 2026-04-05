@@ -1704,6 +1704,53 @@ select:focus {
   border-color: transparent;
 }
 
+.board-status.predicted {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+/* Board mode toggle */
+.board-mode-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 4px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 6px 12px;
+  border-radius: calc(var(--r-md) - 2px);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.toggle-btn.active {
+  background: var(--surface-0);
+  color: var(--text-1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Mock draft table */
+.mock-table-head,
+.mock-row {
+  grid-template-columns: 52px minmax(120px, 1fr) minmax(160px, 1.6fr) 0.6fr 1fr;
+}
+
+.mock-team {
+  font-size: 0.85rem;
+  color: var(--text-2);
+}
+
 .board-row-actions {
   display: flex;
   gap: 6px;

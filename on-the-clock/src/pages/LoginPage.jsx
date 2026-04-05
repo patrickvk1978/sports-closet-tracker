@@ -35,7 +35,7 @@ export default function LoginPage() {
         return;
       }
 
-      navigate("/join");
+      navigate("/");
     } finally {
       setLoading(false);
     }

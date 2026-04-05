@@ -38,6 +38,10 @@ export default function AdminPage() {
       pff_rank: p.pff_rank ?? null,
       ringer_rank: p.ringer_rank ?? null,
       athletic_rank: p.athletic_rank ?? null,
+      ringer_mock_pick: p.ringer_mock_pick ?? null,
+      athletic_mock_pick: p.athletic_mock_pick ?? null,
+      pff_mock_pick: p.pff_mock_pick ?? null,
+      consensus_mock_pick: p.consensus_mock_pick ?? null,
       predicted_range: p.predicted_range ?? null,
       notes: p.notes ?? null,
     }));

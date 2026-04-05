@@ -50,8 +50,8 @@ export default function App() {
               <Route element={<ProtectedRoute />}>
                 <Route path="/join" element={<JoinPoolPage />} />
                 <Route path="/create-pool" element={<CreatePoolPage />} />
-                <Route path="/admin" element={<AdminPage />} />
                 <Route element={<AppChrome />}>
+                  <Route path="/admin" element={<AdminPage />} />
                   <Route element={<PoolGuard />}>
                     <Route path="/" element={<PoolHomeRedirect />} />
                     <Route path="/draft" element={<LiveDraftView />} />
