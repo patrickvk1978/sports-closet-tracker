@@ -9,7 +9,7 @@ import prospectsData from "../data/prospects2026.json";
 export default function AdminPage() {
   const { profile } = useAuth();
   const { allPools } = usePool();
-  const { picks, teams, prospects, getProspectById } = useReferenceData();
+  const { picks, teams, prospects, getProspectById, reloadReferenceData } = useReferenceData();
   const {
     draftFeed,
     setDraftPhase,
@@ -46,7 +46,12 @@ export default function AdminPage() {
       notes: p.notes ?? null,
     }));
     const { error } = await supabase.from("prospects").upsert(rows, { onConflict: "id" });
-    setSyncStatus(error ? `Error: ${error.message}` : `Synced ${rows.length} prospects ✓`);
+    if (error) {
+      setSyncStatus(`Error: ${error.message}`);
+    } else {
+      setSyncStatus(`Synced ${rows.length} prospects ✓`);
+      await reloadReferenceData();
+    }
   }
 
   const pick = useMemo(

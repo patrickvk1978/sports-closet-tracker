@@ -9,37 +9,37 @@ export function ReferenceDataProvider({ children }) {
   const [picks, setPicks] = useState([]);          // array sorted by pick_number
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      const [teamsResult, prospectsResult, picksResult] = await Promise.all([
-        supabase.from("nfl_teams").select("*"),
-        supabase.from("prospects").select("*").order("consensus_rank", { ascending: true }),
-        supabase.from("round_1_picks").select("*").order("pick_number", { ascending: true }),
-      ]);
+  async function load() {
+    setLoading(true);
+    const [teamsResult, prospectsResult, picksResult] = await Promise.all([
+      supabase.from("nfl_teams").select("*"),
+      supabase.from("prospects").select("*").order("consensus_rank", { ascending: true, nullsFirst: false }),
+      supabase.from("round_1_picks").select("*").order("pick_number", { ascending: true }),
+    ]);
 
-      if (teamsResult.data) {
-        const byCode = {};
-        for (const t of teamsResult.data) {
-          byCode[t.code] = { code: t.code, name: t.name, needs: t.needs ?? [] };
-        }
-        setTeams(byCode);
+    if (teamsResult.data) {
+      const byCode = {};
+      for (const t of teamsResult.data) {
+        byCode[t.code] = { code: t.code, name: t.name, needs: t.needs ?? [] };
       }
-
-      if (prospectsResult.data) setProspects(prospectsResult.data);
-      if (picksResult.data) {
-        setPicks(
-          picksResult.data.map((p) => ({
-            number: p.pick_number,
-            originalTeam: p.original_team,
-            currentTeam: p.current_team,
-          }))
-        );
-      }
-
-      setLoading(false);
+      setTeams(byCode);
     }
-    load();
-  }, []);
+
+    if (prospectsResult.data) setProspects(prospectsResult.data);
+    if (picksResult.data) {
+      setPicks(
+        picksResult.data.map((p) => ({
+          number: p.pick_number,
+          originalTeam: p.original_team,
+          currentTeam: p.current_team,
+        }))
+      );
+    }
+
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, []);
 
   // Helpers that mirror the draftData.js API so callers don't change shape
   const getProspectById = useMemo(
@@ -58,7 +58,7 @@ export function ReferenceDataProvider({ children }) {
 
   const defaultBigBoardIds = useMemo(() => prospects.map((p) => p.id), [prospects]);
 
-  const value = { teams, prospects, picks, loading, getProspectById, getPickLabel, defaultBigBoardIds };
+  const value = { teams, prospects, picks, loading, getProspectById, getPickLabel, defaultBigBoardIds, reloadReferenceData: load };
 
   return createElement(ReferenceDataContext.Provider, { value }, children);
 }
