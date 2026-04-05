@@ -171,14 +171,21 @@ export default function BigBoardTable({
             </p>
           </div>
           {onAssignSelectedProspect ? (
-            <button
-              className="primary-button"
-              type="button"
-              disabled={!selectedProspect}
-              onClick={() => selectedProspect && onAssignSelectedProspect(selectedProspect.id)}
-            >
-              {assignLabel}
-            </button>
+            <>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={!selectedProspect || draftedIds.has(selectedProspect?.id)}
+                onClick={() => selectedProspect && onAssignSelectedProspect(selectedProspect.id)}
+              >
+                {assignLabel}
+              </button>
+              {selectedProspect && draftedIds.has(selectedProspect.id) ? (
+                <p className="subtle" style={{ color: "var(--text-3)", fontSize: "0.8rem", marginTop: 4 }}>
+                  {selectedProspect.name} has already been drafted — pick another player.
+                </p>
+              ) : null}
+            </>
           ) : null}
         </div>
       )}
