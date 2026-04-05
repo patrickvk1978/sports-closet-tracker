@@ -107,26 +107,34 @@ export default function MockChallengeView() {
             </div>
 
             <div className="pick-list">
-              {picks.map((pick) => (
-                <button
-                  key={pick.number}
-                  className={selectedPick === pick.number ? "pick-row active" : "pick-row"}
-                  onClick={() => setSelectedPick(pick.number)}
-                >
-                  <div className="pick-num">{pick.number}</div>
-                  <div className="pick-main">
-                    <div className="pick-topline">
-                      <strong>{teams[teamCodeForPick(pick)]?.name}</strong>
-                    </div>
-                    <div className="pick-columns single-column">
-                      <div>
-                        <span className="micro-label">Your prediction</span>
-                        <span className="subtle">{getProspectById(mockPredictions[pick.number])?.name ?? "Select a player"}</span>
+              {picks.map((pick) => {
+                const prediction = getProspectById(mockPredictions[pick.number]);
+                const isEmpty = !prediction;
+                const classes = ["pick-row"];
+                if (selectedPick === pick.number) classes.push("active");
+                if (isEmpty) classes.push("empty");
+                return (
+                  <button
+                    key={pick.number}
+                    className={classes.join(" ")}
+                    data-pick-watermark={pick.number}
+                    onClick={() => setSelectedPick(pick.number)}
+                  >
+                    <div className="pick-num">{pick.number}</div>
+                    <div className="pick-main">
+                      <div className="pick-topline">
+                        <strong>{teams[teamCodeForPick(pick)]?.name}</strong>
+                      </div>
+                      <div className="pick-columns single-column">
+                        <div>
+                          <span className="micro-label">Your prediction</span>
+                          <span className="subtle">{prediction?.name ?? "Select a player"}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="future-pick-helper">

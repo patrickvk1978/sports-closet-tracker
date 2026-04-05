@@ -45,6 +45,7 @@ export default function LiveDraftView() {
     submitLiveCard,
   } = useLiveDraft({ draftFeed, teamCodeForPick });
   const [selectedPick, setSelectedPick] = useState(1);
+  const [liveTab, setLiveTab] = useState("draft");
 
   function teamForPick(pick) {
     return draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
@@ -105,12 +106,21 @@ export default function LiveDraftView() {
     <>
       <div className="workspace-nav live-nav">
         <div className="tab-set">
-          <button className={isPreDraft ? "tab active" : "tab"} type="button">Pre-draft</button>
-          <button className={!isPreDraft ? "tab active" : "tab"} type="button">Live Draft</button>
+          {isPreDraft ? (
+            <>
+              <button className="tab active" type="button">Pre-draft</button>
+              <button className="tab" type="button" disabled>Live Draft</button>
+            </>
+          ) : (
+            <>
+              <button className={liveTab === "draft" ? "tab active" : "tab"} type="button" onClick={() => setLiveTab("draft")}>Draft</button>
+              <button className={liveTab === "board" ? "tab active" : "tab"} type="button" onClick={() => setLiveTab("board")}>Big Board</button>
+            </>
+          )}
         </div>
         <div className="tab-actions">
           <span className="chip">{pool?.name ?? "Draft Pool"}</span>
-          <span className="chip">Live Draft</span>
+          <span className="chip">{isPreDraft ? "Pre-draft" : "Live Draft"}</span>
           <span className="chip countdown-chip">{isPreDraft ? "Draft starts Thu 7:00 PM" : `Clock ${countdownCopy(draftFeed.current_status)}`}</span>
         </div>
       </div>
@@ -147,10 +157,15 @@ export default function LiveDraftView() {
             <div className="pick-list">
               {picks.map((pick) => {
                 const prediction = getProspectById(livePredictions[pick.number]);
+                const isEmpty = !prediction;
+                const classes = ["pick-row"];
+                if (selectedPick === pick.number) classes.push("active");
+                if (isEmpty) classes.push("empty");
                 return (
                   <button
                     key={pick.number}
-                    className={selectedPick === pick.number ? "pick-row active" : "pick-row"}
+                    className={classes.join(" ")}
+                    data-pick-watermark={pick.number}
                     onClick={() => setSelectedPick(pick.number)}
                   >
                     <div className="pick-num">{pick.number}</div>
@@ -189,6 +204,22 @@ export default function LiveDraftView() {
             onAssignSelectedProspect={(prospectId) => saveLivePrediction(selectedPickData.number, prospectId)}
           />
         </div>
+      ) : liveTab === "board" ? (
+        <BigBoardTable
+          title="Big Board"
+          subtitle="Search and assign on the fly"
+          boardIds={bigBoardIds}
+          onMove={moveBigBoardItem}
+          draftedIds={draftedIds}
+          mappedPickByProspectId={mappedPickByProspectId}
+          selectedPickLabel={getPickLabel(selectedPickData.number)}
+          assignLabel={`Use for ${getPickLabel(selectedPickData.number)}`}
+          onAssignSelectedProspect={(prospectId) =>
+            selectedPickData.number === currentPickNumber
+              ? setLiveCurrentSelection(currentPickNumber, prospectId)
+              : saveLivePrediction(selectedPickData.number, prospectId)
+          }
+        />
       ) : (
         <>
           <section className="panel live-hero-panel">
@@ -295,11 +326,16 @@ export default function LiveDraftView() {
                   const prediction = getProspectById(livePredictions[pick.number]);
                   const lockedCard = getProspectById(liveCards[pick.number]);
                   const actualPick = getProspectById(draftFeed.actual_picks?.[pick.number]);
+                  const isEmpty = !prediction && !lockedCard && !actualPick;
+                  const classes = ["pick-row"];
+                  if (selectedPick === pick.number) classes.push("active");
+                  if (isEmpty) classes.push("empty");
 
                   return (
                     <button
                       key={pick.number}
-                      className={selectedPick === pick.number ? "pick-row active" : "pick-row"}
+                      className={classes.join(" ")}
+                      data-pick-watermark={pick.number}
                       onClick={() => setSelectedPick(pick.number)}
                     >
                       <div className="pick-num">{pick.number}</div>
@@ -352,21 +388,6 @@ export default function LiveDraftView() {
             </div>
           </div>
 
-          <BigBoardTable
-            title="Big Board"
-            subtitle="The ranking engine behind your setup picks and auto-submit behavior"
-            boardIds={bigBoardIds}
-            onMove={moveBigBoardItem}
-            draftedIds={draftedIds}
-            mappedPickByProspectId={mappedPickByProspectId}
-            selectedPickLabel={getPickLabel(selectedPickData.number)}
-            assignLabel={`Use for ${getPickLabel(selectedPickData.number)}`}
-            onAssignSelectedProspect={(prospectId) =>
-              selectedPickData.number === currentPickNumber
-                ? setLiveCurrentSelection(currentPickNumber, prospectId)
-                : saveLivePrediction(selectedPickData.number, prospectId)
-            }
-          />
         </>
       )}
     </>
