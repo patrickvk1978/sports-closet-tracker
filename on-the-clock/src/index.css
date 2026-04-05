@@ -1070,7 +1070,7 @@ select:focus {
   font-weight: 900;
   line-height: 1;
   color: var(--text-1);
-  opacity: 0.06;
+  opacity: 0.08;
   letter-spacing: -0.05em;
   pointer-events: none;
   z-index: 0;
@@ -1079,6 +1079,31 @@ select:focus {
 .pick-row.empty > * {
   position: relative;
   z-index: 1;
+}
+
+.pick-empty-team {
+  display: block;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: #9ca3af;
+}
+
+.pick-player-name {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.pick-player-meta {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.82rem;
+  color: var(--text-3);
 }
 
 .pick-num {

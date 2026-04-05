@@ -116,6 +116,7 @@ export default function MockChallengeView() {
               {picks.map((pick) => {
                 const prediction = getProspectById(mockPredictions[pick.number]);
                 const isEmpty = !prediction;
+                const teamName = teams[teamCodeForPick(pick)]?.name;
                 const classes = ["pick-row"];
                 if (selectedPick === pick.number) classes.push("active");
                 if (isEmpty) classes.push("empty");
@@ -128,15 +129,14 @@ export default function MockChallengeView() {
                   >
                     <div className="pick-num">{pick.number}</div>
                     <div className="pick-main">
-                      <div className="pick-topline">
-                        <strong>{teams[teamCodeForPick(pick)]?.name}</strong>
-                      </div>
-                      <div className="pick-columns single-column">
-                        <div>
-                          <span className="micro-label">Your prediction</span>
-                          <span className="subtle">{prediction?.name ?? "Select a player"}</span>
-                        </div>
-                      </div>
+                      {prediction ? (
+                        <>
+                          <strong className="pick-player-name">{prediction.name}</strong>
+                          <span className="pick-player-meta">{prediction.position} · {teamName}</span>
+                        </>
+                      ) : (
+                        <span className="pick-empty-team">{teamName}</span>
+                      )}
                     </div>
                   </button>
                 );

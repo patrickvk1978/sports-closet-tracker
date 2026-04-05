@@ -158,6 +158,8 @@ export default function LiveDraftView() {
               {picks.map((pick) => {
                 const prediction = getProspectById(livePredictions[pick.number]);
                 const isEmpty = !prediction;
+                const teamName = teams[teamForPick(pick)]?.name;
+                const teamNeeds = teams[teamForPick(pick)]?.needs;
                 const classes = ["pick-row"];
                 if (selectedPick === pick.number) classes.push("active");
                 if (isEmpty) classes.push("empty");
@@ -170,16 +172,17 @@ export default function LiveDraftView() {
                   >
                     <div className="pick-num">{pick.number}</div>
                     <div className="pick-main">
-                      <div className="pick-topline">
-                        <strong>{teams[teamForPick(pick)]?.name}</strong>
-                        <span className="team-needs-inline">Needs {teams[teamForPick(pick)]?.needs?.join(" · ")}</span>
-                      </div>
-                      <div className="pick-columns single-column">
-                        <div>
-                          <span className="micro-label">Current prediction</span>
-                          <ProspectPill prospect={prediction} />
-                        </div>
-                      </div>
+                      {prediction ? (
+                        <>
+                          <strong className="pick-player-name">{prediction.name}</strong>
+                          <span className="pick-player-meta">{prediction.position} · {teamName}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="pick-empty-team">{teamName}</span>
+                          {teamNeeds?.length ? <span className="pick-player-meta">Needs {teamNeeds.join(" · ")}</span> : null}
+                        </>
+                      )}
                     </div>
                   </button>
                 );
