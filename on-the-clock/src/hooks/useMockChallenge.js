@@ -17,6 +17,7 @@ export function useMockChallenge({ draftFeed }) {
   const [mockPredictions, setMockPredictions] = useState({})
   const [hasSubmittedMock, setHasSubmittedMock] = useState(false)
   const [allMemberPredictions, setAllMemberPredictions] = useState({}) // { `userId:pickNumber`: prospectId }
+  const [submittedUserIds, setSubmittedUserIds] = useState(new Set())
   const [loading, setLoading] = useState(true)
 
   const poolId = pool?.id
@@ -31,10 +32,11 @@ export function useMockChallenge({ draftFeed }) {
 
     setLoading(true)
 
-    const [predRes, subRes, allPredsRes] = await Promise.all([
+    const [predRes, subRes, allPredsRes, allSubsRes] = await Promise.all([
       supabase.from('user_predictions').select('pick_number, prospect_id').eq('pool_id', poolId).eq('user_id', userId),
       supabase.from('mock_submissions').select('user_id').eq('pool_id', poolId).eq('user_id', userId).maybeSingle(),
       supabase.from('user_predictions').select('user_id, pick_number, prospect_id').eq('pool_id', poolId),
+      supabase.from('mock_submissions').select('user_id').eq('pool_id', poolId),
     ])
 
     if (predRes.data) {
@@ -49,6 +51,10 @@ export function useMockChallenge({ draftFeed }) {
       const map = {}
       allPredsRes.data.forEach(r => { map[`${r.user_id}:${r.pick_number}`] = r.prospect_id })
       setAllMemberPredictions(map)
+    }
+
+    if (allSubsRes.data) {
+      setSubmittedUserIds(new Set(allSubsRes.data.map(r => r.user_id)))
     }
 
     setLoading(false)
@@ -98,6 +104,7 @@ export function useMockChallenge({ draftFeed }) {
   async function submitMockPredictions() {
     if (!poolId || !userId) return
     setHasSubmittedMock(true)
+    setSubmittedUserIds(prev => new Set(prev).add(userId))
     await supabase.from('mock_submissions').upsert({
       pool_id: poolId,
       user_id: userId,
@@ -188,11 +195,14 @@ export function useMockChallenge({ draftFeed }) {
     })
   }, [draftFeed?.actual_picks, draftFeed?.current_pick_number, memberList, mockPredictions, allMemberPredictions, pool, picks])
 
+  const submittedCount = submittedUserIds.size
+
   return {
     mockPredictions,
     hasSubmittedMock,
     mockStandings,
     mockTrackingRows,
+    submittedCount,
     loading,
     saveMockPrediction,
     submitMockPredictions,

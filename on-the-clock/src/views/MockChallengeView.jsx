@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import BigBoardTable from "../components/BigBoardTable";
 import { SkeletonPanel } from "../components/Skeleton";
 import { usePool } from "../hooks/usePool";
@@ -25,6 +25,7 @@ export default function MockChallengeView() {
     hasSubmittedMock,
     mockStandings,
     mockTrackingRows,
+    submittedCount,
     saveMockPrediction,
     submitMockPredictions,
   } = useMockChallenge({ draftFeed });
@@ -47,8 +48,13 @@ export default function MockChallengeView() {
 
   const completedPickCount = Object.keys(mockPredictions).filter((pickNumber) => mockPredictions[pickNumber]).length;
   const remainingCount = picks.length - completedPickCount;
-  const currentIndex = Math.max(0, mockTrackingRows.findIndex((row) => row.pick.number === currentPickNumber));
-  const visibleRows = mockTrackingRows.slice(Math.max(0, currentIndex - 2), Math.min(mockTrackingRows.length, currentIndex + 3));
+  const visibleRows = mockTrackingRows;
+  const currentRowRef = useRef(null);
+  useEffect(() => {
+    if (trackingMode && currentRowRef.current) {
+      currentRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [trackingMode, currentPickNumber]);
   const selectedPrediction = getProspectById(mockPredictions[selectedPick]);
   const currentTrackingRow = mockTrackingRows.find((row) => row.pick.number === currentPickNumber);
   const inPlayRangeStart = Math.max(1, currentPickNumber - 2);
@@ -159,13 +165,13 @@ export default function MockChallengeView() {
 
             <div className="detail-card inset-card">
               <span className="micro-label">Pool participation</span>
-              <p>{members.length} entrants in this pool. {hasSubmittedMock ? "You have submitted your predictions." : "Your entry is still editable until the global lock time."}</p>
+              <p><strong>{submittedCount} of {members.length}</strong> entrants have submitted. {hasSubmittedMock ? "You're in — predictions remain editable until lock." : "Your entry is still editable until the global lock time."}</p>
             </div>
           </section>
 
           <BigBoardTable
             title="Big Board"
-            subtitle="Use the board to power each team-based prediction"
+            subtitle="Your ranking engine — assign players to each team slot"
             boardIds={bigBoardIds}
             onMove={moveBigBoardItem}
             draftedIds={draftedIds}
@@ -209,7 +215,11 @@ export default function MockChallengeView() {
               </div>
               <div className="mock-grid">
                 {visibleRows.map((row) => (
-                  <div key={row.pick.number} className={row.pick.number === currentPickNumber ? "mock-grid-row current" : "mock-grid-row"}>
+                  <div
+                    key={row.pick.number}
+                    ref={row.pick.number === currentPickNumber ? currentRowRef : null}
+                    className={row.pick.number === currentPickNumber ? "mock-grid-row current" : "mock-grid-row"}
+                  >
                     <div className="mock-fixed-columns">
                       <div className="mock-cell pick-cell">
                         <strong>{row.pick.number}</strong>

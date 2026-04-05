@@ -194,7 +194,7 @@ export default function LiveDraftView() {
 
           <BigBoardTable
             title="Big Board"
-            subtitle="Research, sort, and map players to teams"
+            subtitle="Your ranking engine — maps players to picks and powers auto-submit"
             boardIds={bigBoardIds}
             onMove={moveBigBoardItem}
             draftedIds={draftedIds}
@@ -207,7 +207,7 @@ export default function LiveDraftView() {
       ) : liveTab === "board" ? (
         <BigBoardTable
           title="Big Board"
-          subtitle="Search and assign on the fly"
+          subtitle="Your ranking engine — search and assign on the fly"
           boardIds={bigBoardIds}
           onMove={moveBigBoardItem}
           draftedIds={draftedIds}
@@ -251,7 +251,7 @@ export default function LiveDraftView() {
                     <span className="micro-label">{currentLocked ? "Submitted card" : "Current selection"}</span>
                     <ProspectPill prospect={currentSelection} />
                   </div>
-                  <p>Leave it blank and the app auto-submits from your Big Board when the clock expires. If you choose a player but do not submit, that visible pick still locks on timeout.</p>
+                  <span className="auto-submit-note">Auto-submits from your Big Board if the clock expires.</span>
                 </div>
                 <div className="your-pick-suggestions">
                   <button className="suggestion-card" onClick={() => setLiveCurrentSelection(currentPickNumber, livePredictions[currentPickNumber])}>

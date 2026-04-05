@@ -76,8 +76,8 @@ export default function CreatePoolPage() {
                 className={gameMode === mode.key ? "mode-card selected" : "mode-card"}
                 onClick={() => setGameMode(mode.key)}
               >
-                <span className="label">{mode.title}</span>
-                <h3>{mode.description}</h3>
+                <h3 className="mode-title">{mode.title}</h3>
+                <p className="mode-description">{mode.description}</p>
                 <ul className="mode-bullets">
                   {mode.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}
                 </ul>
