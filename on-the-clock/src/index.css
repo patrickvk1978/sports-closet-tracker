@@ -215,7 +215,7 @@ p { margin: 0; }
   display: grid;
   gap: 28px;
   padding: 80px 16px 32px;
-  max-width: 1460px;
+  max-width: 900px;
   margin: 0 auto;
   width: 100%;
 }
