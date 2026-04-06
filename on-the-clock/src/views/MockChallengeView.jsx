@@ -3,6 +3,7 @@ import BigBoardTable from "../components/BigBoardTable";
 import { SkeletonPanel } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
+import { useCountdown } from "../hooks/useCountdown";
 import { useDraftFeed } from "../hooks/useDraftFeed";
 import { useBigBoard } from "../hooks/useBigBoard";
 import { useMockChallenge } from "../hooks/useMockChallenge";
@@ -32,6 +33,7 @@ export default function MockChallengeView() {
     saveMockPrediction,
     submitMockPredictions,
   } = useMockChallenge({ draftFeed });
+  const countdown = useCountdown();
   const [selectedPick, setSelectedPick] = useState(1);
   const [devMode, setDevMode] = useState("entry");
 
@@ -82,9 +84,14 @@ export default function MockChallengeView() {
           ) : null}
         </div>
         <div className="tab-actions">
-          <span className="chip">{pool?.name ?? "Mock Pool"}</span>
-          <span className="chip">Mock Challenge</span>
-          <span className="chip countdown-chip">{trackingMode ? `Current window ${inPlayRangeStart}-${inPlayRangeEnd}` : "Entries lock in 2h 14m"}</span>
+          {trackingMode ? (
+            <span className="chip">{`Current window ${inPlayRangeStart}-${inPlayRangeEnd}`}</span>
+          ) : (
+            <div className={`countdown-clock ${countdown.expired ? "live" : ""}`}>
+              <span className="countdown-label">{countdown.expired ? "ENTRIES LOCKED" : "Entries lock in"}</span>
+              {!countdown.expired ? <span className="countdown-time">{countdown.label}</span> : null}
+            </div>
+          )}
         </div>
       </div>
 
@@ -96,7 +103,7 @@ export default function MockChallengeView() {
                 <span className="label">Mock Challenge</span>
                 <h2>Submit Predictions</h2>
               </div>
-              <span className="subtle">{remainingCount} picks remaining · Entries lock in 2h 14m</span>
+              <span className="subtle">{remainingCount} picks remaining</span>
             </div>
 
             <div className="flow-helper-card">

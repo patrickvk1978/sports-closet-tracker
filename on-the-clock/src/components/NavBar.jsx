@@ -10,6 +10,7 @@ export default function NavBar() {
 
   const isAdmin  = location.pathname === "/admin";
   const isSettings = location.pathname === "/pool-settings";
+  const isPoolCreator = pool?.admin_id === profile?.id;
 
   function goHome() {
     navigate(pool?.game_mode === "mock_challenge" ? "/mock" : "/draft");
@@ -44,13 +45,15 @@ export default function NavBar() {
         <button className="nav-button" onClick={() => navigate("/create-pool")} aria-label="Create a pool">
           Create
         </button>
-        <button
-          className={isSettings ? "nav-button chip active" : "nav-button"}
-          onClick={() => navigate("/pool-settings")}
-          aria-label="Pool settings"
-        >
-          Settings
-        </button>
+        {isPoolCreator ? (
+          <button
+            className={isSettings ? "nav-button chip active" : "nav-button"}
+            onClick={() => navigate("/pool-settings")}
+            aria-label="Pool settings"
+          >
+            Settings
+          </button>
+        ) : null}
         {profile?.is_admin ? (
           <button
             className={isAdmin ? "nav-button chip active" : "nav-button"}

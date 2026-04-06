@@ -3,6 +3,7 @@ import BigBoardTable from "../components/BigBoardTable";
 import { SkeletonPickList, SkeletonPanel } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
+import { useCountdown } from "../hooks/useCountdown";
 import { useDraftFeed } from "../hooks/useDraftFeed";
 import { useBigBoard } from "../hooks/useBigBoard";
 import { useLiveDraft } from "../hooks/useLiveDraft";
@@ -47,8 +48,10 @@ export default function LiveDraftView() {
     setLiveCurrentSelection,
     submitLiveCard,
   } = useLiveDraft({ draftFeed, teamCodeForPick });
+  const countdown = useCountdown();
   const [selectedPick, setSelectedPick] = useState(1);
   const [liveTab, setLiveTab] = useState("draft");
+  const [devPhase, setDevPhase] = useState(null); // admin override
 
   function teamForPick(pick) {
     return draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
@@ -79,7 +82,8 @@ export default function LiveDraftView() {
     return accumulator;
   }, {});
 
-  const isPreDraft = draftFeed.phase === "pre_draft" || !isAdmin;
+  const effectivePhase = isAdmin && devPhase ? devPhase : draftFeed.phase;
+  const isPreDraft = effectivePhase === "pre_draft" || !isAdmin;
   const currentLocked = Boolean(liveCards[currentPickNumber]);
   const selectedFuturePrediction = getProspectById(livePredictions[selectedPickData.number]);
   const preRevealPoolState = currentLivePoolState.map((member) => ({
@@ -109,22 +113,26 @@ export default function LiveDraftView() {
     <>
       <div className="workspace-nav live-nav">
         <div className="tab-set">
-          {isPreDraft ? (
+          {isAdmin ? (
             <>
-              <button className="tab active" type="button">Pre-draft</button>
-              <button className="tab" type="button" disabled>Live Draft</button>
+              <button className={isPreDraft ? "tab active" : "tab"} type="button" onClick={() => { setDevPhase("pre_draft"); setLiveTab("draft"); }}>Pre-draft</button>
+              <button className={!isPreDraft && liveTab === "draft" ? "tab active" : "tab"} type="button" onClick={() => { setDevPhase("live"); setLiveTab("draft"); }}>Live Draft</button>
+              {!isPreDraft ? (
+                <button className={liveTab === "board" ? "tab active" : "tab"} type="button" onClick={() => setLiveTab("board")}>Big Board</button>
+              ) : null}
             </>
-          ) : (
+          ) : !isPreDraft ? (
             <>
               <button className={liveTab === "draft" ? "tab active" : "tab"} type="button" onClick={() => setLiveTab("draft")}>Draft</button>
               <button className={liveTab === "board" ? "tab active" : "tab"} type="button" onClick={() => setLiveTab("board")}>Big Board</button>
             </>
-          )}
+          ) : null}
         </div>
         <div className="tab-actions">
-          <span className="chip">{pool?.name ?? "Draft Pool"}</span>
-          <span className="chip">{isPreDraft ? "Pre-draft" : "Live Draft"}</span>
-          <span className="chip countdown-chip">{isPreDraft ? "Draft starts Thu 7:00 PM" : `Clock ${countdownCopy(draftFeed.current_status)}`}</span>
+          <div className={`countdown-clock ${countdown.expired ? "live" : ""}`}>
+            <span className="countdown-label">{countdown.expired ? "DRAFT IS LIVE" : "Draft starts in"}</span>
+            {!countdown.expired ? <span className="countdown-time">{countdown.label}</span> : null}
+          </div>
         </div>
       </div>
 
