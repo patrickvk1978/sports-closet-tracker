@@ -374,6 +374,9 @@ p { margin: 0; }
   display: grid;
   place-items: center;
   padding: 56px 16px 40px;
+  background:
+    linear-gradient(rgba(255,255,255,0.90), rgba(255,255,255,0.93)),
+    url('/draft-room.png') center/cover no-repeat fixed;
 }
 
 .auth-card {
