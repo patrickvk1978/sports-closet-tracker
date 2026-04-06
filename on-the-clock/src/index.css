@@ -369,11 +369,35 @@ p { margin: 0; }
 }
 
 /* ─── Auth Pages ──────────────────────────────────────────────────────────── */
+.join-page-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  background: var(--nav-bg);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  z-index: 100;
+  gap: 12px;
+}
+
+.join-page-nav .back-link {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.875rem;
+}
+
+.join-page-nav .back-link:hover {
+  color: white;
+}
+
 .auth-shell {
-  min-height: calc(100vh - 60px);
+  min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 56px 16px 40px;
+  padding: 80px 16px 40px;
   background:
     linear-gradient(
       to bottom,
