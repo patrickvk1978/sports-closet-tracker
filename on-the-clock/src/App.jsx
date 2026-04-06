@@ -8,6 +8,7 @@ import JoinPoolPage from "./pages/JoinPoolPage";
 import CreatePoolPage from "./pages/CreatePoolPage";
 import PoolSettingsPage from "./pages/PoolSettingsPage";
 import AdminPage from "./pages/AdminPage";
+import PoolMembersPage from "./pages/PoolMembersPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PoolGuard from "./components/PoolGuard";
 import NavBar from "./components/NavBar";
@@ -57,6 +58,7 @@ export default function App() {
                     <Route path="/draft" element={<LiveDraftView />} />
                     <Route path="/mock" element={<MockChallengeView />} />
                     <Route path="/pool-settings" element={<PoolSettingsPage />} />
+                    <Route path="/pool-members" element={<PoolMembersPage />} />
                   </Route>
                 </Route>
               </Route>

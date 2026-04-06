@@ -8,12 +8,20 @@ export default function NavBar() {
   const { signOut, profile } = useAuth();
   const { pool, allPools, switchPool } = usePool();
 
-  const isAdmin  = location.pathname === "/admin";
-  const isSettings = location.pathname === "/pool-settings";
+  const isAdmin     = location.pathname === "/admin";
+  const isSettings  = location.pathname === "/pool-settings";
   const isPoolCreator = pool?.admin_id === profile?.id;
+  const canSettings   = isPoolCreator || Boolean(profile?.is_admin);
 
   function goHome() {
     navigate(pool?.game_mode === "mock_challenge" ? "/mock" : "/draft");
+  }
+
+  function handlePoolSelect(e) {
+    const val = e.target.value;
+    if (val === "__join__") navigate("/join");
+    else if (val === "__create__") navigate("/create-pool");
+    else switchPool(val);
   }
 
   return (
@@ -24,28 +32,23 @@ export default function NavBar() {
       </button>
 
       <div className="nav-actions">
-        {allPools.length > 0 ? (
-          <select
-            className="nav-select"
-            value={pool?.id ?? ""}
-            onChange={(event) => switchPool(event.target.value)}
-            aria-label="Switch pool"
-          >
-            {allPools.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        ) : null}
+        <select
+          className="nav-select"
+          value={pool?.id ?? ""}
+          onChange={handlePoolSelect}
+          aria-label="Switch pool"
+        >
+          {allPools.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+          <option disabled value="">──────────</option>
+          <option value="__join__">+ Join a Pool</option>
+          <option value="__create__">+ Create a Pool</option>
+        </select>
 
-        <button className="nav-button" onClick={() => navigate("/join")} aria-label="Join a pool">
-          Join
-        </button>
-        <button className="nav-button" onClick={() => navigate("/create-pool")} aria-label="Create a pool">
-          Create
-        </button>
-        {isPoolCreator ? (
+        {canSettings ? (
           <button
             className={isSettings ? "nav-button chip active" : "nav-button"}
             onClick={() => navigate("/pool-settings")}
@@ -54,6 +57,7 @@ export default function NavBar() {
             Settings
           </button>
         ) : null}
+
         {profile?.is_admin ? (
           <button
             className={isAdmin ? "nav-button chip active" : "nav-button"}
@@ -63,6 +67,7 @@ export default function NavBar() {
             Admin
           </button>
         ) : null}
+
         <button className="nav-button muted" onClick={() => signOut()} aria-label="Sign out">
           Sign out
         </button>

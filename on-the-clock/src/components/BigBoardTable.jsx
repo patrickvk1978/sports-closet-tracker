@@ -58,7 +58,6 @@ export default function BigBoardTable({
     if (!selectedProspectId && boardIds.length > 0) setSelectedProspectId(boardIds[0]);
   }, [boardIds, selectedProspectId]);
 
-  // Rankings mode: filter to source-ranked players only (except your_rank / consensus_avg)
   const rankSourceCfg = RANK_SOURCES.find(s => s.value === rankSource);
   const mockSourceCfg = MOCK_SOURCES.find(s => s.value === mockSource);
 
@@ -69,14 +68,12 @@ export default function BigBoardTable({
       const matchPos = positionFilter === "ALL" || p.position.includes(positionFilter);
       return matchSearch && matchPos;
     });
-    // If source has a field, only show players with that rank
     const sourceFiltered = rankSourceCfg?.field
       ? filtered.filter(p => p[rankSourceCfg.field] != null)
       : filtered;
     return sortRankings(sourceFiltered, boardIds, rankSource);
   }, [boardIds, positionFilter, search, rankSource, rankSourceCfg, getProspectById]);
 
-  // Mock mode: all prospects with that mock pick, sorted by pick number
   const mockProspects = useMemo(() => {
     if (!mockSourceCfg?.field || !prospects.length) return [];
     return prospects
@@ -86,7 +83,6 @@ export default function BigBoardTable({
 
   const selectedProspect = selectedProspectId ? getProspectById(selectedProspectId) : null;
   const assignedCount = Object.keys(mappedPickByProspectId).length;
-  const draftedCount = boardIds.filter(id => draftedIds.has(id)).length;
 
   return (
     <section className="panel">
@@ -115,11 +111,9 @@ export default function BigBoardTable({
         </button>
       </div>
 
-      {viewMode === "rankings" && (
+      {viewMode === "rankings" && assignedCount > 0 && (
         <div className="board-summary-bar">
-          <span className="chip">Assigned {assignedCount}</span>
-          <span className="chip">Available {boardIds.length - draftedCount}</span>
-          <span className="chip">Drafted {draftedCount}</span>
+          <span className="assigned-counter">{assignedCount} / 32 assigned</span>
         </div>
       )}
 
@@ -206,19 +200,22 @@ export default function BigBoardTable({
               <span>Player</span>
               <span>Pos</span>
               <span>School</span>
-              <span>Status</span>
               <span></span>
             </div>
             {rankingProspects.map((prospect) => {
               const yourRank = boardIds.indexOf(prospect.id) + 1;
               const selected = selectedProspectId === prospect.id;
               const drafted = draftedIds.has(prospect.id);
-              const predicted = !drafted && !!mappedPickByProspectId[prospect.id];
+              const assignedPick = mappedPickByProspectId[prospect.id];
               const displayRank = rankSourceCfg?.field ? (prospect[rankSourceCfg.field] ?? "—") : yourRank;
               return (
                 <div
                   key={prospect.id}
-                  className={selected ? "board-row selected" : "board-row"}
+                  className={[
+                    "board-row",
+                    selected ? "selected" : "",
+                    drafted ? "drafted" : "",
+                  ].filter(Boolean).join(" ")}
                   onClick={() => setSelectedProspectId(prospect.id)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedProspectId(prospect.id); } }}
                   role="button"
@@ -227,13 +224,12 @@ export default function BigBoardTable({
                   <span className="board-rank">{displayRank}</span>
                   <span className="board-player">
                     <strong>{prospect.name}</strong>
-                    {mappedPickByProspectId[prospect.id] ? <span className="assign-pill">{mappedPickByProspectId[prospect.id]}</span> : null}
+                    {assignedPick ? (
+                      <span className="assign-tag">→ {assignedPick}</span>
+                    ) : null}
                   </span>
                   <span>{prospect.position}</span>
                   <span>{prospect.school}</span>
-                  <span className={drafted ? "board-status drafted" : predicted ? "board-status predicted" : "board-status available"}>
-                    {drafted ? "Drafted" : predicted ? "Predicted" : "Available"}
-                  </span>
                   <span className="board-row-actions">
                     <button className="small-button" type="button" onClick={(e) => { e.stopPropagation(); onMove(prospect.id, "up"); }}>↑</button>
                     <button className="small-button" type="button" onClick={(e) => { e.stopPropagation(); onMove(prospect.id, "down"); }}>↓</button>
@@ -260,10 +256,16 @@ export default function BigBoardTable({
               const pickInfo = picks.find(p => p.number === pickNum);
               const teamName = teams[pickInfo?.currentTeam]?.name ?? pickInfo?.currentTeam ?? "—";
               const selected = selectedProspectId === prospect.id;
+              const drafted = draftedIds.has(prospect.id);
+              const assignedPick = mappedPickByProspectId[prospect.id];
               return (
                 <div
                   key={prospect.id}
-                  className={selected ? "board-row mock-row selected" : "board-row mock-row"}
+                  className={[
+                    "board-row mock-row",
+                    selected ? "selected" : "",
+                    drafted ? "drafted" : "",
+                  ].filter(Boolean).join(" ")}
                   onClick={() => setSelectedProspectId(prospect.id)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedProspectId(prospect.id); } }}
                   role="button"
@@ -271,7 +273,12 @@ export default function BigBoardTable({
                 >
                   <span className="board-rank">{pickNum}</span>
                   <span className="mock-team">{teamName}</span>
-                  <span className="board-player"><strong>{prospect.name}</strong></span>
+                  <span className="board-player">
+                    <strong>{prospect.name}</strong>
+                    {assignedPick ? (
+                      <span className="assign-tag">→ {assignedPick}</span>
+                    ) : null}
+                  </span>
                   <span>{prospect.position}</span>
                   <span>{prospect.school}</span>
                 </div>

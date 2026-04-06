@@ -1300,14 +1300,22 @@ select:focus {
 }
 
 .flow-helper-card {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
   margin-bottom: 16px;
   padding: 16px;
   border-radius: var(--r-lg);
   border: 1px solid var(--border);
   background: var(--surface-1);
+}
+
+.flow-helper-card.dismissible {
+  display: grid;
+  gap: 12px;
+}
+
+.flow-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .flow-step {
@@ -1318,6 +1326,78 @@ select:focus {
 .flow-step strong {
   font-size: 0.95rem;
   font-weight: 700;
+}
+
+.dismiss-instructions {
+  justify-self: flex-end;
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  transition: color var(--t-fast), background var(--t-fast);
+}
+
+.dismiss-instructions:hover {
+  color: var(--text-1);
+  background: var(--surface-2);
+}
+
+.show-instructions-link {
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.show-instructions-link:hover { color: var(--text-2); }
+
+/* ─── Pool Member Row ─────────────────────────────────────────────────────── */
+.pool-member-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface-0);
+}
+
+.pool-member-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.member-status {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+  white-space: nowrap;
+}
+
+.member-status.submitted {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.member-status.pending {
+  background: var(--surface-2);
+  color: var(--text-3);
+  border: 1px solid var(--border);
 }
 
 .flow-step span:last-child {
@@ -1801,7 +1881,7 @@ select:focus {
 .board-table-head,
 .board-row {
   display: grid;
-  grid-template-columns: 52px minmax(160px, 2fr) 0.6fr 1fr 0.9fr auto;
+  grid-template-columns: 52px minmax(160px, 2fr) 0.6fr 1fr auto;
   gap: 10px;
   align-items: center;
 }
@@ -1866,6 +1946,33 @@ select:focus {
 .board-row.selected .board-rank {
   background: var(--brand);
   color: white;
+}
+
+/* assign-tag replaces the old assign-pill + board-status dual indicator */
+.assign-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand);
+  background: var(--brand-subtle);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--r-full);
+  padding: 2px 8px;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.board-row.drafted {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.assigned-counter {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 2px 0;
 }
 
 .board-status {
@@ -2193,7 +2300,7 @@ select:focus {
   .mode-prep-layout,
   .live-hero-head,
   .tracking-hero,
-  .flow-helper-card,
+  .flow-steps-grid,
   .tracking-current-detail,
   .pick-columns,
   .suggestion-grid,
@@ -2206,7 +2313,7 @@ select:focus {
 
   .board-table-head,
   .board-row {
-    grid-template-columns: 42px minmax(140px, 2fr) 0.6fr 1fr 0.9fr auto;
+    grid-template-columns: 42px minmax(140px, 2fr) 0.6fr 1fr auto;
   }
 
   .board-action-bar {
@@ -2300,7 +2407,7 @@ select:focus {
   .mini-row { flex-direction: column; }
   .mini-row span { text-align: left; }
 
-  .flow-helper-card { grid-template-columns: 1fr; }
+  .flow-steps-grid { grid-template-columns: 1fr; }
   .auth-card { padding: 24px 18px; }
 
   .mode-grid { grid-template-columns: 1fr; }

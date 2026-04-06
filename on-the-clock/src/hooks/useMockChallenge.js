@@ -203,6 +203,7 @@ export function useMockChallenge({ draftFeed }) {
     mockStandings,
     mockTrackingRows,
     submittedCount,
+    submittedUserIds,
     loading,
     saveMockPrediction,
     submitMockPredictions,

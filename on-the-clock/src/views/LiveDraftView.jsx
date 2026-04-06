@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import BigBoardTable from "../components/BigBoardTable";
 import { SkeletonPickList, SkeletonPanel } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
@@ -32,6 +33,7 @@ function countdownCopy(status) {
 }
 
 export default function LiveDraftView() {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const isAdmin = Boolean(profile?.is_admin);
   const { pool, members } = usePool();
@@ -52,6 +54,14 @@ export default function LiveDraftView() {
   const [selectedPick, setSelectedPick] = useState(1);
   const [liveTab, setLiveTab] = useState("draft");
   const [devPhase, setDevPhase] = useState(null); // admin override
+  const [showInstructions, setShowInstructions] = useState(
+    () => localStorage.getItem("otc_live_instructions_dismissed") !== "true"
+  );
+
+  function dismissInstructions() {
+    localStorage.setItem("otc_live_instructions_dismissed", "true");
+    setShowInstructions(false);
+  }
 
   function teamForPick(pick) {
     return draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
@@ -147,23 +157,34 @@ export default function LiveDraftView() {
               <span className="subtle">When the commissioner starts the draft, this page becomes your live command center.</span>
             </div>
 
-            <div className="flow-helper-card">
-              <div className="flow-step">
-                <span className="micro-label">Step 1</span>
-                <strong>Select a team slot</strong>
-                <span>Use the left column to choose the pick you want to set up.</span>
+            {showInstructions ? (
+              <div className="flow-helper-card dismissible">
+                <div className="flow-steps-grid">
+                  <div className="flow-step">
+                    <span className="micro-label">Step 1</span>
+                    <strong>Select a team slot</strong>
+                    <span>Use the left column to choose the pick you want to set up.</span>
+                  </div>
+                  <div className="flow-step">
+                    <span className="micro-label">Step 2</span>
+                    <strong>Use Big Board to pick a player</strong>
+                    <span>The Big Board on the right powers your setup now and your fallback logic later.</span>
+                  </div>
+                  <div className="flow-step">
+                    <span className="micro-label">Step 3</span>
+                    <strong>Come back on draft night</strong>
+                    <span>You can still auto-submit from your board if you step away.</span>
+                  </div>
+                </div>
+                <button className="dismiss-instructions" type="button" onClick={dismissInstructions} aria-label="Dismiss instructions">
+                  Got it ✕
+                </button>
               </div>
-              <div className="flow-step">
-                <span className="micro-label">Step 2</span>
-                <strong>Use Big Board to pick a player</strong>
-                <span>The Big Board on the right powers your setup now and your fallback logic later.</span>
-              </div>
-              <div className="flow-step">
-                <span className="micro-label">Step 3</span>
-                <strong>Come back on draft night</strong>
-                <span>You can still auto-submit from your board if you step away.</span>
-              </div>
-            </div>
+            ) : (
+              <button className="show-instructions-link" type="button" onClick={() => setShowInstructions(true)}>
+                How does this work?
+              </button>
+            )}
 
             <div className="pick-list">
               {picks.map((pick) => {
@@ -204,8 +225,15 @@ export default function LiveDraftView() {
             </div>
 
             <div className="detail-card inset-card">
-              <span className="micro-label">Pool</span>
-              <p>{members.length} members ready for a live draft format. Draft-night picks can still auto-submit from your Big Board if you step away.</p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                <div>
+                  <span className="micro-label">Pool</span>
+                  <p style={{ margin: 0 }}>{members.length} members ready for a live draft format. Draft-night picks can still auto-submit from your Big Board if you step away.</p>
+                </div>
+                <button className="secondary-button" style={{ flexShrink: 0, fontSize: "0.8rem", padding: "6px 12px" }} type="button" onClick={() => navigate("/pool-members")}>
+                  View members
+                </button>
+              </div>
             </div>
           </section>
 
