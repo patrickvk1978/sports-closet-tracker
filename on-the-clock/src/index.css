@@ -1405,7 +1405,8 @@ select:focus {
 
 /* ─── Mock Challenge ──────────────────────────────────────────────────────── */
 .mock-grid {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   max-height: 640px;
   overflow-y: auto;
@@ -1442,11 +1443,12 @@ select:focus {
   grid-template-columns: 460px minmax(0, 1fr);
   gap: 12px;
   align-items: stretch;
+  min-height: 104px;
   padding: 10px;
   border-radius: var(--r-md);
   border: 1px solid var(--border);
   background: var(--surface-0);
-  overflow: hidden;
+  flex: 0 0 auto;
   transition: border-color var(--t-base), box-shadow var(--t-base), transform var(--t-base);
 }
 
