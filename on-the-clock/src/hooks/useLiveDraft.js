@@ -140,9 +140,35 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
   }
 
   async function saveLivePrediction(pickNumber, prospectId) {
-    setLivePredictions(prev => ({ ...prev, [pickNumber]: prospectId }))
-    setAllMemberPredictions(prev => ({ ...prev, [`${userId}:${pickNumber}`]: prospectId }))
+    // Find if this prospect is already assigned to another pick and clear it
+    const existingPickNum = Object.entries(livePredictions).find(
+      ([num, id]) => id === prospectId && Number(num) !== pickNumber
+    )?.[0]
+
+    setLivePredictions(prev => {
+      const next = { ...prev }
+      if (existingPickNum) delete next[existingPickNum]
+      next[pickNumber] = prospectId
+      return next
+    })
+    setAllMemberPredictions(prev => {
+      const next = { ...prev }
+      if (existingPickNum) delete next[`${userId}:${existingPickNum}`]
+      next[`${userId}:${pickNumber}`] = prospectId
+      return next
+    })
+
     if (!poolId || !userId) return
+
+    // Clear old slot in DB if needed
+    if (existingPickNum) {
+      await supabase.from('user_predictions')
+        .delete()
+        .eq('pool_id', poolId)
+        .eq('user_id', userId)
+        .eq('pick_number', Number(existingPickNum))
+    }
+
     await supabase.from('user_predictions').upsert({
       pool_id: poolId,
       user_id: userId,
