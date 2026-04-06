@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
-import { useAuth } from "../hooks/useAuth";
 
 function routeForPool(pool) {
   return pool?.game_mode === "mock_challenge" ? "/mock" : "/draft";
@@ -10,8 +9,7 @@ function routeForPool(pool) {
 export default function JoinPoolPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { joinPool, pool } = usePool();
-  const { signOut } = useAuth();
+  const { joinPool } = usePool();
   const [code, setCode] = useState(() => searchParams.get("code")?.toUpperCase() ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -29,20 +27,8 @@ export default function JoinPoolPage() {
     navigate(routeForPool(result.pool));
   }
 
-  const homeRoute = pool ? routeForPool(pool) : null;
-
   return (
     <div className="auth-shell">
-      <div className="join-page-nav">
-        {homeRoute ? (
-          <button className="back-link" onClick={() => navigate(homeRoute)}>← Back to pool</button>
-        ) : null}
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button className="back-link" onClick={() => navigate("/create-pool")}>Create a pool</button>
-          <span style={{ color: "var(--text-3)" }}>·</span>
-          <button className="back-link" onClick={() => signOut()}>Sign out</button>
-        </div>
-      </div>
       <div className="auth-card">
         <div className="auth-brand">
           <div className="brand-mark large">OTC</div>

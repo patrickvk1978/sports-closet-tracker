@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
-import { useAuth } from "../hooks/useAuth";
 
 const GAME_MODES = [
   {
@@ -34,8 +33,7 @@ function routeForPool(pool) {
 
 export default function CreatePoolPage() {
   const navigate = useNavigate();
-  const { createPool, pool } = usePool();
-  const { signOut } = useAuth();
+  const { createPool } = usePool();
   const [name, setName] = useState("");
   const [gameMode, setGameMode] = useState("live_draft");
   const [loading, setLoading] = useState(false);
@@ -54,20 +52,8 @@ export default function CreatePoolPage() {
     navigate(routeForPool(result.pool));
   }
 
-  const homeRoute = pool ? routeForPool(pool) : null;
-
   return (
     <div className="create-shell">
-      <div className="join-page-nav">
-        {homeRoute ? (
-          <button className="back-link" onClick={() => navigate(homeRoute)}>← Back to pool</button>
-        ) : null}
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button className="back-link" onClick={() => navigate("/join")}>Join a pool</button>
-          <span style={{ color: "rgba(255,255,255,0.3)" }}>·</span>
-          <button className="back-link" onClick={() => signOut()}>Sign out</button>
-        </div>
-      </div>
       <div className="panel">
         <div className="panel-header">
           <div>

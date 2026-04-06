@@ -49,9 +49,9 @@ export default function App() {
               <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               <Route element={<ProtectedRoute />}>
-                <Route path="/join" element={<JoinPoolPage />} />
-                <Route path="/create-pool" element={<CreatePoolPage />} />
                 <Route element={<AppChrome />}>
+                  <Route path="/join" element={<JoinPoolPage />} />
+                  <Route path="/create-pool" element={<CreatePoolPage />} />
                   <Route path="/admin" element={<AdminPage />} />
                   <Route element={<PoolGuard />}>
                     <Route path="/" element={<PoolHomeRedirect />} />
