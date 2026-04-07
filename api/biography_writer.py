@@ -425,7 +425,7 @@ def run(pool_id: str, dry_run: bool = False):
     # Load pool data
     members  = client.table('pool_members').select('user_id, profiles(username)').eq('pool_id', pool_id).execute().data
     brackets = client.table('brackets').select('user_id, picks').eq('pool_id', pool_id).execute().data
-    games_raw = client.table('games').select('slot_index, status, winner, teams, score1, score2').execute().data
+    games_raw = client.table('games').select('slot_index, status, winner, teams').execute().data
     sim = client.table('sim_results').select('player_probs').eq('pool_id', pool_id).order('run_at', desc=True).limit(1).execute().data
 
     if not members or not brackets:
@@ -442,8 +442,8 @@ def run(pool_id: str, dry_run: bool = False):
             'team2':  g.get('teams', {}).get('team2'),
             'seed1':  g.get('teams', {}).get('seed1'),
             'seed2':  g.get('teams', {}).get('seed2'),
-            'score1': g.get('score1'),
-            'score2': g.get('score2'),
+            'score1': g.get('teams', {}).get('score1'),
+            'score2': g.get('teams', {}).get('score2'),
         }
 
     brackets_by_user = {b['user_id']: b['picks'] for b in brackets}
