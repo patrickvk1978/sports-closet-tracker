@@ -753,6 +753,34 @@ def run_poller(pool_ids, client):
         except Exception as trig_err:
             print(f'  [trigger check] error: {trig_err}')
 
+        # ── Check for generate_reports triggers from admin UI ─────────────────
+        try:
+            reports_resp = client.table('narrative_config') \
+                .select('id, config_value, pool_id') \
+                .eq('config_type', 'generate_reports') \
+                .eq('active', True) \
+                .execute()
+            for trigger in (reports_resp.data or []):
+                pid = trigger.get('pool_id') or (trigger.get('config_value') or {}).get('pool_id')
+                if not pid:
+                    continue
+                bio_script = _script_dir / 'biography_writer.py'
+                print(f'  → Generate reports trigger: pool {pid}')
+                try:
+                    subprocess.run(
+                        [sys.executable, str(bio_script), '--pool-id', pid],
+                        check=True,
+                    )
+                    print(f'  Reports complete: pool {pid}')
+                except subprocess.CalledProcessError as e:
+                    print(f'  Reports failed for pool {pid}: {e}')
+                client.table('narrative_config') \
+                    .update({'active': False}) \
+                    .eq('id', trigger['id']) \
+                    .execute()
+        except Exception as rep_err:
+            print(f'  [reports trigger] error: {rep_err}')
+
         # ── Prune old log entries (once per hour, piggybacked on sleep) ───────
         try:
             from datetime import timedelta as _td

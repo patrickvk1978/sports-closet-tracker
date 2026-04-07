@@ -1215,20 +1215,12 @@ function SimulationSection() {
 function PostGameReportSection() {
   const { pool } = usePool()
   const simResult = useSimResults(pool?.id)
-  const [copied, setCopied] = useState(false)
+  const [queued,  setQueued]  = useState(false)
+  const [running, setRunning] = useState(false)
+  const [error,   setError]   = useState('')
 
-  const command = pool ? `python api/biography_writer.py --pool-id ${pool.id}` : ''
-
-  function handleCopy() {
-    if (!command) return
-    navigator.clipboard.writeText(command).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
-
-  const theses = simResult?.biography_theses ?? {}
-  const meta   = theses._meta ?? null
+  const theses      = simResult?.biography_theses ?? {}
+  const meta        = theses._meta ?? null
   const playerCount = Object.keys(theses).filter((k) => k !== '_meta').length
 
   const runAt = meta?.run_at
@@ -1237,14 +1229,37 @@ function PostGameReportSection() {
       })
     : null
 
+  async function handleGenerate() {
+    if (!pool?.id || queued || running) return
+    setError('')
+    setRunning(true)
+    try {
+      const { error: insertError } = await supabase
+        .from('narrative_config')
+        .insert({
+          config_type:  'generate_reports',
+          config_key:   'generate_reports',
+          config_value: { pool_id: pool.id },
+          pool_id:      pool.id,
+          active:       true,
+        })
+      if (insertError) throw insertError
+      setQueued(true)
+    } catch (e) {
+      setError(e?.message || 'Failed to queue. Check console.')
+    } finally {
+      setRunning(false)
+    }
+  }
+
   return (
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 space-y-5">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <p className="text-sm font-bold text-white mb-0.5">Post-Game Reports</p>
           <p className="text-xs text-slate-400 max-w-lg">
-            Run this command after the tournament ends to generate an Opus-powered post-game report
-            for each player. Reports appear on each player's biography page.
+            Generates an Opus-powered post-game report for each player — thesis, best calls,
+            the turn, and champion pick story. Queues to the VPS poller (runs within 60s).
           </p>
         </div>
         {runAt && (
@@ -1257,27 +1272,24 @@ function PostGameReportSection() {
         )}
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <code
-          className="flex-1 min-w-0 text-[11px] bg-slate-950 border border-slate-800 rounded-xl
-            px-4 py-2.5 text-emerald-400 font-mono truncate"
-        >
-          {command || 'Select a pool to see the command'}
-        </code>
+      <div className="flex items-center gap-3 flex-wrap">
         <button
-          onClick={handleCopy}
-          disabled={!command}
-          className="px-4 py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap
+          onClick={handleGenerate}
+          disabled={!pool?.id || queued || running}
+          className="px-5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap
             disabled:opacity-40 disabled:cursor-not-allowed
-            border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+            bg-orange-500 hover:bg-orange-400 text-white"
         >
-          {copied ? 'Copied!' : 'Copy'}
+          {running ? 'Queuing…' : queued ? 'Queued ✓' : 'Generate Reports'}
         </button>
-      </div>
-
-      <div className="text-[11px] text-slate-600 space-y-0.5" style={{ fontFamily: 'Space Mono, monospace' }}>
-        <p>Optional flags:</p>
-        <p className="pl-4 text-slate-700">--dry-run &nbsp;&nbsp;&nbsp;&nbsp; (compute stats, print briefs, skip API calls)</p>
+        {queued && (
+          <span className="text-[11px] text-slate-400" style={{ fontFamily: 'Space Mono, monospace' }}>
+            Poller will run within 60s — this page will update automatically.
+          </span>
+        )}
+        {error && (
+          <span className="text-[11px] text-red-400">{error}</span>
+        )}
       </div>
 
       {playerCount > 0 && (
