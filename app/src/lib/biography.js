@@ -111,7 +111,6 @@ export function computeArchetype(playerPicks, allBrackets, games) {
   const e8Regions = E8_SLOTS.map(s => {
     const pick = playerPicks[s]
     if (!pick) return null
-    // Find which region this team's R64 game was in
     for (const g of games) {
       if ((g.team1 === pick || g.team2 === pick) && g.slot_index < 60) {
         return slotRegion(g.slot_index)
@@ -124,7 +123,7 @@ export function computeArchetype(playerPicks, allBrackets, games) {
   const maxRegionConcentration = Math.max(0, ...Object.values(regionCounts))
   const isRegionalist = maxRegionConcentration >= 3
 
-  // 5. Sniper — low overall uniqueness but unique picks concentrated in late rounds (S16+)
+  // 5. Bo Kimble — unique picks concentrated in late rounds despite being chalk early
   let lateUnique = 0
   let lateTotal = 0
   for (let slot = 0; slot < 63; slot++) {
@@ -137,30 +136,41 @@ export function computeArchetype(playerPicks, allBrackets, games) {
     if (othersWithPick === 1) lateUnique++
   }
   const lateUniqueRate = lateTotal > 0 ? lateUnique / lateTotal : 0
-  const isSniper = avgFreq > 0.45 && lateUniqueRate > 0.3
+  const isBoKimble = avgFreq > 0.45 && lateUniqueRate > 0.3
+
+  // 6. Christian Laettner — same team picked for multiple F4/Champ slots (all-in on one team)
+  const latePickCounts = {}
+  for (const slot of [60, 61, 62]) {
+    const pick = playerPicks[slot]
+    if (pick) latePickCounts[pick] = (latePickCounts[pick] || 0) + 1
+  }
+  const isLaettner = Object.values(latePickCounts).some(c => c >= 2)
 
   // Assign archetype (priority order)
   if (isRegionalist) {
     const topRegion = Object.entries(regionCounts).sort((a, b) => b[1] - a[1])[0][0]
-    return { key: 'regionalist', label: 'The Regionalist', description: `Loaded up on ${topRegion} — ${maxRegionConcentration} of 4 Elite Eight picks from one region` }
+    return { key: 'dick_vitale', label: 'Dick Vitale', description: `Loaded up on ${topRegion} — passion for your guys clouds all judgment, BABY!` }
   }
-  if (isSniper) {
-    return { key: 'sniper', label: 'The Sniper', description: 'Played it safe early, then aimed for high-value upsets where it mattered most' }
+  if (isLaettner) {
+    return { key: 'christian_laettner', label: 'Christian Laettner', description: 'Everything rides on one team, one moment — legendary if it hits' }
+  }
+  if (isBoKimble) {
+    return { key: 'bo_kimble', label: 'Bo Kimble', description: 'Played it safe early, then swung big where it mattered most — all heart, all or nothing' }
   }
   if (upsetPicks >= 8) {
-    return { key: 'chaos_agent', label: 'The Chaos Agent', description: `${upsetPicks} upset picks — swung for the fences at every turn` }
+    return { key: 'sister_jean', label: 'Sister Jean', description: `Pure faith — ${upsetPicks} upset picks and a belief that miracles happen` }
   }
   if (avgLateSeed <= 2.5) {
-    return { key: 'chalk_walker', label: 'The Chalk Walker', description: 'Blue bloods all the way — trusted the top seeds to hold serve' }
+    return { key: 'coach_k', label: 'Coach K', description: 'Blue blood royalty all the way — always expects the best teams to win' }
   }
   if (avgFreq <= 0.35) {
-    return { key: 'contrarian', label: 'The Contrarian', description: 'The most unique bracket in the pool — zigged where everyone else zagged' }
+    return { key: 'gonzaga_believer', label: 'The Gonzaga Believer', description: 'Nobody sees what you see — zigged where everyone else zagged' }
   }
   if (avgFreq >= 0.6) {
-    return { key: 'hedger', label: 'The Hedger', description: 'Closest to consensus — if the crowd was right, this bracket was golden' }
+    return { key: 'jim_boeheim', label: 'Jim Boeheim', description: 'Syracuse zone energy — protect everything, concede nothing easy, grind it out' }
   }
 
-  return { key: 'bracket_maker', label: 'The Bracket Maker', description: 'A balanced mix of chalk and chaos' }
+  return { key: 'jay_wright', label: 'Jay Wright', description: 'The most complete bracket in the pool — no glaring weakness anywhere' }
 }
 
 // ── Correct Calls (rare correct picks) ───────────────────────────────────────

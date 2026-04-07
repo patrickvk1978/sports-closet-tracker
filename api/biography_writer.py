@@ -123,15 +123,60 @@ def compute_archetype(player_picks, all_brackets, games_by_slot, pool_size):
         if picked_seed and other_seed and picked_seed > other_seed:
             upset_picks += 1
 
+    # Regionalist check — 3+ of 4 E8 picks from same region (Dick Vitale)
+    e8_slots = [14, 29, 44, 59]
+    def slot_region(slot):
+        if slot < 15: return 'Midwest'
+        if slot < 30: return 'West'
+        if slot < 45: return 'South'
+        return 'East'
+    region_counts = {}
+    for slot in e8_slots:
+        pick = player_picks[slot] if slot < len(player_picks) else None
+        if not pick:
+            continue
+        for g in games_by_slot.values():
+            if g.get('team1') == pick or g.get('team2') == pick:
+                r = slot_region(slot)
+                region_counts[r] = region_counts.get(r, 0) + 1
+                break
+    max_region = max(region_counts.values(), default=0)
+
+    # Christian Laettner — same team picked in 2+ of the 3 late slots
+    late_pick_counts = {}
+    for slot in [60, 61, 62]:
+        pick = player_picks[slot] if slot < len(player_picks) else None
+        if pick:
+            late_pick_counts[pick] = late_pick_counts.get(pick, 0) + 1
+    is_laettner = any(c >= 2 for c in late_pick_counts.values())
+
+    # Bo Kimble — chalk early, unique late
+    late_slots = list(range(48, 63))  # S16 through Champ
+    late_unique = sum(
+        1 for s in late_slots
+        if (player_picks[s] if s < len(player_picks) else None) and
+           sum(1 for b in all_brackets if b[s] == player_picks[s]) == 1
+    )
+    late_total = sum(1 for s in late_slots if s < len(player_picks) and player_picks[s])
+    late_unique_rate = late_unique / late_total if late_total > 0 else 0
+    is_bo_kimble = avg_freq > 0.45 and late_unique_rate > 0.3
+
+    if max_region >= 3:
+        top_region = max(region_counts, key=region_counts.get)
+        return f'Dick Vitale (loaded up on {top_region} — passion for your guys, BABY!)'
+    if is_laettner:
+        return 'Christian Laettner (everything rides on one team — legendary if it hits)'
+    if is_bo_kimble:
+        return 'Bo Kimble (safe early, swung big late — all heart, all or nothing)'
     if upset_picks >= 8:
-        return 'The Chaos Agent'
+        return f'Sister Jean ({upset_picks} upset picks — pure faith, miracles happen)'
     if avg_late_seed <= 2.5:
-        return 'The Chalk Walker'
+        return 'Coach K (blue blood royalty — always expects the best teams to win)'
     if avg_freq <= 0.35:
-        return 'The Contrarian'
+        return 'The Gonzaga Believer (zigged where everyone else zagged — nobody sees what you see)'
     if avg_freq >= 0.6:
-        return 'The Hedger'
-    return 'The Bracket Maker'
+        return 'Jim Boeheim (Syracuse zone energy — protect everything, grind it out)'
+    return 'Jay Wright (the most complete bracket — no glaring weakness anywhere)'
 
 
 def compute_correct_calls(player_picks, all_brackets, games_by_slot, pool_size):
