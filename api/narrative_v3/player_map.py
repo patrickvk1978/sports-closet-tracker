@@ -421,6 +421,7 @@ def build_assignment(
     unique_picks: list,
     best_path: list,
     frame_action: str,
+    trigger_game_full: dict | None = None,
 ) -> dict:
     """
     Build the structured writing brief for the writer.
@@ -433,12 +434,14 @@ def build_assignment(
     )
 
     # Headline fact: the single most important thing
-    headline = _build_headline(angle, stats, trigger_stake, primary_game, rivals)
+    headline = _build_headline(angle, stats, trigger_stake, primary_game, rivals,
+                               trigger_game_full=trigger_game_full)
 
     # Supporting facts (2-4 additional context points)
     supporting = _build_supporting_facts(
         angle, stats, objective, trigger_stake, primary_game,
         rivals, unique_picks, best_path,
+        trigger_game_full=trigger_game_full,
     )
 
     # must_avoid: recent phrases/angles this player was covered with
@@ -480,13 +483,16 @@ def _default_frame(player_name: str, objective: str, primary_game: dict | None,
 
 
 def _build_headline(angle: str, stats: dict, trigger_stake: dict | None,
-                    primary_game: dict | None, rivals: list) -> str:
+                    primary_game: dict | None, rivals: list,
+                    trigger_game_full: dict | None = None) -> str:
     wp    = stats.get('win_prob', 0)
     champ = stats.get('champ_pick', '')
     game  = primary_game or trigger_stake
 
     if angle == 'champ_eliminated':
-        return f"Champion {champ} just got eliminated — bracket is now in rebuild mode"
+        result = trigger_game_full.get('result_sentence', '') if trigger_game_full else ''
+        result_note = f" ({result})" if result else ""
+        return f"Champion {champ} just got eliminated{result_note}"
     if angle == 'champ_in_danger':
         g = primary_game or {}
         return f"{champ} is live and trailing in {g.get('matchup', 'their game')} — {g.get('game_note', '')}"
@@ -515,11 +521,16 @@ def _build_headline(angle: str, stats: dict, trigger_stake: dict | None,
 
 def _build_supporting_facts(angle: str, stats: dict, objective: str,
                              trigger_stake: dict | None, primary_game: dict | None,
-                             rivals: list, unique_picks: list, best_path: list) -> list[str]:
+                             rivals: list, unique_picks: list, best_path: list,
+                             trigger_game_full: dict | None = None) -> list[str]:
     facts = []
     wp = stats.get('win_prob', 0)
     rank = stats.get('rank', '?')
     pool_size = stats.get('pool_size', '?')
+
+    # Result sentence first — grounded fact prevents winner hallucination
+    if trigger_game_full and trigger_game_full.get('result_sentence'):
+        facts.append(trigger_game_full['result_sentence'])
 
     # Directional context always surfaces for COVER entries
     game = trigger_stake or primary_game
@@ -562,6 +573,7 @@ def _build_must_avoid(player_history: dict, current_angle: str) -> list[str]:
     if last_frame:
         avoid.append('re-explaining the established frame — just work within it')
     avoid.append('inventing percentages or scores not given in the facts')
+    avoid.append('inventing the winner of any game — only state winners explicitly given in the brief')
     return avoid
 
 
@@ -589,8 +601,9 @@ def build_player_map(
     """
     cycle_time = cycle_time or datetime.now(timezone.utc)
 
-    trigger_id   = game_map.get('trigger_game_id')
-    trigger_game = get_game(game_map, trigger_id) if trigger_id is not None else None
+    trigger_id         = game_map.get('trigger_game_id')
+    trigger_game       = get_game(game_map, trigger_id) if trigger_id is not None else None
+    trigger_game_entry = trigger_game  # full game_map entry (has result_sentence etc.)
 
     player_names = [p['username'] for p in players]
     pool_size    = len(players)
@@ -712,6 +725,7 @@ def build_player_map(
                 unique_picks=stats.get('unique_picks', []),
                 best_path=stats.get('best_path_bullets', []),
                 frame_action=frame_action,
+                trigger_game_full=trigger_game_entry,
             )
 
         player_entries.append({
@@ -770,6 +784,45 @@ def build_player_map(
                     entry['coverage_decision'] = 'CLUSTER_COVER'
                     entry['skip_reason'] = f'cluster:{cl["cluster_id"]} — covered by {first}'
                     entry['assignment'] = None
+
+    # Tie detection — flag players with the same points so the writer doesn't say "coin flip"
+    from collections import defaultdict
+    points_groups: dict[int, list[str]] = defaultdict(list)
+    for entry in player_entries:
+        points_groups[entry['points']].append(entry['name'])
+
+    for entry in player_entries:
+        tied_names = [n for n in points_groups[entry['points']] if n != entry['name']]
+        entry['tied_with'] = tied_names
+        if tied_names and entry.get('assignment'):
+            # Decide tiebreaker framing based on remaining games
+            live_or_upcoming = [
+                g for g in game_map.get('games', [])
+                if g['status'] in ('live', 'upcoming')
+            ]
+            if live_or_upcoming:
+                # Find first game where tied players' picks differ
+                tiebreaker_game = None
+                for g in sorted(live_or_upcoming, key=lambda x: x['game_id']):
+                    t1_names = {p['name'] for p in g['sides'].get('team1', {}).get('players', [])}
+                    t2_names = {p['name'] for p in g['sides'].get('team2', {}).get('players', [])}
+                    tied_on_t1 = [n for n in tied_names if n in t1_names]
+                    tied_on_t2 = [n for n in tied_names if n in t2_names]
+                    self_on_t1 = entry['name'] in t1_names
+                    self_on_t2 = entry['name'] in t2_names
+                    if (self_on_t1 and tied_on_t2) or (self_on_t2 and tied_on_t1):
+                        tiebreaker_game = g['matchup']
+                        break
+                if tiebreaker_game:
+                    tie_fact = (f"Tied with {', '.join(tied_names)} in points — "
+                                f"{tiebreaker_game} is the real tiebreaker (they're rooting for opposite sides)")
+                else:
+                    tie_fact = f"Tied with {', '.join(tied_names)} in points — no divergent game found yet"
+            else:
+                # No games remain — tie stands, admin decides
+                tie_fact = (f"Tied with {', '.join(tied_names)} — same points, no games remain. "
+                            f"Pool admin determines final placement.")
+            entry['assignment']['supporting_facts'].append(tie_fact)
 
     return {
         'players':       player_entries,

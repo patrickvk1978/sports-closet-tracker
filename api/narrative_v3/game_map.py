@@ -483,6 +483,14 @@ def build_game_map(
             clock = f' ({game_note})' if game_note and status == 'live' else ''
             score = f"{s1}-{s2}{clock}"
 
+        # Result sentence — grounded fact for writer; prevents winner hallucination
+        result_sentence = None
+        if status == 'final' and game_db.get('winner'):
+            winner_name = game_db.get('winner')
+            loser_name = t2 if winner_name == t1 else t1
+            score_suffix = f" {score}" if score else ""
+            result_sentence = f"{winner_name} defeated {loser_name}{score_suffix}"
+
         # Compute sides with directional impact
         sides = build_sides(g, enriched_stats)
 
@@ -582,16 +590,24 @@ def build_game_map(
             # Narrative
             'story_type':          story_type,
             'headline':            headline,
+            'result_sentence':     result_sentence,
         })
 
     # Sort: live first, then final, then upcoming
     order = {'live': 0, 'final': 1, 'upcoming': 2}
     game_entries.sort(key=lambda g: (order.get(g['status'], 3), -g['aggregate_swing']))
 
+    # Detect tournament champion (slot 62 = championship game)
+    tournament_champion = None
+    champ_game_db = games_by_slot.get(62, {})
+    if champ_game_db.get('winner'):
+        tournament_champion = champ_game_db['winner']
+
     return {
-        'games':           game_entries,
-        'trigger_game_id': trigger_id,
-        'cycle_time':      cycle_time.isoformat(),
+        'games':               game_entries,
+        'trigger_game_id':     trigger_id,
+        'cycle_time':          cycle_time.isoformat(),
+        'tournament_champion': tournament_champion,
     }
 
 
