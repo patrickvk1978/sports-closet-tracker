@@ -1234,6 +1234,14 @@ function PostGameReportSection() {
     setError('')
     setRunning(true)
     try {
+      // Clear any stale trigger row first (avoids unique constraint violation)
+      await supabase
+        .from('narrative_config')
+        .delete()
+        .eq('pool_id', pool.id)
+        .eq('config_type', 'generate_reports')
+        .eq('config_key', 'generate_reports')
+
       const { error: insertError } = await supabase
         .from('narrative_config')
         .insert({
