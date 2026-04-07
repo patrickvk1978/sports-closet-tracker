@@ -138,13 +138,10 @@ export function computeArchetype(playerPicks, allBrackets, games) {
   const lateUniqueRate = lateTotal > 0 ? lateUnique / lateTotal : 0
   const isBoKimble = avgFreq > 0.45 && lateUniqueRate > 0.3
 
-  // 6. Christian Laettner — same team picked for multiple F4/Champ slots (all-in on one team)
-  const latePickCounts = {}
-  for (const slot of [60, 61, 62]) {
-    const pick = playerPicks[slot]
-    if (pick) latePickCounts[pick] = (latePickCounts[pick] || 0) + 1
-  }
-  const isLaettner = Object.values(latePickCounts).some(c => c >= 2)
+  // 6. Christian Laettner — same team picked to win BOTH Final Four semifinals
+  // (slots 60 and 61 are opposite sides of the bracket; picking the same team for both
+  // is logically impossible but signals extreme all-in belief in one team)
+  const isLaettner = !!(playerPicks[60] && playerPicks[61] && playerPicks[60] === playerPicks[61])
 
   // Assign archetype (priority order)
   if (isRegionalist) {

@@ -142,13 +142,11 @@ def compute_archetype(player_picks, all_brackets, games_by_slot, pool_size):
                 break
     max_region = max(region_counts.values(), default=0)
 
-    # Christian Laettner — same team picked in 2+ of the 3 late slots
-    late_pick_counts = {}
-    for slot in [60, 61, 62]:
-        pick = player_picks[slot] if slot < len(player_picks) else None
-        if pick:
-            late_pick_counts[pick] = late_pick_counts.get(pick, 0) + 1
-    is_laettner = any(c >= 2 for c in late_pick_counts.values())
+    # Christian Laettner — same team picked to win BOTH Final Four semifinals
+    # (slots 60 and 61 are opposite sides; matching them signals extreme all-in on one team)
+    pick_60 = player_picks[60] if len(player_picks) > 60 else None
+    pick_61 = player_picks[61] if len(player_picks) > 61 else None
+    is_laettner = bool(pick_60 and pick_61 and pick_60 == pick_61)
 
     # Bo Kimble — chalk early, unique late
     late_slots = list(range(48, 63))  # S16 through Champ
