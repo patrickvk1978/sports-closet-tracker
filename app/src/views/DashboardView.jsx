@@ -277,18 +277,19 @@ function StatBar({ player, poolSize, bestPath, finishMetric, finishMetricOptions
           )}
         </div>
 
-        {/* Needs / Biography link */}
-        {isAdmin ? (
-          <>
-            <div className="w-px h-6 bg-slate-700/60 shrink-0 hidden sm:block" />
-            <Link
-              to={`/reports/biography/${encodeURIComponent(player.name)}`}
-              className="text-[11px] text-orange-300/80 hover:text-orange-300 transition-colors"
-            >
-              Post-Game Report →
-            </Link>
-          </>
-        ) : needs.length > 0 && (
+        {/* Post-Game Report link — visible to all pool members */}
+        <>
+          <div className="w-px h-6 bg-slate-700/60 shrink-0 hidden sm:block" />
+          <Link
+            to={`/reports/biography/${encodeURIComponent(player.name)}`}
+            className="text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+          >
+            Post-Game Report →
+          </Link>
+        </>
+
+        {/* Needs — shown to non-admins when there are rooting interests */}
+        {!isAdmin && needs.length > 0 && (
           <>
             <div className="w-px h-6 bg-slate-700/60 shrink-0 hidden sm:block" />
             <div className="text-[11px] text-slate-400">

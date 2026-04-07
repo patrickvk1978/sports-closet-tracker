@@ -277,8 +277,7 @@ export default function BiographyView() {
   const decodedName = urlPlayerName ? decodeURIComponent(urlPlayerName) : null;
   const [selectedName, setSelectedName] = useState(decodedName || PLAYERS[0]?.name);
 
-  // Admin gate
-  if (!profile?.is_admin) return <Navigate to="/" />;
+  // No admin gate — all pool members can view reports;
 
   const player = PLAYERS.find((p) => p.name === selectedName) ?? PLAYERS[0];
   if (!player) return null;
