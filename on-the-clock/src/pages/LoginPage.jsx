@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signInWithGoogle, signUp, resetPassword } = useAuth();
   const [tab, setTab] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -57,6 +58,17 @@ export default function LoginPage() {
     }
   }
 
+  async function handleGoogleSignIn() {
+    setError("");
+    setInfo("");
+    setOauthLoading(true);
+    const { error: oauthError } = await signInWithGoogle();
+    if (oauthError) {
+      setError(oauthError.message ?? "Google sign-in failed");
+      setOauthLoading(false);
+    }
+  }
+
   function switchTab(next) {
     setTab(next);
     setError("");
@@ -90,6 +102,17 @@ export default function LoginPage() {
             Sign Up
           </button>
         </div>
+
+        {tab === "signin" ? (
+          <button
+            className="secondary-button full"
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading || oauthLoading}
+          >
+            {oauthLoading ? "Redirecting to Google..." : "Continue with Google"}
+          </button>
+        ) : null}
 
         <form onSubmit={handleSubmit} className="form-stack">
           {tab === "signup" ? (
