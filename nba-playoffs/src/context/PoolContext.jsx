@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 export const PoolContext = createContext(null)
 
 const ACTIVE_KEY = 'nba_playoffs_active_pool_id'
+const NBA_PRODUCT_KEY = 'nba_playoffs'
+const KNOWN_POOLS_KEY = 'nba_playoffs_known_pool_ids'
 
 function generateInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -23,6 +25,28 @@ const SERIES_SETTINGS_DEFAULTS = {
   points_per_correct_series: 3,
   bonus_for_exact_games: 1,
   allow_edits_until_tipoff: true,
+}
+
+function isNbaPool(pool) {
+  const productKey = pool?.settings?.product_key ?? pool?.settings?.productKey
+  return productKey === NBA_PRODUCT_KEY || ['bracket_pool', 'series_pickem'].includes(pool?.game_mode)
+}
+
+function getKnownPoolIds() {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(KNOWN_POOLS_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function rememberKnownPoolId(poolId) {
+  if (typeof window === 'undefined' || !poolId) return
+  const next = Array.from(new Set([...getKnownPoolIds(), poolId]))
+  window.localStorage.setItem(KNOWN_POOLS_KEY, JSON.stringify(next))
 }
 
 export function PoolProvider({ children }) {
@@ -64,16 +88,20 @@ export function PoolProvider({ children }) {
       .in('id', poolIds)
       .order('created_at', { ascending: false })
 
-    const ownedPools = pools ?? []
+    const activeId = localStorage.getItem(ACTIVE_KEY) ?? null
+    if (activeId) rememberKnownPoolId(activeId)
+    const knownPoolIds = new Set(getKnownPoolIds())
+    const ownedPools = (pools ?? []).filter((candidate) => isNbaPool(candidate) || knownPoolIds.has(candidate.id))
     setAllPools(ownedPools)
 
     // Restore active pool from localStorage
-    const activeId = localStorage.getItem(ACTIVE_KEY) ?? ownedPools[0]?.id ?? null
-    const activePool = ownedPools.find(p => p.id === activeId) ?? ownedPools[0] ?? null
+    const restoredActiveId = activeId ?? ownedPools[0]?.id ?? null
+    const activePool = ownedPools.find(p => p.id === restoredActiveId) ?? ownedPools[0] ?? null
     setPool(activePool)
 
     if (activePool) {
       localStorage.setItem(ACTIVE_KEY, activePool.id)
+      rememberKnownPoolId(activePool.id)
       await loadMembers(activePool.id)
     } else {
       setMembers([])
@@ -124,6 +152,11 @@ export function PoolProvider({ children }) {
   async function createPool({ name, gameMode, settings }) {
     const inviteCode = generateInviteCode()
     const defaultSettings = gameMode === 'series_pickem' ? SERIES_SETTINGS_DEFAULTS : BRACKET_SETTINGS_DEFAULTS
+    const productSettings = {
+      ...defaultSettings,
+      ...(settings ?? {}),
+      product_key: NBA_PRODUCT_KEY,
+    }
 
     const { data: newPool, error } = await supabase
       .from('pools')
@@ -132,7 +165,7 @@ export function PoolProvider({ children }) {
         admin_id: session.user.id,
         invite_code: inviteCode,
         game_mode: gameMode,
-        settings: settings ?? defaultSettings,
+        settings: productSettings,
       })
       .select()
       .single()
@@ -146,6 +179,7 @@ export function PoolProvider({ children }) {
     })
 
     localStorage.setItem(ACTIVE_KEY, newPool.id)
+    rememberKnownPoolId(newPool.id)
 
     // Set state directly — do not call loadPools() here, as its async
     // re-fetch can transiently set pool=null and bounce PoolGuard to /join.
@@ -161,6 +195,7 @@ export function PoolProvider({ children }) {
     const { data: pools } = await supabase.rpc('get_pool_by_invite_code', { code: inviteCode.trim().toUpperCase() })
     const target = pools?.[0]
     if (!target) return { error: 'Invalid invite code' }
+    if (!isNbaPool(target)) return { error: 'That invite code belongs to a different Sports Closet product.' }
 
     // Check if already a member
     const { data: existing } = await supabase
@@ -178,6 +213,7 @@ export function PoolProvider({ children }) {
     }
 
     localStorage.setItem(ACTIVE_KEY, target.id)
+    rememberKnownPoolId(target.id)
 
     // Set state directly — do not call loadPools() here for the same reason as createPool.
     setPool(target)
@@ -189,6 +225,7 @@ export function PoolProvider({ children }) {
 
   async function switchPool(poolId) {
     localStorage.setItem(ACTIVE_KEY, poolId)
+    rememberKnownPoolId(poolId)
     const nextPool = allPools.find(p => p.id === poolId) ?? null
     setPool(nextPool)
     if (nextPool) await loadMembers(nextPool.id)

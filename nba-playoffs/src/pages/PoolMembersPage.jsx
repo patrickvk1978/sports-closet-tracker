@@ -25,9 +25,6 @@ export default function PoolMembersPage() {
                 <strong>{member.name}</strong>
                 <span className="micro-label">{member.roleLabel}</span>
               </div>
-              <span className="member-status submitted">
-                {pool?.game_mode === "series_pickem" ? "Series pool" : "Bracket pool"}
-              </span>
             </div>
           ))}
         </div>

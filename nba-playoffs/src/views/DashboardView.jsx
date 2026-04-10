@@ -3,11 +3,6 @@ import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 
-function formatMode(mode) {
-  if (mode === "series_pickem") return "Series Pick'em";
-  return "Bracket Pool";
-}
-
 export default function DashboardView() {
   const { pool, members, memberList, settingsForPool } = usePool();
   const { currentRound, featuredSeries, seriesByRound } = usePlayoffData();
@@ -85,10 +80,6 @@ export default function DashboardView() {
             <div className="nba-stat-card">
               <span className="micro-label">Pool members</span>
               <strong>{members.length}</strong>
-            </div>
-            <div className="nba-stat-card">
-              <span className="micro-label">Pool format</span>
-              <strong>{formatMode(pool?.game_mode)}</strong>
             </div>
           </div>
           <div className="nba-quick-actions">
