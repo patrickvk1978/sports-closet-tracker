@@ -17,6 +17,7 @@ export default function NavBar() {
   const isDashboard = location.pathname === "/dashboard";
   const isSeries = location.pathname === "/series";
   const isBracket = location.pathname === "/bracket";
+  const isReports = location.pathname === "/reports";
   const isPoolCreator = pool?.admin_id === profile?.id;
   const canSettings   = isPoolCreator || Boolean(profile?.is_admin);
 
@@ -77,6 +78,14 @@ export default function NavBar() {
           aria-label="Bracket workspace"
         >
           Bracket
+        </button>
+
+        <button
+          className={buttonClass(isReports)}
+          onClick={() => navigate("/reports")}
+          aria-label="Reports"
+        >
+          Reports
         </button>
 
         {canSettings ? (
