@@ -2,16 +2,22 @@ import { Link } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
+import { useAuth } from "../hooks/useAuth";
 
 export default function DashboardView() {
+  const { profile } = useAuth();
   const { pool, members, memberList, settingsForPool } = usePool();
-  const { currentRound, featuredSeries, seriesByRound } = usePlayoffData();
+  const { currentRound, featuredSeries, seriesByRound, roundSummaries } = usePlayoffData();
   const settings = settingsForPool(pool);
   const activeRoundSeries = seriesByRound[currentRound.key] ?? [];
   const { picksBySeriesId, pickedSeriesCount } = useSeriesPickem(activeRoundSeries);
+  const isCommissioner = pool?.admin_id === profile?.id;
   const standingsPreview = memberList.slice(0, 5);
   const completedRoundPicks = activeRoundSeries.filter((series) => picksBySeriesId[series.id]?.winnerTeamId).length;
   const remainingRoundPicks = Math.max(activeRoundSeries.length - completedRoundPicks, 0);
+  const roundLocks = settings.round_locks ?? {};
+  const lockedRounds = roundSummaries.filter((round) => roundLocks[round.key]).length;
+  const inviteHealth = pool?.invite_code ? "Ready to share" : "Invite code missing";
   const nextActionLabel =
     remainingRoundPicks > 0
       ? `You still have ${remainingRoundPicks} ${remainingRoundPicks === 1 ? "series" : "series"} to pick in ${currentRound.label}.`
@@ -155,6 +161,44 @@ export default function DashboardView() {
             ))}
           </div>
         </article>
+
+        {isCommissioner ? (
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <span className="label">Commissioner</span>
+                <h2>Pool control snapshot</h2>
+              </div>
+            </div>
+            <div className="nba-dashboard-list">
+              <div className="nba-dashboard-row nba-dashboard-row-stacked">
+                <div>
+                  <strong>{members.length} members · {inviteHealth}</strong>
+                  <p>{pool?.invite_code ? `Invite code ${pool.invite_code} is active and ready to share.` : "This pool still needs a usable invite code."}</p>
+                </div>
+              </div>
+              <div className="nba-dashboard-row nba-dashboard-row-stacked">
+                <div>
+                  <strong>{lockedRounds} locked round{lockedRounds === 1 ? "" : "s"}</strong>
+                  <p>{currentRound.label} is the current active window. Review round locks if you want picks read-only before games move.</p>
+                </div>
+              </div>
+              <div className="nba-dashboard-row nba-dashboard-row-stacked">
+                <div>
+                  <strong>Quick commissioner actions</strong>
+                  <div className="nba-report-actions">
+                    <Link className="secondary-button" to="/pool-settings">
+                      Open Settings
+                    </Link>
+                    <Link className="secondary-button" to="/pool-members">
+                      View Members
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        ) : null}
       </section>
     </div>
   );
