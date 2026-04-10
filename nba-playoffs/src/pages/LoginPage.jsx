@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signUp, resetPassword, continueAsDemo, isDemoMode } = useAuth();
   const [tab, setTab] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -63,6 +63,22 @@ export default function LoginPage() {
     setInfo("");
   }
 
+  async function handleDemoLogin() {
+    setError("");
+    setInfo("");
+    setLoading(true);
+    try {
+      const result = await continueAsDemo();
+      if (result?.error) {
+        setError(result.error.message ?? "Could not start demo mode");
+        return;
+      }
+      navigate("/");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="auth-shell">
       <div className="auth-card fade-in">
@@ -70,6 +86,18 @@ export default function LoginPage() {
           <div className="brand-mark large">NBA</div>
           <h1>NBA Playoff Predictor</h1>
           <p>Join a playoff pool, build your bracket, and track every series with friends.</p>
+        </div>
+
+        <div
+          className="detail-card inset-card"
+          style={{ marginBottom: 20, background: isDemoMode ? "rgba(249, 115, 22, 0.12)" : undefined }}
+        >
+          <span className="micro-label">Demo access</span>
+          <p>
+            {isDemoMode
+              ? "Demo mode is available on this deployment. Use the button below to browse seeded pools and sample screens."
+              : "You can also continue in demo mode to explore the app without wiring Supabase first."}
+          </p>
         </div>
 
         <div className="auth-tabs" role="tablist">
@@ -154,6 +182,9 @@ export default function LoginPage() {
             {loading
               ? tab === "signin" ? "Signing in…" : "Creating account…"
               : tab === "signin" ? "Sign In" : "Create Account"}
+          </button>
+          <button className="secondary-button full" type="button" disabled={loading} onClick={handleDemoLogin}>
+            Continue as Demo
           </button>
         </form>
 

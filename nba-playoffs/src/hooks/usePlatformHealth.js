@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { isDemoModeEnabled } from "../lib/demoMode";
 
 export function usePlatformHealth() {
   const [status, setStatus] = useState({
     loading: true,
-    envConfigured: Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY),
+    envConfigured: isSupabaseConfigured,
     nbaSeriesPicksTable: "unknown",
     message: "Checking platform health…",
   });
@@ -13,6 +14,16 @@ export function usePlatformHealth() {
     let cancelled = false;
 
     async function check() {
+      if (!isSupabaseConfigured || isDemoModeEnabled()) {
+        setStatus({
+          loading: false,
+          envConfigured: isSupabaseConfigured,
+          nbaSeriesPicksTable: "demo",
+          message: "Demo mode is active. Local sample data is powering this preview.",
+        });
+        return;
+      }
+
       try {
         const { error } = await supabase
           .from("nba_series_picks")

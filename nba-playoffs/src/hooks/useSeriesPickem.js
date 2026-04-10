@@ -12,8 +12,31 @@ function writeLocalPicks(poolId, picks) {
   window.localStorage.setItem(storageKey(poolId), JSON.stringify(picks));
 }
 
+function buildDemoOpponentPicks(series, memberList, currentUserId, currentUserPicks) {
+  const nextAll = currentUserId ? { [currentUserId]: currentUserPicks } : {};
+
+  memberList
+    .filter((member) => member.id !== currentUserId)
+    .forEach((member, memberIndex) => {
+      nextAll[member.id] = {};
+
+      series.forEach((seriesItem, seriesIndex) => {
+        const chooseHome = (memberIndex + seriesIndex) % 2 === 0;
+        const chosenTeam = chooseHome ? seriesItem.homeTeam : seriesItem.awayTeam;
+        nextAll[member.id][seriesItem.id] = {
+          winnerTeamId: chosenTeam.id,
+          games: [5, 6, 7, 6][(memberIndex + seriesIndex) % 4],
+          roundKey: seriesItem.roundKey,
+          updatedAt: "2026-04-10T18:00:00.000Z",
+        };
+      });
+    });
+
+  return nextAll;
+}
+
 export function useSeriesPickem(series) {
-  const { pool } = usePool();
+  const { pool, memberList } = usePool();
   const { session } = useAuth();
   const [picksBySeriesId, setPicksBySeriesId] = useState({});
   const [allPicksByUser, setAllPicksByUser] = useState({});
@@ -48,7 +71,7 @@ export function useSeriesPickem(series) {
           return !latest || pick.updatedAt > latest ? pick.updatedAt : latest;
         }, null);
         setPicksBySeriesId(fallback);
-        setAllPicksByUser(session.user.id ? { [session.user.id]: fallback } : {});
+        setAllPicksByUser(buildDemoOpponentPicks(series, memberList, session.user.id, fallback));
         setPersistenceMode("local");
         setSaveState("idle");
         setLastSavedAt(latestSavedAt);
@@ -89,7 +112,7 @@ export function useSeriesPickem(series) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [pool?.id, session?.user?.id]);
+  }, [pool?.id, session?.user?.id, series, memberList]);
 
   const pickedSeriesCount = useMemo(
     () => series.filter((item) => picksBySeriesId[item.id]?.winnerTeamId).length,
@@ -117,13 +140,13 @@ export function useSeriesPickem(series) {
     });
 
     if (session?.user?.id) {
-      setAllPicksByUser((current) => ({
-        ...current,
-        [session.user.id]: {
+      setAllPicksByUser((current) => {
+        const nextCurrentUser = {
           ...(current[session.user.id] ?? {}),
           [seriesId]: nextPick,
-        },
-      }));
+        };
+        return buildDemoOpponentPicks(series, memberList, session.user.id, nextCurrentUser);
+      });
     }
 
     if (persistenceMode !== "supabase" || !pool?.id || !session?.user?.id) {
@@ -165,11 +188,9 @@ export function useSeriesPickem(series) {
 
     if (session?.user?.id) {
       setAllPicksByUser((current) => {
-        const next = { ...current };
-        const userPicks = { ...(next[session.user.id] ?? {}) };
+        const userPicks = { ...(current[session.user.id] ?? {}) };
         delete userPicks[seriesId];
-        next[session.user.id] = userPicks;
-        return next;
+        return buildDemoOpponentPicks(series, memberList, session.user.id, userPicks);
       });
     }
 
