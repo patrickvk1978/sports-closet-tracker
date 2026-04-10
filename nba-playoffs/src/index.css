@@ -459,6 +459,23 @@ p { margin: 0; }
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.nba-reports-hero {
+  display: grid;
+  gap: 18px;
+}
+
+.nba-reports-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nba-report-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .nba-conference-column,
 .nba-series-column,
 .nba-series-list {
@@ -2970,6 +2987,7 @@ select:focus {
   .nba-bracket-layout,
   .nba-bracket-rounds,
   .nba-dashboard-grid,
+  .nba-reports-summary,
   .nba-feature-grid,
   .nba-roadmap-grid,
   .nba-bracket-board,

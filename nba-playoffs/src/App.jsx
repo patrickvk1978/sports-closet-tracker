@@ -15,6 +15,9 @@ import NavBar from "./components/NavBar";
 import DashboardView from "./views/DashboardView";
 import BracketWorkspaceView from "./views/BracketWorkspaceView";
 import SeriesTrackerView from "./views/SeriesTrackerView";
+import ReportsView from "./views/ReportsView";
+import SeriesReportView from "./views/SeriesReportView";
+import OpponentReportView from "./views/OpponentReportView";
 import { usePool } from "./hooks/usePool";
 
 function AppChrome() {
@@ -59,6 +62,9 @@ export default function App() {
                     <Route path="/dashboard" element={<DashboardView />} />
                     <Route path="/bracket" element={<BracketWorkspaceView />} />
                     <Route path="/series" element={<SeriesTrackerView />} />
+                    <Route path="/reports" element={<ReportsView />} />
+                    <Route path="/reports/series/:seriesId" element={<SeriesReportView />} />
+                    <Route path="/reports/opponent/:opponentId" element={<OpponentReportView />} />
                     <Route path="/pool-settings" element={<PoolSettingsPage />} />
                     <Route path="/pool-members" element={<PoolMembersPage />} />
                   </Route>
