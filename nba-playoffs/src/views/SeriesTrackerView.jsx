@@ -4,6 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import {
+  describeRoundScoring,
   getAvailableRoundKey,
   isRoundUnlocked,
   scoreSeriesPick,
@@ -63,6 +64,7 @@ export default function SeriesTrackerView() {
   } = useSeriesPickem(series);
   const availableRoundKey = getAvailableRoundKey(roundSummaries);
   const activeSeries = seriesByRound[activeRound] ?? [];
+  const currentRoundScoring = describeRoundScoring(availableRoundKey, settings);
   const scoreSummary = useMemo(
     () => summarizePickScores(picksBySeriesId, series, settings),
     [picksBySeriesId, series, settings]
@@ -104,7 +106,7 @@ export default function SeriesTrackerView() {
             <span className="micro-label">Scoring</span>
             <p>
               {pool?.game_mode === "series_pickem"
-                ? `Correct series: ${settings.points_per_correct_series} pts, exact games bonus: ${settings.bonus_for_exact_games} pt`
+                ? `${formatRoundLabel(availableRoundKey)} scores ${currentRoundScoring.exactBase} for exact 5/6, ${currentRoundScoring.exactEdge} for exact 4/7, ${currentRoundScoring.offBy1} if you're off by 1, and ${currentRoundScoring.offBy2} if you're off by 2.`
                 : "Series scoring will become the live-detail companion to the bracket pool."}
             </p>
           </article>
