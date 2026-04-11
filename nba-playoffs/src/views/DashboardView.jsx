@@ -3,16 +3,18 @@ import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { useAuth } from "../hooks/useAuth";
+import { buildStandings } from "../lib/standings";
 
 export default function DashboardView() {
   const { profile } = useAuth();
   const { pool, members, memberList, settingsForPool } = usePool();
-  const { currentRound, featuredSeries, seriesByRound, roundSummaries } = usePlayoffData();
+  const { currentRound, featuredSeries, series, seriesByRound, roundSummaries } = usePlayoffData();
   const settings = settingsForPool(pool);
   const activeRoundSeries = seriesByRound[currentRound.key] ?? [];
-  const { picksBySeriesId, pickedSeriesCount } = useSeriesPickem(activeRoundSeries);
+  const { picksBySeriesId, allPicksByUser, pickedSeriesCount } = useSeriesPickem(activeRoundSeries);
   const isCommissioner = pool?.admin_id === profile?.id;
-  const standingsPreview = memberList.slice(0, 5);
+  const standings = buildStandings(memberList, allPicksByUser, series, settings);
+  const standingsPreview = standings.slice(0, 5);
   const completedRoundPicks = activeRoundSeries.filter((series) => picksBySeriesId[series.id]?.winnerTeamId).length;
   const remainingRoundPicks = Math.max(activeRoundSeries.length - completedRoundPicks, 0);
   const roundLocks = settings.round_locks ?? {};
@@ -23,8 +25,8 @@ export default function DashboardView() {
       ? `You still have ${remainingRoundPicks} ${remainingRoundPicks === 1 ? "series" : "series"} to pick in ${currentRound.label}.`
       : `Your ${currentRound.label} board is filled in. Track live swings and room consensus.`;
   const positionLabel =
-    standingsPreview.findIndex((member) => member.isCurrentUser) >= 0
-      ? `Currently ${standingsPreview.findIndex((member) => member.isCurrentUser) + 1}${standingsPreview.findIndex((member) => member.isCurrentUser) === 0 ? "st" : standingsPreview.findIndex((member) => member.isCurrentUser) === 1 ? "nd" : standingsPreview.findIndex((member) => member.isCurrentUser) === 2 ? "rd" : "th"} in the previewed standings`
+    standings.findIndex((member) => member.isCurrentUser) >= 0
+      ? `Currently ${standings.find((member) => member.isCurrentUser)?.place}${standings.find((member) => member.isCurrentUser)?.place === 1 ? "st" : standings.find((member) => member.isCurrentUser)?.place === 2 ? "nd" : standings.find((member) => member.isCurrentUser)?.place === 3 ? "rd" : "th"} in the pool`
       : "Standings will sharpen as more picks come in";
   const researchItems = featuredSeries.map((series) => {
     const marketFavorite =
@@ -107,14 +109,17 @@ export default function DashboardView() {
               <span className="label">Standings</span>
               <h2>Pool snapshot</h2>
             </div>
+            <Link className="secondary-button" to="/standings">
+              Full standings
+            </Link>
           </div>
           <div className="nba-dashboard-list">
             {standingsPreview.map((member, index) => (
               <div className="nba-dashboard-row" key={member.id}>
-                <span className="nba-dashboard-rank">{index + 1}</span>
+                <span className="nba-dashboard-rank">{member.place ?? index + 1}</span>
                 <div>
                   <strong>{member.name}</strong>
-                  <p>{member.roleLabel}</p>
+                  <p>{member.summary.totalPoints} pts · {member.summary.exact} exact · {member.pointsBack} back</p>
                 </div>
               </div>
             ))}

@@ -535,6 +535,76 @@ p { margin: 0; }
   gap: 10px;
 }
 
+.nba-standings-table-shell {
+  overflow-x: auto;
+  border: 1px solid rgba(178, 144, 105, 0.72);
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, rgba(249, 241, 227, 0.98), rgba(239, 223, 195, 0.98));
+  box-shadow: 0 14px 30px rgba(88, 55, 34, 0.1);
+}
+
+.nba-standings-table-expanded {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.nba-standings-table-expanded th,
+.nba-standings-table-expanded td {
+  padding: 14px 16px;
+  text-align: left;
+  border-top: 1px solid rgba(178, 144, 105, 0.28);
+  vertical-align: middle;
+}
+
+.nba-standings-table-expanded thead th {
+  border-top: 0;
+  background: rgba(247, 237, 220, 0.94);
+  color: var(--text-2);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nba-standings-table-expanded tbody tr {
+  transition: background var(--t-fast);
+}
+
+.nba-standings-table-expanded tbody tr:hover {
+  background: rgba(196, 154, 58, 0.06);
+}
+
+.nba-standings-table-expanded tbody tr.is-current-user {
+  background: rgba(194, 90, 44, 0.07);
+}
+
+.nba-sort-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.nba-sort-button:hover {
+  color: var(--brand-dark);
+}
+
+.nba-standings-name-cell {
+  display: grid;
+  gap: 2px;
+}
+
+.nba-standings-name-cell span {
+  color: var(--text-3);
+  font-size: 0.85rem;
+}
+
 .nba-standings-row {
   display: grid;
   grid-template-columns: 52px minmax(0, 1.4fr) minmax(220px, 0.9fr);
@@ -3134,6 +3204,10 @@ select:focus {
 
   .nba-standings-row {
     grid-template-columns: 44px 1fr;
+  }
+
+  .nba-standings-table-shell {
+    margin: 0 -4px;
   }
 
   .nba-standings-metrics {

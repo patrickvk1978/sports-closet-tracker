@@ -15,6 +15,7 @@ import NavBar from "./components/NavBar";
 import DashboardView from "./views/DashboardView";
 import BracketWorkspaceView from "./views/BracketWorkspaceView";
 import SeriesTrackerView from "./views/SeriesTrackerView";
+import StandingsView from "./views/StandingsView";
 import ReportsView from "./views/ReportsView";
 import SeriesReportView from "./views/SeriesReportView";
 import OpponentReportView from "./views/OpponentReportView";
@@ -60,6 +61,7 @@ export default function App() {
                   <Route element={<PoolGuard />}>
                     <Route path="/" element={<PoolHomeRedirect />} />
                     <Route path="/dashboard" element={<DashboardView />} />
+                    <Route path="/standings" element={<StandingsView />} />
                     <Route path="/bracket" element={<BracketWorkspaceView />} />
                     <Route path="/series" element={<SeriesTrackerView />} />
                     <Route path="/reports" element={<ReportsView />} />
