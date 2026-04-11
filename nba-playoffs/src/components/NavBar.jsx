@@ -3,7 +3,7 @@ import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 
 function buttonClass(active) {
-  return active ? "nav-button chip active" : "nav-button";
+  return active ? "nav-button active" : "nav-button";
 }
 
 export default function NavBar() {
