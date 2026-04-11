@@ -15,6 +15,7 @@ export default function NavBar() {
   const isAdmin     = location.pathname === "/admin";
   const isSettings  = location.pathname === "/pool-settings";
   const isDashboard = location.pathname === "/dashboard";
+  const isStandings = location.pathname === "/standings";
   const isSeries = location.pathname === "/series";
   const isBracket = location.pathname === "/bracket";
   const isReports = location.pathname === "/reports";
@@ -62,6 +63,14 @@ export default function NavBar() {
           aria-label="Dashboard"
         >
           Dashboard
+        </button>
+
+        <button
+          className={buttonClass(isStandings)}
+          onClick={() => navigate("/standings")}
+          aria-label="Standings"
+        >
+          Standings
         </button>
 
         <button

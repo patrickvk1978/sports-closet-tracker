@@ -5,6 +5,7 @@ import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { summarizePickScores, summarizeSeriesMarket } from "../lib/seriesPickem";
+import { buildCurrentRoundWinOdds, buildStandings } from "../lib/standings";
 
 function formatPct(value) {
   const safe = Number.isFinite(value) ? value : 0;
@@ -144,16 +145,17 @@ export default function ReportsView() {
     }
   }, [opponents, selectedOpponentId]);
 
-  const standings = useMemo(() => {
-    return memberList
-      .map((member) => ({
-        ...member,
-        summary: summarizePickScores(allPicksByUser[member.id] ?? {}, series, settings),
-      }))
-      .sort((a, b) => b.summary.totalPoints - a.summary.totalPoints || b.summary.exact - a.summary.exact || a.name.localeCompare(b.name));
-  }, [allPicksByUser, memberList, series, settings]);
-
   const activeRoundSeries = seriesByRound[currentRound.key] ?? [];
+  const currentRoundWinOdds = useMemo(
+    () => buildCurrentRoundWinOdds(memberList, allPicksByUser, activeRoundSeries, series, settings),
+    [activeRoundSeries, allPicksByUser, memberList, series, settings]
+  );
+  const standings = useMemo(() => {
+    return buildStandings(memberList, allPicksByUser, series, settings).map((member) => ({
+      ...member,
+      roundWinOdds: currentRoundWinOdds[member.id] ?? 0,
+    }));
+  }, [allPicksByUser, currentRoundWinOdds, memberList, series, settings]);
   const rootingRows = useMemo(() => {
     return activeRoundSeries
       .map((seriesItem) => {
@@ -265,6 +267,47 @@ export default function ReportsView() {
       .sort((a, b) => b.swingScore - a.swingScore)
       .slice(0, 3);
   }, [activeRoundSeries, allPicksByUser, currentStandingIndex, memberList, picksBySeriesId]);
+  const probabilityRows = useMemo(() => {
+    return activeRoundSeries
+      .map((seriesItem) => {
+        const yourPick = picksBySeriesId[seriesItem.id] ?? null;
+        const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
+        const pickedPct = !yourPick
+          ? 0
+          : yourPick.winnerTeamId === seriesItem.homeTeam.id
+            ? marketSummary.homePct
+            : marketSummary.awayPct;
+        const yourTeam = !yourPick
+          ? null
+          : yourPick.winnerTeamId === seriesItem.homeTeam.id
+            ? seriesItem.homeTeam
+            : seriesItem.awayTeam;
+        const roomTeam =
+          marketSummary.consensusWinnerTeamId === seriesItem.homeTeam.id
+            ? seriesItem.homeTeam
+            : marketSummary.consensusWinnerTeamId === seriesItem.awayTeam.id
+              ? seriesItem.awayTeam
+              : null;
+
+        return {
+          id: seriesItem.id,
+          matchup: `${seriesItem.homeTeam.abbreviation} vs ${seriesItem.awayTeam.abbreviation}`,
+          title: !yourPick
+            ? `This series is still pure variance for your odds`
+            : roomTeam && yourTeam && roomTeam.id !== yourTeam.id
+              ? `${yourTeam.abbreviation} is your clearest odds swing`
+              : `${yourTeam?.abbreviation ?? "This series"} is mostly defensive for your odds`,
+          body: !yourPick
+            ? "You have not picked this series yet, so your current-round win odds are unusually exposed here."
+            : roomTeam && yourTeam && roomTeam.id !== yourTeam.id
+              ? `Only ${formatPct(pickedPct)} of the room is with you here. If ${yourTeam.abbreviation} hits, your current-round win odds should jump more than on a consensus result.`
+              : `About ${formatPct(pickedPct)} of the pool is already with you. This result matters more for protecting position than creating separation.`,
+          leverage: (yourPick ? Math.abs(50 - pickedPct) : 42) + Math.abs((seriesItem.market.homeWinPct ?? 50) - (seriesItem.model.homeWinPct ?? 50)),
+        };
+      })
+      .sort((a, b) => b.leverage - a.leverage)
+      .slice(0, 3);
+  }, [activeRoundSeries, allPicksByUser, memberList, picksBySeriesId]);
 
   return (
     <div className="nba-shell">
@@ -427,6 +470,34 @@ export default function ReportsView() {
                       Open series report
                     </Link>
                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-header">
+            <div>
+              <span className="label">Win odds</span>
+              <h2>What is driving your current-round probability?</h2>
+            </div>
+          </div>
+          <div className="nba-dashboard-list">
+            <div className="nba-dashboard-row nba-dashboard-row-stacked">
+              <div>
+                <strong>{currentStanding ? `${currentStanding.roundWinOdds}% current-round win odds` : "Current-round odds still forming"}</strong>
+                <p>
+                  This first-pass number simulates the unresolved series in the current round using the market percentages already on the board.
+                </p>
+              </div>
+            </div>
+            {probabilityRows.map((row) => (
+              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={`${row.id}-probability`}>
+                <div>
+                  <strong>{row.title}</strong>
+                  <p>{row.matchup}</p>
+                  <p>{row.body}</p>
                 </div>
               </div>
             ))}

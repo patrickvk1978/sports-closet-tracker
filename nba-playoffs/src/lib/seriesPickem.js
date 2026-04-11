@@ -42,10 +42,8 @@ export function getSeriesResult(series) {
   };
 }
 
-export function scoreSeriesPick(pick, series, settings) {
-  const result = getSeriesResult(series);
+export function scoreSeriesPickAgainstResult(pick, result, roundKey, settings) {
   if (!pick || !result) return null;
-
   if (pick.winnerTeamId !== result.winnerTeamId) {
     return {
       points: 0,
@@ -54,7 +52,7 @@ export function scoreSeriesPick(pick, series, settings) {
     };
   }
 
-  const scoring = getRoundScoring(series.roundKey, settings);
+  const scoring = getRoundScoring(roundKey, settings);
   const gameDiff = Math.abs(Number(pick.games) - result.games);
 
   if (gameDiff === 0) {
@@ -87,6 +85,12 @@ export function scoreSeriesPick(pick, series, settings) {
     outcome: "miss",
     label: "Correct winner, too far on length",
   };
+}
+
+export function scoreSeriesPick(pick, series, settings) {
+  const result = getSeriesResult(series);
+  if (!pick || !result) return null;
+  return scoreSeriesPickAgainstResult(pick, result, series.roundKey, settings);
 }
 
 export function getAvailableRoundKey(roundSummaries) {
