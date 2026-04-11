@@ -1,5 +1,38 @@
 const ROUND_ORDER = ["round_1", "semifinals", "finals", "nba_finals"];
 
+export const ROUND_SCORING = {
+  round_1: { exactBase: 5, edgeBonus: 1, offBy1: 3, offBy2: 1 },
+  semifinals: { exactBase: 7, edgeBonus: 1, offBy1: 4, offBy2: 1 },
+  finals: { exactBase: 9, edgeBonus: 1, offBy1: 5, offBy2: 2 },
+  nba_finals: { exactBase: 11, edgeBonus: 1, offBy1: 6, offBy2: 2 },
+};
+
+const EDGE_GAMES = new Set([4, 7]);
+
+export function getRoundScoring(roundKey, settings) {
+  const fallback = ROUND_SCORING[roundKey] ?? ROUND_SCORING.round_1;
+  const customMatrix = settings?.round_scoring;
+  if (!customMatrix || typeof customMatrix !== "object") return fallback;
+
+  const custom = customMatrix[roundKey];
+  if (!custom || typeof custom !== "object") return fallback;
+
+  return {
+    exactBase: Number(custom.exactBase ?? fallback.exactBase),
+    edgeBonus: Number(custom.edgeBonus ?? fallback.edgeBonus),
+    offBy1: Number(custom.offBy1 ?? fallback.offBy1),
+    offBy2: Number(custom.offBy2 ?? fallback.offBy2),
+  };
+}
+
+export function describeRoundScoring(roundKey, settings) {
+  const scoring = getRoundScoring(roundKey, settings);
+  return {
+    ...scoring,
+    exactEdge: scoring.exactBase + scoring.edgeBonus,
+  };
+}
+
 export function getSeriesResult(series) {
   if (series.status !== "completed" || !series.winnerTeamId) return null;
 
@@ -21,21 +54,21 @@ export function scoreSeriesPick(pick, series, settings) {
     };
   }
 
-  const exactBase = Number(settings?.points_per_correct_series ?? 3);
-  const exactBonus = Number(settings?.bonus_for_exact_games ?? 1);
+  const scoring = getRoundScoring(series.roundKey, settings);
   const gameDiff = Math.abs(Number(pick.games) - result.games);
 
   if (gameDiff === 0) {
+    const edgeBonus = EDGE_GAMES.has(result.games) ? scoring.edgeBonus : 0;
     return {
-      points: exactBase + exactBonus,
+      points: scoring.exactBase + edgeBonus,
       outcome: "exact",
-      label: "Exact series and length",
+      label: edgeBonus ? `Exact ${result.games}-game call` : "Exact series and length",
     };
   }
 
   if (gameDiff === 1) {
     return {
-      points: Math.max(exactBase - 1, 1),
+      points: scoring.offBy1,
       outcome: "close",
       label: "Correct winner, off by 1 game",
     };
@@ -43,7 +76,7 @@ export function scoreSeriesPick(pick, series, settings) {
 
   if (gameDiff === 2) {
     return {
-      points: 1,
+      points: scoring.offBy2,
       outcome: "near",
       label: "Correct winner, off by 2 games",
     };

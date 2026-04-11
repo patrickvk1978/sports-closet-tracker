@@ -15,16 +15,28 @@ function generateInviteCode() {
   return code
 }
 
-const BRACKET_SETTINGS_DEFAULTS = {
-  rounds: 4,
-  reseed_after_round: false,
-  lock_behavior: 'before_tipoff',
+const SERIES_SETTINGS_DEFAULTS = {
+  scoring_model: 'round_weighted_series_v1',
+  round_scoring: {
+    round_1: { exactBase: 5, edgeBonus: 1, offBy1: 3, offBy2: 1 },
+    semifinals: { exactBase: 7, edgeBonus: 1, offBy1: 4, offBy2: 1 },
+    finals: { exactBase: 9, edgeBonus: 1, offBy1: 5, offBy2: 2 },
+    nba_finals: { exactBase: 11, edgeBonus: 1, offBy1: 6, offBy2: 2 },
+  },
+  allow_edits_until_tipoff: true,
 }
 
-const SERIES_SETTINGS_DEFAULTS = {
-  points_per_correct_series: 3,
-  bonus_for_exact_games: 1,
-  allow_edits_until_tipoff: true,
+function normalizeNbaPool(pool) {
+  if (!pool) return pool
+  return {
+    ...pool,
+    game_mode: 'series_pickem',
+    settings: {
+      ...SERIES_SETTINGS_DEFAULTS,
+      ...(pool.settings ?? {}),
+      product_key: NBA_PRODUCT_KEY,
+    },
+  }
 }
 
 function isNbaPool(pool) {
@@ -143,17 +155,14 @@ export function PoolProvider({ children }) {
   }, [members, pool?.admin_id, session?.user?.id])
 
   function settingsForPool(targetPool = pool) {
-    if (!targetPool) return BRACKET_SETTINGS_DEFAULTS
-    return targetPool.game_mode === 'series_pickem'
-      ? { ...SERIES_SETTINGS_DEFAULTS, ...(targetPool.settings ?? {}) }
-      : { ...BRACKET_SETTINGS_DEFAULTS, ...(targetPool.settings ?? {}) }
+    if (!targetPool) return SERIES_SETTINGS_DEFAULTS
+    return { ...SERIES_SETTINGS_DEFAULTS, ...(targetPool.settings ?? {}) }
   }
 
   async function createPool({ name, gameMode, settings }) {
     const inviteCode = generateInviteCode()
-    const defaultSettings = gameMode === 'series_pickem' ? SERIES_SETTINGS_DEFAULTS : BRACKET_SETTINGS_DEFAULTS
     const productSettings = {
-      ...defaultSettings,
+      ...SERIES_SETTINGS_DEFAULTS,
       ...(settings ?? {}),
       product_key: NBA_PRODUCT_KEY,
     }
@@ -164,7 +173,7 @@ export function PoolProvider({ children }) {
         name,
         admin_id: session.user.id,
         invite_code: inviteCode,
-        game_mode: gameMode,
+        game_mode: 'series_pickem',
         settings: productSettings,
       })
       .select()
@@ -183,8 +192,9 @@ export function PoolProvider({ children }) {
 
     // Set state directly — do not call loadPools() here, as its async
     // re-fetch can transiently set pool=null and bounce PoolGuard to /join.
-    setPool(newPool)
-    setAllPools(prev => [newPool, ...prev])
+    const normalizedPool = normalizeNbaPool(newPool)
+    setPool(normalizedPool)
+    setAllPools(prev => [normalizedPool, ...prev.map(normalizeNbaPool)])
     setMembers([])
     setIsLoading(false)
 
@@ -193,7 +203,7 @@ export function PoolProvider({ children }) {
 
   async function joinPool(inviteCode) {
     const { data: pools } = await supabase.rpc('get_pool_by_invite_code', { code: inviteCode.trim().toUpperCase() })
-    const target = pools?.[0]
+    const target = normalizeNbaPool(pools?.[0])
     if (!target) return { error: 'Invalid invite code' }
     if (!isNbaPool(target)) return { error: 'That invite code belongs to a different Sports Closet product.' }
 
@@ -217,7 +227,7 @@ export function PoolProvider({ children }) {
 
     // Set state directly — do not call loadPools() here for the same reason as createPool.
     setPool(target)
-    setAllPools(prev => prev.find(p => p.id === target.id) ? prev : [target, ...prev])
+    setAllPools(prev => prev.find(p => p.id === target.id) ? prev.map(normalizeNbaPool) : [target, ...prev.map(normalizeNbaPool)])
     setIsLoading(false)
 
     return { pool: target }
@@ -235,15 +245,15 @@ export function PoolProvider({ children }) {
     if (!pool) return
     const nextSettings = { ...(pool.settings ?? {}), ...settingsPatch }
     await supabase.from('pools').update({ settings: nextSettings }).eq('id', pool.id)
-    setPool(prev => prev ? { ...prev, settings: nextSettings } : prev)
-    setAllPools(prev => prev.map(p => p.id === pool.id ? { ...p, settings: nextSettings } : p))
+    setPool(prev => prev ? normalizeNbaPool({ ...prev, settings: nextSettings }) : prev)
+    setAllPools(prev => prev.map(p => p.id === pool.id ? normalizeNbaPool({ ...p, settings: nextSettings }) : p))
   }
 
   async function updatePoolMeta(patch) {
     if (!pool) return
     await supabase.from('pools').update(patch).eq('id', pool.id)
-    setPool(prev => prev ? { ...prev, ...patch } : prev)
-    setAllPools(prev => prev.map(p => p.id === pool.id ? { ...p, ...patch } : p))
+    setPool(prev => prev ? normalizeNbaPool({ ...prev, ...patch }) : prev)
+    setAllPools(prev => prev.map(p => p.id === pool.id ? normalizeNbaPool({ ...p, ...patch }) : p))
   }
 
   const value = useMemo(() => ({

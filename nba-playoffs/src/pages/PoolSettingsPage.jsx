@@ -3,6 +3,14 @@ import { Link } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
+import { describeRoundScoring } from "../lib/seriesPickem";
+
+const SCORING_ROWS = [
+  { roundKey: "round_1", label: "Round 1" },
+  { roundKey: "semifinals", label: "Conference semifinals" },
+  { roundKey: "finals", label: "Conference finals" },
+  { roundKey: "nba_finals", label: "NBA Finals" },
+];
 
 export default function PoolSettingsPage() {
   const { pool, settingsForPool, updatePoolMeta, updatePoolSettings, memberList } = usePool();
@@ -11,7 +19,6 @@ export default function PoolSettingsPage() {
 
   const isCommissioner = pool?.admin_id === profile?.id;
   const isSiteAdmin = Boolean(profile?.is_admin);
-  const isSeriesMode = pool?.game_mode === "series_pickem";
   const settings = settingsForPool(pool);
   const [name, setName] = useState(pool?.name ?? "");
   const [saved, setSaved] = useState(false);
@@ -51,19 +58,9 @@ export default function PoolSettingsPage() {
     await updatePoolMeta({ name: name.trim() || pool.name });
     const form = new FormData(event.currentTarget);
 
-    if (isSeriesMode) {
-      await updatePoolSettings({
-        points_per_correct_series: Number(form.get("points_per_correct_series")),
-        bonus_for_exact_games: Number(form.get("bonus_for_exact_games")),
-        allow_edits_until_tipoff: form.get("allow_edits_until_tipoff") === "true",
-      });
-    } else {
-      await updatePoolSettings({
-        rounds: Number(form.get("rounds")),
-        reseed_after_round: form.get("reseed_after_round") === "true",
-        lock_behavior: form.get("lock_behavior"),
-      });
-    }
+    await updatePoolSettings({
+      allow_edits_until_tipoff: form.get("allow_edits_until_tipoff") === "true",
+    });
 
     setSaved(true);
   }
@@ -119,67 +116,57 @@ export default function PoolSettingsPage() {
         <div className="panel-header">
           <div>
             <span className="label">Gameplay rules</span>
-            <h2>{isSeriesMode ? "Scoring and edit rules" : "Bracket rules"}</h2>
+            <h2>Scoring and edit rules</h2>
           </div>
         </div>
 
-        {isSeriesMode ? (
-          <div className="settings-form-grid three-up">
-            <label className="field">
-              <span>Correct series</span>
-              <input
-                name="points_per_correct_series"
-                type="number"
-                min="0"
-                defaultValue={pool?.settings?.points_per_correct_series ?? 3}
-              />
-            </label>
-            <label className="field">
-              <span>Exact games bonus</span>
-              <input
-                name="bonus_for_exact_games"
-                type="number"
-                min="0"
-                defaultValue={pool?.settings?.bonus_for_exact_games ?? 1}
-              />
-            </label>
-            <label className="field">
-              <span>Allow edits until tipoff</span>
-              <select
-                name="allow_edits_until_tipoff"
-                defaultValue={String(pool?.settings?.allow_edits_until_tipoff ?? true)}
-              >
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-              </select>
-            </label>
-            <div className="detail-card">
-              <span className="micro-label">Round locks</span>
-              <p>Commissioners can lock or unlock each playoff round below. Locked rounds become read-only on the Series board.</p>
-            </div>
+        <div className="settings-form-grid">
+          <div className="detail-card">
+            <span className="micro-label">Contest scoring</span>
+            <p>Series Pick&apos;em uses a fixed round-weighted model. Exact winner and length earn the most, with a bonus for exact 4-game sweeps and exact 7-game calls.</p>
           </div>
-        ) : (
           <div className="settings-form-grid three-up">
-            <label className="field">
-              <span>Rounds</span>
-              <input name="rounds" type="number" min="1" max="4" defaultValue={pool?.settings?.rounds ?? 4} />
-            </label>
-            <label className="field">
-              <span>Reseed after each round</span>
-              <select name="reseed_after_round" defaultValue={String(pool?.settings?.reseed_after_round ?? false)}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Lock behavior</span>
-              <select name="lock_behavior" defaultValue={pool?.settings?.lock_behavior ?? "before_tipoff"}>
-                <option value="before_tipoff">Before each game tips</option>
-                <option value="full_bracket_lock">Lock full bracket at playoff start</option>
-              </select>
-            </label>
+            {SCORING_ROWS.map((row) => {
+              const scoring = describeRoundScoring(row.roundKey, settings);
+              return (
+                <div className="detail-card" key={row.roundKey}>
+                  <span className="micro-label">{row.label}</span>
+                  <p>
+                    Exact 5/6: {scoring.exactBase} pts
+                    <br />
+                    Exact 4/7: {scoring.exactEdge} pts
+                    <br />
+                    Off by 1: {scoring.offBy1} pts
+                    <br />
+                    Off by 2: {scoring.offBy2} pts
+                  </p>
+                </div>
+              );
+            })}
           </div>
-        )}
+          <label className="field">
+            <span>Allow edits until tipoff</span>
+            <select
+              name="allow_edits_until_tipoff"
+              defaultValue={String(pool?.settings?.allow_edits_until_tipoff ?? true)}
+            >
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <div className="detail-card">
+            <span className="micro-label">Why 4 and 7 are worth more</span>
+            <p>Five- and six-game predictions are naturally safer because they sit in the middle. Exact sweeps and exact seven-game calls get a one-point edge bonus to balance that.</p>
+          </div>
+          <div className="detail-card">
+            <span className="micro-label">Bracket page</span>
+            <p>The Bracket tab is now a visual playoff map for your selections, not a separate contest type or scoring mode.</p>
+          </div>
+          <div className="detail-card">
+            <span className="micro-label">Round locks</span>
+            <p>Commissioners can lock or unlock each playoff round below. Locked rounds become read-only on the Series board.</p>
+          </div>
+        </div>
 
         <div className="entry-actions">
           <button className="primary-button" type="submit">Save Settings</button>
@@ -210,22 +197,18 @@ export default function PoolSettingsPage() {
                 {round.completedSeries} of {round.totalSeries} series complete
                 {round.liveSeries ? ` · ${round.liveSeries} live` : ""}
               </p>
-              {isSeriesMode ? (
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => updatePoolSettings({
-                    round_locks: {
-                      ...roundLocks,
-                      [round.key]: !roundLocks[round.key],
-                    },
-                  })}
-                >
-                  {roundLocks[round.key] ? "Unlock Round" : "Lock Round"}
-                </button>
-              ) : (
-                <p className="subtle">Bracket lock behavior is handled by the rules above.</p>
-              )}
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => updatePoolSettings({
+                  round_locks: {
+                    ...roundLocks,
+                    [round.key]: !roundLocks[round.key],
+                  },
+                })}
+              >
+                {roundLocks[round.key] ? "Unlock Round" : "Lock Round"}
+              </button>
             </div>
           ))}
         </div>
