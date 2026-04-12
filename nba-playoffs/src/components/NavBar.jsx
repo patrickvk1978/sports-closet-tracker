@@ -18,7 +18,7 @@ export default function NavBar() {
   const isStandings = location.pathname === "/standings";
   const isSeries = location.pathname === "/series";
   const isBracket = location.pathname === "/bracket";
-  const isReports = location.pathname === "/reports";
+  const isReports = location.pathname === "/reports" || location.pathname.startsWith("/reports/");
   const isPoolCreator = pool?.admin_id === profile?.id;
   const canSettings   = isPoolCreator || Boolean(profile?.is_admin);
 

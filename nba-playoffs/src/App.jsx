@@ -12,11 +12,13 @@ import PoolMembersPage from "./pages/PoolMembersPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PoolGuard from "./components/PoolGuard";
 import NavBar from "./components/NavBar";
+import ScrollToTop from "./components/ScrollToTop";
 import DashboardView from "./views/DashboardView";
 import BracketWorkspaceView from "./views/BracketWorkspaceView";
 import SeriesTrackerView from "./views/SeriesTrackerView";
 import StandingsView from "./views/StandingsView";
 import ReportsView from "./views/ReportsView";
+import ReportDetailView from "./views/ReportDetailView";
 import SeriesReportView from "./views/SeriesReportView";
 import OpponentReportView from "./views/OpponentReportView";
 import { usePool } from "./hooks/usePool";
@@ -45,6 +47,7 @@ function PoolHomeRedirect() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <PlayoffDataProvider>
         <PoolProvider>
@@ -65,6 +68,7 @@ export default function App() {
                     <Route path="/bracket" element={<BracketWorkspaceView />} />
                     <Route path="/series" element={<SeriesTrackerView />} />
                     <Route path="/reports" element={<ReportsView />} />
+                    <Route path="/reports/:reportKey" element={<ReportDetailView />} />
                     <Route path="/reports/series/:seriesId" element={<SeriesReportView />} />
                     <Route path="/reports/opponent/:opponentId" element={<OpponentReportView />} />
                     <Route path="/pool-settings" element={<PoolSettingsPage />} />

@@ -16,6 +16,25 @@ function formatPlace(value) {
   return `${value}th`;
 }
 
+function buildTodayAngle(items) {
+  if (!items.length) {
+    return {
+      headline: "The final seeding picture is still shaping your board.",
+      body: "Today is less about live scores and more about how the last regular-season results reroute the playoff map before the Play-In begins.",
+      support: "The important window now runs from the Sunday finale through the Play-In and into the Saturday, April 18, 2026 Round 1 lock.",
+    };
+  }
+
+  const [primary, secondary] = items;
+  return {
+    headline: primary.title,
+    body: `${primary.sourced} ${primary.likelyImpact}`,
+    support: secondary
+      ? `${primary.whyItMatters} Also watch: ${secondary.title.toLowerCase()}. Round 1 locks on Saturday, April 18, 2026.`
+      : `${primary.whyItMatters} Round 1 locks on Saturday, April 18, 2026.`,
+  };
+}
+
 export default function DashboardView() {
   const { profile } = useAuth();
   const { pool, members, memberList, settingsForPool } = usePool();
@@ -33,17 +52,10 @@ export default function DashboardView() {
   const roundLocks = settings.round_locks ?? {};
   const lockedRounds = roundSummaries.filter((round) => roundLocks[round.key]).length;
   const inviteHealth = pool?.invite_code ? "Ready to share" : "Invite code missing";
-  const probabilityInputs = useProbabilityInputs(featuredSeries);
+  const researchSeries = activeRoundSeries.length ? activeRoundSeries.slice(0, 3) : featuredSeries.slice(0, 3);
+  const probabilityInputs = useProbabilityInputs(researchSeries);
   const probabilityBySeriesId = Object.fromEntries(probabilityInputs.map((entry) => [entry.entityId, entry]));
-
-  const heroScenario = SCENARIO_WATCH_ITEMS[0];
-  const heroHeadline = heroScenario?.title ?? "What matters right now";
-  const heroBody = heroScenario
-    ? `${heroScenario.sourced} ${heroScenario.likelyImpact}`
-    : "The next important shift will come from seeding clarity, play-in movement, and how that changes Round 1 paths.";
-  const heroSupport = heroScenario
-    ? `${heroScenario.whyItMatters} Round 1 locks on Saturday, April 18, 2026.`
-    : `The key date here is ${SCENARIO_WATCH_DATE}.`;
+  const todayAngle = buildTodayAngle(SCENARIO_WATCH_ITEMS);
 
   const positionLabel = currentStanding
     ? `Currently ${formatPlace(currentStanding.place)} in the pool`
@@ -53,7 +65,7 @@ export default function DashboardView() {
       ? `You still have ${remainingRoundPicks} ${remainingRoundPicks === 1 ? "series" : "series"} to pick in ${currentRound.label}.`
       : `Your ${currentRound.label} board is filled in. Track how the bracket firms up before the April 18, 2026 lock.`;
 
-  const researchItems = featuredSeries.map((seriesItem) => {
+  const researchItems = researchSeries.map((seriesItem) => {
     const probability = probabilityBySeriesId[seriesItem.id];
     return {
       id: seriesItem.id,
@@ -69,19 +81,19 @@ export default function DashboardView() {
     <div className="nba-shell">
       <section className="panel nba-hero-panel">
         <div className="nba-hero-copy">
-          <span className="label">What matters right now</span>
-          <h1>{heroHeadline}</h1>
-          <p className="subtle">{heroBody}</p>
+          <span className="label">Sunday watch · {SCENARIO_WATCH_DATE}</span>
+          <h1>{todayAngle.headline}</h1>
+          <p className="subtle">{todayAngle.body}</p>
           <div className="nba-commentary-placeholder">
-            <strong>Local read</strong>
-            <span>{heroSupport}</span>
+            <strong>Selection week read</strong>
+            <span>{todayAngle.support}</span>
           </div>
           <div className="nba-hero-actions">
-            <Link className="primary-button" to="/series">
-              Open series tracker
+            <Link className="primary-button" to="/reports/scenarios">
+              Open scenario report
             </Link>
             <Link className="secondary-button" to="/reports">
-              Open reports
+              Open all reports
             </Link>
           </div>
         </div>
@@ -120,6 +132,28 @@ export default function DashboardView() {
         <article className="panel">
           <div className="panel-header">
             <div>
+              <span className="label">Scenario watch</span>
+              <h2>What can still move before the Play-In sets the board?</h2>
+            </div>
+            <Link className="secondary-button" to="/reports/scenarios">
+              Full report
+            </Link>
+          </div>
+          <div className="nba-dashboard-list">
+            {SCENARIO_WATCH_ITEMS.slice(0, 2).map((item) => (
+              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={item.id}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.likelyImpact}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-header">
+            <div>
               <span className="label">Standings</span>
               <h2>Pool snapshot</h2>
             </div>
@@ -128,7 +162,7 @@ export default function DashboardView() {
             </Link>
           </div>
           <div className="nba-dashboard-list">
-            {standingsPreview.map((member, index) => (
+            {standingsPreview.slice(0, 3).map((member, index) => (
               <div className="nba-dashboard-row" key={member.id}>
                 <span className="nba-dashboard-rank">{member.place ?? index + 1}</span>
                 <div>
@@ -145,66 +179,59 @@ export default function DashboardView() {
           <div className="panel-header">
             <div>
               <span className="label">Research</span>
-              <h2>Signals that may change picks</h2>
+              <h2>Signals to use before you lock Round 1</h2>
             </div>
+            <Link className="secondary-button" to="/reports/win-odds">
+              Open report
+            </Link>
           </div>
           <div className="nba-dashboard-list">
-            {researchItems.map((item) => (
+            {researchItems.length ? researchItems.map((item) => (
               <div className="nba-dashboard-row nba-dashboard-row-stacked" key={item.id}>
                 <div>
                   <strong>{item.matchup}</strong>
                   <p>Market lean: {item.marketFavorite}</p>
-                  <p className="micro-copy">{item.marketMeta}</p>
                   <p>Model lean: {item.modelFavorite}</p>
-                  <p className="micro-copy">{item.modelMeta}</p>
+                  <p className="micro-copy">{item.marketMeta}</p>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="subtle">
+                Once the first-round slots settle, this card will track where market and model disagree most on the actual board you need to pick.
+              </p>
+            )}
           </div>
         </article>
 
         <article className="panel">
           <div className="panel-header">
             <div>
-              <span className="label">Scenario watch</span>
-              <h2>What can still move before the playoffs start?</h2>
+              <span className="label">Next up</span>
+              <h2>What to watch after today settles</h2>
             </div>
-          </div>
-          <p className="subtle">
-            Sourced playoff-clinch uncertainty for {SCENARIO_WATCH_DATE}. Matchup and market implications below are local product inferences from the current bracket state.
-          </p>
-          <div className="nba-dashboard-list">
-            {SCENARIO_WATCH_ITEMS.map((item) => (
-              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={item.id}>
-                <div>
-                  <strong>{item.title}</strong>
-                  <p>{item.sourced}</p>
-                  <p><strong>Likely impact:</strong> {item.likelyImpact}</p>
-                  <p>{item.whyItMatters}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-header">
-            <div>
-              <span className="label">Live updates</span>
-              <h2>What is swinging tonight</h2>
-            </div>
+            <Link className="secondary-button" to="/reports">
+              Open reports
+            </Link>
           </div>
           <div className="nba-dashboard-list">
-            {featuredSeries.map((seriesItem) => (
-              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={seriesItem.id}>
-                <div>
-                  <strong>{seriesItem.homeTeam.city} vs {seriesItem.awayTeam.city}</strong>
-                  <p>{seriesItem.nextGame}</p>
-                  <p>{seriesItem.homeTeam.abbreviation} leads {seriesItem.wins.home}-{seriesItem.wins.away}</p>
-                </div>
+            <div className="nba-dashboard-row nba-dashboard-row-stacked">
+              <div>
+                <strong>Watch who lands in the Play-In and who escapes it entirely</strong>
+                <p>The first useful reset after today is figuring out which teams actually land on the board you have to pick.</p>
               </div>
-            ))}
-            {!featuredSeries.length ? <p className="subtle">No live series yet. This panel will become more useful once the Play-In and Round 1 games begin.</p> : null}
+            </div>
+            <div className="nba-dashboard-row nba-dashboard-row-stacked">
+              <div>
+                <strong>Then watch the first-round prices move</strong>
+                <p>Once matchups are real, the market and model should become much more useful for separating safe picks from leverage picks.</p>
+              </div>
+            </div>
+            <div className="nba-dashboard-row nba-dashboard-row-stacked">
+              <div>
+                <strong>Your real decision window runs through April 18</strong>
+                <p>That is when the Round 1 board locks, so the most important work is reading the bracket as it firms up, not reacting to empty placeholders.</p>
+              </div>
+            </div>
           </div>
         </article>
 

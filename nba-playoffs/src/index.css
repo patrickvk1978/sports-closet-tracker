@@ -1049,6 +1049,12 @@ p { margin: 0; }
   justify-self: center;
 }
 
+.report-back-shell {
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 0 0;
+}
+
 .create-shell .panel {
   padding: 32px 32px 36px;
 }

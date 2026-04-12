@@ -20,7 +20,7 @@ export default function SeriesReportView() {
 
   if (!seriesItem) {
     return (
-      <div className="simple-shell">
+      <div className="report-back-shell">
         <Link className="back-link" to="/reports">← Back to Reports</Link>
         <div className="panel">
           <h2>Series report not found</h2>
@@ -40,7 +40,7 @@ export default function SeriesReportView() {
 
   return (
     <div className="nba-shell">
-      <div className="simple-shell">
+      <div className="report-back-shell">
         <Link className="back-link" to="/reports">← Back to Reports</Link>
       </div>
 

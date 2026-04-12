@@ -25,7 +25,7 @@ export default function OpponentReportView() {
 
   if (!opponent) {
     return (
-      <div className="simple-shell">
+      <div className="report-back-shell">
         <Link className="back-link" to="/reports">← Back to Reports</Link>
         <div className="panel">
           <h2>Opponent report not found</h2>
@@ -59,7 +59,7 @@ export default function OpponentReportView() {
 
   return (
     <div className="nba-shell">
-      <div className="simple-shell">
+      <div className="report-back-shell">
         <Link className="back-link" to="/reports">← Back to Reports</Link>
       </div>
 

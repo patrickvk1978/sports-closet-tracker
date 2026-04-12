@@ -4,7 +4,7 @@ const FINALE_DAY_END = new Date("2026-04-12T23:59:59-04:00");
 const PLAY_IN_START = new Date("2026-04-13T00:00:00-04:00");
 const ROUND_ONE_LOCK = new Date("2026-04-18T00:00:00-04:00");
 
-function getSeasonPhase(now = new Date()) {
+export function getSeasonPhase(now = new Date()) {
   if (now <= FINALE_DAY_END) return "finale_day";
   if (now >= PLAY_IN_START && now < ROUND_ONE_LOCK) return "play_in_week";
   return "round_one_window";

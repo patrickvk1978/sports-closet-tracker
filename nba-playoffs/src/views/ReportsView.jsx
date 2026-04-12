@@ -6,7 +6,8 @@ import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { summarizePickScores, summarizeSeriesMarket } from "../lib/seriesPickem";
 import { buildCurrentRoundWinOdds, buildStandings } from "../lib/standings";
-import { formatLean } from "../lib/insights";
+import { formatLean, getSeasonPhase } from "../lib/insights";
+import { SCENARIO_WATCH_DATE, SCENARIO_WATCH_ITEMS } from "../data/scenarioWatch";
 
 function formatPct(value) {
   const safe = Number.isFinite(value) ? value : 0;
@@ -123,10 +124,81 @@ function buildHeadToHeadSummary(selectedOpponent, currentStanding, opponentStand
   return `You and ${selectedOpponent.name} are level on points, but ${differingSeriesCount} active series still separate the two cards.`;
 }
 
+function buildReportsSummary({
+  currentRound,
+  currentStanding,
+  currentStandingIndex,
+  pointsBack,
+  incompleteCount,
+  contrarianCount,
+  showScenarioCard,
+}) {
+  const placeLabel = currentStandingIndex >= 0 ? ordinal(currentStandingIndex + 1) : "unplaced";
+  const winOdds = currentStanding?.roundWinOdds ?? 0;
+
+  if (showScenarioCard) {
+    return {
+      headline: "Today is still about the bracket settling, not just your picks",
+      body: `The most useful read right now is which finale-day results and Play-In paths will reshape Round 1 before the Saturday, April 18, 2026 lock.`,
+      stats: [
+        { label: "Open series", value: incompleteCount },
+        { label: "Current place", value: placeLabel },
+        { label: "Round win odds", value: formatPct(winOdds) },
+      ],
+    };
+  }
+
+  if (incompleteCount > 0) {
+    return {
+      headline: `${incompleteCount} ${incompleteCount === 1 ? "series still needs your pick" : "series still need your picks"}`,
+      body: `Your report story is still mostly about getting fully set for ${currentRound.label}. Once the board is filled in, the leverage picture will sharpen fast.`,
+      stats: [
+        { label: "Open series", value: incompleteCount },
+        { label: "Current place", value: placeLabel },
+        { label: "Round win odds", value: formatPct(winOdds) },
+      ],
+    };
+  }
+
+  if (pointsBack <= 2) {
+    return {
+      headline: `You are within one series of the lead`,
+      body: `From ${placeLabel}, your reports are mostly about protecting good ground while finding one or two spots that can still create separation.`,
+      stats: [
+        { label: "Points back", value: pointsBack },
+        { label: "Current place", value: placeLabel },
+        { label: "Round win odds", value: formatPct(winOdds) },
+      ],
+    };
+  }
+
+  if (contrarianCount > 0) {
+    return {
+      headline: `${contrarianCount} contrarian ${contrarianCount === 1 ? "call is" : "calls are"} carrying your upside`,
+      body: `You are chasing from ${placeLabel}, and your clearest path is through the series where you differ meaningfully from the room.`,
+      stats: [
+        { label: "Points back", value: pointsBack },
+        { label: "Contrarian picks", value: contrarianCount },
+        { label: "Round win odds", value: formatPct(winOdds) },
+      ],
+    };
+  }
+
+  return {
+    headline: `Your board is mostly aligned with the room`,
+    body: `From ${placeLabel}, this report set is less about one huge swing and more about where market, model, and pool consensus start to diverge.`,
+    stats: [
+      { label: "Points back", value: pointsBack },
+      { label: "Current place", value: placeLabel },
+      { label: "Round win odds", value: formatPct(winOdds) },
+    ],
+  };
+}
+
 export default function ReportsView() {
   const { profile } = useAuth();
   const { pool, memberList, settingsForPool } = usePool();
-  const { series, currentRound, seriesByRound, featuredSeries } = usePlayoffData();
+  const { series, currentRound, seriesByRound } = usePlayoffData();
   const settings = settingsForPool(pool);
   const {
     picksBySeriesId,
@@ -244,6 +316,26 @@ export default function ReportsView() {
   const headToHeadSummary = buildHeadToHeadSummary(selectedOpponent, currentStanding, opponentStanding, headToHeadRows.length);
   const contrarianCount = rootingRows.filter((row) => row.pickedShare <= 35 && row.status !== "No pick entered").length;
   const incompleteCount = activeRoundSeries.filter((seriesItem) => !picksBySeriesId[seriesItem.id]?.winnerTeamId).length;
+  const seasonPhase = getSeasonPhase();
+  const isQuietPrePlayoffBoard = activeRoundSeries.length > 0 && activeRoundSeries.every((seriesItem) => {
+    const totalWins = (seriesItem.wins?.home ?? 0) + (seriesItem.wins?.away ?? 0);
+    return seriesItem.status === "scheduled" && totalWins === 0;
+  });
+  const scenarioRows = SCENARIO_WATCH_ITEMS.slice(0, 2);
+  const showScenarioCard = scenarioRows.length > 0 && (
+    seasonPhase === "finale_day" ||
+    seasonPhase === "play_in_week" ||
+    isQuietPrePlayoffBoard
+  );
+  const reportsSummary = buildReportsSummary({
+    currentRound,
+    currentStanding,
+    currentStandingIndex,
+    pointsBack,
+    incompleteCount,
+    contrarianCount,
+    showScenarioCard,
+  });
 
   const swingRows = useMemo(() => {
     return activeRoundSeries
@@ -317,37 +409,18 @@ export default function ReportsView() {
       <section className="panel nba-reports-hero">
         <div>
           <span className="label">Reports</span>
-          <h2>Pool intelligence for the current playoff picture</h2>
+          <h2>{reportsSummary.headline}</h2>
           <p className="subtle">
-            This is where we pull the most useful interpretation out of the pool: what you should root for,
-            where you differ from the room, and which series can still swing position.
+            {reportsSummary.body}
           </p>
         </div>
         <div className="nba-stat-grid">
-          <div className="nba-stat-card">
-            <span className="micro-label">Current round</span>
-            <strong>{currentRound.label}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Featured series</span>
-            <strong>{featuredSeries.length || activeRoundSeries.length}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Your place</span>
-            <strong>{currentStandingIndex >= 0 ? `#${currentStandingIndex + 1}` : "TBD"}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Points back</span>
-            <strong>{leader && currentStanding ? pointsBack : 0}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Contrarian picks</span>
-            <strong>{contrarianCount}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Open series</span>
-            <strong>{incompleteCount}</strong>
-          </div>
+          {reportsSummary.stats.map((stat) => (
+            <div className="nba-stat-card" key={stat.label}>
+              <span className="micro-label">{stat.label}</span>
+              <strong>{stat.value}</strong>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -360,23 +433,84 @@ export default function ReportsView() {
             </div>
           </div>
           <div className="nba-dashboard-list">
-            {rootingRows.map((row) => (
+            {rootingRows.slice(0, 2).map((row) => (
               <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
                 <div>
                   <strong>{row.note.title}</strong>
                   <p>{row.matchup} · {row.status}</p>
                   <p>{row.note.body}</p>
-                  <div className="nba-report-actions">
-                    <Link className="secondary-button" to={`/reports/series/${row.id}`}>
-                      Open series report
-                    </Link>
-                  </div>
                 </div>
               </div>
             ))}
+            <div className="nba-report-actions">
+              <Link className="secondary-button" to="/reports/rooting">
+                Open full report
+              </Link>
+            </div>
           </div>
         </article>
 
+        <article className="panel">
+          <div className="panel-header">
+            <div>
+              <span className="label">Win odds</span>
+              <h2>What is driving your current-round probability?</h2>
+            </div>
+          </div>
+          <div className="nba-dashboard-list">
+            <div className="nba-dashboard-row nba-dashboard-row-stacked">
+              <div>
+                <strong>{currentStanding ? `${currentStanding.roundWinOdds}% current-round win odds` : "Current-round odds still forming"}</strong>
+                <p>
+                  This first-pass number simulates the unresolved series in the current round using the market probabilities already on the board. The same probability layer is also feeding the market/model signals across Dashboard, Series, and Bracket.
+                </p>
+              </div>
+            </div>
+            {probabilityRows.slice(0, 2).map((row) => (
+              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={`${row.id}-probability`}>
+                <div>
+                  <strong>{row.title}</strong>
+                  <p>{row.matchup}</p>
+                  <p>{row.body}</p>
+                  <p>Market lean: {row.marketLean} · Model lean: {row.modelLean}</p>
+                </div>
+              </div>
+            ))}
+            <div className="nba-report-actions">
+              <Link className="secondary-button" to="/reports/win-odds">
+                Open full report
+              </Link>
+            </div>
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-header">
+            <div>
+              <span className="label">Swing spots</span>
+              <h2>Which series can move your standing?</h2>
+            </div>
+          </div>
+          <div className="nba-dashboard-list">
+            {swingRows.slice(0, 2).map((row) => (
+              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
+                <div>
+                  <strong>{row.title}</strong>
+                  <p>{row.matchup}</p>
+                  <p>{row.body}</p>
+                </div>
+              </div>
+            ))}
+            <div className="nba-report-actions">
+              <Link className="secondary-button" to="/reports/swing">
+                Open full report
+              </Link>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section className="nba-dashboard-grid">
         <article className="panel">
           <div className="panel-header">
             <div>
@@ -412,21 +546,21 @@ export default function ReportsView() {
                   </div>
                 </div>
                 {headToHeadSummary ? <p className="subtle">{headToHeadSummary}</p> : null}
-                {headToHeadRows.length ? headToHeadRows.map((row) => (
+                {headToHeadRows.length ? headToHeadRows.slice(0, 2).map((row) => (
                   <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
                     <div>
                       <strong>{row.matchup}</strong>
                       <p>{row.label}</p>
                       <p>You: {row.yourPick} · {selectedOpponent.name}: {row.theirPick}</p>
                       <p>Room lean: {row.roomLean}</p>
-                      <div className="nba-report-actions">
-                        <Link className="secondary-button" to={`/reports/opponent/${selectedOpponent.id}`}>
-                          Open matchup report
-                        </Link>
-                      </div>
                     </div>
                   </div>
                 )) : <p className="subtle">You and {selectedOpponent.name} are aligned on the current round so far.</p>}
+                <div className="nba-report-actions">
+                  <Link className="secondary-button" to={`/reports/opponent/${selectedOpponent.id}`}>
+                    Open matchup report
+                  </Link>
+                </div>
               </>
             )}
           </div>
@@ -440,7 +574,7 @@ export default function ReportsView() {
             </div>
           </div>
           <div className="nba-dashboard-list">
-            {exposureRows.map((row) => (
+            {exposureRows.slice(0, 2).map((row) => (
               <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
                 <div>
                   <strong>{row.matchup}</strong>
@@ -449,149 +583,72 @@ export default function ReportsView() {
                 </div>
               </div>
             ))}
-          </div>
-        </article>
-      </section>
-
-      <section className="nba-dashboard-grid">
-        <article className="panel">
-          <div className="panel-header">
-            <div>
-              <span className="label">Swing spots</span>
-              <h2>Which series can move your standing?</h2>
+            <div className="nba-report-actions">
+              <Link className="secondary-button" to="/reports/exposure">
+                Open full report
+              </Link>
             </div>
           </div>
-          <div className="nba-dashboard-list">
-            {swingRows.map((row) => (
-              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
-                <div>
-                  <strong>{row.title}</strong>
-                  <p>{row.matchup}</p>
-                  <p>{row.body}</p>
-                  <div className="nba-report-actions">
-                    <Link className="secondary-button" to={`/reports/series/${row.id}`}>
-                      Open series report
-                    </Link>
+        </article>
+
+        {showScenarioCard ? (
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <span className="label">Scenario watch</span>
+                <h2>What can still move before Round 1 locks?</h2>
+              </div>
+            </div>
+            <div className="nba-dashboard-list">
+              {scenarioRows.map((item) => (
+                <div className="nba-dashboard-row nba-dashboard-row-stacked" key={item.id}>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.sourced}</p>
+                    <p>{item.likelyImpact}</p>
                   </div>
                 </div>
+              ))}
+              <div className="nba-report-actions">
+                <Link className="secondary-button" to="/reports/scenarios">
+                  Open full report
+                </Link>
               </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-header">
-            <div>
-              <span className="label">Win odds</span>
-              <h2>What is driving your current-round probability?</h2>
+              <p className="subtle">Sourced through {SCENARIO_WATCH_DATE}. Matchup and market implications are local product inference.</p>
             </div>
-          </div>
-          <div className="nba-dashboard-list">
-            <div className="nba-dashboard-row nba-dashboard-row-stacked">
+          </article>
+        ) : (
+          <article className="panel">
+            <div className="panel-header">
               <div>
-                <strong>{currentStanding ? `${currentStanding.roundWinOdds}% current-round win odds` : "Current-round odds still forming"}</strong>
-                <p>
-                  This first-pass number simulates the unresolved series in the current round using the market probabilities already on the board. The same probability layer is also feeding the market/model signals across Dashboard, Series, and Bracket.
-                </p>
+                <span className="label">Position outlook</span>
+                <h2>What does your standing mean?</h2>
               </div>
             </div>
-            {probabilityRows.map((row) => (
-              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={`${row.id}-probability`}>
+            <div className="nba-dashboard-list">
+              <div className="nba-dashboard-row nba-dashboard-row-stacked">
                 <div>
-                  <strong>{row.title}</strong>
-                  <p>{row.matchup}</p>
-                  <p>{row.body}</p>
-                  <p>Market lean: {row.marketLean} · Model lean: {row.modelLean}</p>
+                  <strong>{currentStandingIndex >= 0 ? `You are currently ${ordinal(currentStandingIndex + 1)}` : "Standing still forming"}</strong>
+                  <p>
+                    {pointsBack > 0
+                      ? `You are ${pointsBack} point${pointsBack === 1 ? "" : "s"} behind ${leader?.name ?? "the leader"}, so contrarian hits matter more than safe consensus wins right now.`
+                      : pointsBack === 0 && leader
+                        ? `You are level with the top of the pool, so the biggest risk now is getting caught on the room's chalk while someone else hits a live swing.`
+                        : "Once more picks and results come in, this section will tell a cleaner story about what you need next."}
+                  </p>
                 </div>
               </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-header">
-            <div>
-              <span className="label">Position outlook</span>
-              <h2>What does your standing mean?</h2>
-            </div>
-          </div>
-          <div className="nba-dashboard-list">
-            <div className="nba-dashboard-row nba-dashboard-row-stacked">
-              <div>
-                <strong>{currentStandingIndex >= 0 ? `You are currently ${ordinal(currentStandingIndex + 1)}` : "Standing still forming"}</strong>
-                <p>
-                  {pointsBack > 0
-                    ? `You are ${pointsBack} point${pointsBack === 1 ? "" : "s"} behind ${leader?.name ?? "the leader"}, so contrarian hits matter more than safe consensus wins right now.`
-                    : pointsBack === 0 && leader
-                      ? `You are level with the top of the pool, so the biggest risk now is getting caught on the room's chalk while someone else hits a live swing.`
-                      : "Once more picks and results come in, this section will tell a cleaner story about what you need next."}
-                </p>
+              <div className="nba-report-actions">
+                <Link className="secondary-button" to="/reports/outlook">
+                  Open full report
+                </Link>
               </div>
             </div>
-            <div className="nba-dashboard-row nba-dashboard-row-stacked">
-              <div>
-                <strong>{incompleteCount > 0 ? `${incompleteCount} active series still need your pick` : "Your current round card is filled in"}</strong>
-                <p>
-                  {incompleteCount > 0
-                    ? "The cleanest way to improve your outlook right now is simply to remove open spots from your card before the room settles."
-                    : "With the round filled out, the reports become more about leverage and less about housekeeping."}
-                </p>
-              </div>
-            </div>
-          </div>
-        </article>
+          </article>
+        )}
 
-        <article className="panel">
-          <div className="panel-header">
-            <div>
-              <span className="label">Best edges</span>
-              <h2>Where your card is usefully different</h2>
-            </div>
-          </div>
-          <div className="nba-dashboard-list">
-            {rootingRows.filter((row) => row.pickedShare <= 40 && row.status !== "No pick entered").length ? (
-              rootingRows
-                .filter((row) => row.pickedShare <= 40 && row.status !== "No pick entered")
-                .map((row) => (
-                  <div className="nba-dashboard-row nba-dashboard-row-stacked" key={`${row.id}-edge`}>
-                    <div>
-                      <strong>{row.matchup}</strong>
-                      <p>{row.status}</p>
-                      <p>Only {formatPct(row.pickedShare)} of the room is currently with you here.</p>
-                    </div>
-                  </div>
-                ))
-            ) : (
-              <p className="subtle">You are not especially contrarian in the current round yet. Most of your live card is moving with the room.</p>
-            )}
-          </div>
-        </article>
       </section>
 
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <span className="label">Position outlook</span>
-            <h2>Where the pool stands right now</h2>
-          </div>
-        </div>
-        <div className="nba-standings-table">
-          {standings.map((entry, index) => (
-            <div className="nba-standings-row" key={entry.id}>
-              <div className="nba-standings-rank">{index + 1}</div>
-              <div className="nba-standings-name">
-                <strong>{entry.name}</strong>
-                <span>{entry.roleLabel}</span>
-              </div>
-              <div className="nba-standings-metrics">
-                <span>{entry.summary.totalPoints} pts</span>
-                <span>{entry.summary.exact} exact</span>
-                <span>{entry.summary.close + entry.summary.near} close</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
