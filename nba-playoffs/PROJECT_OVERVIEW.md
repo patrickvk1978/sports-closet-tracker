@@ -2,61 +2,83 @@
 
 ## What It Is
 
-`NBA Playoff Predictor` is the new Sports Closet sibling app for NBA postseason pools.
+`NBA Playoff Predictor` is a Sports Closet sibling app focused on round-by-round NBA playoff prediction pools.
 
-Right now it is a scaffold, not a finished product. The purpose of this folder is to give us:
+It is no longer just a shell. The app now has a usable local-first product shape with:
 
-- a separate app boundary
-- a cleaner shell modeled after `On The Clock`
-- room to port playoff mechanics from the NCAA tournament app selectively
+- a real `Series Pick'em` flow
+- a connected `Bracket` context page
+- standings
+- reports
+- commissioner / admin surfaces
 
-## Current architecture
+## Current Product Direction
 
-- Frontend: React 19 + Vite + React Router 7
-- Styling: copied token-based CSS shell from `On The Clock`, then re-themed
-- Auth/pool foundation: copied locally so the app can evolve independently
-- Status: scaffolded product shell with placeholder NBA routes
+The core NBA game is:
 
-## Current routes
+- series picked round by round
+- winner + series length
+- scoring based on exactness and round weighting
+
+The app is intentionally built around:
+
+- personalized leverage interpretation
+- pool-aware reporting
+- probability-informed decision support
+
+## Core Routes
 
 - `/dashboard`
-- `/bracket`
+- `/standings`
 - `/series`
+- `/bracket`
+- `/reports`
+- `/reports/:reportKey`
+- `/reports/series/:seriesId`
+- `/reports/opponent/:opponentId`
 - `/join`
 - `/create-pool`
 - `/pool-settings`
 - `/pool-members`
 - `/admin`
 
-## Current product modes
+## Current Architecture
 
-- `bracket_pool`
-- `series_pickem`
+- Frontend: React 19 + Vite + React Router 7
+- Styling: token-based CSS shell, now re-themed specifically for NBA
+- Contest model: single active format built around `Series Pick'em`
+- Data state: local-first with clear seams for shared backend integration
 
-These are placeholders for the two clearest NBA product directions:
+## What Is Real Versus Placeholder
 
-- a full playoff bracket product
-- a lower-friction series-by-series prediction product
+### Real enough to use locally
 
-## What this app should inherit
+- series selection workflow
+- bracket reflecting selected picks
+- standings table
+- reports overview and detail pages
+- commissioner/admin role framing
 
-From the NCAA tournament app:
+### Still placeholder / seeded
 
-- playoff pool mechanics
-- bracket progression concepts
-- live scoring and standings ideas
-- commissioner controls
+- market/model percentages
+- commentary generation
+- shared live simulation outputs
+- shared backend persistence beyond the current local-first layer
 
-From `On The Clock`:
+## Shared Backend Direction
 
-- top-level shell
-- navigation feel
-- workspace framing
-- CSS token system
+The agreed multi-product architecture direction is:
 
-## Immediate next work
+1. probability inputs
+2. simulation outputs
+3. commentary outputs
 
-1. Remove copied NFL-specific hooks and pages from the critical path.
-2. Define NBA playoff entities and Supabase tables.
-3. Build real bracket and series-entry surfaces.
-4. Add standings and game/series progression logic.
+See:
+
+- [`PROBABILITY_COMMENTARY_PLAN.md`](./PROBABILITY_COMMENTARY_PLAN.md)
+- [`HANDOFF_STATUS.md`](./HANDOFF_STATUS.md)
+
+## Near-Term Goal
+
+Keep the NBA app moving as a strong frontend/product draft while Patrick and the team align on the unified Sports Closet backend structure.
