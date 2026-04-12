@@ -333,7 +333,13 @@ p { margin: 0; }
   grid-template-columns: minmax(0, 1fr) 220px minmax(0, 1fr);
   gap: 28px;
   align-items: center;
-  min-height: 560px;
+  min-height: 700px;
+}
+
+.nba-bracket-viewer {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
 }
 
 .nba-bracket-side,
@@ -367,12 +373,12 @@ p { margin: 0; }
 .nba-bracket-column-stack {
   display: grid;
   gap: 0;
-  grid-template-rows: repeat(8, 52px);
+  grid-template-rows: repeat(11, 52px);
   width: 100%;
 }
 
 .nba-bracket-column-stack.center {
-  grid-template-rows: repeat(8, 52px);
+  grid-template-rows: repeat(11, 52px);
   align-items: center;
   width: 100%;
 }
@@ -382,6 +388,16 @@ p { margin: 0; }
   gap: 8px;
   align-self: stretch;
   position: relative;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.nba-bracket-series:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 50%, white);
+  outline-offset: 4px;
 }
 
 .nba-bracket-line {
@@ -407,6 +423,48 @@ p { margin: 0; }
   border-color: var(--brand-border);
   background: var(--brand-subtle);
   color: var(--brand-dark);
+}
+
+.nba-bracket-series.is-focused .nba-bracket-line {
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 20%, transparent);
+}
+
+.nba-bracket-popover {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  z-index: 10;
+  width: min(260px, 76vw);
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
+  background: color-mix(in srgb, var(--surface-0) 96%, white);
+  box-shadow: var(--shadow-lg);
+}
+
+.nba-bracket-popover::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  border-right: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
+  background: color-mix(in srgb, var(--surface-0) 96%, white);
+}
+
+.nba-bracket-popover-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.nba-bracket-popover-grid p {
+  margin: 4px 0 0;
 }
 
 .nba-bracket-series.east .nba-bracket-line {

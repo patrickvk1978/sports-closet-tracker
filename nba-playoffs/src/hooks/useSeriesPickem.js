@@ -12,6 +12,21 @@ function writeLocalPicks(poolId, picks) {
   window.localStorage.setItem(storageKey(poolId), JSON.stringify(picks));
 }
 
+function sanitizePicksForSeries(rawPicksBySeriesId, series) {
+  if (!rawPicksBySeriesId || typeof rawPicksBySeriesId !== "object") return {};
+  const validTeamIdsBySeries = Object.fromEntries(
+    series.map((seriesItem) => [seriesItem.id, new Set([seriesItem.homeTeam?.id, seriesItem.awayTeam?.id])])
+  );
+
+  return Object.fromEntries(
+    Object.entries(rawPicksBySeriesId).filter(([seriesId, pick]) => {
+      if (!pick?.winnerTeamId) return false;
+      const validTeamIds = validTeamIdsBySeries[seriesId];
+      return Boolean(validTeamIds?.has(pick.winnerTeamId));
+    })
+  );
+}
+
 export function useSeriesPickem(series) {
   const { pool } = usePool();
   const { session } = useAuth();
@@ -42,7 +57,7 @@ export function useSeriesPickem(series) {
 
       if (error) {
         const raw = typeof window !== "undefined" ? window.localStorage.getItem(storageKey(pool.id)) : null;
-        const fallback = raw ? JSON.parse(raw) : {};
+        const fallback = sanitizePicksForSeries(raw ? JSON.parse(raw) : {}, series);
         const latestSavedAt = Object.values(fallback).reduce((latest, pick) => {
           if (!pick?.updatedAt) return latest;
           return !latest || pick.updatedAt > latest ? pick.updatedAt : latest;
@@ -66,9 +81,12 @@ export function useSeriesPickem(series) {
           updatedAt: row.updated_at,
         };
       });
+      const sanitizedAll = Object.fromEntries(
+        Object.entries(nextAll).map(([userId, userPicks]) => [userId, sanitizePicksForSeries(userPicks, series)])
+      );
 
-      setAllPicksByUser(nextAll);
-      setPicksBySeriesId(nextAll[session.user.id] ?? {});
+      setAllPicksByUser(sanitizedAll);
+      setPicksBySeriesId(sanitizedAll[session.user.id] ?? {});
       setPersistenceMode("supabase");
       setSaveState("idle");
       setLoading(false);
@@ -89,7 +107,7 @@ export function useSeriesPickem(series) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [pool?.id, session?.user?.id]);
+  }, [pool?.id, series, session?.user?.id]);
 
   const pickedSeriesCount = useMemo(
     () => series.filter((item) => picksBySeriesId[item.id]?.winnerTeamId).length,

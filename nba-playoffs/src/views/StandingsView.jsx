@@ -93,45 +93,14 @@ export default function StandingsView() {
 
   return (
     <div className="nba-shell">
-      <section className="panel nba-reports-hero">
-        <div>
-          <span className="label">Standings</span>
-          <h2>Where the pool stands right now</h2>
-          <p className="subtle">
-            This board is driven by the current Series Pick&apos;em scoring model, so you can sort the pool by
-            total points, exact hits, current-round win odds, or distance from the lead.
-          </p>
-        </div>
-        <div className="nba-stat-grid">
-          <div className="nba-stat-card">
-            <span className="micro-label">Current round</span>
-            <strong>{currentRound.label}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Pool size</span>
-            <strong>{memberList.length}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Leader</span>
-            <strong>{leader?.name ?? "TBD"}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Your place</span>
-            <strong>{currentStanding ? ordinal(currentStanding.place) : "TBD"}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Points Back</span>
-            <strong>{currentStanding?.pointsBack ?? 0}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Round Win Odds</span>
-            <strong>{currentStanding ? `${currentStanding.roundWinOdds}%` : "0%"}</strong>
-          </div>
-          <div className="nba-stat-card">
-            <span className="micro-label">Exact calls</span>
-            <strong>{totalExact}</strong>
-          </div>
-        </div>
+      <section>
+        <span className="label">Standings</span>
+        <h2>Where the pool stands right now</h2>
+        <p className="subtle">
+          {currentStanding
+            ? `You are ${ordinal(currentStanding.place)} in the pool, ${currentStanding.pointsBack} point${currentStanding.pointsBack === 1 ? "" : "s"} back, with ${currentStanding.roundWinOdds}% current-round win odds. ${leader?.name ? `${leader.name} leads the board right now.` : ""}`
+            : `Current round: ${currentRound.label} · Pool size: ${memberList.length} · Exact calls logged: ${totalExact}`}
+        </p>
       </section>
 
       <section className="panel">

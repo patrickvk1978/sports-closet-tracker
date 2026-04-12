@@ -101,29 +101,12 @@ export default function SeriesTrackerView() {
           </div>
         </div>
 
-        <div className="nba-placeholder-grid">
-          <article className="detail-card inset-card">
-            <span className="micro-label">Scoring</span>
-            <p>
-              {pool?.game_mode === "series_pickem"
-                ? `${formatRoundLabel(availableRoundKey)} scores ${currentRoundScoring.exactBase} for exact 5/6, ${currentRoundScoring.exactEdge} for exact 4/7, ${currentRoundScoring.offBy1} if you're off by 1, and ${currentRoundScoring.offBy2} if you're off by 2.`
-                : "Series scoring will become the live-detail companion to the bracket pool."}
-            </p>
-          </article>
-          <article className="detail-card inset-card">
-            <span className="micro-label">Current round</span>
-            <p>{formatRoundLabel(availableRoundKey)} is open right now. Later rounds unlock after results are final.</p>
-          </article>
-          <article className="detail-card inset-card">
-            <span className="micro-label">Your results</span>
-            <p>
-              {scoreSummary.totalPoints} pts · {scoreSummary.exact} exact · {scoreSummary.close + scoreSummary.near} close · {scoreSummary.miss} misses
-            </p>
-          </article>
-          <article className="detail-card inset-card">
-            <span className="micro-label">Autosave</span>
-            <p>{loading ? "Loading picks…" : `${formatSavedLabel(lastSavedAt, persistenceMode, saveState)}. Changes save automatically as you click.`}</p>
-          </article>
+        <div className="detail-card inset-card">
+          <p>
+            {formatRoundLabel(availableRoundKey)} is open right now. Exact 5/6 is worth {currentRoundScoring.exactBase}, exact 4/7 is worth {currentRoundScoring.exactEdge}, off by 1 is worth {currentRoundScoring.offBy1}, and off by 2 is worth {currentRoundScoring.offBy2}. {" "}
+            {loading ? "Loading picks…" : `${formatSavedLabel(lastSavedAt, persistenceMode, saveState)}.`} {" "}
+            You currently have {scoreSummary.totalPoints} points with {scoreSummary.exact} exact calls.
+          </p>
         </div>
       </section>
 

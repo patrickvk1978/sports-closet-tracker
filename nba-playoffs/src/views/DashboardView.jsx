@@ -4,6 +4,8 @@ import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { useAuth } from "../hooks/useAuth";
 import { buildStandings } from "../lib/standings";
+import { buildCommentaryPreview, formatLean } from "../lib/insights";
+import { SCENARIO_WATCH_DATE, SCENARIO_WATCH_ITEMS } from "../data/scenarioWatch";
 
 export default function DashboardView() {
   const { profile } = useAuth();
@@ -14,6 +16,7 @@ export default function DashboardView() {
   const { picksBySeriesId, allPicksByUser, pickedSeriesCount } = useSeriesPickem(activeRoundSeries);
   const isCommissioner = pool?.admin_id === profile?.id;
   const standings = buildStandings(memberList, allPicksByUser, series, settings);
+  const currentStanding = standings.find((member) => member.isCurrentUser) ?? null;
   const standingsPreview = standings.slice(0, 5);
   const completedRoundPicks = activeRoundSeries.filter((series) => picksBySeriesId[series.id]?.winnerTeamId).length;
   const remainingRoundPicks = Math.max(activeRoundSeries.length - completedRoundPicks, 0);
@@ -28,15 +31,20 @@ export default function DashboardView() {
     standings.findIndex((member) => member.isCurrentUser) >= 0
       ? `Currently ${standings.find((member) => member.isCurrentUser)?.place}${standings.find((member) => member.isCurrentUser)?.place === 1 ? "st" : standings.find((member) => member.isCurrentUser)?.place === 2 ? "nd" : standings.find((member) => member.isCurrentUser)?.place === 3 ? "rd" : "th"} in the pool`
       : "Standings will sharpen as more picks come in";
+  const commentaryPreview = buildCommentaryPreview({
+    featuredSeries,
+    activeRoundSeries,
+    picksBySeriesId,
+    allPicksByUser,
+    memberList,
+    currentRound,
+    currentStanding,
+    scenarioItems: SCENARIO_WATCH_ITEMS,
+    scenarioDate: SCENARIO_WATCH_DATE,
+  });
   const researchItems = featuredSeries.map((series) => {
-    const marketFavorite =
-      series.market.homeWinPct >= series.market.awayWinPct
-        ? `${series.homeTeam.city} ${series.market.homeWinPct}%`
-        : `${series.awayTeam.city} ${series.market.awayWinPct}%`;
-    const modelFavorite =
-      series.model.homeWinPct >= series.model.awayWinPct
-        ? `${series.homeTeam.city} ${series.model.homeWinPct}%`
-        : `${series.awayTeam.city} ${series.model.awayWinPct}%`;
+    const marketFavorite = formatLean(series, series.market, (team, pct) => `${team.city} ${pct}%`);
+    const modelFavorite = formatLean(series, series.model, (team, pct) => `${team.city} ${pct}%`);
     return {
       id: series.id,
       matchup: `${series.homeTeam.city} vs ${series.awayTeam.city}`,
@@ -49,22 +57,20 @@ export default function DashboardView() {
     <div className="nba-shell">
       <section className="panel nba-hero-panel">
         <div className="nba-hero-copy">
-          <span className="label">What matters right now</span>
-          <h1>Personalized commentary will live here.</h1>
+          <span className="label">{commentaryPreview.eyebrow}</span>
+          <h1>{commentaryPreview.headline}</h1>
           <p className="subtle">
-            This hero is reserved for the AI-driven layer: what matters most for this specific
-            user, why it matters, and where they should go next.
+            {commentaryPreview.body}
           </p>
           <div className="nba-commentary-placeholder">
-            <strong>Placeholder</strong>
+            <strong>Local read</strong>
             <span>
-              Example: "Boston-Miami is your biggest leverage series tonight. You are against
-              the room on winner and need Boston to close in 6 to gain ground."
+              {commentaryPreview.support}
             </span>
           </div>
           <div className="nba-hero-actions">
-            <Link className="primary-button" to="/series">
-              Open series tracker
+            <Link className="primary-button" to={commentaryPreview.actionPath}>
+              {commentaryPreview.actionLabel}
             </Link>
             <Link className="secondary-button" to="/pool-members">
               View pool members
@@ -141,6 +147,30 @@ export default function DashboardView() {
                   <strong>{item.matchup}</strong>
                   <p>Market lean: {item.marketFavorite}</p>
                   <p>Model lean: {item.modelFavorite}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-header">
+            <div>
+              <span className="label">Scenario watch</span>
+              <h2>What can still move before the playoffs start?</h2>
+            </div>
+          </div>
+          <p className="subtle">
+            Sourced playoff-clinch uncertainty for {SCENARIO_WATCH_DATE}. Matchup and market implications below are local product inferences from the current bracket state.
+          </p>
+          <div className="nba-dashboard-list">
+            {SCENARIO_WATCH_ITEMS.map((item) => (
+              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={item.id}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.sourced}</p>
+                  <p><strong>Likely impact:</strong> {item.likelyImpact}</p>
+                  <p>{item.whyItMatters}</p>
                 </div>
               </div>
             ))}
