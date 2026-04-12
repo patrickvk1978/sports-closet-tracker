@@ -1,11 +1,20 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
-import { useAuth } from "../hooks/useAuth";
 import { buildStandings } from "../lib/standings";
-import { buildCommentaryPreview, formatLean } from "../lib/insights";
+import { formatLean } from "../lib/insights";
 import { SCENARIO_WATCH_DATE, SCENARIO_WATCH_ITEMS } from "../data/scenarioWatch";
+import { useProbabilityInputs } from "../hooks/useProbabilityInputs";
+
+function formatPlace(value) {
+  if (!Number.isFinite(value)) return "TBD";
+  if (value === 1) return "1st";
+  if (value === 2) return "2nd";
+  if (value === 3) return "3rd";
+  return `${value}th`;
+}
 
 export default function DashboardView() {
   const { profile } = useAuth();
@@ -13,43 +22,46 @@ export default function DashboardView() {
   const { currentRound, featuredSeries, series, seriesByRound, roundSummaries } = usePlayoffData();
   const settings = settingsForPool(pool);
   const activeRoundSeries = seriesByRound[currentRound.key] ?? [];
-  const { picksBySeriesId, allPicksByUser, pickedSeriesCount } = useSeriesPickem(activeRoundSeries);
+  const { picksBySeriesId, allPicksByUser } = useSeriesPickem(series);
   const isCommissioner = pool?.admin_id === profile?.id;
+
   const standings = buildStandings(memberList, allPicksByUser, series, settings);
   const currentStanding = standings.find((member) => member.isCurrentUser) ?? null;
   const standingsPreview = standings.slice(0, 5);
-  const completedRoundPicks = activeRoundSeries.filter((series) => picksBySeriesId[series.id]?.winnerTeamId).length;
+  const completedRoundPicks = activeRoundSeries.filter((seriesItem) => picksBySeriesId[seriesItem.id]?.winnerTeamId).length;
   const remainingRoundPicks = Math.max(activeRoundSeries.length - completedRoundPicks, 0);
   const roundLocks = settings.round_locks ?? {};
   const lockedRounds = roundSummaries.filter((round) => roundLocks[round.key]).length;
   const inviteHealth = pool?.invite_code ? "Ready to share" : "Invite code missing";
+  const probabilityInputs = useProbabilityInputs(featuredSeries);
+  const probabilityBySeriesId = Object.fromEntries(probabilityInputs.map((entry) => [entry.entityId, entry]));
+
+  const heroScenario = SCENARIO_WATCH_ITEMS[0];
+  const heroHeadline = heroScenario?.title ?? "What matters right now";
+  const heroBody = heroScenario
+    ? `${heroScenario.sourced} ${heroScenario.likelyImpact}`
+    : "The next important shift will come from seeding clarity, play-in movement, and how that changes Round 1 paths.";
+  const heroSupport = heroScenario
+    ? `${heroScenario.whyItMatters} Round 1 locks on Saturday, April 18, 2026.`
+    : `The key date here is ${SCENARIO_WATCH_DATE}.`;
+
+  const positionLabel = currentStanding
+    ? `Currently ${formatPlace(currentStanding.place)} in the pool`
+    : "Standings will sharpen as more picks come in";
   const nextActionLabel =
     remainingRoundPicks > 0
       ? `You still have ${remainingRoundPicks} ${remainingRoundPicks === 1 ? "series" : "series"} to pick in ${currentRound.label}.`
-      : `Your ${currentRound.label} board is filled in. Track live swings and room consensus.`;
-  const positionLabel =
-    standings.findIndex((member) => member.isCurrentUser) >= 0
-      ? `Currently ${standings.find((member) => member.isCurrentUser)?.place}${standings.find((member) => member.isCurrentUser)?.place === 1 ? "st" : standings.find((member) => member.isCurrentUser)?.place === 2 ? "nd" : standings.find((member) => member.isCurrentUser)?.place === 3 ? "rd" : "th"} in the pool`
-      : "Standings will sharpen as more picks come in";
-  const commentaryPreview = buildCommentaryPreview({
-    featuredSeries,
-    activeRoundSeries,
-    picksBySeriesId,
-    allPicksByUser,
-    memberList,
-    currentRound,
-    currentStanding,
-    scenarioItems: SCENARIO_WATCH_ITEMS,
-    scenarioDate: SCENARIO_WATCH_DATE,
-  });
-  const researchItems = featuredSeries.map((series) => {
-    const marketFavorite = formatLean(series, series.market, (team, pct) => `${team.city} ${pct}%`);
-    const modelFavorite = formatLean(series, series.model, (team, pct) => `${team.city} ${pct}%`);
+      : `Your ${currentRound.label} board is filled in. Track how the bracket firms up before the April 18, 2026 lock.`;
+
+  const researchItems = featuredSeries.map((seriesItem) => {
+    const probability = probabilityBySeriesId[seriesItem.id];
     return {
-      id: series.id,
-      matchup: `${series.homeTeam.city} vs ${series.awayTeam.city}`,
-      marketFavorite,
-      modelFavorite,
+      id: seriesItem.id,
+      matchup: `${seriesItem.homeTeam.city} vs ${seriesItem.awayTeam.city}`,
+      marketFavorite: formatLean(seriesItem, seriesItem.market, (team, pct) => `${team.city} ${pct}%`),
+      modelFavorite: formatLean(seriesItem, seriesItem.model, (team, pct) => `${team.city} ${pct}%`),
+      marketMeta: `${probability?.marketLabel ?? "Unknown source"} · ${probability?.marketFreshness ?? "No timestamp"}`,
+      modelMeta: `${probability?.modelLabel ?? "Unknown source"} · ${probability?.modelFreshness ?? "No timestamp"}`,
     };
   });
 
@@ -57,23 +69,19 @@ export default function DashboardView() {
     <div className="nba-shell">
       <section className="panel nba-hero-panel">
         <div className="nba-hero-copy">
-          <span className="label">{commentaryPreview.eyebrow}</span>
-          <h1>{commentaryPreview.headline}</h1>
-          <p className="subtle">
-            {commentaryPreview.body}
-          </p>
+          <span className="label">What matters right now</span>
+          <h1>{heroHeadline}</h1>
+          <p className="subtle">{heroBody}</p>
           <div className="nba-commentary-placeholder">
             <strong>Local read</strong>
-            <span>
-              {commentaryPreview.support}
-            </span>
+            <span>{heroSupport}</span>
           </div>
           <div className="nba-hero-actions">
-            <Link className="primary-button" to={commentaryPreview.actionPath}>
-              {commentaryPreview.actionLabel}
+            <Link className="primary-button" to="/series">
+              Open series tracker
             </Link>
-            <Link className="secondary-button" to="/pool-members">
-              View pool members
+            <Link className="secondary-button" to="/reports">
+              Open reports
             </Link>
           </div>
         </div>
@@ -146,7 +154,9 @@ export default function DashboardView() {
                 <div>
                   <strong>{item.matchup}</strong>
                   <p>Market lean: {item.marketFavorite}</p>
+                  <p className="micro-copy">{item.marketMeta}</p>
                   <p>Model lean: {item.modelFavorite}</p>
+                  <p className="micro-copy">{item.modelMeta}</p>
                 </div>
               </div>
             ))}
@@ -185,15 +195,16 @@ export default function DashboardView() {
             </div>
           </div>
           <div className="nba-dashboard-list">
-            {featuredSeries.map((series) => (
-              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={series.id}>
+            {featuredSeries.map((seriesItem) => (
+              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={seriesItem.id}>
                 <div>
-                  <strong>{series.homeTeam.city} vs {series.awayTeam.city}</strong>
-                  <p>{series.nextGame}</p>
-                  <p>{series.homeTeam.abbreviation} leads {series.wins.home}-{series.wins.away}</p>
+                  <strong>{seriesItem.homeTeam.city} vs {seriesItem.awayTeam.city}</strong>
+                  <p>{seriesItem.nextGame}</p>
+                  <p>{seriesItem.homeTeam.abbreviation} leads {seriesItem.wins.home}-{seriesItem.wins.away}</p>
                 </div>
               </div>
             ))}
+            {!featuredSeries.length ? <p className="subtle">No live series yet. This panel will become more useful once the Play-In and Round 1 games begin.</p> : null}
           </div>
         </article>
 

@@ -3,6 +3,7 @@ import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { summarizeSeriesMarket } from "../lib/seriesPickem";
+import { formatProbabilityFreshness, formatProbabilitySourceLabel } from "../lib/probabilityInputs";
 
 function winnerLabel(series, winnerTeamId, games) {
   if (!winnerTeamId) return "No pick";
@@ -63,10 +64,12 @@ export default function SeriesReportView() {
           <div className="nba-stat-card">
             <span className="micro-label">Market</span>
             <strong>{seriesItem.market.homeWinPct >= seriesItem.market.awayWinPct ? `${seriesItem.homeTeam.abbreviation} ${seriesItem.market.homeWinPct}%` : `${seriesItem.awayTeam.abbreviation} ${seriesItem.market.awayWinPct}%`}</strong>
+            <span className="micro-copy">{formatProbabilitySourceLabel(seriesItem.market)} · {formatProbabilityFreshness(seriesItem.market)}</span>
           </div>
           <div className="nba-stat-card">
             <span className="micro-label">Model</span>
             <strong>{seriesItem.model.homeWinPct >= seriesItem.model.awayWinPct ? `${seriesItem.homeTeam.abbreviation} ${seriesItem.model.homeWinPct}%` : `${seriesItem.awayTeam.abbreviation} ${seriesItem.model.awayWinPct}%`}</strong>
+            <span className="micro-copy">{formatProbabilitySourceLabel(seriesItem.model)} · {formatProbabilityFreshness(seriesItem.model)}</span>
           </div>
         </div>
       </section>

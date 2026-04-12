@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
+import { formatProbabilityFreshness, formatProbabilitySourceLabel } from "../lib/probabilityInputs";
 
 const EAST_SEMIS = [
   { id: "east-sf-1", sources: ["east-r1-1", "east-r1-3"] },
@@ -81,10 +82,12 @@ function BracketPopover({ detail }) {
         <div>
           <span className="micro-label">Market lean</span>
           <p>{detail.marketLean}</p>
+          <span className="micro-copy">{detail.marketMeta}</span>
         </div>
         <div>
           <span className="micro-label">Model lean</span>
           <p>{detail.modelLean}</p>
+          <span className="micro-copy">{detail.modelMeta}</span>
         </div>
       </div>
     </div>
@@ -221,6 +224,8 @@ export default function BracketWorkspaceView() {
           pickLabel: formatPickLabel(seriesItem, pick),
           marketLean: formatLean(seriesItem, seriesItem?.market),
           modelLean: formatLean(seriesItem, seriesItem?.model),
+          marketMeta: `${formatProbabilitySourceLabel(seriesItem?.market)} · ${formatProbabilityFreshness(seriesItem?.market)}`,
+          modelMeta: `${formatProbabilitySourceLabel(seriesItem?.model)} · ${formatProbabilityFreshness(seriesItem?.model)}`,
         },
       ];
     })

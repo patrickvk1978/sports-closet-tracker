@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo } from "react";
 import { PLAYOFF_ROUNDS, PLAYOFF_SERIES, PLAYOFF_TEAMS } from "../data/playoffData";
+import { getProbabilityInputsForSeries } from "../lib/probabilityInputs";
 
 const PlayoffDataContext = createContext(null);
 
@@ -24,10 +25,13 @@ export function PlayoffDataProvider({ children }) {
     const series = PLAYOFF_SERIES.map((item) => {
       const homeTeam = teamsById[item.homeTeamId];
       const awayTeam = teamsById[item.awayTeamId];
+      const probabilityInputs = getProbabilityInputsForSeries(item.id);
       return {
         ...item,
         homeTeam,
         awayTeam,
+        market: probabilityInputs.market,
+        model: probabilityInputs.model,
         totalGamesPlayed: item.wins.home + item.wins.away,
         clinchGames: item.winnerTeamId ? item.wins.home + item.wins.away : null,
       };

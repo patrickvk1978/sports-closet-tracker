@@ -11,6 +11,7 @@ import {
   summarizeSeriesMarket,
   summarizePickScores,
 } from "../lib/seriesPickem";
+import { formatProbabilityFreshness, formatProbabilitySourceLabel } from "../lib/probabilityInputs";
 
 const GAME_OPTIONS = [4, 5, 6, 7];
 
@@ -186,10 +187,12 @@ export default function SeriesTrackerView() {
                   <div className="detail-card inset-card">
                     <span className="micro-label">Market</span>
                     <p>{marketFavorite}</p>
+                    <span className="micro-copy">{formatProbabilitySourceLabel(seriesItem.market)} · {formatProbabilityFreshness(seriesItem.market)}</span>
                   </div>
                   <div className="detail-card inset-card">
                     <span className="micro-label">Model</span>
                     <p>{modelLean}</p>
+                    <span className="micro-copy">{formatProbabilitySourceLabel(seriesItem.model)} · {formatProbabilityFreshness(seriesItem.model)}</span>
                   </div>
                 </div>
 

@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
-import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
-import { useSeriesPickem } from "../hooks/useSeriesPickem";
-import { buildCurrentRoundWinOdds, buildStandings } from "../lib/standings";
+import { usePool } from "../hooks/usePool";
+import { usePoolOdds } from "../hooks/usePoolOdds";
 
 function ordinal(value) {
   if (!Number.isFinite(value)) return "";
@@ -44,26 +42,11 @@ const SORT_OPTIONS = {
 };
 
 export default function StandingsView() {
-  const { profile } = useAuth();
-  const { pool, memberList, settingsForPool } = usePool();
-  const { series, currentRound, seriesByRound } = usePlayoffData();
-  const settings = settingsForPool(pool);
-  const { allPicksByUser } = useSeriesPickem(series);
+  const { memberList } = usePool();
+  const { currentRound } = usePlayoffData();
   const [sortKey, setSortKey] = useState("points");
   const [sortDirection, setSortDirection] = useState("desc");
-
-  const standings = buildStandings(memberList, allPicksByUser, series, settings);
-  const currentRoundSeries = seriesByRound[currentRound.key] ?? [];
-  const currentRoundWinOdds = useMemo(
-    () => buildCurrentRoundWinOdds(memberList, allPicksByUser, currentRoundSeries, series, settings),
-    [allPicksByUser, currentRoundSeries, memberList, series, settings]
-  );
-  const standingsWithOdds = useMemo(
-    () => standings.map((member) => ({ ...member, roundWinOdds: currentRoundWinOdds[member.id] ?? 0 })),
-    [currentRoundWinOdds, standings]
-  );
-  const currentStanding = standingsWithOdds.find((member) => member.id === profile?.id) ?? null;
-  const leader = standingsWithOdds[0] ?? null;
+  const { standings: standingsWithOdds, currentStanding, leader } = usePoolOdds(currentRound.key);
   const totalExact = standingsWithOdds.reduce((sum, member) => sum + member.summary.exact, 0);
 
   const sortedStandings = useMemo(() => {
