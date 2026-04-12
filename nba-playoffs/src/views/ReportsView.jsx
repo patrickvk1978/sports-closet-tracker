@@ -6,6 +6,7 @@ import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { summarizePickScores, summarizeSeriesMarket } from "../lib/seriesPickem";
 import { buildCurrentRoundWinOdds, buildStandings } from "../lib/standings";
+import { formatLean } from "../lib/insights";
 
 function formatPct(value) {
   const safe = Number.isFinite(value) ? value : 0;
@@ -303,6 +304,8 @@ export default function ReportsView() {
               ? `Only ${formatPct(pickedPct)} of the room is with you here. If ${yourTeam.abbreviation} hits, your current-round win odds should jump more than on a consensus result.`
               : `About ${formatPct(pickedPct)} of the pool is already with you. This result matters more for protecting position than creating separation.`,
           leverage: (yourPick ? Math.abs(50 - pickedPct) : 42) + Math.abs((seriesItem.market.homeWinPct ?? 50) - (seriesItem.model.homeWinPct ?? 50)),
+          marketLean: formatLean(seriesItem, seriesItem.market),
+          modelLean: formatLean(seriesItem, seriesItem.model),
         };
       })
       .sort((a, b) => b.leverage - a.leverage)
@@ -488,7 +491,7 @@ export default function ReportsView() {
               <div>
                 <strong>{currentStanding ? `${currentStanding.roundWinOdds}% current-round win odds` : "Current-round odds still forming"}</strong>
                 <p>
-                  This first-pass number simulates the unresolved series in the current round using the market percentages already on the board.
+                  This first-pass number simulates the unresolved series in the current round using the market probabilities already on the board. The same probability layer is also feeding the market/model signals across Dashboard, Series, and Bracket.
                 </p>
               </div>
             </div>
@@ -498,6 +501,7 @@ export default function ReportsView() {
                   <strong>{row.title}</strong>
                   <p>{row.matchup}</p>
                   <p>{row.body}</p>
+                  <p>Market lean: {row.marketLean} · Model lean: {row.modelLean}</p>
                 </div>
               </div>
             ))}

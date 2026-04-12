@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 
@@ -15,6 +16,7 @@ const WEST_SEMIS = [
 const EAST_FINALS = [{ id: "east-finals", sources: ["east-sf-1", "east-sf-2"] }];
 const WEST_FINALS = [{ id: "west-finals", sources: ["west-sf-1", "west-sf-2"] }];
 const NBA_FINALS = [{ id: "nba-finals", sources: ["east-finals", "west-finals"] }];
+const ROUND_ONE_ORDER = ["1-8", "4-5", "3-6", "2-7"];
 
 function getPickedTeam(seriesItem, pick, slot) {
   if (!seriesItem || !pick?.winnerTeamId) return null;
@@ -39,20 +41,80 @@ function getRoundOneSlot(seriesItem, pick, side) {
   };
 }
 
-function BracketSeries({ top, bottom, side, roundKey, style }) {
+function formatPickLabel(seriesItem, pick) {
+  if (!seriesItem || !pick?.winnerTeamId || !pick?.games) return "No pick yet";
+  const pickedTeam = pick.winnerTeamId === seriesItem.homeTeam.id ? seriesItem.homeTeam : seriesItem.awayTeam;
+  return `${pickedTeam.abbreviation} in ${pick.games}`;
+}
+
+function formatLean(seriesItem, source) {
+  if (!seriesItem || !source) return "Waiting on matchup";
+  if ((source.homeWinPct ?? 0) === (source.awayWinPct ?? 0)) return "Even";
+  return source.homeWinPct >= source.awayWinPct
+    ? `${seriesItem.homeTeam.abbreviation} ${source.homeWinPct}%`
+    : `${seriesItem.awayTeam.abbreviation} ${source.awayWinPct}%`;
+}
+
+function buildDisplayName(entry, seriesItem) {
+  const top = entry.top.abbreviation || seriesItem?.homeTeam?.abbreviation || "";
+  const bottom = entry.bottom.abbreviation || seriesItem?.awayTeam?.abbreviation || "";
+  return [top, bottom].filter(Boolean).join(" vs ");
+}
+
+function getSeedOrderValue(seriesItem) {
+  const matchup = `${seriesItem.homeSeed}-${seriesItem.awaySeed}`;
+  const orderIndex = ROUND_ONE_ORDER.indexOf(matchup);
+  return orderIndex === -1 ? ROUND_ONE_ORDER.length : orderIndex;
+}
+
+function BracketPopover({ detail }) {
+  if (!detail) return null;
+
   return (
-    <div className={`nba-bracket-series ${side} ${roundKey}`} style={style}>
+    <div className="nba-bracket-popover">
+      <span className="micro-label">{detail.title}</span>
+      <div className="nba-bracket-popover-grid">
+        <div>
+          <span className="micro-label">Current pick</span>
+          <p>{detail.pickLabel}</p>
+        </div>
+        <div>
+          <span className="micro-label">Market lean</span>
+          <p>{detail.marketLean}</p>
+        </div>
+        <div>
+          <span className="micro-label">Model lean</span>
+          <p>{detail.modelLean}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BracketSeries({ entry, side, roundKey, style, isFocused, onFocus, onBlurSeries, detail }) {
+  const { top, bottom } = entry;
+  return (
+    <button
+      type="button"
+      className={`nba-bracket-series ${side} ${roundKey} ${isFocused ? "is-focused" : ""}`}
+      style={style}
+      onMouseEnter={() => onFocus(entry.id)}
+      onMouseLeave={onBlurSeries}
+      onFocus={() => onFocus(entry.id)}
+      onClick={() => onFocus(entry.id)}
+    >
+      {isFocused ? <BracketPopover detail={detail} /> : null}
       <div className={top.active ? "nba-bracket-line active" : "nba-bracket-line"}>
         <span>{top.abbreviation}</span>
       </div>
       <div className={bottom.active ? "nba-bracket-line active" : "nba-bracket-line"}>
         <span>{bottom.abbreviation}</span>
       </div>
-    </div>
+    </button>
   );
 }
 
-function BracketColumn({ title, seriesList, side, roundKey, rowStarts }) {
+function BracketColumn({ title, seriesList, side, roundKey, rowStarts, focusedSeriesId, onFocus, onBlurSeries, detailById }) {
   return (
     <div className={`nba-bracket-column ${side}`}>
       <span className="micro-label">{title}</span>
@@ -60,11 +122,14 @@ function BracketColumn({ title, seriesList, side, roundKey, rowStarts }) {
         {seriesList.map((entry, index) => (
           <BracketSeries
             key={entry.id}
-            top={entry.top}
-            bottom={entry.bottom}
+            entry={entry}
             side={side}
             roundKey={roundKey}
             style={{ gridRow: `${rowStarts[index]} / span 2` }}
+            isFocused={focusedSeriesId === entry.id}
+            onFocus={onFocus}
+            onBlurSeries={onBlurSeries}
+            detail={detailById[entry.id]}
           />
         ))}
       </div>
@@ -74,38 +139,54 @@ function BracketColumn({ title, seriesList, side, roundKey, rowStarts }) {
 
 export default function BracketWorkspaceView() {
   const { series, seriesByConference } = usePlayoffData();
-  const { picksBySeriesId } = useSeriesPickem(series);
+  const { memberList } = usePool();
+  const { picksBySeriesId, allPicksByUser } = useSeriesPickem(series);
+  const currentMember = memberList.find((member) => member.isCurrentUser) ?? memberList[0] ?? null;
+  const [selectedMemberId, setSelectedMemberId] = useState(currentMember?.id ?? "");
+  const [focusedSeriesId, setFocusedSeriesId] = useState(null);
+
+  const effectiveSelectedMemberId = memberList.some((member) => member.id === selectedMemberId)
+    ? selectedMemberId
+    : currentMember?.id ?? memberList[0]?.id ?? "";
+
+  const selectedPicksBySeriesId = effectiveSelectedMemberId
+    ? allPicksByUser[effectiveSelectedMemberId] ?? (effectiveSelectedMemberId === currentMember?.id ? picksBySeriesId : {})
+    : picksBySeriesId;
 
   const seriesById = useMemo(
     () => Object.fromEntries(series.map((seriesItem) => [seriesItem.id, seriesItem])),
     [series]
   );
 
-  const eastRoundOne = seriesByConference.East.filter((seriesItem) => seriesItem.roundKey === "round_1");
-  const westRoundOne = seriesByConference.West.filter((seriesItem) => seriesItem.roundKey === "round_1");
+  const eastRoundOne = [...seriesByConference.East.filter((seriesItem) => seriesItem.roundKey === "round_1")].sort(
+    (a, b) => getSeedOrderValue(a) - getSeedOrderValue(b)
+  );
+  const westRoundOne = [...seriesByConference.West.filter((seriesItem) => seriesItem.roundKey === "round_1")].sort(
+    (a, b) => getSeedOrderValue(a) - getSeedOrderValue(b)
+  );
 
   const eastRoundOneDisplay = eastRoundOne.map((seriesItem) => ({
     id: seriesItem.id,
-    top: getRoundOneSlot(seriesItem, picksBySeriesId[seriesItem.id], "top"),
-    bottom: getRoundOneSlot(seriesItem, picksBySeriesId[seriesItem.id], "bottom"),
+    top: getRoundOneSlot(seriesItem, selectedPicksBySeriesId[seriesItem.id], "top"),
+    bottom: getRoundOneSlot(seriesItem, selectedPicksBySeriesId[seriesItem.id], "bottom"),
   }));
 
   const westRoundOneDisplay = westRoundOne.map((seriesItem) => ({
     id: seriesItem.id,
-    top: getRoundOneSlot(seriesItem, picksBySeriesId[seriesItem.id], "top"),
-    bottom: getRoundOneSlot(seriesItem, picksBySeriesId[seriesItem.id], "bottom"),
+    top: getRoundOneSlot(seriesItem, selectedPicksBySeriesId[seriesItem.id], "top"),
+    bottom: getRoundOneSlot(seriesItem, selectedPicksBySeriesId[seriesItem.id], "bottom"),
   }));
 
   const buildProjectedRound = (definition) =>
     definition.map((entry) => ({
       id: entry.id,
-      top: getPickedTeam(seriesById[entry.sources[0]], picksBySeriesId[entry.sources[0]], "top") ?? {
+      top: getPickedTeam(seriesById[entry.sources[0]], selectedPicksBySeriesId[entry.sources[0]], "top") ?? {
         id: `${entry.id}-top`,
         abbreviation: "",
         active: false,
         slot: "top",
       },
-      bottom: getPickedTeam(seriesById[entry.sources[1]], picksBySeriesId[entry.sources[1]], "bottom") ?? {
+      bottom: getPickedTeam(seriesById[entry.sources[1]], selectedPicksBySeriesId[entry.sources[1]], "bottom") ?? {
         id: `${entry.id}-bottom`,
         abbreviation: "",
         active: false,
@@ -118,17 +199,43 @@ export default function BracketWorkspaceView() {
   const eastFinalsDisplay = buildProjectedRound(EAST_FINALS);
   const westFinalsDisplay = buildProjectedRound(WEST_FINALS);
   const nbaFinalsDisplay = buildProjectedRound(NBA_FINALS);
+  const allDisplayEntries = [
+    ...eastRoundOneDisplay,
+    ...westRoundOneDisplay,
+    ...eastSemisDisplay,
+    ...westSemisDisplay,
+    ...eastFinalsDisplay,
+    ...westFinalsDisplay,
+    ...nbaFinalsDisplay,
+  ];
+  const displayEntryById = Object.fromEntries(allDisplayEntries.map((entry) => [entry.id, entry]));
+  const activeFocusedSeriesId = displayEntryById[focusedSeriesId] ? focusedSeriesId : null;
+  const detailById = Object.fromEntries(
+    allDisplayEntries.map((entry) => {
+      const seriesItem = seriesById[entry.id] ?? null;
+      const pick = selectedPicksBySeriesId[entry.id] ?? null;
+      return [
+        entry.id,
+        {
+          title: buildDisplayName(entry, seriesItem),
+          pickLabel: formatPickLabel(seriesItem, pick),
+          marketLean: formatLean(seriesItem, seriesItem?.market),
+          modelLean: formatLean(seriesItem, seriesItem?.model),
+        },
+      ];
+    })
+  );
 
   const eastLayout = [
-    { title: "Round 1", seriesList: eastRoundOneDisplay, side: "east", roundKey: "round-1", rowStarts: [1, 3, 5, 7] },
-    { title: "Semifinals", seriesList: eastSemisDisplay, side: "east", roundKey: "semis", rowStarts: [2, 6] },
-    { title: "Conference Finals", seriesList: eastFinalsDisplay, side: "east", roundKey: "finals", rowStarts: [4] },
+    { title: "Round 1", seriesList: eastRoundOneDisplay, side: "east", roundKey: "round-1", rowStarts: [1, 4, 7, 10] },
+    { title: "Semifinals", seriesList: eastSemisDisplay, side: "east", roundKey: "semis", rowStarts: [2, 8] },
+    { title: "Conference Finals", seriesList: eastFinalsDisplay, side: "east", roundKey: "finals", rowStarts: [5] },
   ];
 
   const westLayout = [
-    { title: "Conference Finals", seriesList: westFinalsDisplay, side: "west", roundKey: "finals", rowStarts: [4] },
-    { title: "Semifinals", seriesList: westSemisDisplay, side: "west", roundKey: "semis", rowStarts: [2, 6] },
-    { title: "Round 1", seriesList: westRoundOneDisplay, side: "west", roundKey: "round-1", rowStarts: [1, 3, 5, 7] },
+    { title: "Conference Finals", seriesList: westFinalsDisplay, side: "west", roundKey: "finals", rowStarts: [5] },
+    { title: "Semifinals", seriesList: westSemisDisplay, side: "west", roundKey: "semis", rowStarts: [2, 8] },
+    { title: "Round 1", seriesList: westRoundOneDisplay, side: "west", roundKey: "round-1", rowStarts: [1, 4, 7, 10] },
   ];
 
   return (
@@ -138,7 +245,22 @@ export default function BracketWorkspaceView() {
           <div>
             <span className="label">Bracket</span>
             <h2>Playoff path</h2>
+            <p className="subtle">Keep the board simple. Hover or tap a series to see the pick view plus market and model context.</p>
           </div>
+          <label className="nba-bracket-viewer">
+            <span className="micro-label">Viewing bracket as</span>
+            <select
+              className="nav-select"
+              value={effectiveSelectedMemberId}
+              onChange={(event) => setSelectedMemberId(event.target.value)}
+            >
+              {memberList.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div className="nba-bracket-simple">
@@ -148,7 +270,14 @@ export default function BracketWorkspaceView() {
             </div>
             <div className="nba-bracket-side-grid">
               {eastLayout.map((column) => (
-                <BracketColumn key={column.title} {...column} />
+                <BracketColumn
+                  key={column.title}
+                  {...column}
+                  focusedSeriesId={activeFocusedSeriesId}
+                  onFocus={setFocusedSeriesId}
+                  onBlurSeries={() => setFocusedSeriesId(null)}
+                  detailById={detailById}
+                />
               ))}
             </div>
           </section>
@@ -159,11 +288,14 @@ export default function BracketWorkspaceView() {
               {nbaFinalsDisplay.map((entry) => (
                 <BracketSeries
                   key={entry.id}
-                  top={entry.top}
-                  bottom={entry.bottom}
+                  entry={entry}
                   side="center"
                   roundKey="finals"
-                  style={{ gridRow: "4 / span 2" }}
+                  style={{ gridRow: "5 / span 2" }}
+                  isFocused={activeFocusedSeriesId === entry.id}
+                  onFocus={setFocusedSeriesId}
+                  onBlurSeries={() => setFocusedSeriesId(null)}
+                  detail={detailById[entry.id]}
                 />
               ))}
             </div>
@@ -175,7 +307,14 @@ export default function BracketWorkspaceView() {
             </div>
             <div className="nba-bracket-side-grid">
               {westLayout.map((column) => (
-                <BracketColumn key={column.title} {...column} />
+                <BracketColumn
+                  key={column.title}
+                  {...column}
+                  focusedSeriesId={activeFocusedSeriesId}
+                  onFocus={setFocusedSeriesId}
+                  onBlurSeries={() => setFocusedSeriesId(null)}
+                  detailById={detailById}
+                />
               ))}
             </div>
           </section>
