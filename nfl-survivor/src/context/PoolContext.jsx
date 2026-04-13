@@ -21,6 +21,9 @@ const SURVIVOR_SETTINGS_DEFAULTS = {
   missed_pick_behavior: 'eliminate',
   tie_behavior: 'eliminate',
   lock_behavior: 'game_kickoff',
+  rebuy_enabled: false,
+  max_rebuys: 0,
+  last_rebuy_week: 4,
 }
 
 function normalizeSurvivorPool(pool) {

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
+import { useAuth } from "../hooks/useAuth";
 import { useSurvivorPool } from "../hooks/useSurvivorPool";
 
 function formatUpdatedAt(value) {
@@ -13,12 +14,14 @@ function formatUpdatedAt(value) {
 }
 
 export default function DashboardView() {
-  const { pool } = usePool();
+  const { pool, members } = usePool();
+  const { profile } = useAuth();
   const { currentWeek, currentEntry, standings, summary, pickSummary, reports } = useSurvivorPool();
   const isPreLock = reports.phase === "pre_lock";
   const heroVoice = reports.voices.playByPlay;
   const supportVoice = isPreLock ? reports.voices.coach : reports.voices.playByPlay;
   const flavorVoice = reports.voices.color;
+  const isCommissioner = pool?.admin_id === profile?.id;
 
   const topRows = standings.slice(0, 4);
 
@@ -151,6 +154,39 @@ export default function DashboardView() {
             </div>
           </div>
         </article>
+
+        {isCommissioner ? (
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <span className="label">Commissioner snapshot</span>
+                <h2>Pool control room</h2>
+              </div>
+              <Link className="secondary-button" to="/pool-settings">
+                Open settings
+              </Link>
+            </div>
+            <div className="survivor-note-stack">
+              <div className="detail-card">
+                <strong>{members.length} members are currently in the pool.</strong>
+                <p>{pool?.settings?.picks_reveal === "after_lock" ? "Current picks stay hidden until the week locks." : "You are using a looser visibility rule than the default hidden-until-lock posture."}</p>
+              </div>
+              <div className="detail-card">
+                <strong>{pool?.settings?.missed_pick_behavior === "eliminate" ? "Missed picks are automatic eliminations." : "Missed picks currently wait for commissioner review."}</strong>
+                <p>{pool?.settings?.lock_behavior === "game_kickoff" ? "Entries can move until their chosen kickoff." : "The full board locks at first kickoff."}</p>
+              </div>
+              <div className="detail-card">
+                <strong>Trust is part of the game.</strong>
+                <p>Invite flow, reveal timing, and edge-case rulings matter almost as much as who the room is actually picking.</p>
+                <div className="entry-actions compact">
+                  <Link className="secondary-button" to="/pool-members">
+                    View roster
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </article>
+        ) : null}
       </section>
     </div>
   );

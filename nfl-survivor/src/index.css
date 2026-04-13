@@ -1287,6 +1287,31 @@ select:focus {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.survivor-settings-grid {
+  align-items: start;
+  width: min(980px, 100%);
+  margin: 0 auto;
+}
+
+.survivor-utility-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.entry-actions.compact {
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.pool-member-meta {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
 /* ─── Mode Selection (create pool) ───────────────────────────────────────── */
 .mode-card {
   display: grid;
@@ -2609,6 +2634,10 @@ select:focus {
   .future-pick-helper {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .pool-member-meta {
+    justify-items: start;
   }
 }
 
