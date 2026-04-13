@@ -57,11 +57,11 @@ export default function PicksView() {
         {board.map((game) => (
           <article key={game.id} className="panel survivor-game-card">
             <div className="panel-header">
-              <div>
-                <span className="label">{game.networkWindow}</span>
+              <div className="survivor-game-heading">
+                <span className="label survivor-window-label">{game.networkWindow}</span>
                 <h2>{formatKickoff(game.kickoff)}</h2>
               </div>
-              <span className="chip">Market favorite: {game.favorite}</span>
+              <span className="chip survivor-market-chip">Market favorite: {game.favorite}</span>
             </div>
 
             <div className="survivor-team-stack">

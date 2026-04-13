@@ -16,6 +16,7 @@ import DashboardView from "./views/DashboardView";
 import PicksView from "./views/PicksView";
 import StandingsView from "./views/StandingsView";
 import ReportsView from "./views/ReportsView";
+import ReportDetailView from "./views/ReportDetailView";
 import { usePool } from "./hooks/usePool";
 
 function AppChrome() {
@@ -61,6 +62,7 @@ export default function App() {
                     <Route path="/picks" element={<PicksView />} />
                     <Route path="/standings" element={<StandingsView />} />
                     <Route path="/reports" element={<ReportsView />} />
+                    <Route path="/reports/:reportKey" element={<ReportDetailView />} />
                     <Route path="/pool-settings" element={<PoolSettingsPage />} />
                     <Route path="/pool-members" element={<PoolMembersPage />} />
                   </Route>

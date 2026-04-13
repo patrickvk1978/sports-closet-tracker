@@ -17,7 +17,7 @@ export default function NavBar() {
   const isDashboard = location.pathname === "/dashboard";
   const isPicks = location.pathname === "/picks";
   const isStandings = location.pathname === "/standings";
-  const isReports = location.pathname === "/reports";
+  const isReports = location.pathname === "/reports" || location.pathname.startsWith("/reports/");
   const isPoolCreator = pool?.admin_id === profile?.id;
   const canSettings = isPoolCreator || Boolean(profile?.is_admin);
 
@@ -35,7 +35,7 @@ export default function NavBar() {
   return (
     <nav className="nav-shell" aria-label="Primary navigation">
       <button className="brand-link" onClick={goHome} aria-label="Go to dashboard">
-        <span className="brand-mark">SVR</span>
+        <span className="brand-mark">Survivor</span>
         <span className="survivor-display">NFL Survivor Pool</span>
       </button>
 
