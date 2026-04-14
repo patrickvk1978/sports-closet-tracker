@@ -195,6 +195,24 @@ function buildReportsSummary({
   };
 }
 
+function buildReportsHeroState(reportsSummary, { showScenarioCard, scenarioRows, currentRound, currentStanding }) {
+  if (showScenarioCard) {
+    return {
+      headline: "This is the pre-lock decision desk for the board that is still settling.",
+      body: scenarioRows[0]
+        ? `${scenarioRows[0].title} is one of the clearest bracket-moving developments right now. The useful job here is not reading every report evenly. It is figuring out which seeding and Play-In outcomes actually change what you need to pick in ${currentRound.label}.`
+        : `The board is still moving before ${currentRound.label} locks, so the most useful reports right now are the ones that help you react to seeding and probability changes rather than final scored outcomes.`,
+      stats: [
+        { label: "First report", value: "Scenario watch" },
+        { label: "High-signal check", value: "Win odds" },
+        { label: "Decision window", value: "Pre-lock" },
+      ],
+    };
+  }
+
+  return reportsSummary;
+}
+
 export default function ReportsView() {
   const { profile } = useAuth();
   const { pool, memberList, settingsForPool } = usePool();
@@ -336,6 +354,12 @@ export default function ReportsView() {
     contrarianCount,
     showScenarioCard,
   });
+  const heroState = buildReportsHeroState(reportsSummary, {
+    showScenarioCard,
+    scenarioRows,
+    currentRound,
+    currentStanding,
+  });
 
   const swingRows = useMemo(() => {
     return activeRoundSeries
@@ -409,13 +433,13 @@ export default function ReportsView() {
       <section className="panel nba-reports-hero">
         <div>
           <span className="label">Reports</span>
-          <h2>{reportsSummary.headline}</h2>
+          <h2>{heroState.headline}</h2>
           <p className="subtle">
-            {reportsSummary.body}
+            {heroState.body}
           </p>
         </div>
         <div className="nba-stat-grid">
-          {reportsSummary.stats.map((stat) => (
+          {heroState.stats.map((stat) => (
             <div className="nba-stat-card" key={stat.label}>
               <span className="micro-label">{stat.label}</span>
               <strong>{stat.value}</strong>
@@ -425,30 +449,58 @@ export default function ReportsView() {
       </section>
 
       <section className="nba-dashboard-grid">
-        <article className="panel">
-          <div className="panel-header">
-            <div>
-              <span className="label">Rooting guide</span>
-              <h2>What should you care about most?</h2>
-            </div>
-          </div>
-          <div className="nba-dashboard-list">
-            {rootingRows.slice(0, 2).map((row) => (
-              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
-                <div>
-                  <strong>{row.note.title}</strong>
-                  <p>{row.matchup} · {row.status}</p>
-                  <p>{row.note.body}</p>
-                </div>
+        {showScenarioCard ? (
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <span className="label">Scenario watch</span>
+                <h2>What can still move before Round 1 locks?</h2>
               </div>
-            ))}
-            <div className="nba-report-actions">
-              <Link className="secondary-button" to="/reports/rooting">
-                Open full report
-              </Link>
             </div>
-          </div>
-        </article>
+            <div className="nba-dashboard-list">
+              {scenarioRows.map((item) => (
+                <div className="nba-dashboard-row nba-dashboard-row-stacked" key={item.id}>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.sourced}</p>
+                    <p>{item.likelyImpact}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="nba-report-actions">
+                <Link className="secondary-button" to="/reports/scenarios">
+                  Open full report
+                </Link>
+              </div>
+              <p className="subtle">Sourced through {SCENARIO_WATCH_DATE}. Matchup and market implications are local product inference.</p>
+            </div>
+          </article>
+        ) : (
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <span className="label">Rooting guide</span>
+                <h2>What should you care about most?</h2>
+              </div>
+            </div>
+            <div className="nba-dashboard-list">
+              {rootingRows.slice(0, 2).map((row) => (
+                <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
+                  <div>
+                    <strong>{row.note.title}</strong>
+                    <p>{row.matchup} · {row.status}</p>
+                    <p>{row.note.body}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="nba-report-actions">
+                <Link className="secondary-button" to="/reports/rooting">
+                  Open full report
+                </Link>
+              </div>
+            </div>
+          </article>
+        )}
 
         <article className="panel">
           <div className="panel-header">
@@ -511,6 +563,33 @@ export default function ReportsView() {
       </section>
 
       <section className="nba-dashboard-grid">
+        {showScenarioCard ? (
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <span className="label">Rooting guide</span>
+                <h2>What should you care about most?</h2>
+              </div>
+            </div>
+            <div className="nba-dashboard-list">
+              {rootingRows.slice(0, 2).map((row) => (
+                <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
+                  <div>
+                    <strong>{row.note.title}</strong>
+                    <p>{row.matchup} · {row.status}</p>
+                    <p>{row.note.body}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="nba-report-actions">
+                <Link className="secondary-button" to="/reports/rooting">
+                  Open full report
+                </Link>
+              </div>
+            </div>
+          </article>
+        ) : null}
+
         <article className="panel">
           <div className="panel-header">
             <div>
@@ -591,33 +670,7 @@ export default function ReportsView() {
           </div>
         </article>
 
-        {showScenarioCard ? (
-          <article className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="label">Scenario watch</span>
-                <h2>What can still move before Round 1 locks?</h2>
-              </div>
-            </div>
-            <div className="nba-dashboard-list">
-              {scenarioRows.map((item) => (
-                <div className="nba-dashboard-row nba-dashboard-row-stacked" key={item.id}>
-                  <div>
-                    <strong>{item.title}</strong>
-                    <p>{item.sourced}</p>
-                    <p>{item.likelyImpact}</p>
-                  </div>
-                </div>
-              ))}
-              <div className="nba-report-actions">
-                <Link className="secondary-button" to="/reports/scenarios">
-                  Open full report
-                </Link>
-              </div>
-              <p className="subtle">Sourced through {SCENARIO_WATCH_DATE}. Matchup and market implications are local product inference.</p>
-            </div>
-          </article>
-        ) : (
+        {!showScenarioCard ? (
           <article className="panel">
             <div className="panel-header">
               <div>
@@ -645,7 +698,7 @@ export default function ReportsView() {
               </div>
             </div>
           </article>
-        )}
+        ) : null}
 
       </section>
 
