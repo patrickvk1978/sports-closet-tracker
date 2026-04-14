@@ -8,6 +8,7 @@ import { summarizePickScores, summarizeSeriesMarket } from "../lib/seriesPickem"
 import { buildCurrentRoundWinOdds, buildStandings } from "../lib/standings";
 import { formatLean, getSeasonPhase } from "../lib/insights";
 import { SCENARIO_WATCH_DATE, SCENARIO_WATCH_ITEMS } from "../data/scenarioWatch";
+import { areRoundPicksPublic } from "../lib/pickVisibility";
 
 function formatPct(value) {
   const safe = Number.isFinite(value) ? value : 0;
@@ -30,7 +31,7 @@ function winnerLabel(series, winnerTeamId, games) {
   return `${team.abbreviation} in ${games}`;
 }
 
-function buildRootingNote(series, pick, marketSummary) {
+function buildRootingNote(series, pick, marketSummary, canViewPoolSignals) {
   if (!pick) {
     return {
       title: `Make your ${series.homeTeam.abbreviation}-${series.awayTeam.abbreviation} pick`,
@@ -40,6 +41,12 @@ function buildRootingNote(series, pick, marketSummary) {
 
   const pickedTeam = pick.winnerTeamId === series.homeTeam.id ? series.homeTeam : series.awayTeam;
   const otherTeam = pick.winnerTeamId === series.homeTeam.id ? series.awayTeam : series.homeTeam;
+  if (!canViewPoolSignals) {
+    return {
+      title: `Watch ${pickedTeam.abbreviation} through the public signals`,
+      body: `${pickedTeam.city} is still a meaningful result for your card, but before lock the useful read is market, model, and bracket path rather than where the room has landed.`,
+    };
+  }
   const againstField = marketSummary.consensusWinnerTeamId && marketSummary.consensusWinnerTeamId !== pick.winnerTeamId;
 
   if (againstField) {
@@ -73,7 +80,7 @@ function differenceLabel(currentUserPick, opponentPick, series) {
   return `Same pick`;
 }
 
-function buildSwingSummary(series, yourPick, marketSummary, currentStandingIndex, poolSize) {
+function buildSwingSummary(series, yourPick, marketSummary, currentStandingIndex, poolSize, canViewPoolSignals) {
   if (!yourPick) {
     return {
       title: `Unmade pick is the biggest swing here`,
@@ -82,6 +89,12 @@ function buildSwingSummary(series, yourPick, marketSummary, currentStandingIndex
   }
 
   const pickedTeam = yourPick.winnerTeamId === series.homeTeam.id ? series.homeTeam : series.awayTeam;
+  if (!canViewPoolSignals) {
+    return {
+      title: `${pickedTeam.abbreviation} is still a live leverage call`,
+      body: `${pickedTeam.city} is one of the spots where public market and model inputs say your board can still gain or lose a lot of shape before the round becomes public.`,
+    };
+  }
   const roomPct = yourPick.winnerTeamId === series.homeTeam.id ? marketSummary.homePct : marketSummary.awayPct;
   const place = currentStandingIndex >= 0 ? currentStandingIndex + 1 : null;
 
@@ -237,6 +250,7 @@ export default function ReportsView() {
   }, [opponents, selectedOpponentId]);
 
   const activeRoundSeries = seriesByRound[currentRound.key] ?? [];
+  const canViewPoolSignals = areRoundPicksPublic(activeRoundSeries, currentRound.key, settings);
   const currentRoundWinOdds = useMemo(
     () => buildCurrentRoundWinOdds(memberList, allPicksByUser, activeRoundSeries, series, settings),
     [activeRoundSeries, allPicksByUser, memberList, series, settings]
@@ -252,9 +266,11 @@ export default function ReportsView() {
       .map((seriesItem) => {
         const pick = picksBySeriesId[seriesItem.id];
         const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
-        const note = buildRootingNote(seriesItem, pick, marketSummary);
+        const note = buildRootingNote(seriesItem, pick, marketSummary, canViewPoolSignals);
         const pickedShare = !pick
           ? 0
+          : !canViewPoolSignals
+            ? 50
           : pick.winnerTeamId === seriesItem.homeTeam.id
             ? marketSummary.homePct
             : marketSummary.awayPct;
@@ -276,12 +292,13 @@ export default function ReportsView() {
       })
       .sort((a, b) => b.leverageScore - a.leverageScore)
       .slice(0, 4);
-  }, [activeRoundSeries, allPicksByUser, memberList, picksBySeriesId]);
+  }, [activeRoundSeries, allPicksByUser, canViewPoolSignals, memberList, picksBySeriesId]);
 
   const selectedOpponent = opponents.find((member) => member.id === selectedOpponentId) ?? null;
   const opponentPicks = selectedOpponent ? allPicksByUser[selectedOpponent.id] ?? {} : {};
 
   const headToHeadRows = useMemo(() => {
+    if (!canViewPoolSignals) return [];
     if (!selectedOpponent) return [];
     return activeRoundSeries
       .map((seriesItem) => {
@@ -303,9 +320,10 @@ export default function ReportsView() {
         };
       })
       .filter((row) => row.label !== "Same pick");
-  }, [activeRoundSeries, allPicksByUser, memberList, opponentPicks, picksBySeriesId, selectedOpponent]);
+  }, [activeRoundSeries, allPicksByUser, canViewPoolSignals, memberList, opponentPicks, picksBySeriesId, selectedOpponent]);
 
   const exposureRows = useMemo(() => {
+    if (!canViewPoolSignals) return [];
     return activeRoundSeries.map((seriesItem) => {
       const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
       const consensusTeam =
@@ -324,7 +342,7 @@ export default function ReportsView() {
         leadingGames: marketSummary.leadingGames,
       };
     }).sort((a, b) => Math.max(b.homePct, b.awayPct) - Math.max(a.homePct, a.awayPct));
-  }, [activeRoundSeries, allPicksByUser, memberList]);
+  }, [activeRoundSeries, allPicksByUser, canViewPoolSignals, memberList]);
 
   const currentStandingIndex = standings.findIndex((member) => member.id === profile?.id);
   const leader = standings[0] ?? null;
@@ -332,7 +350,9 @@ export default function ReportsView() {
   const pointsBack = leader && currentStanding ? leader.summary.totalPoints - currentStanding.summary.totalPoints : 0;
   const opponentStanding = selectedOpponent ? standings.find((entry) => entry.id === selectedOpponent.id) ?? null : null;
   const headToHeadSummary = buildHeadToHeadSummary(selectedOpponent, currentStanding, opponentStanding, headToHeadRows.length);
-  const contrarianCount = rootingRows.filter((row) => row.pickedShare <= 35 && row.status !== "No pick entered").length;
+  const contrarianCount = canViewPoolSignals
+    ? rootingRows.filter((row) => row.pickedShare <= 35 && row.status !== "No pick entered").length
+    : 0;
   const incompleteCount = activeRoundSeries.filter((seriesItem) => !picksBySeriesId[seriesItem.id]?.winnerTeamId).length;
   const seasonPhase = getSeasonPhase();
   const isQuietPrePlayoffBoard = activeRoundSeries.length > 0 && activeRoundSeries.every((seriesItem) => {
@@ -366,7 +386,7 @@ export default function ReportsView() {
       .map((seriesItem) => {
         const pick = picksBySeriesId[seriesItem.id] ?? null;
         const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
-        const swing = buildSwingSummary(seriesItem, pick, marketSummary, currentStandingIndex, memberList.length);
+        const swing = buildSwingSummary(seriesItem, pick, marketSummary, currentStandingIndex, memberList.length, canViewPoolSignals);
         const pickedShare = !pick
           ? 0
           : pick.winnerTeamId === seriesItem.homeTeam.id
@@ -383,7 +403,7 @@ export default function ReportsView() {
       })
       .sort((a, b) => b.swingScore - a.swingScore)
       .slice(0, 3);
-  }, [activeRoundSeries, allPicksByUser, currentStandingIndex, memberList, picksBySeriesId]);
+  }, [activeRoundSeries, allPicksByUser, canViewPoolSignals, currentStandingIndex, memberList, picksBySeriesId]);
   const probabilityRows = useMemo(() => {
     return activeRoundSeries
       .map((seriesItem) => {
@@ -416,6 +436,8 @@ export default function ReportsView() {
               : `${yourTeam?.abbreviation ?? "This series"} is mostly defensive for your odds`,
           body: !yourPick
             ? "You have not picked this series yet, so your current-round win odds are unusually exposed here."
+            : !canViewPoolSignals
+              ? "Before lock, this is best read as a public-signals swing: market and model say this series can still change your path more than it first appears."
             : roomTeam && yourTeam && roomTeam.id !== yourTeam.id
               ? `Only ${formatPct(pickedPct)} of the room is with you here. If ${yourTeam.abbreviation} hits, your current-round win odds should jump more than on a consensus result.`
               : `About ${formatPct(pickedPct)} of the pool is already with you. This result matters more for protecting position than creating separation.`,
@@ -426,7 +448,7 @@ export default function ReportsView() {
       })
       .sort((a, b) => b.leverage - a.leverage)
       .slice(0, 3);
-  }, [activeRoundSeries, allPicksByUser, memberList, picksBySeriesId]);
+  }, [activeRoundSeries, allPicksByUser, canViewPoolSignals, memberList, picksBySeriesId]);
 
   return (
     <div className="nba-shell">
@@ -590,6 +612,7 @@ export default function ReportsView() {
           </article>
         ) : null}
 
+        {canViewPoolSignals ? (
         <article className="panel">
           <div className="panel-header">
             <div>
@@ -644,7 +667,9 @@ export default function ReportsView() {
             )}
           </div>
         </article>
+        ) : null}
 
+        {canViewPoolSignals ? (
         <article className="panel">
           <div className="panel-header">
             <div>
@@ -669,6 +694,7 @@ export default function ReportsView() {
             </div>
           </div>
         </article>
+        ) : null}
 
         {!showScenarioCard ? (
           <article className="panel">

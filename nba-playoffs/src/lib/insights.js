@@ -28,6 +28,8 @@ export function buildCommentaryPreview({
   currentStanding,
   scenarioItems = [],
   scenarioDate = "",
+  canViewPoolSignals = false,
+  picksLoading = false,
 }) {
   const seasonPhase = getSeasonPhase();
   const scenarioSourceSeries = activeRoundSeries.length ? activeRoundSeries : featuredSeries;
@@ -46,13 +48,20 @@ export function buildCommentaryPreview({
         : pick.winnerTeamId === series.homeTeam.id
           ? series.homeTeam
           : series.awayTeam;
-      const pickedShare = !pick
+      const pickedShare = !pick || !canViewPoolSignals
         ? 0
         : pick.winnerTeamId === series.homeTeam.id
           ? pool.homePct
           : pool.awayPct;
-      const marketModelGap = Math.abs((series.market.homeWinPct ?? 50) - (series.model.homeWinPct ?? 50));
-      const againstRoom = Boolean(pool.consensusWinnerTeamId && pick?.winnerTeamId && pool.consensusWinnerTeamId !== pick.winnerTeamId);
+      const marketHome = series.market.homeWinPct ?? 50;
+      const modelHome = series.model.homeWinPct ?? 50;
+      const marketModelGap = Math.abs(marketHome - modelHome);
+      const modelFavorite = modelHome >= (series.model.awayWinPct ?? 50) ? series.homeTeam : series.awayTeam;
+      const marketFavorite = marketHome >= (series.market.awayWinPct ?? 50) ? series.homeTeam : series.awayTeam;
+      const againstRoom = canViewPoolSignals && Boolean(pool.consensusWinnerTeamId && pick?.winnerTeamId && pool.consensusWinnerTeamId !== pick.winnerTeamId);
+      const followsModel = Boolean(pick?.winnerTeamId && pick.winnerTeamId === modelFavorite.id);
+      const fadesMarket = Boolean(pick?.winnerTeamId && pick.winnerTeamId !== marketFavorite.id);
+      const confidence = Math.max(series.market.homeWinPct ?? 50, series.market.awayWinPct ?? 50);
 
       return {
         series,
@@ -61,6 +70,9 @@ export function buildCommentaryPreview({
         pool,
         pickedShare,
         againstRoom,
+        followsModel,
+        fadesMarket,
+        confidence,
         marketModelGap,
         score: (pick ? 0 : 36) + (againstRoom ? 18 : 0) + Math.abs(50 - pickedShare) + marketModelGap,
       };
@@ -69,7 +81,13 @@ export function buildCommentaryPreview({
 
   const top = ranked[0];
   const openPickCount = Object.values(picksBySeriesId).filter((pick) => pick?.winnerTeamId).length;
+  const totalSeriesCount = activeRoundSeries.length || featuredSeries.length || 0;
+  const completedShare = totalSeriesCount > 0 ? openPickCount / totalSeriesCount : 0;
   const shouldLeadWithScenario = scenarioItems.length > 0 && (isQuietPrePlayoffBoard || openPickCount === 0);
+
+  if (picksLoading) {
+    return null;
+  }
 
   if (liveSeries.length > 0 && top) {
     return {
@@ -84,13 +102,18 @@ export function buildCommentaryPreview({
 
   if (shouldLeadWithScenario) {
     if (seasonPhase === "play_in_week") {
+      const mostUnsettled = ranked.find((entry) => !entry.pick) ?? ranked[0];
       return {
         eyebrow: "What matters right now",
-        headline: "The Play-In is shaping your Round 1 board now.",
-        body: "The bracket may still look static, but the real work this week is reading which Play-In outcomes reroute the East and West first-round paths, then adjusting your card before the lock.",
-        actionLabel: "Review bracket",
-        actionPath: "/bracket",
-        support: "Round 1 selections lock on Saturday, April 18, 2026. This is the window where matchup movement and probability changes should guide your final series picks.",
+        headline: mostUnsettled?.pick
+          ? `${mostUnsettled.series.homeTeam.abbreviation}-${mostUnsettled.series.awayTeam.abbreviation} is the matchup worth revisiting first.`
+          : "The Play-In is less about drama now and more about mispricing your board.",
+        body: mostUnsettled?.pick
+          ? `Your card is mostly filled in, but ${mostUnsettled.series.homeTeam.abbreviation}-${mostUnsettled.series.awayTeam.abbreviation} still carries one of the widest market-model gaps on the board. That is a better use of your attention than rereading settled favorites.`
+          : "The useful job this week is not just watching the bracket settle. It is finding the one or two series where a Play-In path or pricing shift should actually move your pick.",
+        actionLabel: mostUnsettled?.pick ? "Open reports" : "Review bracket",
+        actionPath: mostUnsettled?.pick ? "/reports" : "/bracket",
+        support: "Round 1 selections lock on Saturday, April 18, 2026. The best use of this window is tightening the handful of series that still have real movement in them.",
       };
     }
 
@@ -119,18 +142,52 @@ export function buildCommentaryPreview({
   const placeLabel = Number.isFinite(currentStanding?.place) ? `You are ${currentStanding.place}${currentStanding.place === 1 ? "st" : currentStanding.place === 2 ? "nd" : currentStanding.place === 3 ? "rd" : "th"} right now.` : "";
   const matchup = `${top.series.homeTeam.abbreviation}-${top.series.awayTeam.abbreviation}`;
 
-  if (!top.pick) {
+  if (openPickCount === 0 && totalSeriesCount > 0) {
     return {
-      eyebrow: "What matters right now",
-      headline: `${matchup} is still open on your card.`,
-      body: `${placeLabel} This is the clearest unresolved series in ${currentRound.label}. The market leans ${formatLean(top.series, top.series.market)}, while the model sits at ${formatLean(top.series, top.series.model)}.`,
-      actionLabel: "Make that pick",
+      eyebrow: "Start with your card",
+      headline: `You have not started ${currentRound.label} yet.`,
+      body: "The best first move is not opening every report. It is getting your first few series onto the board so the app can stop talking in generalities and start helping with your actual decisions.",
+      actionLabel: "Start picking",
       actionPath: "/series",
-      support: "Right now the clearest move is to settle this series before the room and the probabilities move around you.",
+      support: "Once you have a few live picks in place, this card can get much more specific about where you are exposed, where the market disagrees, and what deserves another look.",
     };
   }
 
-  if (top.againstRoom && top.yourTeam) {
+  if (completedShare > 0 && completedShare < 1 && !top.pick) {
+    return {
+      eyebrow: "Finish the board",
+      headline: `${matchup} is still the main thing between you and a usable read.`,
+      body: `${placeLabel} You have started the round, which is good. But until the remaining open series are filled in, the best use of the dashboard is helping you get to a complete card, not pretending your position is fully formed yet.`,
+      actionLabel: "Finish this round",
+      actionPath: "/series",
+      support: "Complete the card first. Then the reports become much more about judgment and much less about housekeeping.",
+    };
+  }
+
+  if (completedShare === 1 && !canViewPoolSignals && top.marketModelGap < 10 && top.confidence < 66) {
+    return {
+      eyebrow: "Board review",
+      headline: "Your card is in. Now narrow it to the two series worth reopening.",
+      body: `${placeLabel} You do not need another full lap through every matchup. The useful job now is finding the one or two series where your confidence still depends on a real market-model question rather than habit.`,
+      actionLabel: "Open reports",
+      actionPath: "/reports",
+      support: "That is the right pre-lock rhythm: finish the board, then revisit only the handful of series that can still change it.",
+    };
+  }
+
+  if (!top.pick) {
+    const leanGap = `${formatLean(top.series, top.series.market)} market, ${formatLean(top.series, top.series.model)} model`;
+    return {
+      eyebrow: "What matters right now",
+      headline: `${matchup} is still the decision holding your card back.`,
+      body: `${placeLabel} This is the cleanest unresolved series in ${currentRound.label}, and it is not just a blank cell. It is one of the matchups where outside signals can still tell you something useful: ${leanGap}.`,
+      actionLabel: "Make that pick",
+      actionPath: "/series",
+      support: "Finish the open series first, then go back for the higher-level strategy reads. This is still the fastest way to improve the board.",
+    };
+  }
+
+  if (canViewPoolSignals && top.againstRoom && top.yourTeam) {
     return {
       eyebrow: "What matters right now",
       headline: `${top.yourTeam.abbreviation} is your clearest swing right now.`,
@@ -141,12 +198,45 @@ export function buildCommentaryPreview({
     };
   }
 
+  if (!canViewPoolSignals && top.fadesMarket && top.yourTeam) {
+    return {
+      eyebrow: "What matters right now",
+      headline: `${top.yourTeam.abbreviation} is the boldest line on your card right now.`,
+      body: `${placeLabel} You are fading the market favorite in ${matchup}, which makes this less about what the room is doing and more about whether the model and path are giving you enough reason to stay there.`,
+      actionLabel: "Check market vs model",
+      actionPath: "/reports/probabilities",
+      support: "Pre-lock, the best tension to study is not room exposure. It is where your card is leaning away from the public price for a real reason.",
+    };
+  }
+
+  if (!canViewPoolSignals && top.marketModelGap >= 10) {
+    return {
+      eyebrow: "What matters right now",
+      headline: `${matchup} is where the outside signals disagree most.`,
+      body: `${placeLabel} The market and model are not reading this series the same way, which makes it the most useful place to pressure-test your card before lock rather than just confirming the obvious favorites.`,
+      actionLabel: "Open win odds",
+      actionPath: "/reports/probabilities",
+      support: "This is the kind of disagreement that should change a pick only if you can explain why. If not, it is still your best candidate for a last serious review.",
+    };
+  }
+
+  if (top.confidence >= 66 && top.yourTeam) {
+    return {
+      eyebrow: "What matters right now",
+      headline: `${top.yourTeam.abbreviation} looks like a hold, not a hero play.`,
+      body: `${placeLabel} The public signals are fairly aligned on ${matchup}, so the useful question here is not whether to invent drama. It is whether this is one of the series where staying disciplined protects the rest of your card.`,
+      actionLabel: "Open swing spots",
+      actionPath: "/reports/swing",
+      support: "Not every series needs a flourish. Some are just there to keep the board intact while you decide where the real leverage belongs.",
+    };
+  }
+
   return {
     eyebrow: "What matters right now",
-    headline: `${matchup} is more about holding position than creating it.`,
-    body: `${placeLabel} You are mostly moving with the room on this one, so the interesting question is whether the market/model split creates a reason to watch more closely. Market lean: ${formatLean(top.series, top.series.market)}. Model lean: ${formatLean(top.series, top.series.model)}.`,
+    headline: `${matchup} is more about pressure-testing your logic than chasing a headline.`,
+    body: `${placeLabel} This series is not screaming for a move, but it is still the best place to ask whether your pick is supported by the market, the model, and the bracket path instead of just habit.`,
     actionLabel: "See full reports",
     actionPath: "/reports",
-    support: "For now, the important read is simple: this result is more about protecting your place than making a big leap.",
+    support: "That is often the real pre-lock job: not finding five dramatic moves, but finding the one or two places where your reasoning still needs to be sharpened.",
   };
 }

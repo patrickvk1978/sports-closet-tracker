@@ -7,6 +7,17 @@ export const PoolContext = createContext(null)
 const ACTIVE_KEY = 'nba_playoffs_active_pool_id'
 const NBA_PRODUCT_KEY = 'nba_playoffs'
 const KNOWN_POOLS_KEY = 'nba_playoffs_known_pool_ids'
+const PREVIEW_MEMBER_TARGET = 8
+
+const PREVIEW_MEMBERS = [
+  { user_id: "preview-pvk", username: "PVK", is_admin: false },
+  { user_id: "preview-dave", username: "Dave", is_admin: false },
+  { user_id: "preview-mojo", username: "Mojo", is_admin: false },
+  { user_id: "preview-zelda", username: "Zelda", is_admin: false },
+  { user_id: "preview-riley", username: "Riley", is_admin: false },
+  { user_id: "preview-jules", username: "Jules", is_admin: false },
+  { user_id: "preview-maya", username: "Maya", is_admin: false },
+];
 
 function generateInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -132,8 +143,15 @@ export function PoolProvider({ children }) {
   }, [loadPools])
 
   // Derived member list for views
+  const effectiveMembers = useMemo(() => {
+    const existingIds = new Set(members.map((member) => member.user_id))
+    const missingCount = Math.max(PREVIEW_MEMBER_TARGET - members.length, 0)
+    const previewToAdd = PREVIEW_MEMBERS.filter((member) => !existingIds.has(member.user_id)).slice(0, missingCount)
+    return [...members, ...previewToAdd]
+  }, [members])
+
   const memberList = useMemo(() => {
-    return members.map(m => ({
+    return effectiveMembers.map(m => ({
       id: m.user_id,
       name: m.username,
       isSiteAdmin: m.is_admin,
@@ -152,7 +170,7 @@ export function PoolProvider({ children }) {
                   ? "Commissioner"
                   : "Member",
     }))
-  }, [members, pool?.admin_id, session?.user?.id])
+  }, [effectiveMembers, pool?.admin_id, session?.user?.id])
 
   function settingsForPool(targetPool = pool) {
     if (!targetPool) return SERIES_SETTINGS_DEFAULTS
@@ -173,7 +191,6 @@ export function PoolProvider({ children }) {
         name,
         admin_id: session.user.id,
         invite_code: inviteCode,
-        game_mode: 'series_pickem',
         settings: productSettings,
       })
       .select()
@@ -259,7 +276,7 @@ export function PoolProvider({ children }) {
   const value = useMemo(() => ({
     pool,
     allPools,
-    members,
+    members: effectiveMembers,
     memberList,
     isLoading,
     settingsForPool,
@@ -269,7 +286,7 @@ export function PoolProvider({ children }) {
     updatePoolSettings,
     updatePoolMeta,
     loadPools,
-  }), [pool, allPools, members, memberList, isLoading])
+  }), [pool, allPools, effectiveMembers, memberList, isLoading])
 
   return <PoolContext.Provider value={value}>{children}</PoolContext.Provider>
 }

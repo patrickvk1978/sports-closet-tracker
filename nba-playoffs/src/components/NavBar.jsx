@@ -37,7 +37,7 @@ export default function NavBar() {
     <nav className="nav-shell" aria-label="Primary navigation">
       <button className="brand-link" onClick={goHome} aria-label="Go to dashboard">
         <span className="brand-mark">NBA</span>
-        <span>NBA Playoff Predictor</span>
+        <span>Playoff Predictor V1</span>
       </button>
 
       <div className="nav-actions">

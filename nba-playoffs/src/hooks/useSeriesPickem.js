@@ -3,6 +3,8 @@ import { usePool } from "./usePool";
 import { useAuth } from "./useAuth";
 import { supabase } from "../lib/supabase";
 
+const PREVIEW_MEMBER_PREFIX = "preview-";
+
 function storageKey(poolId) {
   return `nba_series_pickem_${poolId ?? "default"}`;
 }
@@ -10,6 +12,17 @@ function storageKey(poolId) {
 function writeLocalPicks(poolId, picks) {
   if (typeof window === "undefined" || !poolId) return;
   window.localStorage.setItem(storageKey(poolId), JSON.stringify(picks));
+}
+
+function readLocalPicks(poolId, series) {
+  if (typeof window === "undefined" || !poolId) return {};
+  const raw = window.localStorage.getItem(storageKey(poolId));
+  if (!raw) return {};
+  try {
+    return sanitizePicksForSeries(JSON.parse(raw), series);
+  } catch {
+    return {};
+  }
 }
 
 function sanitizePicksForSeries(rawPicksBySeriesId, series) {
@@ -27,15 +40,71 @@ function sanitizePicksForSeries(rawPicksBySeriesId, series) {
   );
 }
 
+function hashString(value) {
+  return String(value ?? "").split("").reduce((hash, character) => hash + character.charCodeAt(0), 0);
+}
+
+function seedPreviewPick(seriesItem, memberId) {
+  const seed = hashString(`${memberId}-${seriesItem.id}`);
+  const leanToHome = (seriesItem.market?.homeWinPct ?? 50) >= 50;
+  const upsetFactor = seed % 9 === 0;
+  const winnerTeamId = upsetFactor
+    ? (leanToHome ? seriesItem.awayTeam.id : seriesItem.homeTeam.id)
+    : (leanToHome ? seriesItem.homeTeam.id : seriesItem.awayTeam.id);
+  const gamesOptions = [5, 6, 7, 4];
+  const games = gamesOptions[seed % gamesOptions.length];
+
+  return {
+    winnerTeamId,
+    games,
+    roundKey: seriesItem.roundKey,
+    updatedAt: new Date("2026-04-13T09:00:00Z").toISOString(),
+  };
+}
+
+function addPreviewPicks(allPicksByUser, memberList, series, currentUserId) {
+  const nextAll = { ...allPicksByUser };
+  memberList
+    .filter((member) => member.id.startsWith(PREVIEW_MEMBER_PREFIX))
+    .forEach((member) => {
+      if (nextAll[member.id]) return;
+      nextAll[member.id] = Object.fromEntries(
+        series
+          .filter((seriesItem) => seriesItem.roundKey === "round_1")
+          .map((seriesItem) => [seriesItem.id, seedPreviewPick(seriesItem, member.id)])
+      );
+    });
+
+  if (currentUserId && !nextAll[currentUserId]) {
+    nextAll[currentUserId] = {};
+  }
+
+  return nextAll;
+}
+
 export function useSeriesPickem(series) {
-  const { pool } = usePool();
+  const { pool, memberList } = usePool();
   const { session } = useAuth();
-  const [picksBySeriesId, setPicksBySeriesId] = useState({});
-  const [allPicksByUser, setAllPicksByUser] = useState({});
+  const currentUserId = session?.user?.id ?? "";
+  const initialCachedPicks = useMemo(
+    () => readLocalPicks(pool?.id, series),
+    [pool?.id, series]
+  );
+  const initialAllPicks = useMemo(
+    () => addPreviewPicks(currentUserId ? { [currentUserId]: initialCachedPicks } : {}, memberList, series, currentUserId),
+    [currentUserId, initialCachedPicks, memberList, series]
+  );
+  const [picksBySeriesId, setPicksBySeriesId] = useState(initialCachedPicks);
+  const [allPicksByUser, setAllPicksByUser] = useState(initialAllPicks);
   const [loading, setLoading] = useState(false);
   const [persistenceMode, setPersistenceMode] = useState("local");
   const [saveState, setSaveState] = useState("idle");
   const [lastSavedAt, setLastSavedAt] = useState(null);
+
+  useEffect(() => {
+    setPicksBySeriesId(initialCachedPicks);
+    setAllPicksByUser(initialAllPicks);
+  }, [initialAllPicks, initialCachedPicks]);
 
   useEffect(() => {
     if (!pool?.id || !session?.user?.id) {
@@ -48,6 +117,12 @@ export function useSeriesPickem(series) {
 
     async function loadPicks() {
       setLoading(true);
+      const cached = readLocalPicks(pool.id, series);
+      if (Object.keys(cached).length > 0) {
+        setPicksBySeriesId(cached);
+        const nextAll = addPreviewPicks(session.user.id ? { [session.user.id]: cached } : {}, memberList, series, session.user.id);
+        setAllPicksByUser(nextAll);
+      }
       const { data, error } = await supabase
         .from("nba_series_picks")
         .select("user_id, series_id, winner_team_id, predicted_games, round_key, updated_at")
@@ -56,14 +131,14 @@ export function useSeriesPickem(series) {
       if (cancelled) return;
 
       if (error) {
-        const raw = typeof window !== "undefined" ? window.localStorage.getItem(storageKey(pool.id)) : null;
-        const fallback = sanitizePicksForSeries(raw ? JSON.parse(raw) : {}, series);
+        const fallback = cached;
         const latestSavedAt = Object.values(fallback).reduce((latest, pick) => {
           if (!pick?.updatedAt) return latest;
           return !latest || pick.updatedAt > latest ? pick.updatedAt : latest;
         }, null);
         setPicksBySeriesId(fallback);
-        setAllPicksByUser(session.user.id ? { [session.user.id]: fallback } : {});
+        const nextAll = addPreviewPicks(session.user.id ? { [session.user.id]: fallback } : {}, memberList, series, session.user.id);
+        setAllPicksByUser(nextAll);
         setPersistenceMode("local");
         setSaveState("idle");
         setLastSavedAt(latestSavedAt);
@@ -85,8 +160,10 @@ export function useSeriesPickem(series) {
         Object.entries(nextAll).map(([userId, userPicks]) => [userId, sanitizePicksForSeries(userPicks, series)])
       );
 
-      setAllPicksByUser(sanitizedAll);
-      setPicksBySeriesId(sanitizedAll[session.user.id] ?? {});
+      const nextAllWithPreview = addPreviewPicks(sanitizedAll, memberList, series, session.user.id);
+      setAllPicksByUser(nextAllWithPreview);
+      setPicksBySeriesId(nextAllWithPreview[session.user.id] ?? {});
+      writeLocalPicks(pool.id, nextAllWithPreview[session.user.id] ?? {});
       setPersistenceMode("supabase");
       setSaveState("idle");
       setLoading(false);
@@ -107,7 +184,7 @@ export function useSeriesPickem(series) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [pool?.id, series, session?.user?.id]);
+  }, [memberList, pool?.id, series, session?.user?.id]);
 
   const pickedSeriesCount = useMemo(
     () => series.filter((item) => picksBySeriesId[item.id]?.winnerTeamId).length,
@@ -128,7 +205,7 @@ export function useSeriesPickem(series) {
         ...current,
         [seriesId]: nextPick,
       };
-      if (persistenceMode !== "supabase" && pool?.id) {
+      if (pool?.id) {
         writeLocalPicks(pool.id, next);
       }
       return next;
@@ -175,7 +252,7 @@ export function useSeriesPickem(series) {
     setPicksBySeriesId((current) => {
       const next = { ...current };
       delete next[seriesId];
-      if (persistenceMode !== "supabase" && pool?.id) {
+      if (pool?.id) {
         writeLocalPicks(pool.id, next);
       }
       return next;

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { usePool } from "../hooks/usePool";
 import { usePoolOdds } from "../hooks/usePoolOdds";
+import { areRoundPicksPublic } from "../lib/pickVisibility";
 
 function ordinal(value) {
   if (!Number.isFinite(value)) return "";
@@ -42,8 +43,11 @@ const SORT_OPTIONS = {
 };
 
 export default function StandingsView() {
-  const { memberList } = usePool();
-  const { currentRound } = usePlayoffData();
+  const { memberList, pool, settingsForPool } = usePool();
+  const { currentRound, seriesByRound } = usePlayoffData();
+  const settings = settingsForPool(pool);
+  const activeSeries = seriesByRound[currentRound.key] ?? [];
+  const canViewOtherBoards = areRoundPicksPublic(activeSeries, currentRound.key, settings);
   const [sortKey, setSortKey] = useState("points");
   const [sortDirection, setSortDirection] = useState("desc");
   const { standings: standingsWithOdds, currentStanding, leader } = usePoolOdds(currentRound.key);
@@ -96,6 +100,9 @@ export default function StandingsView() {
             <Link className="secondary-button" to="/reports">
               Open Reports
             </Link>
+            <Link className="secondary-button" to="/matrix">
+              Open Matrix
+            </Link>
             <Link className="secondary-button" to="/series">
               Review Series Picks
             </Link>
@@ -145,7 +152,22 @@ export default function StandingsView() {
                     <td>{member.place}</td>
                     <td>
                       <div className="nba-standings-name-cell">
-                        <strong>{member.name}</strong>
+                        {member.isCurrentUser ? (
+                          <Link className="standings-board-link" to="/bracket">
+                            <strong>{member.name}</strong>
+                          </Link>
+                        ) : canViewOtherBoards ? (
+                          <Link className="standings-board-link" to={`/bracket?viewer=${member.id}`}>
+                            <strong>{member.name}</strong>
+                          </Link>
+                        ) : (
+                          <span className="tooltip-wrap standings-tooltip-wrap">
+                            <strong className="standings-board-link disabled-link">{member.name}</strong>
+                            <span className="tooltip-bubble">
+                              Other brackets unlock after the round locks or games begin.
+                            </span>
+                          </span>
+                        )}
                         <span>{member.roleLabel}</span>
                       </div>
                     </td>

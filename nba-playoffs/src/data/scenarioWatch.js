@@ -1,44 +1,44 @@
-export const SCENARIO_WATCH_DATE = "April 12, 2026";
+export const SCENARIO_WATCH_DATE = "April 13, 2026";
 
 export const SCENARIO_WATCH_ITEMS = [
   {
-    id: "east-six-race",
-    title: "East No. 6 race is still open",
+    id: "east-play-in-field",
+    title: "The East top six is set, but Boston and Detroit are still waiting on the Play-In",
     sourced:
-      "Toronto, Orlando, and Philadelphia can still finish sixth and avoid the Play-In on the final day.",
+      "Detroit, Boston, New York, Cleveland, Atlanta, and Toronto are locked into the East top six, while Orlando-Philadelphia and Charlotte-Miami make up the Play-In field.",
     likelyImpact:
-      "That keeps Boston's first-round path unresolved and should move the early market once the 7-8 and 9-10 structure settles.",
+      "Boston and Detroit now know the range of opponents they can draw, and those first-round prices should sharpen once the 7 and 8 seeds actually resolve.",
     whyItMatters:
-      "This is the cleanest East bracket question still hanging over the board.",
+      "The big East seeding chaos is over. The useful question now is which Play-In survivor lands on the top two seeds' side of the bracket.",
   },
   {
-    id: "east-five-through-ten",
-    title: "Seeds 5 through 10 are still moving in the East",
+    id: "west-play-in-path",
+    title: "Oklahoma City and San Antonio are waiting on a crowded West Play-In",
     sourced:
-      "The East still has seeding volatility from No. 5 through No. 10 heading into Sunday, April 12, 2026.",
+      "The West top six is set with Oklahoma City, San Antonio, Denver, the Lakers, Houston, and Minnesota, while Phoenix-Portland and the Clippers-Golden State make up the Play-In field.",
     likelyImpact:
-      "New York and Cleveland's likely first-round opponents can still change, which means early series prices and second-round path assumptions should keep shifting.",
+      "That leaves Oklahoma City's and San Antonio's first-round opponents unresolved, and the range of outcomes still matters because the West 7/8 race is stronger than a typical play-in draw.",
     whyItMatters:
-      "This is where a quiet regular-season result can still reroute half the conference bracket.",
+      "This is where the bracket can still get materially more dangerous for the top two seeds before Round 1 locks.",
   },
   {
-    id: "west-three-four",
-    title: "West home court is not fully settled",
+    id: "middle-bracket-locked",
+    title: "The middle of both brackets is finally real",
     sourced:
-      "The Western Conference still has movement at seeds three and four entering the regular-season finale.",
+      "New York-Toronto, Cleveland-Atlanta, Denver-Minnesota, and Lakers-Houston are now the actual 3/6 and 4/5 series on the board.",
     likelyImpact:
-      "That swap changes who opens at home in the Denver-Lakers tier of the bracket and should nudge both first-round and second-round prices.",
+      "That means users can stop reacting to placeholders and start assigning real exposure to the stable middle of the playoff bracket.",
     whyItMatters:
-      "Home court is one of the few late regular-season changes that can still reshape real playoff expectations.",
+      "These are the first series where the market, model, and board-building work should feel concrete instead of speculative.",
   },
   {
-    id: "west-eight-nine",
-    title: "West 8-9 positioning still matters",
+    id: "board-lock-window",
+    title: "The decision window has shifted from seeding math to board construction",
     sourced:
-      "The West still has unresolved placement around the eight-nine line on the final day.",
+      "With the top six locked in each conference, the main uncertainty now sits in the Play-In rather than in the standings table itself.",
     likelyImpact:
-      "That changes the Play-In path into Oklahoma City's side of the bracket and should affect how heavy the Thunder open as first-round favorites.",
+      "The product should be less about last-day regular-season permutations now and more about how the Play-In changes first-round prices before Saturday's lock.",
     whyItMatters:
-      "The one seed's opponent range is still wider than the static bracket makes it look.",
+      "This is the moment when the app should start sounding like a playoff board-building tool instead of a standings watcher.",
   },
 ];

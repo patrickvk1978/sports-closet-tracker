@@ -8,6 +8,8 @@ import { formatLean } from "../lib/insights";
 import { SCENARIO_WATCH_DATE, SCENARIO_WATCH_ITEMS } from "../data/scenarioWatch";
 import { useProbabilityInputs } from "../hooks/useProbabilityInputs";
 import { summarizeSeriesMarket } from "../lib/seriesPickem";
+import { areRoundPicksPublic } from "../lib/pickVisibility";
+import { useCommentary } from "../hooks/useCommentary";
 
 function formatPlace(value) {
   if (!Number.isFinite(value)) return "TBD";
@@ -22,32 +24,14 @@ function formatPct(value) {
   return `${Math.round(safe)}%`;
 }
 
-function buildTodayAngle(items) {
-  if (!items.length) {
-    return {
-      headline: "The final seeding picture is still shaping your board.",
-      body: "Today is less about live scores and more about how the last regular-season results reroute the playoff map before the Play-In begins.",
-      support: "The important window now runs from the Sunday finale through the Play-In and into the Saturday, April 18, 2026 Round 1 lock.",
-    };
-  }
-
-  const [primary, secondary] = items;
-  return {
-    headline: primary.title,
-    body: `${primary.sourced} ${primary.likelyImpact}`,
-    support: secondary
-      ? `${primary.whyItMatters} Also watch: ${secondary.title.toLowerCase()}. Round 1 locks on Saturday, April 18, 2026.`
-      : `${primary.whyItMatters} Round 1 locks on Saturday, April 18, 2026.`,
-  };
-}
-
 export default function DashboardView() {
   const { profile } = useAuth();
   const { pool, memberList, settingsForPool } = usePool();
   const { currentRound, featuredSeries, series, seriesByRound, roundSummaries } = usePlayoffData();
   const settings = settingsForPool(pool);
   const activeRoundSeries = seriesByRound[currentRound.key] ?? [];
-  const { picksBySeriesId, allPicksByUser } = useSeriesPickem(series);
+  const canViewPoolSignals = areRoundPicksPublic(activeRoundSeries, currentRound.key, settings);
+  const { picksBySeriesId, allPicksByUser, loading: picksLoading } = useSeriesPickem(series);
   const isCommissioner = pool?.admin_id === profile?.id;
 
   const standings = buildStandings(memberList, allPicksByUser, series, settings);
@@ -61,25 +45,48 @@ export default function DashboardView() {
   const researchSeries = activeRoundSeries.length ? activeRoundSeries.slice(0, 3) : featuredSeries.slice(0, 3);
   const probabilityInputs = useProbabilityInputs(researchSeries);
   const probabilityBySeriesId = Object.fromEntries(probabilityInputs.map((entry) => [entry.entityId, entry]));
-  const todayAngle = buildTodayAngle(SCENARIO_WATCH_ITEMS);
+  const commentary = useCommentary({
+    featuredSeries,
+    activeRoundSeries,
+    picksBySeriesId,
+    allPicksByUser,
+    memberList,
+    currentRound,
+    currentStanding,
+    scenarioItems: SCENARIO_WATCH_ITEMS,
+    scenarioDate: SCENARIO_WATCH_DATE,
+    canViewPoolSignals,
+    picksLoading,
+  });
+  const heroCommentary = !picksLoading ? (commentary ?? {
+    eyebrow: "Play-In watch",
+    headline: "The board is settling into its real decision window.",
+    body: "Use this moment to finish the card, check the few series where the market and model still disagree, and avoid mistaking broad playoff noise for an actual move on your board.",
+    support: "Round 1 selections lock on Saturday, April 18, 2026. The useful work here is personal: get your board in, then reopen only the spots that still deserve it.",
+    actionLabel: "Open series tracker",
+    actionPath: "/series",
+  }) : null;
   const seriesSignalRows = activeRoundSeries.map((seriesItem) => {
     const probability = probabilityBySeriesId[seriesItem.id];
     const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
     const pick = picksBySeriesId[seriesItem.id] ?? null;
     const marketGap = Math.abs((seriesItem.market.homeWinPct ?? 50) - (seriesItem.model.homeWinPct ?? 50));
     const marketFavoritePct = Math.max(seriesItem.market.homeWinPct ?? 50, seriesItem.market.awayWinPct ?? 50);
-    const consensusPct = Math.max(marketSummary.homePct, marketSummary.awayPct);
+    const consensusPct = canViewPoolSignals ? Math.max(marketSummary.homePct, marketSummary.awayPct) : 0;
     const yourTeam = !pick
       ? null
       : pick.winnerTeamId === seriesItem.homeTeam.id
         ? seriesItem.homeTeam
         : seriesItem.awayTeam;
-    const yourShare = !pick
+    const yourShare = !pick || !canViewPoolSignals
       ? 0
       : pick.winnerTeamId === seriesItem.homeTeam.id
         ? marketSummary.homePct
         : marketSummary.awayPct;
     const consensusTeam =
+      !canViewPoolSignals
+        ? null
+        :
       marketSummary.consensusWinnerTeamId === seriesItem.homeTeam.id
         ? seriesItem.homeTeam
         : marketSummary.consensusWinnerTeamId === seriesItem.awayTeam.id
@@ -143,6 +150,7 @@ export default function DashboardView() {
   const positionLabel = currentStanding
     ? `Currently ${formatPlace(currentStanding.place)} in the pool`
     : "Standings will sharpen as more picks come in";
+  const preLockModeLabel = canViewPoolSignals ? positionLabel : "Pre-lock board";
   const nextActionLabel =
     remainingRoundPicks > 0
       ? `You still have ${remainingRoundPicks} ${remainingRoundPicks === 1 ? "series" : "series"} to pick in ${currentRound.label}.`
@@ -177,15 +185,15 @@ export default function DashboardView() {
       <section className="panel nba-hero-panel">
         <div className="nba-hero-copy">
           <span className="label">Play-In watch · {SCENARIO_WATCH_DATE}</span>
-          <h1>{todayAngle.headline}</h1>
-          <p className="subtle">{todayAngle.body}</p>
+          <h1>{heroCommentary?.headline ?? "\u00A0"}</h1>
+          <p className="subtle">{heroCommentary?.body ?? "\u00A0"}</p>
           <div className="nba-commentary-placeholder">
-            <strong>Selection week read</strong>
-            <span>{todayAngle.support}</span>
+            <strong>{heroCommentary?.eyebrow ?? "\u00A0"}</strong>
+            <span>{heroCommentary?.support ?? "\u00A0"}</span>
           </div>
           <div className="nba-hero-actions">
-            <Link className="primary-button" to="/reports/scenarios">
-              Open scenario report
+            <Link className="primary-button" to={heroCommentary?.actionPath ?? "/series"}>
+              {heroCommentary?.actionLabel ?? "Open series tracker"}
             </Link>
             <Link className="secondary-button" to="/reports">
               Open all reports
@@ -200,7 +208,7 @@ export default function DashboardView() {
           <div className="nba-stat-grid">
             <div className="nba-stat-card">
               <span className="micro-label">Current place</span>
-              <strong>{positionLabel}</strong>
+              <strong>{preLockModeLabel}</strong>
             </div>
             <div className="nba-stat-card">
               <span className="micro-label">Round picks made</span>
@@ -227,7 +235,9 @@ export default function DashboardView() {
               <p>
                 {biggestSwingSeries
                   ? biggestSwingSeries.pick
-                    ? `${biggestSwingSeries.yourTeam?.abbreviation ?? "Your pick"} at ${formatPct(biggestSwingSeries.yourShare)} room share`
+                    ? canViewPoolSignals
+                      ? `${biggestSwingSeries.yourTeam?.abbreviation ?? "Your pick"} at ${formatPct(biggestSwingSeries.yourShare)} room share`
+                      : `${biggestSwingSeries.yourTeam?.abbreviation ?? "Your pick"} is worth another look`
                     : `${biggestSwingSeries.matchup} still unpicked`
                   : "No active swing yet"}
               </p>
@@ -314,7 +324,9 @@ export default function DashboardView() {
                   <strong>{row.pick ? `${row.matchup} is still live leverage` : `${row.matchup} still needs your pick`}</strong>
                   <p>
                     {row.pick
-                      ? `${formatPct(row.yourShare)} of the room is with ${row.yourTeam?.abbreviation ?? "your side"}, so this result can still create real separation.`
+                      ? canViewPoolSignals
+                        ? `${formatPct(row.yourShare)} of the room is with ${row.yourTeam?.abbreviation ?? "your side"}, so this result can still create real separation.`
+                        : "Before lock, this reads more like a leverage candidate than a scored swing: market, model, and your own card all say it is worth another look."
                       : "Until you pick a side here, this series is still one of the biggest open variables on your card."}
                   </p>
                 </div>
@@ -349,6 +361,7 @@ export default function DashboardView() {
           </div>
         </article>
 
+        {canViewPoolSignals ? (
         <article className="panel">
           <div className="panel-header">
             <div>
@@ -377,6 +390,33 @@ export default function DashboardView() {
             ))}
           </div>
         </article>
+        ) : (
+        <article className="panel">
+          <div className="panel-header">
+            <div>
+              <span className="label">Public signals</span>
+              <h2>What can you use before picks are public?</h2>
+            </div>
+            <Link className="secondary-button" to="/reports/scenarios">
+              Open report
+            </Link>
+          </div>
+          <div className="nba-dashboard-list">
+            <div className="nba-dashboard-row nba-dashboard-row-stacked">
+              <div>
+                <strong>Room exposure is still private</strong>
+                <p>Before the round locks or games begin, this app stays on public bracket, market, and model inputs rather than showing where the room has landed.</p>
+              </div>
+            </div>
+            <div className="nba-dashboard-row nba-dashboard-row-stacked">
+              <div>
+                <strong>Use reports for the public edge</strong>
+                <p>Scenario watch, win odds, and swing spots are the right places to focus until the board becomes public to everyone.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+        )}
 
         <article className="panel">
           <div className="panel-header">

@@ -21,6 +21,7 @@ import ReportsView from "./views/ReportsView";
 import ReportDetailView from "./views/ReportDetailView";
 import SeriesReportView from "./views/SeriesReportView";
 import OpponentReportView from "./views/OpponentReportView";
+import MatrixView from "./views/MatrixView";
 import { usePool } from "./hooks/usePool";
 
 function AppChrome() {
@@ -50,35 +51,36 @@ export default function App() {
       <ScrollToTop />
       <AuthProvider>
         <PlayoffDataProvider>
-        <PoolProvider>
-          <div className="app-shell app-shell-routed">
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <PoolProvider>
+            <div className="app-shell app-shell-routed">
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-              <Route element={<ProtectedRoute />}>
-                <Route element={<AppChrome />}>
-                  <Route path="/join" element={<JoinPoolPage />} />
-                  <Route path="/create-pool" element={<CreatePoolPage />} />
-                  <Route path="/admin" element={<AdminPage />} />
-                  <Route element={<PoolGuard />}>
-                    <Route path="/" element={<PoolHomeRedirect />} />
-                    <Route path="/dashboard" element={<DashboardView />} />
-                    <Route path="/standings" element={<StandingsView />} />
-                    <Route path="/bracket" element={<BracketWorkspaceView />} />
-                    <Route path="/series" element={<SeriesTrackerView />} />
-                    <Route path="/reports" element={<ReportsView />} />
-                    <Route path="/reports/:reportKey" element={<ReportDetailView />} />
-                    <Route path="/reports/series/:seriesId" element={<SeriesReportView />} />
-                    <Route path="/reports/opponent/:opponentId" element={<OpponentReportView />} />
-                    <Route path="/pool-settings" element={<PoolSettingsPage />} />
-                    <Route path="/pool-members" element={<PoolMembersPage />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<AppChrome />}>
+                    <Route path="/join" element={<JoinPoolPage />} />
+                    <Route path="/create-pool" element={<CreatePoolPage />} />
+                    <Route path="/admin" element={<AdminPage />} />
+                    <Route element={<PoolGuard />}>
+                      <Route path="/" element={<PoolHomeRedirect />} />
+                      <Route path="/dashboard" element={<DashboardView />} />
+                      <Route path="/standings" element={<StandingsView />} />
+                      <Route path="/bracket" element={<BracketWorkspaceView />} />
+                      <Route path="/series" element={<SeriesTrackerView />} />
+                      <Route path="/matrix" element={<MatrixView />} />
+                      <Route path="/reports" element={<ReportsView />} />
+                      <Route path="/reports/:reportKey" element={<ReportDetailView />} />
+                      <Route path="/reports/series/:seriesId" element={<SeriesReportView />} />
+                      <Route path="/reports/opponent/:opponentId" element={<OpponentReportView />} />
+                      <Route path="/pool-settings" element={<PoolSettingsPage />} />
+                      <Route path="/pool-members" element={<PoolMembersPage />} />
+                    </Route>
                   </Route>
                 </Route>
-              </Route>
-            </Routes>
-          </div>
-        </PoolProvider>
+              </Routes>
+            </div>
+          </PoolProvider>
         </PlayoffDataProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -11,6 +11,8 @@ export function useCommentary({
   currentStanding,
   scenarioItems,
   scenarioDate,
+  canViewPoolSignals,
+  picksLoading,
 }) {
   return useMemo(
     () =>
@@ -24,6 +26,8 @@ export function useCommentary({
         currentStanding,
         scenarioItems,
         scenarioDate,
+        canViewPoolSignals,
+        picksLoading,
       }),
     [
       activeRoundSeries,
@@ -35,6 +39,8 @@ export function useCommentary({
       picksBySeriesId,
       scenarioDate,
       scenarioItems,
+      canViewPoolSignals,
+      picksLoading,
     ]
   );
 }
