@@ -1,22 +1,26 @@
-name: Deploy
+name: CI
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+
+# Deployments are handled by Vercel's native GitHub integration.
+# Each Vercel project is configured with:
+#   - Root Directory: apps/<app-name>
+#   - Ignored Build Step: npx turbo-ignore   (skips build when only unrelated files changed)
+#
+# This workflow only validates that every affected app builds cleanly.
 
 jobs:
-  # ──────────────────────────────────────────────────────────────
-  # Tournament Tracker — triggers on app or shared package changes
-  # ──────────────────────────────────────────────────────────────
-  deploy-tournament:
-    name: Deploy Tournament Tracker
+  build:
+    name: Build affected apps
     runs-on: ubuntu-latest
-    if: |
-      contains(github.event.head_commit.modified, 'apps/tournament-tracker/') ||
-      contains(github.event.head_commit.modified, 'packages/shared/') ||
-      contains(github.event.head_commit.modified, 'packages/ui/')
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed for turbo-ignore to compare commits
 
       - uses: pnpm/action-setup@v4
         with:
@@ -30,97 +34,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build tournament-tracker
-        run: pnpm --filter tournament-tracker build
+      - name: Build all apps
+        run: pnpm build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_TOURNAMENT }}
-          working-directory: apps/tournament-tracker
-          vercel-args: '--prod'
-
-  # ──────────────────────────────────────────────────────────────
-  # On the Clock (Draft)
-  # ──────────────────────────────────────────────────────────────
-  deploy-draft:
-    name: Deploy On the Clock
-    runs-on: ubuntu-latest
-    if: |
-      contains(github.event.head_commit.modified, 'apps/on-the-clock/') ||
-      contains(github.event.head_commit.modified, 'packages/shared/') ||
-      contains(github.event.head_commit.modified, 'packages/ui/')
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build on-the-clock
-        run: pnpm --filter on-the-clock build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_DRAFT }}
-          working-directory: apps/on-the-clock
-          vercel-args: '--prod'
-
-  # ──────────────────────────────────────────────────────────────
-  # NBA Playoffs
-  # ──────────────────────────────────────────────────────────────
-  deploy-nba:
-    name: Deploy NBA Playoffs
-    runs-on: ubuntu-latest
-    if: |
-      contains(github.event.head_commit.modified, 'apps/nba-playoffs/') ||
-      contains(github.event.head_commit.modified, 'packages/shared/') ||
-      contains(github.event.head_commit.modified, 'packages/ui/')
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build nba-playoffs
-        run: pnpm --filter nba-playoffs build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_NBA }}
-          working-directory: apps/nba-playoffs
-          vercel-args: '--prod'
