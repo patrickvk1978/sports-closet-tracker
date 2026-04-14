@@ -698,6 +698,7 @@ def load_pool_data(client, pool_id):
 
         players.append({
             'username':       username,
+            'user_id':        uid,    # kept for adapter layer
             'picks':          picks,
             'current_points': points,
         })
@@ -1804,6 +1805,105 @@ def upsert_sim_results(client, pool_id, player_probs, finish_probs, leverage_gam
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────
+
+def run_simulation_for_pool(db, pool_id: str, iterations: int = 5_000) -> list[dict]:
+    """
+    Adapter-facing entry point.  Runs the full Monte Carlo pipeline for one pool
+    and returns a list of per-player result dicts that the MarchMadnessAdapter
+    transforms into simulation_outputs rows.
+
+    Each dict has:
+      user_id, entry_id, username, win_pct, points, points_back,
+      rank, max_possible, finish_probs, leverage_game, best_path
+    """
+    bpi_ratings = load_ratings()
+    players, games_by_slot, team_seeds, round_points, _start_round, prize_places = (
+        load_pool_data(db, pool_id)
+    )
+
+    if not players:
+        return []
+
+    player_probs, finish_probs, _, _, all_outcomes, sim_winners, sim_prize_finishers = (
+        run_simulation(
+            players, games_by_slot, team_seeds, bpi_ratings,
+            iterations=iterations,
+            round_points=round_points,
+            prize_places=prize_places,
+        )
+    )
+
+    leverage_games, player_leverage = calculate_leverage(
+        players, games_by_slot, all_outcomes, sim_winners,
+        sim_prize_finishers=sim_prize_finishers,
+    )
+
+    best_paths = derive_best_paths(players, games_by_slot, all_outcomes, player_probs)
+
+    # ── Compute max-possible points ───────────────────────────────────────
+    # Teams that are still alive (haven't been knocked out of a decided game)
+    alive_teams: set[str] = set()
+    for game in games_by_slot.values():
+        teams = (game or {}).get('teams') or {}
+        for key in ('team1', 'team2'):
+            if teams.get(key):
+                alive_teams.add(teams[key])
+    for game in games_by_slot.values():
+        winner = (game or {}).get('winner')
+        teams  = (game or {}).get('teams') or {}
+        if winner:
+            loser = teams.get('team2') if winner == teams.get('team1') else teams.get('team1')
+            if loser:
+                alive_teams.discard(loser)
+
+    # ── Build results ─────────────────────────────────────────────────────
+    scores = {p['username']: p['current_points'] for p in players}
+    max_score = max(scores.values(), default=0)
+
+    # Sort names by current points desc for ranking
+    ranked_names = sorted(scores, key=lambda n: -scores[n])
+    rank_map: dict[str, int] = {}
+    rank = 1
+    for i, name in enumerate(ranked_names):
+        if i > 0 and scores[name] < scores[ranked_names[i - 1]]:
+            rank = i + 1
+        rank_map[name] = rank
+
+    # Top leverage game per player (first entry in player_leverage list)
+    top_leverage: dict[str, dict] = {}
+    for name, game_list in player_leverage.items():
+        if game_list:
+            top_leverage[name] = game_list[0]
+
+    results = []
+    for player in players:
+        name = player['username']
+
+        # Max possible: current + all remaining picks still alive
+        max_possible = player['current_points']
+        picks = player['picks']
+        for slot, game in games_by_slot.items():
+            if (game or {}).get('winner'):
+                continue  # already decided; counted in current_points
+            if slot < len(picks) and picks[slot] and picks[slot] in alive_teams:
+                max_possible += round_points.get(SLOT_ROUND.get(slot, ''), 0)
+
+        results.append({
+            'user_id':       player.get('user_id'),
+            'entry_id':      None,  # single-entry; multi-entry handled by pool_entries
+            'username':      name,
+            'win_pct':       round(player_probs.get(name, 0.0) * 100, 2),
+            'points':        player['current_points'],
+            'points_back':   max_score - player['current_points'],
+            'rank':          rank_map.get(name, 1),
+            'max_possible':  max_possible,
+            'finish_probs':  finish_probs.get(name, {}),
+            'leverage_game': top_leverage.get(name),
+            'best_path':     best_paths.get(name, best_paths.get('_default', [])),
+        })
+
+    return results
+
 
 def main():
     parser = argparse.ArgumentParser(description='Run Monte Carlo win probability simulation.')
