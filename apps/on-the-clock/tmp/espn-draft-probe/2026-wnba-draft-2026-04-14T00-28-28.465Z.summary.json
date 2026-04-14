@@ -1,0 +1,149 @@
+{
+  "fetchedAt": "2026-04-14T00:28:28.464Z",
+  "sourceUrl": "https://www.espn.com/wnba/draft/live",
+  "displayName": "2026 Women's National Basketball Association Draft",
+  "shortDisplayName": "2026 WNBA Draft",
+  "year": 2026,
+  "rounds": 3,
+  "next": 17,
+  "status": {
+    "round": 1,
+    "name": "BETWEEN_ROUNDS",
+    "description": "Between Rounds",
+    "state": "in"
+  },
+  "counts": {
+    "teams": 15,
+    "picks": 45,
+    "selected": 15,
+    "remaining": 30
+  },
+  "current": {
+    "pickId": 16,
+    "bestAvailable": {
+      "id": "111101",
+      "displayName": "Ashlon Jackson",
+      "position": null,
+      "team": "DUKE",
+      "link": "https://www.espn.com/womens-college-basketball/player/_/id/5106232/ashlon-jackson"
+    },
+    "bestFit": {
+      "id": "111103",
+      "displayName": "Ta'Niya Latson",
+      "position": null,
+      "team": "SC",
+      "link": "https://www.espn.com/womens-college-basketball/player/_/id/4609797/taniya-latson"
+    },
+    "bestAvailableCount": 5,
+    "currentPick": {
+      "round": 2,
+      "pick": 1,
+      "overall": 16,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from DAL",
+      "teamId": "14",
+      "team": "SEA",
+      "selection": null,
+      "expires": "2026-04-14T00:28:57Z"
+    }
+  },
+  "nextPicks": [
+    {
+      "round": 2,
+      "pick": 1,
+      "overall": 16,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from DAL",
+      "teamId": "14",
+      "team": "SEA",
+      "selection": null,
+      "expires": "2026-04-14T00:28:57Z"
+    },
+    {
+      "round": 2,
+      "pick": 2,
+      "overall": 17,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from CHI",
+      "teamId": "132052",
+      "team": "POR",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 2,
+      "pick": 3,
+      "overall": 18,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "18",
+      "team": "CON",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 2,
+      "pick": 4,
+      "overall": 19,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "16",
+      "team": "WSH",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 2,
+      "pick": 5,
+      "overall": 20,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "6",
+      "team": "LA",
+      "selection": null,
+      "expires": null
+    }
+  ],
+  "sampleKeys": {
+    "root": [
+      "broadcasts",
+      "columns",
+      "current",
+      "displayName",
+      "next",
+      "picks",
+      "positions",
+      "prev",
+      "rounds",
+      "shortDisplayName",
+      "status",
+      "teams",
+      "toggleSwitch",
+      "uid",
+      "usePlayerUID",
+      "year"
+    ],
+    "pick": [
+      "athlete",
+      "overall",
+      "pick",
+      "round",
+      "status",
+      "teamId",
+      "tradeNote",
+      "traded"
+    ],
+    "current": [
+      "bestAvailable",
+      "bestAvailablePicks",
+      "bestFit",
+      "pickId"
+    ]
+  }
+}

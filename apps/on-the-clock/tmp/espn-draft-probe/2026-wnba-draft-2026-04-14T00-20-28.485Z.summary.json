@@ -1,0 +1,149 @@
+{
+  "fetchedAt": "2026-04-14T00:20:28.483Z",
+  "sourceUrl": "https://www.espn.com/wnba/draft/live",
+  "displayName": "2026 Women's National Basketball Association Draft",
+  "shortDisplayName": "2026 WNBA Draft",
+  "year": 2026,
+  "rounds": 3,
+  "next": 14,
+  "status": {
+    "round": 1,
+    "name": "IN_PROGRESS",
+    "description": "In Progress",
+    "state": "in"
+  },
+  "counts": {
+    "teams": 15,
+    "picks": 45,
+    "selected": 12,
+    "remaining": 33
+  },
+  "current": {
+    "pickId": 13,
+    "bestAvailable": {
+      "id": "111101",
+      "displayName": "Ashlon Jackson",
+      "position": null,
+      "team": "DUKE",
+      "link": "https://www.espn.com/womens-college-basketball/player/_/id/5106232/ashlon-jackson"
+    },
+    "bestFit": {
+      "id": "111100",
+      "displayName": "Madina Okot",
+      "position": null,
+      "team": "SC",
+      "link": "https://www.espn.com/womens-college-basketball/player/_/id/5108587/madina-okot"
+    },
+    "bestAvailableCount": 5,
+    "currentPick": {
+      "round": 1,
+      "pick": 13,
+      "overall": 13,
+      "status": "PICK_IS_IN",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "20",
+      "team": "ATL",
+      "selection": null,
+      "expires": null
+    }
+  },
+  "nextPicks": [
+    {
+      "round": 1,
+      "pick": 13,
+      "overall": 13,
+      "status": "PICK_IS_IN",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "20",
+      "team": "ATL",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 1,
+      "pick": 14,
+      "overall": 14,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from LV",
+      "teamId": "14",
+      "team": "SEA",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 1,
+      "pick": 15,
+      "overall": 15,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from MIN",
+      "teamId": "18",
+      "team": "CON",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 2,
+      "pick": 1,
+      "overall": 16,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from DAL",
+      "teamId": "14",
+      "team": "SEA",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 2,
+      "pick": 2,
+      "overall": 17,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from CHI",
+      "teamId": "132052",
+      "team": "POR",
+      "selection": null,
+      "expires": null
+    }
+  ],
+  "sampleKeys": {
+    "root": [
+      "broadcasts",
+      "columns",
+      "current",
+      "displayName",
+      "next",
+      "picks",
+      "positions",
+      "prev",
+      "rounds",
+      "shortDisplayName",
+      "status",
+      "teams",
+      "toggleSwitch",
+      "uid",
+      "usePlayerUID",
+      "year"
+    ],
+    "pick": [
+      "athlete",
+      "overall",
+      "pick",
+      "round",
+      "status",
+      "teamId",
+      "tradeNote",
+      "traded"
+    ],
+    "current": [
+      "bestAvailable",
+      "bestAvailablePicks",
+      "bestFit",
+      "pickId"
+    ]
+  }
+}

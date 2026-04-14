@@ -1,0 +1,143 @@
+{
+  "fetchedAt": "2026-04-13T23:15:37.726Z",
+  "sourceUrl": "https://www.espn.com/wnba/draft/rounds",
+  "displayName": "2026 Women's National Basketball Association Draft",
+  "shortDisplayName": "2026 WNBA Draft",
+  "year": 2026,
+  "rounds": 3,
+  "next": 3,
+  "status": {
+    "round": 1,
+    "name": "IN_PROGRESS",
+    "description": "In Progress",
+    "state": "in"
+  },
+  "counts": {
+    "teams": 15,
+    "picks": 45,
+    "selected": 0,
+    "remaining": 45
+  },
+  "current": {
+    "pickId": 2,
+    "bestAvailable": {
+      "id": "111092",
+      "displayName": "Olivia Miles",
+      "position": null,
+      "team": "TCU",
+      "link": "https://www.espn.com/womens-college-basketball/player/_/id/4433791/olivia-miles"
+    },
+    "bestFit": {
+      "id": "111095",
+      "displayName": "Awa Fam Thiam",
+      "position": null,
+      "team": "Spain",
+      "link": null
+    },
+    "bestAvailableCount": 5,
+    "currentPick": {
+      "round": 1,
+      "pick": 2,
+      "overall": 2,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from CHI",
+      "teamId": "8",
+      "team": "MIN",
+      "selection": null
+    }
+  },
+  "nextPicks": [
+    {
+      "round": 1,
+      "pick": 1,
+      "overall": 1,
+      "status": "SELECTION_MADE",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "3",
+      "team": "DAL",
+      "selection": null
+    },
+    {
+      "round": 1,
+      "pick": 2,
+      "overall": 2,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from CHI",
+      "teamId": "8",
+      "team": "MIN",
+      "selection": null
+    },
+    {
+      "round": 1,
+      "pick": 3,
+      "overall": 3,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from LA",
+      "teamId": "14",
+      "team": "SEA",
+      "selection": null
+    },
+    {
+      "round": 1,
+      "pick": 4,
+      "overall": 4,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "16",
+      "team": "WSH",
+      "selection": null
+    },
+    {
+      "round": 1,
+      "pick": 5,
+      "overall": 5,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from CON",
+      "teamId": "19",
+      "team": "CHI",
+      "selection": null
+    }
+  ],
+  "sampleKeys": {
+    "root": [
+      "broadcasts",
+      "columns",
+      "current",
+      "displayName",
+      "next",
+      "picks",
+      "positions",
+      "prev",
+      "rounds",
+      "shortDisplayName",
+      "status",
+      "teams",
+      "toggleSwitch",
+      "uid",
+      "usePlayerUID",
+      "year"
+    ],
+    "pick": [
+      "athlete",
+      "overall",
+      "pick",
+      "round",
+      "status",
+      "teamId",
+      "tradeNote",
+      "traded"
+    ],
+    "current": [
+      "bestAvailable",
+      "bestAvailablePicks",
+      "bestFit",
+      "pickId"
+    ]
+  }
+}
