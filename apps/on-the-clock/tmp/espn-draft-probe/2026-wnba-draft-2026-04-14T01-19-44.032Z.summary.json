@@ -1,0 +1,149 @@
+{
+  "fetchedAt": "2026-04-14T01:19:44.029Z",
+  "sourceUrl": "https://www.espn.com/wnba/draft/live",
+  "displayName": "2026 Women's National Basketball Association Draft",
+  "shortDisplayName": "2026 WNBA Draft",
+  "year": 2026,
+  "rounds": 3,
+  "next": 40,
+  "status": {
+    "round": 3,
+    "name": "IN_PROGRESS",
+    "description": "In Progress",
+    "state": "in"
+  },
+  "counts": {
+    "teams": 15,
+    "picks": 45,
+    "selected": 38,
+    "remaining": 7
+  },
+  "current": {
+    "pickId": 39,
+    "bestAvailable": {
+      "id": "111107",
+      "displayName": "Yarden Garzon",
+      "position": null,
+      "team": "MD",
+      "link": "https://www.espn.com/womens-college-basketball/player/_/id/5107834/yarden-garzon"
+    },
+    "bestFit": {
+      "id": "111108",
+      "displayName": "Raegan Beers",
+      "position": null,
+      "team": "OU",
+      "link": "https://www.espn.com/womens-college-basketball/player/_/id/5105732/raegan-beers"
+    },
+    "bestAvailableCount": 5,
+    "currentPick": {
+      "round": 3,
+      "pick": 9,
+      "overall": 39,
+      "status": "PICK_IS_IN",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "14",
+      "team": "SEA",
+      "selection": null,
+      "expires": null
+    }
+  },
+  "nextPicks": [
+    {
+      "round": 3,
+      "pick": 9,
+      "overall": 39,
+      "status": "PICK_IS_IN",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "14",
+      "team": "SEA",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 3,
+      "pick": 10,
+      "overall": 40,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "5",
+      "team": "IND",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 3,
+      "pick": 11,
+      "overall": 41,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "9",
+      "team": "NY",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 3,
+      "pick": 12,
+      "overall": 42,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "11",
+      "team": "PHX",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 3,
+      "pick": 13,
+      "overall": 43,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "20",
+      "team": "ATL",
+      "selection": null,
+      "expires": null
+    }
+  ],
+  "sampleKeys": {
+    "root": [
+      "broadcasts",
+      "columns",
+      "current",
+      "displayName",
+      "next",
+      "picks",
+      "positions",
+      "prev",
+      "rounds",
+      "shortDisplayName",
+      "status",
+      "teams",
+      "toggleSwitch",
+      "uid",
+      "usePlayerUID",
+      "year"
+    ],
+    "pick": [
+      "athlete",
+      "overall",
+      "pick",
+      "round",
+      "status",
+      "teamId",
+      "tradeNote",
+      "traded"
+    ],
+    "current": [
+      "bestAvailable",
+      "bestAvailablePicks",
+      "bestFit",
+      "pickId"
+    ]
+  }
+}

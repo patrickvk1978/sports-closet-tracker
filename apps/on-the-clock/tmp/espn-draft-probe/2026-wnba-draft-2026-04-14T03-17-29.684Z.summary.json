@@ -1,0 +1,57 @@
+{
+  "fetchedAt": "2026-04-14T03:17:29.683Z",
+  "sourceUrl": "https://www.espn.com/wnba/draft/live",
+  "displayName": "2026 Women's National Basketball Association Draft",
+  "shortDisplayName": "2026 WNBA Draft",
+  "year": 2026,
+  "rounds": 3,
+  "next": null,
+  "status": {
+    "round": 3,
+    "name": "COMPLETED",
+    "description": "Completed",
+    "state": "post"
+  },
+  "counts": {
+    "teams": 15,
+    "picks": 45,
+    "selected": 45,
+    "remaining": 0
+  },
+  "current": {
+    "pickId": null,
+    "bestAvailable": null,
+    "bestFit": null,
+    "bestAvailableCount": 0,
+    "currentPick": null
+  },
+  "nextPicks": [],
+  "sampleKeys": {
+    "root": [
+      "broadcasts",
+      "columns",
+      "displayName",
+      "picks",
+      "positions",
+      "rounds",
+      "shortDisplayName",
+      "status",
+      "teams",
+      "toggleSwitch",
+      "uid",
+      "usePlayerUID",
+      "year"
+    ],
+    "pick": [
+      "athlete",
+      "overall",
+      "pick",
+      "round",
+      "status",
+      "teamId",
+      "tradeNote",
+      "traded"
+    ],
+    "current": []
+  }
+}

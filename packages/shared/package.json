@@ -1,0 +1,19 @@
+{
+  "name": "@sports/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./supabase": "./src/supabase.js",
+    "./auth": "./src/auth/index.js",
+    "./pools": "./src/pools/index.js",
+    "./types": "./src/types/index.js",
+    "./utils": "./src/utils/index.js"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1"
+  }
+}
