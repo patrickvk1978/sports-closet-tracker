@@ -173,6 +173,7 @@ export function PoolProvider({ children }) {
         name,
         admin_id: session.user.id,
         invite_code: inviteCode,
+        game_type: 'nba_playoffs',
         game_mode: 'series_pickem',
         settings: productSettings,
       })

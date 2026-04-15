@@ -205,6 +205,8 @@ export function PoolProvider({ children }) {
         name,
         admin_id: session.user.id,
         invite_code: inviteCode,
+        game_type: 'nba_playoffs',
+        game_mode: 'team_value',
         scoring_config: productSettings,
         locked: false,
       })
