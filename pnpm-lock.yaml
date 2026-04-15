@@ -40,6 +40,50 @@ importers:
         specifier: ^7.3.1
         version: 7.3.2(@types/node@25.6.0)(jiti@1.21.7)
 
+  apps/nba-playoffs-v1:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.101.1
+        version: 2.103.0
+      react:
+        specifier: ^19.2.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.5(react@19.2.5)
+      react-router-dom:
+        specifier: ^7.13.1
+        version: 7.14.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.2.0(vite@7.3.2(@types/node@25.6.0)(jiti@1.21.7))
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.2(@types/node@25.6.0)(jiti@1.21.7)
+
+  apps/nba-playoffs-v2:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.101.1
+        version: 2.103.0
+      react:
+        specifier: ^19.2.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.5(react@19.2.5)
+      react-router-dom:
+        specifier: ^7.13.1
+        version: 7.14.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.2.0(vite@7.3.2(@types/node@25.6.0)(jiti@1.21.7))
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.2(@types/node@25.6.0)(jiti@1.21.7)
+
   apps/on-the-clock:
     dependencies:
       '@sports/shared':
