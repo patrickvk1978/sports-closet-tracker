@@ -1,7 +1,22 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthProvider } from "@sports/shared/auth";
 import { PoolProvider } from "./context/PoolContext";
 import NavBar from "./components/NavBar";
+import { supabase } from "./lib/supabase";
+
+function AuthRedirectHandler() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        navigate("/reset-password");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+  return null;
+}
 import ProtectedRoute from "@sports/ui/ProtectedRoute";
 import PoolGuard from "@sports/ui/PoolGuard";
 import Dashboard from "./views/DashboardView";
@@ -29,6 +44,7 @@ export default function App() {
             className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col"
             style={{ fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif" }}
           >
+            <AuthRedirectHandler />
             <NavBar />
             <div className="flex-1">
               <Routes>

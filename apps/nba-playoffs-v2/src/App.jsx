@@ -1,8 +1,21 @@
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import { PoolProvider } from "./context/PoolContext";
 import { PlayoffDataProvider } from "./hooks/usePlayoffData.jsx";
+import { supabase } from "./lib/supabase";
 import LoginPage from "./pages/LoginPage";
+
+function AuthRedirectHandler() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") navigate("/reset-password");
+    });
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+  return null;
+}
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import JoinPoolPage from "./pages/JoinPoolPage";
 import CreatePoolPage from "./pages/CreatePoolPage";
@@ -47,6 +60,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <AuthRedirectHandler />
       <AuthProvider>
         <PlayoffDataProvider>
           <PoolProvider>
