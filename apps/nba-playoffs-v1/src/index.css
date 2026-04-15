@@ -226,7 +226,7 @@ p { margin: 0; }
 
 .nba-hero-copy h1 {
   max-width: 14ch;
-  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-size: clamp(1.55rem, 2.6vw, 2.45rem);
 }
 
 .nba-hero-actions {
@@ -275,6 +275,13 @@ p { margin: 0; }
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.nba-team-board-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
 .nba-roadmap-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -282,6 +289,35 @@ p { margin: 0; }
 .nba-placeholder-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: 8px;
+}
+
+.nba-team-board-table-shell {
+  overflow-x: auto;
+}
+
+.nba-team-board-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.nba-team-board-table th,
+.nba-team-board-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.nba-team-board-table th {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.nba-team-board-table tbody tr:hover {
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
 }
 
 .nba-stat-card {
@@ -401,10 +437,12 @@ p { margin: 0; }
 }
 
 .nba-bracket-line {
-  min-height: 42px;
+  min-height: 46px;
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
   width: 100%;
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
@@ -417,6 +455,17 @@ p { margin: 0; }
 
 .nba-bracket-line span {
   min-width: 3ch;
+  line-height: 1;
+}
+
+.nba-bracket-line em {
+  font-style: normal;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: inherit;
+  opacity: 0.8;
+  white-space: nowrap;
 }
 
 .nba-bracket-line.active {
@@ -468,12 +517,12 @@ p { margin: 0; }
 }
 
 .nba-bracket-series.east .nba-bracket-line {
-  justify-content: flex-start;
+  justify-content: space-between;
   border-right-width: 3px;
 }
 
 .nba-bracket-series.west .nba-bracket-line {
-  justify-content: flex-end;
+  justify-content: space-between;
   text-align: right;
   border-left-width: 3px;
 }
@@ -545,6 +594,70 @@ p { margin: 0; }
   display: flex;
   gap: 8px;
   margin-top: 12px;
+}
+
+.tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltip-wrap-inline {
+  align-self: center;
+}
+
+.tooltip-bubble {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 10px);
+  transform: translateX(-50%);
+  min-width: 220px;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: rgba(20, 36, 62, 0.96);
+  color: #fff7ea;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-fast), transform var(--t-fast);
+  z-index: 500;
+}
+
+.tooltip-wrap:hover .tooltip-bubble,
+.tooltip-wrap:focus-within .tooltip-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.standings-board-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.standings-board-link:hover {
+  color: var(--brand);
+}
+
+.disabled-link {
+  color: var(--text-2);
+  cursor: default;
+}
+
+.standings-tooltip-wrap {
+  align-items: flex-start;
+}
+
+.standings-tooltip-wrap .tooltip-bubble {
+  left: 0;
+  transform: translateX(0);
+}
+
+.standings-tooltip-wrap:hover .tooltip-bubble,
+.standings-tooltip-wrap:focus-within .tooltip-bubble {
+  transform: translateX(0) translateY(0);
 }
 
 .nba-conference-column,
@@ -635,6 +748,38 @@ p { margin: 0; }
 
 .nba-standings-table-expanded tbody tr.is-current-user {
   background: rgba(194, 90, 44, 0.07);
+}
+
+.nba-matrix-table th,
+.nba-matrix-table td {
+  min-width: 130px;
+}
+
+.nba-matrix-table thead th:first-child,
+.nba-matrix-table tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: rgba(247, 237, 220, 0.98);
+}
+
+.nba-matrix-table tbody td:first-child {
+  background: linear-gradient(180deg, rgba(249, 241, 227, 0.99), rgba(239, 223, 195, 0.99));
+}
+
+.nba-matrix-cell {
+  display: grid;
+  gap: 5px;
+  align-items: start;
+}
+
+.nba-matrix-cell strong {
+  font-size: 0.9rem;
+}
+
+.nba-matrix-cell span {
+  color: var(--text-3);
+  font-size: 0.78rem;
 }
 
 .nba-sort-button {
@@ -3255,6 +3400,10 @@ select:focus {
 
 @media (max-width: 760px) {
   .nba-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nba-team-board-status {
     grid-template-columns: 1fr;
   }
 

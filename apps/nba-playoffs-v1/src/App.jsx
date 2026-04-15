@@ -17,6 +17,7 @@ import DashboardView from "./views/DashboardView";
 import BracketWorkspaceView from "./views/BracketWorkspaceView";
 import SeriesTrackerView from "./views/SeriesTrackerView";
 import StandingsView from "./views/StandingsView";
+import MatrixView from "./views/MatrixView";
 import ReportsView from "./views/ReportsView";
 import ReportDetailView from "./views/ReportDetailView";
 import SeriesReportView from "./views/SeriesReportView";
@@ -65,6 +66,7 @@ export default function App() {
                     <Route path="/" element={<PoolHomeRedirect />} />
                     <Route path="/dashboard" element={<DashboardView />} />
                     <Route path="/standings" element={<StandingsView />} />
+                    <Route path="/matrix" element={<MatrixView />} />
                     <Route path="/bracket" element={<BracketWorkspaceView />} />
                     <Route path="/series" element={<SeriesTrackerView />} />
                     <Route path="/reports" element={<ReportsView />} />

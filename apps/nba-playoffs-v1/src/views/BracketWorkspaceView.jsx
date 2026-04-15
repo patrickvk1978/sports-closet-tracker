@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { formatProbabilityFreshness, formatProbabilitySourceLabel } from "../lib/probabilityInputs";
+import { areRoundPicksPublic } from "../lib/pickVisibility";
 
 const EAST_SEMIS = [
   { id: "east-sf-1", sources: ["east-r1-1", "east-r1-3"] },
@@ -25,7 +27,8 @@ function getPickedTeam(seriesItem, pick, slot) {
   return {
     id: pickedTeam.id,
     abbreviation: pickedTeam.abbreviation === "TBD" ? "" : pickedTeam.abbreviation,
-    active: true,
+    detail: "",
+    active: false,
     slot,
   };
 }
@@ -37,6 +40,7 @@ function getRoundOneSlot(seriesItem, pick, side) {
   return {
     id: team.id,
     abbreviation: team.abbreviation === "TBD" ? "" : team.abbreviation,
+    detail: isSelected && pick?.games ? `IN ${pick.games}` : "",
     active: isSelected,
     slot: side,
   };
@@ -109,9 +113,11 @@ function BracketSeries({ entry, side, roundKey, style, isFocused, onFocus, onBlu
       {isFocused ? <BracketPopover detail={detail} /> : null}
       <div className={top.active ? "nba-bracket-line active" : "nba-bracket-line"}>
         <span>{top.abbreviation}</span>
+        {top.detail ? <em>{top.detail}</em> : null}
       </div>
       <div className={bottom.active ? "nba-bracket-line active" : "nba-bracket-line"}>
         <span>{bottom.abbreviation}</span>
+        {bottom.detail ? <em>{bottom.detail}</em> : null}
       </div>
     </button>
   );
@@ -141,16 +147,23 @@ function BracketColumn({ title, seriesList, side, roundKey, rowStarts, focusedSe
 }
 
 export default function BracketWorkspaceView() {
-  const { series, seriesByConference } = usePlayoffData();
-  const { memberList } = usePool();
+  const { series, seriesByConference, currentRound, seriesByRound } = usePlayoffData();
+  const { memberList, pool, settingsForPool } = usePool();
+  const settings = settingsForPool(pool);
   const { picksBySeriesId, allPicksByUser } = useSeriesPickem(series);
   const currentMember = memberList.find((member) => member.isCurrentUser) ?? memberList[0] ?? null;
-  const [selectedMemberId, setSelectedMemberId] = useState(currentMember?.id ?? "");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [focusedSeriesId, setFocusedSeriesId] = useState(null);
+  const activeSeries = seriesByRound[currentRound.key] ?? [];
+  const canViewOtherBrackets = areRoundPicksPublic(activeSeries, currentRound.key, settings);
+  const requestedViewerId = searchParams.get("viewer") ?? "";
+  const availableViewers = memberList.filter((member) => member.id !== currentMember?.id);
+  const selectedViewer = canViewOtherBrackets
+    ? availableViewers.find((member) => member.id === requestedViewerId) ?? null
+    : null;
+  const isViewingCurrentUser = !selectedViewer;
 
-  const effectiveSelectedMemberId = memberList.some((member) => member.id === selectedMemberId)
-    ? selectedMemberId
-    : currentMember?.id ?? memberList[0]?.id ?? "";
+  const effectiveSelectedMemberId = selectedViewer?.id ?? currentMember?.id ?? memberList[0]?.id ?? "";
 
   const selectedPicksBySeriesId = effectiveSelectedMemberId
     ? allPicksByUser[effectiveSelectedMemberId] ?? (effectiveSelectedMemberId === currentMember?.id ? picksBySeriesId : {})
@@ -243,29 +256,55 @@ export default function BracketWorkspaceView() {
     { title: "Round 1", seriesList: westRoundOneDisplay, side: "west", roundKey: "round-1", rowStarts: [1, 4, 7, 10] },
   ];
 
+  function handleViewerChange(event) {
+    const nextViewerId = event.target.value;
+    if (!nextViewerId) {
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    setSearchParams({ viewer: nextViewerId }, { replace: true });
+  }
+
   return (
     <div className="nba-shell">
       <section className="panel">
         <div className="panel-header">
           <div>
             <span className="label">Bracket</span>
-            <h2>Playoff path</h2>
-            <p className="subtle">Keep the board simple. Hover or tap a series to see the pick view plus market and model context.</p>
+            <h2>{isViewingCurrentUser ? "Playoff path" : `${selectedViewer?.name ?? "This entry"}'s playoff path`}</h2>
+            <p className="subtle">
+              Keep the board simple. Hover or tap a series to see the pick view plus market and model context.
+            </p>
           </div>
-          <label className="nba-bracket-viewer">
-            <span className="micro-label">Viewing bracket as</span>
-            <select
-              className="nav-select"
-              value={effectiveSelectedMemberId}
-              onChange={(event) => setSelectedMemberId(event.target.value)}
-            >
-              {memberList.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="nba-report-actions">
+            {canViewOtherBrackets ? (
+              <label className="nba-bracket-viewer">
+                <span className="micro-label">Viewing bracket as</span>
+                <select
+                  className="nav-select"
+                  value={isViewingCurrentUser ? "" : effectiveSelectedMemberId}
+                  onChange={handleViewerChange}
+                >
+                  <option value="">Viewing: My bracket</option>
+                  {availableViewers.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      View {member.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <span className="tooltip-wrap tooltip-wrap-inline">
+                <button type="button" className="secondary-button" disabled>
+                  View another bracket
+                </button>
+                <span className="tooltip-bubble">Available once the round locks or games begin.</span>
+              </span>
+            )}
+            <Link className="secondary-button" to="/matrix">
+              Open matrix
+            </Link>
+          </div>
         </div>
 
         <div className="nba-bracket-simple">

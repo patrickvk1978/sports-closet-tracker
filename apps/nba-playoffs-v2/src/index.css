@@ -317,6 +317,14 @@ p { margin: 0; }
   letter-spacing: 0.08em;
 }
 
+.nba-report-column-kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .nba-report-column-title-row {
   display: flex;
   align-items: center;
@@ -350,6 +358,24 @@ p { margin: 0; }
 
 .help-dot:hover {
   background: rgba(255, 248, 233, 1);
+}
+
+.nba-lane-chip {
+  background: rgba(255, 248, 233, 0.88);
+  color: var(--brand-dark);
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--border));
+}
+
+.nba-report-persona {
+  margin-top: -2px;
+}
+
+.nba-report-voice-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 10px;
 }
 
 .nba-stat-grid,

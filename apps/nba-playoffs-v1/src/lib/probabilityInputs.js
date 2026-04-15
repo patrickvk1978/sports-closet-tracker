@@ -21,8 +21,29 @@ export function getProbabilityInputsForSeries(seriesId) {
   };
 }
 
+export function mergeProbabilityInputs(seriesId, sharedEntry) {
+  const fallback = getProbabilityInputsForSeries(seriesId);
+  return {
+    market: {
+      ...fallback.market,
+      ...(sharedEntry?.market ?? {}),
+    },
+    model: {
+      ...fallback.model,
+      ...(sharedEntry?.model ?? {}),
+    },
+  };
+}
+
 export function formatProbabilitySourceLabel(probability) {
   const sourceName = probability?.sourceName ?? "unknown_source";
+  if (sourceName === "fanduel_static_game_apr_14_2026") return "FanDuel static game market";
+  if (sourceName === "fanduel_static_series_apr_13_2026") return "FanDuel static series market";
+  if (sourceName === "fanduel_static_game_apr_13_2026") return "FanDuel static game market";
+  if (sourceName === "fanduel_static_series_apr_15_2026") return "FanDuel static series market";
+  if (sourceName === "fanduel_static_game_apr_15_2026") return "FanDuel static game market";
+  if (sourceName === "provisional_seed_estimate") return "Current-seed estimate";
+  if (sourceName === "future_round_estimate") return "Future-round estimate";
   if (sourceName === "local_seeded_market") return "Local seeded market";
   if (sourceName === "local_seeded_model") return "Local seeded model";
   if (sourceName === "fallback_even") return "Fallback even split";

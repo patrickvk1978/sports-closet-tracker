@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo } from "react";
 import { PLAYOFF_ROUNDS, PLAYOFF_SERIES, PLAYOFF_TEAMS } from "../data/playoffData";
-import { getProbabilityInputsForSeries } from "../lib/probabilityInputs";
+import { useBackendProbabilityInputs } from "./useBackendProbabilityInputs";
+import { mergeProbabilityInputs } from "../lib/probabilityInputs";
 
 const PlayoffDataContext = createContext(null);
 
@@ -20,12 +21,19 @@ function buildRoundSummaries(series) {
 }
 
 export function PlayoffDataProvider({ children }) {
+  const seriesIds = useMemo(() => PLAYOFF_SERIES.map((item) => item.id), []);
+  const { probabilityMap } = useBackendProbabilityInputs({
+    productKey: "nba_playoffs",
+    entityIds: seriesIds,
+    entityType: "series",
+  });
+
   const value = useMemo(() => {
     const teamsById = Object.fromEntries(PLAYOFF_TEAMS.map((team) => [team.id, team]));
     const series = PLAYOFF_SERIES.map((item) => {
       const homeTeam = teamsById[item.homeTeamId];
       const awayTeam = teamsById[item.awayTeamId];
-      const probabilityInputs = getProbabilityInputsForSeries(item.id);
+      const probabilityInputs = mergeProbabilityInputs(item.id, probabilityMap?.[item.id]);
       return {
         ...item,
         homeTeam,
@@ -66,10 +74,10 @@ export function PlayoffDataProvider({ children }) {
       seriesByRound,
       seriesByConference,
       currentRound,
-      featuredSeries,
+        featuredSeries,
       roundSummaries: buildRoundSummaries(series),
     };
-  }, []);
+  }, [probabilityMap, seriesIds]);
 
   return <PlayoffDataContext.Provider value={value}>{children}</PlayoffDataContext.Provider>;
 }

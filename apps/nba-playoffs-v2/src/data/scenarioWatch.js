@@ -1,44 +1,44 @@
-export const SCENARIO_WATCH_DATE = "April 13, 2026";
+export const SCENARIO_WATCH_DATE = "April 15, 2026";
 
 export const SCENARIO_WATCH_ITEMS = [
   {
-    id: "east-play-in-field",
-    title: "The East top six is set, but Boston and Detroit are still waiting on the Play-In",
+    id: "portland-clinched-seven",
+    title: "Portland already turned one side of the West board from theory into a real series",
     sourced:
-      "Detroit, Boston, New York, Cleveland, Atlanta, and Toronto are locked into the East top six, while Orlando-Philadelphia and Charlotte-Miami make up the Play-In field.",
+      "Portland beat Phoenix in the West 7/8 Play-In game on Tuesday, April 14, 2026 and locked in the No. 7 seed.",
     likelyImpact:
-      "Boston and Detroit now know the range of opponents they can draw, and those first-round prices should sharpen once the 7 and 8 seeds actually resolve.",
+      "San Antonio-Portland is now a real board decision instead of a placeholder, which means one of the last fuzzy top slots can be priced more honestly.",
     whyItMatters:
-      "The big East seeding chaos is over. The useful question now is which Play-In survivor lands on the top two seeds' side of the bracket.",
+      "This is exactly the kind of event that should push the app away from seeding math and toward actual board construction.",
   },
   {
-    id: "west-play-in-path",
-    title: "Oklahoma City and San Antonio are waiting on a crowded West Play-In",
+    id: "east-top-still-fluid",
+    title: "The top of the East still has one meaningful layer of uncertainty",
     sourced:
-      "The West top six is set with Oklahoma City, San Antonio, Denver, the Lakers, Houston, and Minnesota, while Phoenix-Portland and the Clippers-Golden State make up the Play-In field.",
+      "Philadelphia-Orlando is still for the East 7 seed, and Charlotte is still alive for the final East 8 spot after eliminating Miami.",
     likelyImpact:
-      "That leaves Oklahoma City's and San Antonio's first-round opponents unresolved, and the range of outcomes still matters because the West 7/8 race is stronger than a typical play-in draw.",
+      "Detroit and Boston still have a range of first-round outcomes in front of them, so the top end of the board should not be treated as fully settled yet.",
     whyItMatters:
-      "This is where the bracket can still get materially more dangerous for the top two seeds before Round 1 locks.",
+      "This is the last real place where the East can still move your top slots before lock.",
   },
   {
-    id: "middle-bracket-locked",
-    title: "The middle of both brackets is finally real",
+    id: "okc-final-opponent",
+    title: "Oklahoma City is still waiting on the final West 8 seed",
     sourced:
-      "New York-Toronto, Cleveland-Atlanta, Denver-Minnesota, and Lakers-Houston are now the actual 3/6 and 4/5 series on the board.",
+      "Phoenix is now in the final Play-In game, and the Clippers-Warriors winner is still alive for the last West playoff spot.",
     likelyImpact:
-      "That means users can stop reacting to placeholders and start assigning real exposure to the stable middle of the playoff bracket.",
+      "The Thunder still have opponent uncertainty, but now it is a smaller, cleaner uncertainty than the full West Play-In picture was before Tuesday.",
     whyItMatters:
-      "These are the first series where the market, model, and board-building work should feel concrete instead of speculative.",
+      "That makes this a much better moment to refine the board than to keep treating everything as unresolved.",
   },
   {
-    id: "board-lock-window",
-    title: "The decision window has shifted from seeding math to board construction",
+    id: "middle-board-live",
+    title: "The stable middle of the bracket is where the useful board work already lives",
     sourced:
-      "With the top six locked in each conference, the main uncertainty now sits in the Play-In rather than in the standings table itself.",
+      "Knicks-Hawks, Cavaliers-Raptors, Nuggets-Timberwolves, Lakers-Rockets, and now Spurs-Blazers are real matchups on the page.",
     likelyImpact:
-      "The product should be less about last-day regular-season permutations now and more about how the Play-In changes first-round prices before Saturday's lock.",
+      "Those are the teams that should be doing the most work in slot-fit, strategic-move, and market-vs-model reports right now.",
     whyItMatters:
-      "This is the moment when the app should start sounding like a playoff board-building tool instead of a standings watcher.",
+      "This is the point where the app should feel like a portfolio desk, not a standings watcher.",
   },
 ];

@@ -200,6 +200,55 @@ function buildQuickLinks({ reportState, memberList, allAssignmentsByUser }) {
   ];
 }
 
+function buildDeskIntro({ reportState, completionCount }) {
+  const topScenario = SCENARIO_WATCH_ITEMS[0];
+  const secondScenario = SCENARIO_WATCH_ITEMS[1];
+  const topMisfit = reportState.reports["slot-fits"]?.rows?.find((row) => row.gap > 0);
+  const strategicMove = reportState.reports["strategic-moves"]?.rows?.[0];
+
+  if (reportState.phase !== "pre_lock") {
+    return {
+      headline: "The board is locked. Now it is about which teams keep paying you.",
+      body:
+        "At this point the dashboard should stop sounding like a draft room and start sounding like a position monitor: what is still alive, what is carrying you, and what result matters most next.",
+      currentRead:
+        "The private board-building phase is over. The useful question now is how much live value your best teams still have left to return.",
+    };
+  }
+
+  if (completionCount < 16) {
+    return {
+      headline: "Build the board while the last play-in slots are still settling.",
+      body:
+        "The biggest mistake right now is waiting for every unknown to vanish. Fill the board, then use the reports to decide which few slots deserve a harder second look.",
+      currentRead:
+        secondScenario?.likelyImpact ??
+        "The useful pre-lock rhythm is simple: finish the board first, then revisit only the places where the bracket movement should actually change your pricing.",
+    };
+  }
+
+  if (topMisfit) {
+    return {
+      headline: `${topMisfit.teamLabel} is probably the cleanest board revision still left.`,
+      body:
+        `Your 16-to-1 board is in. The job now is not another full rebuild; it is tightening the few teams that still look mispriced against the current bracket and market picture.`,
+      currentRead:
+        topScenario?.likelyImpact ??
+        "Portland locking the West 7 line turned one side of the board into a real series. That is the kind of shift that should move a slot, not just your mood.",
+    };
+  }
+
+  return {
+    headline: "Your board is in. Now narrow it to the two or three teams worth reopening.",
+    body:
+      strategicMove?.body ??
+      "The highest-value work from here is not reading every report evenly. It is deciding which few teams still deserve a meaningful reprice before lock.",
+    currentRead:
+      topScenario?.likelyImpact ??
+      "The board is mature enough now that the only really useful changes are the ones tied to actual bracket movement or a clear outside-signal disagreement.",
+  };
+}
+
 export default function TeamValueDashboardView() {
   const { profile } = useAuth();
   const { pool, memberList } = usePool();
@@ -218,6 +267,7 @@ export default function TeamValueDashboardView() {
     series,
   });
   const quickLinks = buildQuickLinks({ reportState, memberList, allAssignmentsByUser });
+  const deskIntro = buildDeskIntro({ reportState, completionCount });
   const priorityCard = buildPriorityCard({
     reportState,
     completionCount,
@@ -230,17 +280,13 @@ export default function TeamValueDashboardView() {
       <section className="panel nba-hero-panel">
         <div className="nba-hero-copy">
           <span className="label">Team value board · {SCENARIO_WATCH_DATE}</span>
-          <h1>Set the board before the field starts paying out.</h1>
+          <h1>{deskIntro.headline}</h1>
           <p className="subtle">
-            This is the broadcast-desk view of your pool. Before lock, the job is to balance near-term safety against long-run ceiling. After lock, the story becomes where your live value is concentrated and what can cash it fastest.
+            {deskIntro.body}
           </p>
           <div className="nba-commentary-placeholder">
             <strong>Current read</strong>
-            <span>
-              {reportState.phase === "pre_lock"
-                ? SCENARIO_WATCH_ITEMS[0]?.likelyImpact ?? "The Play-In is the last big source of bracket uncertainty before the board locks."
-                : "The board is locked now, so the real question is which surviving teams are still doing the most work for you."}
-            </span>
+            <span>{deskIntro.currentRead}</span>
           </div>
           <div className="nba-hero-actions">
             <Link className="primary-button" to="/teams">

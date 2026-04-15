@@ -5,11 +5,14 @@
   "scripts": {
     "dev:tournament": "pnpm --filter tournament-tracker dev",
     "dev:draft": "pnpm --filter on-the-clock dev",
-    "dev:nba": "pnpm --filter nba-playoffs dev",
+    "dev:nba:v1": "pnpm --filter nba-playoffs-v1 dev",
+    "dev:nba:v2": "pnpm --filter nba-playoffs-v2 dev",
     "build": "turbo run build",
     "build:tournament": "pnpm --filter tournament-tracker build",
     "build:draft": "pnpm --filter on-the-clock build",
-    "build:nba": "pnpm --filter nba-playoffs build",
+    "build:nba:v1": "pnpm --filter nba-playoffs-v1 build",
+    "build:nba:v2": "pnpm --filter nba-playoffs-v2 build",
+    "seed:nba:probabilities": "python3 services/api/seed_nba_probabilities.py",
     "lint": "turbo run lint",
     "db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > packages/shared/src/types/database.ts"
   },

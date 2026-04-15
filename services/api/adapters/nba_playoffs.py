@@ -9,6 +9,7 @@ from typing import Any
 import math
 
 from adapters.base import GameAdapter
+from adapters.nba_playoffs_snapshot import NBA_PLAYOFFS_SERIES_SNAPSHOT
 
 SERIES_WIN_TABLE = {
     4: lambda p: p**4,
@@ -33,36 +34,33 @@ class NBAPlayoffsAdapter(GameAdapter):
 
     def fetch_probabilities(self, pool_id: str) -> list[dict[str, Any]]:
         """
-        Fetch market/model series win probabilities for all active matchups.
-        Currently uses placeholder market probabilities; replace with
-        ESPN or market API when available.
+        Write a first real NBA probability layer into shared probability_inputs.
+
+        For now, this uses the same curated April 15, 2026 series snapshot that
+        powers the frontend fallback layer. That gives the shared backend a real
+        market/model contract immediately, without depending on the newer
+        `nba_playoffs.*` schema being available in the live database yet.
         """
         captured_at = datetime.now(timezone.utc).isoformat()
 
-        response = self.db.schema('nba_playoffs').from_('matchups') \
-            .select('id, round, conference, home_team, away_team, home_seed, away_seed, status') \
-            .eq('pool_id', pool_id) \
-            .in_('status', ['pending', 'active']) \
-            .execute()
-
         rows = []
-        for matchup in (response.data or []):
-            # TODO: replace with ESPN API call or market odds feed
-            # Using 50/50 as placeholder until real odds are wired
-            rows.append({
-                'product_key':   self.product_key,
-                'entity_type':   'series',
-                'entity_id':     matchup['id'],
-                'source_type':   'market',
-                'source_name':   'consensus_market',
-                'probabilities': {
-                    'home_team':     matchup['home_team'],
-                    'away_team':     matchup['away_team'],
-                    'home_win_pct':  50.0,   # replace with real odds
-                    'away_win_pct':  50.0,
-                },
-                'captured_at':   captured_at,
-            })
+        for series_id, snapshot in NBA_PLAYOFFS_SERIES_SNAPSHOT.items():
+            for source_type in ('market', 'model'):
+                source = snapshot[source_type]
+                rows.append({
+                    'product_key': self.product_key,
+                    'entity_type': 'series',
+                    'entity_id': series_id,
+                    'source_type': source_type,
+                    'source_name': source['source_name'],
+                    'probabilities': {
+                        'home_team': snapshot['home_team'],
+                        'away_team': snapshot['away_team'],
+                        'home_win_pct': source['home_win_pct'],
+                        'away_win_pct': source['away_win_pct'],
+                    },
+                    'captured_at': captured_at,
+                })
 
         return rows
 

@@ -1,18 +1,33 @@
 import { useMemo } from "react";
-import { formatProbabilityFreshness, formatProbabilitySourceLabel } from "../lib/probabilityInputs";
+import { useBackendProbabilityInputs } from "./useBackendProbabilityInputs";
+import {
+  formatProbabilityFreshness,
+  formatProbabilitySourceLabel,
+  mergeProbabilityInputs,
+} from "../lib/probabilityInputs";
 
 export function useProbabilityInputs(seriesList = []) {
+  const entityIds = useMemo(() => seriesList.map((series) => series.id), [seriesList]);
+  const { probabilityMap } = useBackendProbabilityInputs({
+    productKey: "nba_playoffs",
+    entityIds,
+    entityType: "series",
+  });
+
   return useMemo(
     () =>
-      seriesList.map((series) => ({
-        entityId: series.id,
-        market: series.market,
-        model: series.model,
-        marketLabel: formatProbabilitySourceLabel(series.market),
-        modelLabel: formatProbabilitySourceLabel(series.model),
-        marketFreshness: formatProbabilityFreshness(series.market),
-        modelFreshness: formatProbabilityFreshness(series.model),
-      })),
-    [seriesList]
+      seriesList.map((series) => {
+        const merged = mergeProbabilityInputs(series.id, probabilityMap?.[series.id]);
+        return {
+          entityId: series.id,
+          market: merged.market,
+          model: merged.model,
+          marketLabel: formatProbabilitySourceLabel(merged.market),
+          modelLabel: formatProbabilitySourceLabel(merged.model),
+          marketFreshness: formatProbabilityFreshness(merged.market),
+          modelFreshness: formatProbabilityFreshness(merged.model),
+        };
+      }),
+    [probabilityMap, seriesList]
   );
 }

@@ -1,44 +1,44 @@
-export const SCENARIO_WATCH_DATE = "April 12, 2026";
+export const SCENARIO_WATCH_DATE = "April 15, 2026";
 
 export const SCENARIO_WATCH_ITEMS = [
   {
-    id: "east-six-race",
-    title: "East No. 6 race is still open",
+    id: "portland-clinched-seven",
+    title: "Portland already took the West 7 line off the board",
     sourced:
-      "Toronto, Orlando, and Philadelphia can still finish sixth and avoid the Play-In on the final day.",
+      "Portland beat Phoenix in the 7/8 Play-In game on Tuesday, April 14, 2026 and locked in the West No. 7 seed.",
     likelyImpact:
-      "That keeps Boston's first-round path unresolved and should move the early market once the 7-8 and 9-10 structure settles.",
+      "San Antonio now has a real Round 1 opponent instead of a placeholder, which makes that side of the board more concrete than it was 24 hours ago.",
     whyItMatters:
-      "This is the cleanest East bracket question still hanging over the board.",
+      "This is the kind of Play-In result that should move the product from bracket-watching to actual pick-making.",
   },
   {
-    id: "east-five-through-ten",
-    title: "Seeds 5 through 10 are still moving in the East",
+    id: "east-eight-still-open",
+    title: "Detroit and Boston still do not know their final East path",
     sourced:
-      "The East still has seeding volatility from No. 5 through No. 10 heading into Sunday, April 12, 2026.",
+      "Philadelphia-Orlando is still for the East 7 seed, and Charlotte is still alive for the final East 8 spot after knocking out Miami.",
     likelyImpact:
-      "New York and Cleveland's likely first-round opponents can still change, which means early series prices and second-round path assumptions should keep shifting.",
+      "That keeps the top of the East bracket unsettled, especially for users deciding how aggressive to be on Detroit and Boston's likely first-round draw.",
     whyItMatters:
-      "This is where a quiet regular-season result can still reroute half the conference bracket.",
+      "The East top line is now a narrower question, but it is still a real one.",
   },
   {
-    id: "west-three-four",
-    title: "West home court is not fully settled",
+    id: "okc-still-waiting",
+    title: "Oklahoma City is still waiting on the final West 8 seed",
     sourced:
-      "The Western Conference still has movement at seeds three and four entering the regular-season finale.",
+      "Phoenix fell into the final Play-In game, and the Clippers-Warriors winner is still alive for the last West playoff spot.",
     likelyImpact:
-      "That swap changes who opens at home in the Denver-Lakers tier of the bracket and should nudge both first-round and second-round prices.",
+      "The Thunder still have opponent uncertainty, but it is now a cleaner, more focused problem than the full West 7/8/9/10 tangle was before Tuesday night.",
     whyItMatters:
-      "Home court is one of the few late regular-season changes that can still reshape real playoff expectations.",
+      "This is now more about finishing the last real uncertainty than about monitoring a whole mess of bracket paths.",
   },
   {
-    id: "west-eight-nine",
-    title: "West 8-9 positioning still matters",
+    id: "middle-board-is-live",
+    title: "The middle of the bracket is where the real work can happen now",
     sourced:
-      "The West still has unresolved placement around the eight-nine line on the final day.",
+      "Knicks-Hawks, Cavaliers-Raptors, Nuggets-Timberwolves, and Lakers-Rockets are already locked, and Spurs-Blazers is now real too.",
     likelyImpact:
-      "That changes the Play-In path into Oklahoma City's side of the bracket and should affect how heavy the Thunder open as first-round favorites.",
+      "Those are the places where the board can stop talking in hypotheticals and start helping users make actual series calls.",
     whyItMatters:
-      "The one seed's opponent range is still wider than the static bracket makes it look.",
+      "The most useful reports right now should feel like pick support, not standings recap.",
   },
 ];

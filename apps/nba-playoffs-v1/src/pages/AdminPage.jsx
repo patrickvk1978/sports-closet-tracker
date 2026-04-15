@@ -75,7 +75,10 @@ export default function AdminPage() {
         </div>
         <div className="nba-role-strip">
           <span className="chip nba-role-chip">Env configured: {health.envConfigured ? "Yes" : "No"}</span>
+          <span className="chip nba-role-chip">NBA pools: {health.loading ? "Checking" : health.nbaPoolsCount}</span>
           <span className="chip nba-role-chip">Series table: {health.loading ? "Checking" : health.nbaSeriesPicksTable}</span>
+          <span className="chip nba-role-chip">Probabilities: {health.loading ? "Checking" : `${health.probabilityInputsTable} (${health.probabilityInputsRows})`}</span>
+          <span className="chip nba-role-chip">Sim outputs: {health.loading ? "Checking" : `${health.simulationOutputsTable} (${health.simulationOutputsRows})`}</span>
         </div>
       </section>
     </div>

@@ -4,6 +4,7 @@ import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { summarizePickScores, summarizeSeriesMarket } from "../lib/seriesPickem";
+import { areRoundPicksPublic } from "../lib/pickVisibility";
 
 function winnerLabel(series, winnerTeamId, games) {
   if (!winnerTeamId) return "No pick";
@@ -20,6 +21,7 @@ export default function OpponentReportView() {
   const settings = settingsForPool(pool);
   const opponent = memberList.find((member) => member.id === opponentId) ?? null;
   const activeRoundSeries = seriesByRound[currentRound.key] ?? [];
+  const canViewOpponentReport = areRoundPicksPublic(activeRoundSeries, currentRound.key, settings);
   const yourSummary = summarizePickScores(allPicksByUser[profile?.id] ?? {}, series, settings);
   const opponentSummary = summarizePickScores(allPicksByUser[opponentId] ?? {}, series, settings);
 
@@ -30,6 +32,36 @@ export default function OpponentReportView() {
         <div className="panel">
           <h2>Opponent report not found</h2>
         </div>
+      </div>
+    );
+  }
+
+  if (!canViewOpponentReport) {
+    return (
+      <div className="nba-shell">
+        <div className="report-back-shell">
+          <Link className="back-link" to="/reports">← Back to Reports</Link>
+        </div>
+
+        <section className="panel nba-reports-hero">
+          <div>
+            <span className="label">Opponent report</span>
+            <h2>You vs {opponent.name}</h2>
+            <p className="subtle">
+              This matchup view unlocks once the round locks or games begin. Until then, other entries’ live series cards stay private.
+            </p>
+          </div>
+          <div className="nba-stat-grid">
+            <div className="nba-stat-card">
+              <span className="micro-label">Access</span>
+              <strong>Locked</strong>
+            </div>
+            <div className="nba-stat-card">
+              <span className="micro-label">Opens</span>
+              <strong>Post-lock</strong>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }

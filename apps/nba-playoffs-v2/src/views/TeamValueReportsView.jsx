@@ -4,6 +4,7 @@ import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
 import { getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
+import { SCENARIO_WATCH_ITEMS } from "../data/scenarioWatch";
 
 function ReportCard({ report, sampleRows, to }) {
   return (
@@ -41,13 +42,15 @@ function buildReportsHero(reportState) {
   const slotFit = reportState.reports["slot-fits"]?.rows?.[0];
   const strategicMove = reportState.reports["strategic-moves"]?.rows?.[0];
   const modelGap = reportState.reports["model-gaps"]?.rows?.[0];
+  const topScenario = SCENARIO_WATCH_ITEMS[0];
+  const secondScenario = SCENARIO_WATCH_ITEMS[1];
 
   if (reportState.phase === "pre_lock") {
     return {
       headline: "This is the decision desk for the board you are about to lock.",
       body: modelGap
-        ? `${modelGap.teamLabel} is one of the clearest outside-signal disagreements on your board, while ${slotFit?.teamLabel ?? "your top slot-fit issue"} is still one of the cleanest placement questions. The real pre-lock job is not reading everything. It is finding the two or three teams worth revisiting.`
-        : `The useful pre-lock question is not “what do the reports say?” so much as “which few teams are worth one more hard look?” Start with slot fit, strategic moves, and any major outside-signal disagreement.`,
+        ? `${topScenario?.likelyImpact ?? "The board tightened last night, but it did not finish itself."} ${modelGap.teamLabel} is one of the clearest outside-signal disagreements on your board, while ${slotFit?.teamLabel ?? "your top slot-fit issue"} is still one of the cleanest placement questions. The real pre-lock job is not reading everything. It is finding the two or three teams worth revisiting.`
+        : `${secondScenario?.likelyImpact ?? "The useful pre-lock question is not “what do the reports say?” so much as “which few teams are worth one more hard look?”"} Start with slot fit, strategic moves, and any major outside-signal disagreement.`,
       stats: [
         {
           label: "First report",

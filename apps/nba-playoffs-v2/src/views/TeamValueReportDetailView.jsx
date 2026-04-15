@@ -6,6 +6,70 @@ import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
 import { getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
 
+function buildVoiceFrame(reportKey) {
+  if (reportKey === "slot-fits") {
+    return {
+      lane: "Coach lane",
+      persona: "Film room",
+      cue: "Tighten the pricing and trim the loose slots.",
+    };
+  }
+
+  if (reportKey === "strategic-moves") {
+    return {
+      lane: "Coach lane",
+      persona: "Bench huddle",
+      cue: "Sort the swings worth taking from the ones that only feel brave.",
+    };
+  }
+
+  if (reportKey === "model-gaps") {
+    return {
+      lane: "Coach lane",
+      persona: "Analytics desk",
+      cue: "Use the outside-signal split to decide what deserves a second look.",
+    };
+  }
+
+  if (reportKey === "assets") {
+    return {
+      lane: "Play-by-play lane",
+      persona: "Broadcast desk",
+      cue: "Call out the teams carrying the real weight on your board.",
+    };
+  }
+
+  if (reportKey === "rooting") {
+    return {
+      lane: "Play-by-play lane",
+      persona: "Tonight's booth",
+      cue: "Separate the protective roots from the real swing results.",
+    };
+  }
+
+  if (reportKey === "fragility") {
+    return {
+      lane: "Color lane",
+      persona: "Scout's corner",
+      cue: "Find the places where your board looks stable until someone actually throws it a punch.",
+    };
+  }
+
+  if (reportKey === "overweight") {
+    return {
+      lane: "Color lane",
+      persona: "Room whisperer",
+      cue: "See where your board is carrying more exposure than the rest of the pool.",
+    };
+  }
+
+  return {
+    lane: "Coach lane",
+    persona: "Decision desk",
+    cue: "Use this page to sharpen the board before lock.",
+  };
+}
+
 function buildMetaLines(reportKey, row) {
   if (reportKey === "slot-fits") {
     return [
@@ -65,10 +129,13 @@ function buildMetaLines(reportKey, row) {
   return [];
 }
 
-function SectionIntro({ label, title, description }) {
+function SectionIntro({ label, title, description, lane, persona }) {
   return (
     <div className="detail-card inset-card nba-report-column-intro">
-      <span className="label">{label}</span>
+      <div className="nba-report-column-kicker">
+        <span className="label">{label}</span>
+        {lane ? <span className="chip nba-lane-chip">{lane}</span> : null}
+      </div>
       <div className="nba-report-column-title-row">
         <h3>{title}</h3>
         <span className="tooltip-wrap tooltip-wrap-inline">
@@ -78,6 +145,7 @@ function SectionIntro({ label, title, description }) {
           <span className="tooltip-bubble">{description}</span>
         </span>
       </div>
+      {persona ? <span className="micro-label nba-report-persona">{persona}</span> : null}
     </div>
   );
 }
@@ -175,6 +243,8 @@ function SlotFitColumns({ rows }) {
           label="Biggest risks"
           title="Where are you paying the richest prices?"
           description="These are the teams your board is asking the most to justify. They may still work, but the slot cost is doing some of the heavy lifting."
+          lane="Coach lane"
+          persona="Film room"
         />
         <div className="nba-dashboard-list">
           {renderRows(biggestRisks, "No obvious over-slotted teams right now.")}
@@ -186,6 +256,8 @@ function SlotFitColumns({ rows }) {
           label="Potentially under-slotted"
           title="Where might you still be buying upside cheaply?"
           description="These are the teams the board thinks deserve more respect than their current slot. They are the cleanest candidates to move up without forcing a total rebuild."
+          lane="Coach lane"
+          persona="Film room"
         />
         <div className="nba-dashboard-list">
           {renderRows(underSlotted, "No obvious cheap-upside teams right now.")}
@@ -244,6 +316,8 @@ function StrategicMoveColumns({ rows }) {
               label={group.label}
               title={group.title}
               description={group.description}
+              lane={group.key === "Balanced hold" ? "Color lane" : "Coach lane"}
+              persona={group.key === "Balanced hold" ? "Bench color" : "Bench huddle"}
             />
             <div className="nba-dashboard-list">
               {items.length ? (
@@ -319,6 +393,8 @@ function ModelGapColumns({ rows }) {
           label="Model stronger"
           title="Where does the model see more than the market?"
           description="These are the teams where the model is more optimistic than the public price. They are often the more interesting pre-lock second looks."
+          lane="Coach lane"
+          persona="Analytics desk"
         />
         <div className="nba-dashboard-list">
           {renderRows(modelHigher, "No obvious model-over-market teams right now.")}
@@ -330,6 +406,8 @@ function ModelGapColumns({ rows }) {
           label="Market stronger"
           title="Where is the public price more confident?"
           description="These are the teams where the market is leaning harder than the model. Sometimes that is signal. Sometimes it is just expensive consensus."
+          lane="Coach lane"
+          persona="Analytics desk"
         />
         <div className="nba-dashboard-list">
           {renderRows(marketHigher, "No obvious market-over-model teams right now.")}
@@ -355,6 +433,7 @@ export default function TeamValueReportDetailView() {
     series,
   });
   const report = reportState.reports[reportKey];
+  const voiceFrame = buildVoiceFrame(reportKey);
   const slotFitSummary =
     reportKey === "slot-fits"
       ? buildSlotFitSummary(reportState.reports["slot-fits"]?.rows ?? [])
@@ -391,6 +470,10 @@ export default function TeamValueReportDetailView() {
         <div>
           <span className="label">{report.label}</span>
           <h2>{report.title}</h2>
+          <div className="nba-report-voice-row">
+            <span className="chip nba-lane-chip active">{voiceFrame.lane}</span>
+            <span className="chip">{voiceFrame.persona}</span>
+          </div>
           <p className="subtle">
             {report.key === "strategic-moves"
               ? "This page is about board decisions, not standings. Before lock, the useful question is which slots are too rich, which are quietly cheap, and which risks are actually worth carrying."
@@ -400,6 +483,7 @@ export default function TeamValueReportDetailView() {
                   ? modelGapSummary?.body
                 : report.description}
           </p>
+          <p className="subtle">{voiceFrame.cue}</p>
         </div>
         <div className="nba-stat-grid">
           {summaryStats.map((stat) => (

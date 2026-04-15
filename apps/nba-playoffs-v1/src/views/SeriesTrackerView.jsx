@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
@@ -12,18 +13,12 @@ import {
   summarizePickScores,
 } from "../lib/seriesPickem";
 import { formatProbabilityFreshness, formatProbabilitySourceLabel } from "../lib/probabilityInputs";
+import { areRoundPicksPublic } from "../lib/pickVisibility";
 
 const GAME_OPTIONS = [4, 5, 6, 7];
 
 function formatRoundLabel(roundKey) {
   return roundKey.replaceAll("_", " ");
-}
-
-function formatPoolMemberPickLabel(total, memberCount) {
-  if (!memberCount) return "No members yet";
-  if (total === 0) return `No one in the pool has picked this series yet`;
-  if (total === memberCount) return `All ${memberCount} pool members have picked this series`;
-  return `${total} of ${memberCount} pool members have picked this series`;
 }
 
 function OutcomeChip({ score }) {
@@ -51,6 +46,7 @@ export default function SeriesTrackerView() {
   const { pool, settingsForPool, memberList, updatePoolSettings } = usePool();
   const { series, seriesByRound, roundSummaries } = usePlayoffData();
   const settings = settingsForPool(pool);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeRound, setActiveRound] = useState("round_1");
   const {
     picksBySeriesId,
@@ -65,22 +61,31 @@ export default function SeriesTrackerView() {
   } = useSeriesPickem(series);
   const availableRoundKey = getAvailableRoundKey(roundSummaries);
   const activeSeries = seriesByRound[activeRound] ?? [];
+  const canViewOtherBoards = areRoundPicksPublic(activeSeries, activeRound, settings);
   const currentRoundScoring = describeRoundScoring(availableRoundKey, settings);
+  const requestedViewerId = searchParams.get("viewer") ?? "";
+  const availableViewers = memberList.filter((member) => member.id !== profile?.id);
+  const selectedViewer = canViewOtherBoards
+    ? availableViewers.find((member) => member.id === requestedViewerId) ?? null
+    : null;
+  const isViewingCurrentUser = !selectedViewer;
+  const visiblePicksBySeriesId = selectedViewer ? allPicksByUser[selectedViewer.id] ?? {} : picksBySeriesId;
   const scoreSummary = useMemo(
-    () => summarizePickScores(picksBySeriesId, series, settings),
-    [picksBySeriesId, series, settings]
+    () => summarizePickScores(visiblePicksBySeriesId, series, settings),
+    [visiblePicksBySeriesId, series, settings]
   );
-  const standings = useMemo(() => {
-    return memberList
-      .map((member) => ({
-        ...member,
-        summary: summarizePickScores(allPicksByUser[member.id] ?? {}, series, settings),
-      }))
-      .sort((a, b) => b.summary.totalPoints - a.summary.totalPoints || b.summary.exact - a.summary.exact || a.name.localeCompare(b.name));
-  }, [allPicksByUser, memberList, series, settings]);
   const currentMember = memberList.find((member) => member.isCurrentUser) ?? null;
   const roundLocks = settings.round_locks ?? {};
   const isCommissioner = pool?.admin_id === profile?.id;
+
+  function handleViewerChange(event) {
+    const nextViewerId = event.target.value;
+    if (!nextViewerId) {
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    setSearchParams({ viewer: nextViewerId }, { replace: true });
+  }
 
   async function setRoundLock(roundKey, locked) {
     if (!isCommissioner) return;
@@ -106,7 +111,9 @@ export default function SeriesTrackerView() {
           <p>
             {formatRoundLabel(availableRoundKey)} is open right now. Exact 5/6 is worth {currentRoundScoring.exactBase}, exact 4/7 is worth {currentRoundScoring.exactEdge}, off by 1 is worth {currentRoundScoring.offBy1}, and off by 2 is worth {currentRoundScoring.offBy2}. {" "}
             {loading ? "Loading picks…" : `${formatSavedLabel(lastSavedAt, persistenceMode, saveState)}.`} {" "}
-            You currently have {scoreSummary.totalPoints} points with {scoreSummary.exact} exact calls.
+            {isViewingCurrentUser
+              ? `You currently have ${scoreSummary.totalPoints} points with ${scoreSummary.exact} exact calls.`
+              : `${selectedViewer?.name ?? "This entry"} currently has ${scoreSummary.totalPoints} points with ${scoreSummary.exact} exact calls.`}
           </p>
         </div>
       </section>
@@ -115,9 +122,33 @@ export default function SeriesTrackerView() {
         <div className="panel-header">
           <div>
             <span className="label">Series board</span>
-            <h2>Current round board</h2>
+            <h2>{isViewingCurrentUser ? "Current round board" : `${selectedViewer?.name ?? "This entry"}'s round board`}</h2>
           </div>
-          <span className="chip">{pickedSeriesCount} saved picks</span>
+          <div className="nba-report-actions">
+            {canViewOtherBoards ? (
+              <select
+                className="nav-select"
+                value={isViewingCurrentUser ? "" : selectedViewer?.id ?? ""}
+                onChange={handleViewerChange}
+                aria-label="Choose a card to view"
+              >
+                <option value="">Viewing: My picks</option>
+                {availableViewers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    View {member.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="tooltip-wrap tooltip-wrap-inline">
+                <button type="button" className="secondary-button" disabled>
+                  View another card
+                </button>
+                <span className="tooltip-bubble">Available once the round locks or games begin.</span>
+              </span>
+            )}
+            <span className="chip">{isViewingCurrentUser ? pickedSeriesCount : Object.values(visiblePicksBySeriesId).filter((pick) => pick?.winnerTeamId).length} saved picks</span>
+          </div>
         </div>
 
         <div className="nba-round-tabs">
@@ -150,16 +181,9 @@ export default function SeriesTrackerView() {
 
         <div className="nba-series-pick-grid">
           {activeSeries.map((seriesItem) => {
-            const pick = picksBySeriesId[seriesItem.id];
+            const pick = visiblePicksBySeriesId[seriesItem.id];
             const score = scoreSeriesPick(pick, seriesItem, settings);
             const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
-            const yourPickAgainstField = !pick
-              ? "You have not entered this series yet."
-              : !marketSummary.consensusWinnerTeamId
-                ? "The room is split on winner so far."
-                : marketSummary.consensusWinnerTeamId === pick.winnerTeamId
-                  ? "You are riding with the current room consensus."
-                  : "You are against the current room consensus.";
             const marketFavorite =
               seriesItem.market.homeWinPct >= seriesItem.market.awayWinPct
                 ? `${seriesItem.homeTeam.abbreviation} ${seriesItem.market.homeWinPct}%`
@@ -196,44 +220,57 @@ export default function SeriesTrackerView() {
                   </div>
                 </div>
 
-                <div className="nba-pool-lean-card">
-                  <div className="nba-pool-lean-head">
-                    <span className="micro-label">Pool lean</span>
-                    <span>{formatPoolMemberPickLabel(marketSummary.total, memberList.length)}</span>
-                  </div>
-                  <div className="nba-pool-lean-bars">
-                    <div className="nba-pool-lean-team">
-                      <div className="nba-pool-lean-label">
-                        <strong>{seriesItem.homeTeam.abbreviation}</strong>
-                        <span>{marketSummary.homePct}%</span>
+                {canViewOtherBoards ? (
+                  <div className="nba-pool-lean-card">
+                    <div className="nba-pool-lean-head">
+                      <span className="micro-label">Pool lean</span>
+                      <span>{marketSummary.total === 0 ? "No picks logged yet" : `${marketSummary.total} public picks`}</span>
+                    </div>
+                    <div className="nba-pool-lean-bars">
+                      <div className="nba-pool-lean-team">
+                        <div className="nba-pool-lean-label">
+                          <strong>{seriesItem.homeTeam.abbreviation}</strong>
+                          <span>{marketSummary.homePct}%</span>
+                        </div>
+                        <div className="nba-pool-lean-track">
+                          <div className="nba-pool-lean-fill" style={{ width: `${marketSummary.homePct}%` }} />
+                        </div>
                       </div>
-                      <div className="nba-pool-lean-track">
-                        <div className="nba-pool-lean-fill" style={{ width: `${marketSummary.homePct}%` }} />
+                      <div className="nba-pool-lean-team">
+                        <div className="nba-pool-lean-label">
+                          <strong>{seriesItem.awayTeam.abbreviation}</strong>
+                          <span>{marketSummary.awayPct}%</span>
+                        </div>
+                        <div className="nba-pool-lean-track">
+                          <div className="nba-pool-lean-fill nba-pool-lean-fill-away" style={{ width: `${marketSummary.awayPct}%` }} />
+                        </div>
                       </div>
                     </div>
-                    <div className="nba-pool-lean-team">
-                      <div className="nba-pool-lean-label">
-                        <strong>{seriesItem.awayTeam.abbreviation}</strong>
-                        <span>{marketSummary.awayPct}%</span>
-                      </div>
-                      <div className="nba-pool-lean-track">
-                        <div className="nba-pool-lean-fill nba-pool-lean-fill-away" style={{ width: `${marketSummary.awayPct}%` }} />
-                      </div>
+                    <div className="nba-pool-lean-notes">
+                      <span>
+                        {marketSummary.leadingGames
+                          ? `Most common length: ${marketSummary.leadingGames} games (${marketSummary.leadingGamesCount})`
+                          : "No length consensus yet"}
+                      </span>
+                      <span>{marketSummary.noPickCount > 0 ? `${marketSummary.noPickCount} still open` : "Everyone has picked"}</span>
+                    </div>
+                    <div className="nba-pool-lean-callout">
+                      <strong>Room context</strong>
+                      <span>These picks are public now, so this is the clean read on where the room actually landed.</span>
                     </div>
                   </div>
-                  <div className="nba-pool-lean-notes">
-                    <span>
-                      {marketSummary.leadingGames
-                        ? `Most common length: ${marketSummary.leadingGames} games (${marketSummary.leadingGamesCount})`
-                        : "No length consensus yet"}
-                    </span>
-                    <span>{marketSummary.noPickCount > 0 ? `${marketSummary.noPickCount} still open` : "Everyone has picked"}</span>
+                ) : (
+                  <div className="nba-pool-lean-card">
+                    <div className="nba-pool-lean-head">
+                      <span className="micro-label">Pool lean</span>
+                      <span>Private until lock</span>
+                    </div>
+                    <div className="nba-pool-lean-callout">
+                      <strong>Selections are hidden right now</strong>
+                      <span>This page only uses public market and model signals until the round locks or games begin.</span>
+                    </div>
                   </div>
-                  <div className="nba-pool-lean-callout">
-                    <strong>Your angle</strong>
-                    <span>{yourPickAgainstField}</span>
-                  </div>
-                </div>
+                )}
 
                 <div className="nba-team-pick-grid">
                   {[seriesItem.homeTeam, seriesItem.awayTeam].map((team) => {
@@ -244,7 +281,7 @@ export default function SeriesTrackerView() {
                         key={team.id}
                         type="button"
                         className={selected ? "nba-team-pick active" : "nba-team-pick"}
-                        disabled={isLocked}
+                        disabled={isLocked || !isViewingCurrentUser}
                         onClick={() => saveSeriesPick(seriesItem.id, team.id, pick?.games ?? 6, seriesItem.roundKey)}
                       >
                         <span className="micro-label">Seed {team.seed}</span>
@@ -263,7 +300,7 @@ export default function SeriesTrackerView() {
                         key={games}
                         type="button"
                         className={pick?.games === games ? "nba-games-option active" : "nba-games-option"}
-                        disabled={Boolean(roundLocks[seriesItem.roundKey]) || !pick?.winnerTeamId}
+                        disabled={Boolean(roundLocks[seriesItem.roundKey]) || !pick?.winnerTeamId || !isViewingCurrentUser}
                         onClick={() => saveSeriesPick(seriesItem.id, pick?.winnerTeamId ?? seriesItem.homeTeam.id, games, seriesItem.roundKey)}
                       >
                         {games}
@@ -274,7 +311,7 @@ export default function SeriesTrackerView() {
                   <button
                     type="button"
                     className="secondary-button"
-                    disabled={Boolean(roundLocks[seriesItem.roundKey])}
+                    disabled={Boolean(roundLocks[seriesItem.roundKey]) || !isViewingCurrentUser}
                     onClick={() => clearSeriesPick(seriesItem.id)}
                   >
                     Clear pick
@@ -283,7 +320,7 @@ export default function SeriesTrackerView() {
 
                 <div className="nba-pick-footer">
                   <div>
-                    <span className="micro-label">Your pick</span>
+                    <span className="micro-label">{isViewingCurrentUser ? "Your pick" : `${selectedViewer?.name ?? "Their"} pick`}</span>
                     <p>
                       {pick
                         ? `${pick.winnerTeamId === seriesItem.homeTeam.id ? seriesItem.homeTeam.city : seriesItem.awayTeam.city} in ${pick.games}`
@@ -292,43 +329,21 @@ export default function SeriesTrackerView() {
                   </div>
                   <div>
                     <span className="micro-label">Save status</span>
-                    <p>{formatSavedLabel(lastSavedAt, persistenceMode, saveState)}</p>
+                    <p>{isViewingCurrentUser ? formatSavedLabel(lastSavedAt, persistenceMode, saveState) : "Read-only view"}</p>
                   </div>
                 </div>
                 {roundLocks[seriesItem.roundKey] ? (
                   <div className="nba-lock-banner">
                     Commissioner has locked this round. Picks are read-only until it is reopened.
                   </div>
+                ) : !isViewingCurrentUser ? (
+                  <div className="nba-lock-banner">
+                    You are viewing {selectedViewer?.name ?? "another entry"}'s public card. This view is read-only.
+                  </div>
                 ) : null}
               </article>
             );
           })}
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <span className="label">Pool standings</span>
-            <h2>Who is reading the series board best right now?</h2>
-          </div>
-        </div>
-
-        <div className="nba-standings-table">
-          {standings.map((entry, index) => (
-            <div className="nba-standings-row" key={entry.id}>
-              <div className="nba-standings-rank">{index + 1}</div>
-              <div className="nba-standings-name">
-                <strong>{entry.name}</strong>
-                <span>{entry.roleLabel}</span>
-              </div>
-              <div className="nba-standings-metrics">
-                <span>{entry.summary.totalPoints} pts</span>
-                <span>{entry.summary.exact} exact</span>
-                <span>{entry.summary.close + entry.summary.near} close</span>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 
