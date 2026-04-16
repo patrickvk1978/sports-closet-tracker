@@ -58,65 +58,79 @@ export default function DashboardView() {
     canViewPoolSignals,
     picksLoading,
   });
-  const heroCommentary = !picksLoading ? (commentary ?? {
-    eyebrow: "Play-In watch",
-    headline: "The board is settling into its real decision window.",
-    body: "Use this moment to finish the card, check the few series where the market and model still disagree, and avoid mistaking broad playoff noise for an actual move on your board.",
-    support: "Round 1 selections lock on Saturday, April 18, 2026. The useful work here is personal: get your board in, then reopen only the spots that still deserve it.",
-    actionLabel: "Open series tracker",
-    actionPath: "/series",
-  }) : null;
-  const seriesSignalRows = activeRoundSeries.map((seriesItem) => {
-    const probability = probabilityBySeriesId[seriesItem.id];
-    const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
-    const pick = picksBySeriesId[seriesItem.id] ?? null;
-    const marketGap = Math.abs((seriesItem.market.homeWinPct ?? 50) - (seriesItem.model.homeWinPct ?? 50));
-    const marketFavoritePct = Math.max(seriesItem.market.homeWinPct ?? 50, seriesItem.market.awayWinPct ?? 50);
-    const consensusPct = canViewPoolSignals ? Math.max(marketSummary.homePct, marketSummary.awayPct) : 0;
-    const yourTeam = !pick
-      ? null
-      : pick.winnerTeamId === seriesItem.homeTeam.id
-        ? seriesItem.homeTeam
-        : seriesItem.awayTeam;
-    const yourShare = !pick || !canViewPoolSignals
-      ? 0
-      : pick.winnerTeamId === seriesItem.homeTeam.id
-        ? marketSummary.homePct
-        : marketSummary.awayPct;
-    const consensusTeam =
-      !canViewPoolSignals
-        ? null
-        :
-      marketSummary.consensusWinnerTeamId === seriesItem.homeTeam.id
-        ? seriesItem.homeTeam
-        : marketSummary.consensusWinnerTeamId === seriesItem.awayTeam.id
-          ? seriesItem.awayTeam
-          : null;
+  let heroCommentary;
+  let seriesSignalRows;
+  let safestSeries;
+  let biggestGapSeries;
+  let biggestSwingSeries;
+  let poolExposureFocus;
+  let startHereCard;
+  let positionLabel;
+  let preLockModeLabel;
+  let nextActionLabel;
+  let priorityHeadline;
+  let priorityBody;
+  let researchItems;
 
-    return {
-      id: seriesItem.id,
-      seriesItem,
-      probability,
-      pick,
-      marketSummary,
-      matchup: `${seriesItem.homeTeam.abbreviation} vs ${seriesItem.awayTeam.abbreviation}`,
-      marketGap,
-      marketFavoritePct,
-      consensusPct,
-      yourTeam,
-      yourShare,
-      consensusTeam,
-    };
-  });
-  const safestSeries = [...seriesSignalRows].sort((a, b) => b.marketFavoritePct - a.marketFavoritePct)[0] ?? null;
-  const biggestGapSeries = [...seriesSignalRows].sort((a, b) => b.marketGap - a.marketGap)[0] ?? null;
-  const biggestSwingSeries = [...seriesSignalRows].sort((a, b) => {
-    const aScore = (a.pick ? Math.abs(50 - a.yourShare) : 42) + a.marketGap;
-    const bScore = (b.pick ? Math.abs(50 - b.yourShare) : 42) + b.marketGap;
-    return bScore - aScore;
-  })[0] ?? null;
-  const poolExposureFocus = [...seriesSignalRows].sort((a, b) => b.consensusPct - a.consensusPct)[0] ?? null;
-  const startHereCard = SCENARIO_WATCH_ITEMS.length
+  try {
+    heroCommentary = !picksLoading ? (commentary ?? {
+      eyebrow: "Play-In watch",
+      headline: "The board is settling into its real decision window.",
+      body: "Use this moment to finish the card, check the few series where the market and model still disagree, and avoid mistaking broad playoff noise for an actual move on your board.",
+      support: "Round 1 selections lock on Saturday, April 18, 2026. The useful work here is personal: get your board in, then reopen only the spots that still deserve it.",
+      actionLabel: "Open series tracker",
+      actionPath: "/series",
+    }) : null;
+    seriesSignalRows = activeRoundSeries.map((seriesItem) => {
+      const probability = probabilityBySeriesId[seriesItem.id];
+      const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
+      const pick = picksBySeriesId[seriesItem.id] ?? null;
+      const marketGap = Math.abs((seriesItem.market.homeWinPct ?? 50) - (seriesItem.model.homeWinPct ?? 50));
+      const marketFavoritePct = Math.max(seriesItem.market.homeWinPct ?? 50, seriesItem.market.awayWinPct ?? 50);
+      const consensusPct = canViewPoolSignals ? Math.max(marketSummary.homePct, marketSummary.awayPct) : 0;
+      const yourTeam = !pick
+        ? null
+        : pick.winnerTeamId === seriesItem.homeTeam.id
+          ? seriesItem.homeTeam
+          : seriesItem.awayTeam;
+      const yourShare = !pick || !canViewPoolSignals
+        ? 0
+        : pick.winnerTeamId === seriesItem.homeTeam.id
+          ? marketSummary.homePct
+          : marketSummary.awayPct;
+      const consensusTeam =
+        !canViewPoolSignals
+          ? null
+          : marketSummary.consensusWinnerTeamId === seriesItem.homeTeam.id
+            ? seriesItem.homeTeam
+            : marketSummary.consensusWinnerTeamId === seriesItem.awayTeam.id
+              ? seriesItem.awayTeam
+              : null;
+
+      return {
+        id: seriesItem.id,
+        seriesItem,
+        probability,
+        pick,
+        marketSummary,
+        matchup: `${seriesItem.homeTeam.abbreviation} vs ${seriesItem.awayTeam.abbreviation}`,
+        marketGap,
+        marketFavoritePct,
+        consensusPct,
+        yourTeam,
+        yourShare,
+        consensusTeam,
+      };
+    });
+    safestSeries = [...seriesSignalRows].sort((a, b) => b.marketFavoritePct - a.marketFavoritePct)[0] ?? null;
+    biggestGapSeries = [...seriesSignalRows].sort((a, b) => b.marketGap - a.marketGap)[0] ?? null;
+    biggestSwingSeries = [...seriesSignalRows].sort((a, b) => {
+      const aScore = (a.pick ? Math.abs(50 - a.yourShare) : 42) + a.marketGap;
+      const bScore = (b.pick ? Math.abs(50 - b.yourShare) : 42) + b.marketGap;
+      return bScore - aScore;
+    })[0] ?? null;
+    poolExposureFocus = [...seriesSignalRows].sort((a, b) => b.consensusPct - a.consensusPct)[0] ?? null;
+    startHereCard = SCENARIO_WATCH_ITEMS.length
     ? {
         label: "Start here",
         title: "Scenario watch",
@@ -146,39 +160,62 @@ export default function DashboardView() {
           cta: "Open reports",
           to: "/reports",
         };
+    positionLabel = currentStanding
+      ? `Currently ${formatPlace(currentStanding.place)} in the pool`
+      : "Standings will sharpen as more picks come in";
+    preLockModeLabel = canViewPoolSignals ? positionLabel : "Pre-lock board";
+    nextActionLabel =
+      remainingRoundPicks > 0
+        ? `You still have ${remainingRoundPicks} ${remainingRoundPicks === 1 ? "series" : "series"} to pick in ${currentRound.label}.`
+        : `Your ${currentRound.label} board is filled in. Track how the bracket firms up before the April 18, 2026 lock.`;
+    priorityHeadline =
+      remainingRoundPicks > 0
+        ? `${remainingRoundPicks} ${remainingRoundPicks === 1 ? "series still needs your pick" : "series still need your picks"}`
+        : SCENARIO_WATCH_ITEMS.length
+          ? "Your card is in. The board still is not."
+          : "Your board is set. The next job is reading where it can move.";
+    priorityBody =
+      remainingRoundPicks > 0
+        ? `Before anything else, finish ${currentRound.label}. The most useful reports right now are the ones that help you settle the last open series without losing track of leverage.`
+        : SCENARIO_WATCH_ITEMS.length
+          ? `The highest-signal work now is following the Play-In and late market shifts that can reroute the board before the Saturday, April 18, 2026 lock.`
+          : `The useful work now is less about filling blanks and more about spotting which series are protecting position versus giving you a chance to gain.`;
 
-  const positionLabel = currentStanding
-    ? `Currently ${formatPlace(currentStanding.place)} in the pool`
-    : "Standings will sharpen as more picks come in";
-  const preLockModeLabel = canViewPoolSignals ? positionLabel : "Pre-lock board";
-  const nextActionLabel =
-    remainingRoundPicks > 0
-      ? `You still have ${remainingRoundPicks} ${remainingRoundPicks === 1 ? "series" : "series"} to pick in ${currentRound.label}.`
-      : `Your ${currentRound.label} board is filled in. Track how the bracket firms up before the April 18, 2026 lock.`;
-  const priorityHeadline =
-    remainingRoundPicks > 0
-      ? `${remainingRoundPicks} ${remainingRoundPicks === 1 ? "series still needs your pick" : "series still need your picks"}`
-      : SCENARIO_WATCH_ITEMS.length
-        ? "Your card is in. The board still is not."
-        : "Your board is set. The next job is reading where it can move.";
-  const priorityBody =
-    remainingRoundPicks > 0
-      ? `Before anything else, finish ${currentRound.label}. The most useful reports right now are the ones that help you settle the last open series without losing track of leverage.`
-      : SCENARIO_WATCH_ITEMS.length
-        ? `The highest-signal work now is following the Play-In and late market shifts that can reroute the board before the Saturday, April 18, 2026 lock.`
-        : `The useful work now is less about filling blanks and more about spotting which series are protecting position versus giving you a chance to gain.`;
-
-  const researchItems = researchSeries.map((seriesItem) => {
-    const probability = probabilityBySeriesId[seriesItem.id];
-    return {
-      id: seriesItem.id,
-      matchup: `${seriesItem.homeTeam.city} vs ${seriesItem.awayTeam.city}`,
-      marketFavorite: formatLean(seriesItem, seriesItem.market, (team, pct) => `${team.city} ${pct}%`),
-      modelFavorite: formatLean(seriesItem, seriesItem.model, (team, pct) => `${team.city} ${pct}%`),
-      marketMeta: `${probability?.marketLabel ?? "Unknown source"} · ${probability?.marketFreshness ?? "No timestamp"}`,
-      modelMeta: `${probability?.modelLabel ?? "Unknown source"} · ${probability?.modelFreshness ?? "No timestamp"}`,
-    };
-  });
+    researchItems = researchSeries.map((seriesItem) => {
+      const probability = probabilityBySeriesId[seriesItem.id];
+      return {
+        id: seriesItem.id,
+        matchup: `${seriesItem.homeTeam.city} vs ${seriesItem.awayTeam.city}`,
+        marketFavorite: formatLean(seriesItem, seriesItem.market, (team, pct) => `${team.city} ${pct}%`),
+        modelFavorite: formatLean(seriesItem, seriesItem.model, (team, pct) => `${team.city} ${pct}%`),
+        marketMeta: `${probability?.marketLabel ?? "Unknown source"} · ${probability?.marketFreshness ?? "No timestamp"}`,
+        modelMeta: `${probability?.modelLabel ?? "Unknown source"} · ${probability?.modelFreshness ?? "No timestamp"}`,
+      };
+    });
+  } catch (error) {
+    console.error("DashboardView render failed softly", error);
+    return (
+      <div className="nba-shell">
+        <section className="panel nba-hero-panel">
+          <div className="nba-hero-copy">
+            <span className="label">Dashboard</span>
+            <h1>The board is available, but this page needs a refresh.</h1>
+            <p className="subtle">
+              We hit an unexpected dashboard state while loading your pool. Your picks and reports should still be available.
+            </p>
+            <div className="nba-hero-actions">
+              <Link className="primary-button" to="/series">
+                Open series tracker
+              </Link>
+              <Link className="secondary-button" to="/reports">
+                Open reports
+              </Link>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="nba-shell">
