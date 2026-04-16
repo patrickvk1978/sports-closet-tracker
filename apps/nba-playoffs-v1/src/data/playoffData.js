@@ -33,13 +33,13 @@ export const PLAYOFF_TEAMS = [
   { id: "east-seed-5", name: "No. 5 Seed", city: "East No. 5", conference: "East", seed: 5, abbreviation: "E5" },
   { id: "east-seed-6", name: "No. 6 Seed", city: "East No. 6", conference: "East", seed: 6, abbreviation: "E6" },
   { id: "east-seed-7", name: "No. 7 Seed", city: "East No. 7", conference: "East", seed: 7, abbreviation: "E7" },
-  { id: "east-seed-8", name: "No. 8 Seed", city: "East No. 8", conference: "East", seed: 8, abbreviation: "E8" },
+  { id: "east-seed-8", name: "Play-In Winner", city: "CHA / ORL", conference: "East", seed: 8, abbreviation: "TBD" },
   { id: "east-seed-9", name: "No. 9 Seed", city: "East No. 9", conference: "East", seed: 9, abbreviation: "E9" },
   { id: "east-seed-10", name: "No. 10 Seed", city: "East No. 10", conference: "East", seed: 10, abbreviation: "E10" },
   { id: "west-seed-3", name: "No. 3 Seed", city: "West No. 3", conference: "West", seed: 3, abbreviation: "W3" },
   { id: "west-seed-4", name: "No. 4 Seed", city: "West No. 4", conference: "West", seed: 4, abbreviation: "W4" },
   { id: "west-seed-7", name: "No. 7 Seed", city: "West No. 7", conference: "West", seed: 7, abbreviation: "W7" },
-  { id: "west-seed-8", name: "No. 8 Seed", city: "West No. 8", conference: "West", seed: 8, abbreviation: "W8" },
+  { id: "west-seed-8", name: "Play-In Winner", city: "GSW / PHX", conference: "West", seed: 8, abbreviation: "TBD" },
   { id: "west-seed-9", name: "No. 9 Seed", city: "West No. 9", conference: "West", seed: 9, abbreviation: "W9" },
 ];
 

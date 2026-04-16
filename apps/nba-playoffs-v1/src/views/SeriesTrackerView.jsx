@@ -1,15 +1,13 @@
-import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import {
-  describeRoundScoring,
   getAvailableRoundKey,
   isRoundUnlocked,
   scoreSeriesPick,
-  summarizeSeriesMarket,
   summarizePickScores,
 } from "../lib/seriesPickem";
 import { formatProbabilityFreshness, formatProbabilitySourceLabel } from "../lib/probabilityInputs";
@@ -48,6 +46,42 @@ function formatSavedLabel(lastSavedAt, persistenceMode, saveState) {
   return persistenceMode === "supabase" ? `Saved to your account at ${time}` : `Saved on this board at ${time}`;
 }
 
+function getSeriesPlaceholderCopy(team) {
+  switch (team?.id) {
+    case "west-seed-8":
+    case "west-playin-8":
+      return {
+        primary: "GSW / PHX winner",
+        secondary: "Friday play-in for West No. 8",
+        short: "GSW/PHX",
+      };
+    case "east-seed-8":
+    case "east-playin-8":
+      return {
+        primary: "CHA / ORL winner",
+        secondary: "Final play-in for East No. 8",
+        short: "CHA/ORL",
+      };
+    default:
+      return null;
+  }
+}
+
+function formatSeriesTeam(team) {
+  const placeholder = getSeriesPlaceholderCopy(team);
+  if (placeholder) return placeholder;
+  return {
+    primary: `${team.city} ${team.name}`,
+    secondary: team.abbreviation,
+    short: team.abbreviation,
+  };
+}
+
+function formatSeriesSlotLabel(seriesItem) {
+  const conferenceLabel = seriesItem.conference === "East" ? "East" : seriesItem.conference === "West" ? "West" : "League";
+  return `${conferenceLabel} ${seriesItem.homeTeam.seed} vs ${seriesItem.awayTeam.seed}`;
+}
+
 export default function SeriesTrackerView() {
   const { profile } = useAuth();
   const { pool, settingsForPool, memberList, updatePoolSettings } = usePool();
@@ -55,9 +89,9 @@ export default function SeriesTrackerView() {
   const settings = settingsForPool(pool);
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeRound, setActiveRound] = useState("round_1");
+  const [showCommissionerControls, setShowCommissionerControls] = useState(false);
   const {
     picksBySeriesId,
-    allPicksByUser,
     pickedSeriesCount,
     loading,
     persistenceMode,
@@ -68,8 +102,8 @@ export default function SeriesTrackerView() {
   } = useSeriesPickem(series);
   const availableRoundKey = getAvailableRoundKey(roundSummaries);
   const activeSeries = seriesByRound[activeRound] ?? [];
+  const [activeSeriesId, setActiveSeriesId] = useState("");
   const canViewOtherBoards = areRoundPicksPublic(activeSeries, activeRound, settings);
-  const currentRoundScoring = describeRoundScoring(availableRoundKey, settings);
   const requestedViewerId = searchParams.get("viewer") ?? "";
   const availableViewers = memberList.filter((member) => member.id !== profile?.id);
   const selectedViewer = canViewOtherBoards
@@ -83,6 +117,22 @@ export default function SeriesTrackerView() {
   );
   const roundLocks = settings.round_locks ?? {};
   const isCommissioner = pool?.admin_id === profile?.id;
+  const activeRoundPickedCount = useMemo(
+    () => activeSeries.filter((seriesItem) => visiblePicksBySeriesId[seriesItem.id]?.winnerTeamId).length,
+    [activeSeries, visiblePicksBySeriesId]
+  );
+  const currentSeries =
+    activeSeries.find((seriesItem) => seriesItem.id === activeSeriesId) ?? activeSeries[0] ?? null;
+
+  useEffect(() => {
+    if (!activeSeries.length) {
+      setActiveSeriesId("");
+      return;
+    }
+    if (!activeSeries.some((seriesItem) => seriesItem.id === activeSeriesId)) {
+      setActiveSeriesId(activeSeries[0].id);
+    }
+  }, [activeSeries, activeSeriesId]);
 
   function handleViewerChange(event) {
     const nextViewerId = event.target.value;
@@ -103,6 +153,13 @@ export default function SeriesTrackerView() {
     });
   }
 
+  function goToSeries(direction) {
+    if (!activeSeries.length || !currentSeries) return;
+    const currentIndex = activeSeries.findIndex((seriesItem) => seriesItem.id === currentSeries.id);
+    const nextIndex = (currentIndex + direction + activeSeries.length) % activeSeries.length;
+    setActiveSeriesId(activeSeries[nextIndex].id);
+  }
+
   return (
     <div className="nba-shell">
       <section className="panel">
@@ -110,28 +167,6 @@ export default function SeriesTrackerView() {
           <div>
             <span className="label">Series Pick'em</span>
             <h2>Make your picks for the current playoff round.</h2>
-          </div>
-        </div>
-
-        <div className="detail-card inset-card">
-          <div className="nba-series-summary-strip">
-            <div>
-              <span className="micro-label">Current round</span>
-              <p>{formatRoundLabel(availableRoundKey)} is open right now.</p>
-            </div>
-            <div>
-              <span className="micro-label">Scoring</span>
-              <p>Exact like <strong>DET in 6</strong>: {currentRoundScoring.exactBase}. Exact sweep or 7: {currentRoundScoring.exactEdge}. Off by 1: {currentRoundScoring.offBy1}. Off by 2: {currentRoundScoring.offBy2}.</p>
-            </div>
-            <div>
-              <span className="micro-label">{isViewingCurrentUser ? "Board status" : "This card"}</span>
-              <p>
-                {loading ? "Loading picks…" : `${formatSavedLabel(lastSavedAt, persistenceMode, saveState)}.`}{" "}
-                {isViewingCurrentUser
-                  ? `${scoreSummary.totalPoints} points · ${scoreSummary.exact} exact calls.`
-                  : `${selectedViewer?.name ?? "This entry"} has ${scoreSummary.totalPoints} points with ${scoreSummary.exact} exact calls.`}
-              </p>
-            </div>
           </div>
         </div>
       </section>
@@ -169,40 +204,58 @@ export default function SeriesTrackerView() {
           </div>
         </div>
 
-        <div className="nba-round-tabs">
-          {roundSummaries.map((round) => {
-            const unlocked = isRoundUnlocked(round.key, roundSummaries);
-            return (
-              <div className="nba-round-tab-shell" key={round.key}>
-                <button
-                  type="button"
-                  onClick={() => unlocked && setActiveRound(round.key)}
-                  className={activeRound === round.key ? "nba-round-tab active" : "nba-round-tab"}
-                  disabled={!unlocked}
-                >
-                  <span>{round.shortLabel}</span>
-                  <strong>{round.label}</strong>
-                  <small>{formatRoundStatus(round, availableRoundKey, settings)}</small>
-                </button>
-                {isCommissioner ? (
-                  <button
-                    type="button"
-                    className={roundLocks[round.key] ? "nba-lock-button locked" : "nba-lock-button"}
-                    onClick={() => setRoundLock(round.key, !roundLocks[round.key])}
-                  >
-                    {roundLocks[round.key] ? "Unlock round" : "Lock round"}
-                  </button>
-                ) : null}
-              </div>
-            );
-          })}
+        <div className="detail-card inset-card">
+          <div className="nba-series-progress-strip">
+            <span className="chip">{activeRoundPickedCount} of {activeSeries.length} picked</span>
+            <span className="micro-copy">
+              {loading
+                ? "Loading picks…"
+                : isViewingCurrentUser
+                  ? `${formatSavedLabel(lastSavedAt, persistenceMode, saveState)}. Work the round one series at a time.`
+                  : `${selectedViewer?.name ?? "This entry"} has ${scoreSummary.totalPoints} points with ${scoreSummary.exact} exact calls.`}
+            </span>
+          </div>
         </div>
 
-        <div className="nba-series-pick-grid">
-          {activeSeries.map((seriesItem) => {
+        {currentSeries ? (
+          <>
+            <div className="nba-series-selector-bar">
+              <div className="nba-series-selector-head">
+                <span className="micro-label">Series in this round</span>
+                <p>{formatSeriesSlotLabel(currentSeries)}</p>
+              </div>
+              <div className="nba-series-selector-actions">
+                <button type="button" className="secondary-button" onClick={() => goToSeries(-1)}>
+                  Previous
+                </button>
+                <select
+                  className="nav-select"
+                  value={currentSeries.id}
+                  onChange={(event) => setActiveSeriesId(event.target.value)}
+                  aria-label="Choose a series"
+                >
+                  {activeSeries.map((seriesItem) => {
+                    const homeDisplay = formatSeriesTeam(seriesItem.homeTeam);
+                    const awayDisplay = formatSeriesTeam(seriesItem.awayTeam);
+                    const isPicked = Boolean(visiblePicksBySeriesId[seriesItem.id]?.winnerTeamId);
+                    return (
+                      <option key={seriesItem.id} value={seriesItem.id}>
+                        {seriesItem.homeTeam.seed} {homeDisplay.short} vs {seriesItem.awayTeam.seed} {awayDisplay.short} {isPicked ? "• picked" : "• open"}
+                      </option>
+                    );
+                  })}
+                </select>
+                <button type="button" className="secondary-button" onClick={() => goToSeries(1)}>
+                  Next
+                </button>
+              </div>
+            </div>
+
+            <div className="nba-series-pick-grid nba-series-pick-grid-single">
+          {(() => {
+            const seriesItem = currentSeries;
             const pick = visiblePicksBySeriesId[seriesItem.id];
             const score = scoreSeriesPick(pick, seriesItem, settings);
-            const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
             const marketFavorite =
               seriesItem.market.homeWinPct >= seriesItem.market.awayWinPct
                 ? `${seriesItem.homeTeam.abbreviation} ${seriesItem.market.homeWinPct}%`
@@ -211,22 +264,25 @@ export default function SeriesTrackerView() {
               seriesItem.model.homeWinPct >= seriesItem.model.awayWinPct
                 ? `${seriesItem.homeTeam.abbreviation} ${seriesItem.model.homeWinPct}%`
                 : `${seriesItem.awayTeam.abbreviation} ${seriesItem.model.awayWinPct}%`;
+            const homeDisplay = formatSeriesTeam(seriesItem.homeTeam);
+            const awayDisplay = formatSeriesTeam(seriesItem.awayTeam);
+            const matchupLabel = `${homeDisplay.primary} vs ${awayDisplay.primary}`;
+            const setupNote =
+              getSeriesPlaceholderCopy(seriesItem.homeTeam) || getSeriesPlaceholderCopy(seriesItem.awayTeam)
+                ? seriesItem.nextGame
+                : `${seriesItem.homeTeam.abbreviation} ${seriesItem.market.homeWinPct}% market · ${seriesItem.awayTeam.abbreviation} ${seriesItem.market.awayWinPct}%`;
 
             return (
               <article className="nba-pick-card" key={seriesItem.id}>
                 <div className="nba-series-head">
                   <div>
-                    <span className="micro-label">{seriesItem.nextGame}</span>
-                    <h3>{seriesItem.homeTeam.city} vs {seriesItem.awayTeam.city}</h3>
+                    <h3>{matchupLabel}</h3>
+                    <span className="micro-copy nba-series-head-note">{setupNote}</span>
                   </div>
                   <OutcomeChip score={score} />
                 </div>
 
                 <div className="nba-series-meta-grid">
-                  <div className="detail-card inset-card">
-                    <span className="micro-label">Live score</span>
-                    <p>{seriesItem.homeTeam.abbreviation} {seriesItem.wins.home}-{seriesItem.wins.away} {seriesItem.awayTeam.abbreviation}</p>
-                  </div>
                   <div className="detail-card inset-card">
                     <span className="micro-label">Market</span>
                     <p>{marketFavorite}</p>
@@ -239,62 +295,11 @@ export default function SeriesTrackerView() {
                   </div>
                 </div>
 
-                {canViewOtherBoards ? (
-                  <div className="nba-pool-lean-card">
-                    <div className="nba-pool-lean-head">
-                      <span className="micro-label">Pool lean</span>
-                      <span>{marketSummary.total === 0 ? "No picks logged yet" : `${marketSummary.total} public picks`}</span>
-                    </div>
-                    <div className="nba-pool-lean-bars">
-                      <div className="nba-pool-lean-team">
-                        <div className="nba-pool-lean-label">
-                          <strong>{seriesItem.homeTeam.abbreviation}</strong>
-                          <span>{marketSummary.homePct}%</span>
-                        </div>
-                        <div className="nba-pool-lean-track">
-                          <div className="nba-pool-lean-fill" style={{ width: `${marketSummary.homePct}%` }} />
-                        </div>
-                      </div>
-                      <div className="nba-pool-lean-team">
-                        <div className="nba-pool-lean-label">
-                          <strong>{seriesItem.awayTeam.abbreviation}</strong>
-                          <span>{marketSummary.awayPct}%</span>
-                        </div>
-                        <div className="nba-pool-lean-track">
-                          <div className="nba-pool-lean-fill nba-pool-lean-fill-away" style={{ width: `${marketSummary.awayPct}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="nba-pool-lean-notes">
-                      <span>
-                        {marketSummary.leadingGames
-                          ? `Most common length: ${marketSummary.leadingGames} games (${marketSummary.leadingGamesCount})`
-                          : "No length consensus yet"}
-                      </span>
-                      <span>{marketSummary.noPickCount > 0 ? `${marketSummary.noPickCount} still open` : "Everyone has picked"}</span>
-                    </div>
-                    <div className="nba-pool-lean-callout">
-                      <strong>Room context</strong>
-                      <span>These picks are public now, so this is the clean read on where the room actually landed.</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="nba-pool-lean-card">
-                    <div className="nba-pool-lean-head">
-                      <span className="micro-label">Pool lean</span>
-                      <span>Private until lock</span>
-                    </div>
-                    <div className="nba-pool-lean-callout">
-                      <strong>Selections are hidden right now</strong>
-                      <span>This page only uses public market and model signals until the round locks or games begin.</span>
-                    </div>
-                  </div>
-                )}
-
                 <div className="nba-team-pick-grid">
                   {[seriesItem.homeTeam, seriesItem.awayTeam].map((team) => {
                     const selected = pick?.winnerTeamId === team.id;
                     const isLocked = Boolean(roundLocks[seriesItem.roundKey]);
+                    const teamDisplay = formatSeriesTeam(team);
                     return (
                       <button
                         key={team.id}
@@ -304,37 +309,41 @@ export default function SeriesTrackerView() {
                         onClick={() => saveSeriesPick(seriesItem.id, team.id, pick?.games ?? 6, seriesItem.roundKey)}
                       >
                         <span className="micro-label">Seed {team.seed}</span>
-                        <strong>{team.city} {team.name}</strong>
-                        <span>{team.abbreviation}</span>
+                        <strong>{teamDisplay.primary}</strong>
+                        <span>{teamDisplay.secondary}</span>
                       </button>
                     );
                   })}
                 </div>
 
                 <div className="nba-games-picker">
-                  <span className="micro-label">Series length</span>
-                  <div className="nba-games-options">
-                    {GAME_OPTIONS.map((games) => (
-                      <button
-                        key={games}
-                        type="button"
-                        className={pick?.games === games ? "nba-games-option active" : "nba-games-option"}
-                        disabled={Boolean(roundLocks[seriesItem.roundKey]) || !pick?.winnerTeamId || !isViewingCurrentUser}
-                        onClick={() => saveSeriesPick(seriesItem.id, pick?.winnerTeamId ?? seriesItem.homeTeam.id, games, seriesItem.roundKey)}
-                      >
-                        {games}
-                      </button>
-                    ))}
+                  <div className="nba-games-picker-main">
+                    <span className="micro-label">Series length</span>
+                    <div className="nba-games-options">
+                      {GAME_OPTIONS.map((games) => (
+                        <button
+                          key={games}
+                          type="button"
+                          className={pick?.games === games ? "nba-games-option active" : "nba-games-option"}
+                          disabled={Boolean(roundLocks[seriesItem.roundKey]) || !pick?.winnerTeamId || !isViewingCurrentUser}
+                          onClick={() => saveSeriesPick(seriesItem.id, pick?.winnerTeamId ?? seriesItem.homeTeam.id, games, seriesItem.roundKey)}
+                        >
+                          {games}
+                        </button>
+                      ))}
+                    </div>
+                    {!pick?.winnerTeamId ? <p className="micro-copy">Choose a winner first, then set the length.</p> : null}
                   </div>
-                  {!pick?.winnerTeamId ? <p className="micro-copy">Choose a winner first, then set the series length.</p> : null}
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={Boolean(roundLocks[seriesItem.roundKey]) || !isViewingCurrentUser}
-                    onClick={() => clearSeriesPick(seriesItem.id)}
-                  >
-                    Clear pick
-                  </button>
+                  <div className="nba-games-picker-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={Boolean(roundLocks[seriesItem.roundKey]) || !isViewingCurrentUser}
+                      onClick={() => clearSeriesPick(seriesItem.id)}
+                    >
+                      Clear pick
+                    </button>
+                  </div>
                 </div>
 
                 <div className="nba-pick-footer">
@@ -342,13 +351,9 @@ export default function SeriesTrackerView() {
                     <span className="micro-label">{isViewingCurrentUser ? "Your pick" : `${selectedViewer?.name ?? "Their"} pick`}</span>
                     <p>
                       {pick
-                        ? `${pick.winnerTeamId === seriesItem.homeTeam.id ? seriesItem.homeTeam.city : seriesItem.awayTeam.city} in ${pick.games}`
+                        ? `${pick.winnerTeamId === seriesItem.homeTeam.id ? homeDisplay.primary : awayDisplay.primary} in ${pick.games}`
                         : "No pick saved yet"}
                     </p>
-                  </div>
-                  <div>
-                    <span className="micro-label">Board status</span>
-                    <p>{isViewingCurrentUser ? formatSavedLabel(lastSavedAt, persistenceMode, saveState) : "Read-only view"}</p>
                   </div>
                 </div>
                 {roundLocks[seriesItem.roundKey] ? (
@@ -362,7 +367,63 @@ export default function SeriesTrackerView() {
                 ) : null}
               </article>
             );
-          })}
+          })()}
+            </div>
+          </>
+        ) : null}
+
+        <div className="nba-round-footer-nav">
+          <div className="nba-round-footer-head">
+            <span className="micro-label">Round navigation</span>
+            <p>Lower-priority controls for jumping ahead once later rounds open up.</p>
+          </div>
+
+          <div className="nba-round-tabs">
+            {roundSummaries.map((round) => {
+              const unlocked = isRoundUnlocked(round.key, roundSummaries);
+              return (
+                <div className="nba-round-tab-shell" key={round.key}>
+                  <button
+                    type="button"
+                    onClick={() => unlocked && setActiveRound(round.key)}
+                    className={activeRound === round.key ? "nba-round-tab active" : "nba-round-tab"}
+                    disabled={!unlocked}
+                  >
+                    <span>{round.shortLabel}</span>
+                    <strong>{round.label}</strong>
+                    <small>{formatRoundStatus(round, availableRoundKey, settings)}</small>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {isCommissioner ? (
+            <div className="nba-commissioner-tools">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowCommissionerControls((current) => !current)}
+              >
+                {showCommissionerControls ? "Hide commissioner controls" : "Commissioner controls"}
+              </button>
+
+              {showCommissionerControls ? (
+                <div className="nba-round-lock-row">
+                  {roundSummaries.map((round) => (
+                    <button
+                      key={round.key}
+                      type="button"
+                      className={roundLocks[round.key] ? "nba-lock-button locked" : "nba-lock-button"}
+                      onClick={() => setRoundLock(round.key, !roundLocks[round.key])}
+                    >
+                      {roundLocks[round.key] ? `Unlock ${round.shortLabel}` : `Lock ${round.shortLabel}`}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
 

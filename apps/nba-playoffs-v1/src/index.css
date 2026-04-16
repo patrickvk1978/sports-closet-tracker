@@ -889,6 +889,38 @@ p { margin: 0; }
   gap: 8px;
 }
 
+.nba-round-lock-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 2px;
+  margin-bottom: 12px;
+}
+
+.nba-round-footer-nav {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(178, 144, 105, 0.28);
+}
+
+.nba-commissioner-tools {
+  display: grid;
+  gap: 10px;
+}
+
+.nba-round-footer-head {
+  display: grid;
+  gap: 2px;
+}
+
+.nba-round-footer-head p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 0.88rem;
+}
+
 .nba-round-tab {
   display: grid;
   gap: 3px;
@@ -939,10 +971,51 @@ p { margin: 0; }
   align-items: start;
 }
 
+.nba-series-pick-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.nba-series-progress-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nba-series-selector-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(247, 237, 220, 0.96), rgba(239, 223, 195, 0.96));
+}
+
+.nba-series-selector-head {
+  display: grid;
+  gap: 2px;
+}
+
+.nba-series-selector-head p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.95rem;
+}
+
+.nba-series-selector-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .nba-pick-card {
   display: grid;
-  gap: 9px;
-  padding: 13px;
+  gap: 8px;
+  padding: 12px;
   border-radius: var(--r-lg);
   border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(249, 241, 227, 0.98), rgba(238, 221, 191, 0.98));
@@ -953,8 +1026,13 @@ p { margin: 0; }
   font-size: 1.05rem;
 }
 
+.nba-series-head-note {
+  display: block;
+  margin-top: 3px;
+}
+
 .nba-series-meta-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .nba-team-pick-grid {
@@ -998,10 +1076,21 @@ p { margin: 0; }
 }
 
 .nba-games-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.nba-games-picker-main {
+  display: grid;
+  gap: 6px;
+}
+
+.nba-games-picker-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .nba-series-summary-strip {
@@ -1023,8 +1112,8 @@ p { margin: 0; }
 
 .nba-pool-lean-card {
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 7px;
+  padding: 10px 12px;
   border-radius: var(--r-md);
   border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(247, 237, 220, 0.96), rgba(239, 223, 195, 0.96));
@@ -1047,7 +1136,7 @@ p { margin: 0; }
 
 .nba-pool-lean-track {
   width: 100%;
-  height: 10px;
+  height: 8px;
   overflow: hidden;
   border-radius: var(--r-full);
   background: rgba(160, 126, 82, 0.14);
@@ -1106,9 +1195,9 @@ p { margin: 0; }
 
 .nba-pick-footer {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid var(--border);
 }
 
@@ -3487,12 +3576,35 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .nba-round-lock-row {
+    grid-template-columns: 1fr;
+  }
+
+  .nba-series-selector-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .nba-series-selector-actions {
+    justify-content: stretch;
+  }
+
+  .nba-series-selector-actions .nav-select,
+  .nba-series-selector-actions .secondary-button {
+    width: 100%;
+  }
+
   .nba-series-summary-strip {
     grid-template-columns: 1fr;
   }
 
   .nba-games-picker {
+    grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .nba-games-picker-actions {
+    justify-content: flex-start;
   }
 
   .nba-standings-row {
