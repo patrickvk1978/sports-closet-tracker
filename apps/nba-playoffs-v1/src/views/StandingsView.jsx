@@ -168,7 +168,7 @@ export default function StandingsView() {
                             </span>
                           </span>
                         )}
-                        <span>{member.roleLabel}</span>
+                        <span>{member.isCurrentUser ? "You" : "Pool entry"}</span>
                       </div>
                     </td>
                     <td>{member.summary.totalPoints}</td>

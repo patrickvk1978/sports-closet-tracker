@@ -307,6 +307,7 @@ export default function BracketWorkspaceView() {
           </div>
         </div>
 
+        <div className="nba-bracket-simple-shell">
         <div className="nba-bracket-simple">
           <section className="nba-bracket-side">
             <div className="nba-bracket-side-header">
@@ -362,6 +363,7 @@ export default function BracketWorkspaceView() {
               ))}
             </div>
           </section>
+        </div>
         </div>
       </section>
     </div>

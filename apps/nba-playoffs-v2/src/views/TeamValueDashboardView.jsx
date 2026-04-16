@@ -40,8 +40,8 @@ function buildPriorityCard({ reportState, completionCount, memberList, currentSt
     if (completionCount < 16) {
       return {
         eyebrow: "Most important right now",
-        headline: `${16 - completionCount} slot${16 - completionCount === 1 ? "" : "s"} still need a value.`,
-        body: "Finish the board first. Until every slot is assigned, the rest of the reports are useful, but not decisive.",
+        headline: `${16 - completionCount} rank${16 - completionCount === 1 ? "" : "s"} still need a team.`,
+        body: "Finish the board first. Until every rank is filled, the rest of the reports are useful, but not decisive.",
         ctaLabel: "Open My Board",
         ctaPath: "/teams",
         secondary: "Complete the board before lock",
@@ -54,8 +54,8 @@ function buildPriorityCard({ reportState, completionCount, memberList, currentSt
     if (topMisfit) {
       return {
         eyebrow: "Most important right now",
-        headline: `${topMisfit.teamLabel} still looks mis-slotted.`,
-        body: `Your board has them at ${topMisfit.yourValue || "unassigned"}, while the current board model likes them closer to ${topMisfit.fairValue}. That is probably the cleanest revision left before lock.`,
+        headline: `${topMisfit.teamLabel} still looks mis-ranked.`,
+        body: `Your board has them at rank ${topMisfit.yourValue || "unassigned"}, while the current board model likes them closer to rank ${topMisfit.fairValue}. That is probably the cleanest revision left before lock.`,
         ctaLabel: "Open Best slot fits",
         ctaPath: "/reports/slot-fits",
         secondary: `${topMisfit.expectedPoints} expected pts · ${topMisfit.poolEv} pool EV`,
@@ -218,9 +218,9 @@ function buildDeskIntro({ reportState, completionCount }) {
 
   if (completionCount < 16) {
     return {
-      headline: "Build the board while the last play-in slots are still settling.",
+      headline: "Rank the 16 teams before the field starts scoring.",
       body:
-        "The biggest mistake right now is waiting for every unknown to vanish. Fill the board, then use the reports to decide which few slots deserve a harder second look.",
+        "The biggest mistake right now is waiting for every unknown to vanish. Get the full board in first, then use the reports to decide which few ranks deserve a harder second look.",
       currentRead:
         secondScenario?.likelyImpact ??
         "The useful pre-lock rhythm is simple: finish the board first, then revisit only the places where the bracket movement should actually change your pricing.",
@@ -229,9 +229,9 @@ function buildDeskIntro({ reportState, completionCount }) {
 
   if (topMisfit) {
     return {
-      headline: `${topMisfit.teamLabel} is probably the cleanest board revision still left.`,
+      headline: `${topMisfit.teamLabel} is probably the cleanest rank tweak still left.`,
       body:
-        `Your 16-to-1 board is in. The job now is not another full rebuild; it is tightening the few teams that still look mispriced against the current bracket and market picture.`,
+        `Your board is in. The job now is not another full rebuild; it is tightening the few teams that still look mispriced against the current bracket and market picture.`,
       currentRead:
         topScenario?.likelyImpact ??
         "Portland locking the West 7 line turned one side of the board into a real series. That is the kind of shift that should move a slot, not just your mood.",
@@ -240,9 +240,9 @@ function buildDeskIntro({ reportState, completionCount }) {
 
   return {
     headline: "Your board is in. Now narrow it to the two or three teams worth reopening.",
-    body:
-      strategicMove?.body ??
-      "The highest-value work from here is not reading every report evenly. It is deciding which few teams still deserve a meaningful reprice before lock.",
+      body:
+        strategicMove?.body ??
+        "The highest-value work from here is not reading every report evenly. It is deciding which few teams still deserve a meaningful reprice before lock.",
     currentRead:
       topScenario?.likelyImpact ??
       "The board is mature enough now that the only really useful changes are the ones tied to actual bracket movement or a clear outside-signal disagreement.",
@@ -274,11 +274,12 @@ export default function TeamValueDashboardView() {
     memberList,
     currentStanding,
   });
+  const isBoardComplete = completionCount === 16;
 
   return (
     <div className="nba-shell">
-      <section className="panel nba-hero-panel">
-        <div className="nba-hero-copy">
+      <section className={`panel nba-hero-panel ${isBoardComplete ? "board-complete" : "board-building"}`}>
+        <div className={`nba-hero-copy ${isBoardComplete ? "is-secondary" : ""}`}>
           <span className="label">Team value board · {SCENARIO_WATCH_DATE}</span>
           <h1>{deskIntro.headline}</h1>
           <p className="subtle">
@@ -289,7 +290,7 @@ export default function TeamValueDashboardView() {
             <span>{deskIntro.currentRead}</span>
           </div>
           <div className="nba-hero-actions">
-            <Link className="primary-button" to="/teams">
+            <Link className={isBoardComplete ? "secondary-button" : "primary-button"} to="/teams">
               Open board
             </Link>
             <Link className="secondary-button" to="/reports">
@@ -298,7 +299,7 @@ export default function TeamValueDashboardView() {
           </div>
         </div>
 
-        <div className="nba-scoreboard-card">
+        <div className={`nba-scoreboard-card ${isBoardComplete ? "is-primary-focus" : ""}`}>
           <span className="micro-label">{priorityCard.eyebrow}</span>
           <strong>{priorityCard.headline}</strong>
           <span className="subtle">
@@ -315,7 +316,7 @@ export default function TeamValueDashboardView() {
             </div>
           </div>
           <div className="nba-report-actions">
-            <a className="secondary-button" href={priorityCard.ctaPath}>
+            <a className={isBoardComplete ? "primary-button" : "secondary-button"} href={priorityCard.ctaPath}>
               {priorityCard.ctaLabel}
             </a>
           </div>

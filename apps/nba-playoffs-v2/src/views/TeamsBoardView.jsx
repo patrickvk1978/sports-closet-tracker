@@ -4,7 +4,13 @@ import { useAuth } from "../hooks/useAuth";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { usePool } from "../hooks/usePool";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
-import { TEAM_VALUE_SLOTS, buildScoringTable } from "../lib/teamValueGame";
+import {
+  TEAM_VALUE_DISPLAY_RANKS,
+  buildScoringTable,
+  getDisplayRankFromValue,
+  getPointsForDisplayRank,
+  getValueFromDisplayRank,
+} from "../lib/teamValueGame";
 import { buildTeamSelectionRows, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { TEAM_VALUE_LOCK_AT, getTeamValuePhase } from "../lib/teamValueReports";
 
@@ -43,7 +49,7 @@ const SORT_OPTIONS = {
     compare: (a, b) => (a.poolEv ?? 0) - (b.poolEv ?? 0),
   },
   value: {
-    label: "Your value",
+    label: "Your rank",
     compare: (a, b) => (a.assignedValue ?? 0) - (b.assignedValue ?? 0),
   },
 };
@@ -160,18 +166,18 @@ export default function TeamsBoardView() {
         <div className="panel-header">
           <div>
             <span className="label">Teams board</span>
-            <h2>{isViewingCurrentUser ? "Build the board team by team." : `Read ${selectedViewer?.name ?? "this entry"}’s board team by team.`}</h2>
+            <h2>{isViewingCurrentUser ? "Build the board team by team." : `Read ${selectedViewer?.displayName ?? selectedViewer?.name ?? "this entry"}’s board team by team.`}</h2>
           </div>
           <span className="chip">
-            {isViewingCurrentUser ? `${completionCount}/16 assigned` : `Viewing ${selectedViewer?.name ?? "member"}’s board`}
+            {isViewingCurrentUser ? `${completionCount}/16 assigned` : `Viewing ${selectedViewer?.displayName ?? selectedViewer?.name ?? "member"}’s board`}
           </span>
         </div>
 
         <div className="detail-card inset-card">
           <p>
             {isViewingCurrentUser
-              ? <>Your highest-conviction team gets <strong>16</strong>, your lowest gets <strong>1</strong>, and every value can be used only once. The decision is not just who is best, but who is best for each slot before lock on <strong>Saturday, April 18, 2026</strong>.</>
-              : <>This is the locked 16-to-1 order for this entry. Once the board is public, the useful questions become where the top slots sit and which teams are carrying the most live value.</>}
+              ? <>Rank <strong>1</strong> is your strongest team and earns <strong>16 points</strong> per series win. Rank <strong>16</strong> is your lowest slot and earns <strong>1 point</strong>. The decision is not just who is best, but who is best for each rank before lock on <strong>Saturday, April 18, 2026</strong>.</>
+              : <>This is the locked rank order for this entry, with <strong>1</strong> at the top and <strong>16</strong> at the bottom. Once the board is public, the useful questions become where the top ranks sit and which teams are carrying the most live value.</>}
           </p>
         </div>
 
@@ -182,13 +188,13 @@ export default function TeamsBoardView() {
               {isViewingCurrentUser && boardValidation.valid
                 ? "Your board is complete and valid."
                 : isViewingCurrentUser
-                  ? `Still missing ${boardValidation.missingValues.length} value${boardValidation.missingValues.length === 1 ? "" : "s"} and ${boardValidation.missingTeams.length} team assignment${boardValidation.missingTeams.length === 1 ? "" : "s"}.`
-                  : `${selectedViewer?.name ?? "This entry"}’s locked board is shown read-only here.`}
+                  ? `Still missing ${boardValidation.missingValues.length} rank${boardValidation.missingValues.length === 1 ? "" : "s"} and ${boardValidation.missingTeams.length} team assignment${boardValidation.missingTeams.length === 1 ? "" : "s"}.`
+                  : `${selectedViewer?.displayName ?? selectedViewer?.name ?? "This entry"}’s locked board is shown read-only here.`}
             </p>
           </div>
           <div className="detail-card inset-card">
             <span className="micro-label">Selection lens</span>
-            <p>Round 1 market handles near-term safety. Championship odds bring in long-tail ceiling. Expected points and pool EV are the first-pass reads on how much each slot-team pairing is worth.</p>
+            <p>Round 1 market is a quick read on short-term safety. Championship odds show long-run upside. Expected points and pool EV are first-pass estimates of how much each rank-team pairing is worth.</p>
           </div>
         </div>
       </section>
@@ -197,7 +203,7 @@ export default function TeamsBoardView() {
         <div className="panel-header">
           <div>
             <span className="label">My Board</span>
-            <h2>{boardViewMode === "table" ? (isViewingCurrentUser ? "Research before you assign the slots." : `Study ${selectedViewer?.name ?? "this entry"}’s board through the research lens.`) : (isViewingCurrentUser ? "Reorder the board in one move." : `Read ${selectedViewer?.name ?? "this entry"}’s locked order from 16 down to 1.`)}</h2>
+            <h2>{boardViewMode === "table" ? (isViewingCurrentUser ? "Research before you set the ranks." : `Study ${selectedViewer?.displayName ?? selectedViewer?.name ?? "this entry"}’s board through the research lens.`) : (isViewingCurrentUser ? "Reorder the board in one move." : `Read ${selectedViewer?.displayName ?? selectedViewer?.name ?? "this entry"}’s locked order from rank 1 down.`)}</h2>
           </div>
           <div className="nba-report-actions">
             {canViewOtherBoards ? (
@@ -210,7 +216,7 @@ export default function TeamsBoardView() {
                 <option value="">Viewing: My board</option>
                 {availableViewers.map((member) => (
                   <option key={member.id} value={member.id}>
-                    View {member.name}
+                    View {member.displayName ?? member.name}
                   </option>
                 ))}
               </select>
@@ -255,9 +261,9 @@ export default function TeamsBoardView() {
           <p>
             {boardViewMode === "drag"
               ? isViewingCurrentUser
-                ? "Drag teams up and down to reorder the whole board. The top row becomes 16, then 15, all the way down to 1."
-                : "After lock, this is the cleanest way to read another entry’s full board from top asset to bottom slot."
-              : "Use the research table to compare market, model, expected points, and pool EV before you decide where each slot belongs."}
+                ? "Drag teams up and down to reorder the whole board. The top row becomes rank 1, which scores 16 points per series win. The bottom row becomes rank 16."
+                : "After lock, this is the cleanest way to read another entry’s full board from top rank to bottom slot."
+              : "Use the research table to compare safety, title upside, expected points, and pool EV before you decide where each rank belongs."}
           </p>
         </div>
 
@@ -317,30 +323,34 @@ export default function TeamsBoardView() {
                 {sortedRows.map((team) => (
                   <tr key={team.id}>
                     <td>
-                      <div className="nba-standings-name-cell">
+                      <div className="nba-team-board-team-cell">
                         <strong>{team.city} {team.name}</strong>
-                        <span>{team.abbreviation}</span>
+                        <div className="nba-team-board-team-meta">
+                          <span className="assign-tag">{team.abbreviation}</span>
+                          <span className="chip subtle-chip">{team.conference}</span>
+                          <span className="chip subtle-chip">Seed {team.seed}</span>
+                        </div>
                       </div>
                     </td>
-                    <td>{team.conference}</td>
-                    <td>{team.seed}</td>
+                    <td><span className="muted-inline">{team.conference}</span></td>
+                    <td><span className="muted-inline">{team.seed}</span></td>
                     <td>{team.marketLean}%</td>
                     <td>{team.titleOddsDisplay} <span className="muted-inline">({team.titleOddsPct}%)</span></td>
                     <td>{team.modelLean}%</td>
-                    <td>{team.expectedPoints}</td>
-                    <td>{team.poolEv}</td>
+                    <td><strong>{team.expectedPoints}</strong></td>
+                    <td><strong className="nba-team-board-ev">{team.poolEv}</strong></td>
                     <td>
                       <select
-                        className="team-value-select"
-                        value={team.assignedValue || ""}
-                        onChange={(event) => saveAssignment(team.id, Number(event.target.value))}
-                        aria-label={`Assign value for ${team.city} ${team.name}`}
+                        className="team-value-select is-primary-control"
+                        value={getDisplayRankFromValue(team.assignedValue) ?? ""}
+                        onChange={(event) => saveAssignment(team.id, Number(getValueFromDisplayRank(event.target.value)))}
+                        aria-label={`Assign rank for ${team.city} ${team.name}`}
                         disabled={!isViewingCurrentUser}
                       >
-                        <option value="" disabled>Select</option>
-                        {TEAM_VALUE_SLOTS.map((slot) => (
-                          <option key={slot} value={slot}>
-                            {slot}
+                        <option value="" disabled>Rank</option>
+                        {TEAM_VALUE_DISPLAY_RANKS.map((rank) => (
+                          <option key={rank} value={rank}>
+                            {rank} · {getPointsForDisplayRank(rank)} pts
                           </option>
                         ))}
                       </select>
@@ -370,14 +380,14 @@ export default function TeamsBoardView() {
                   setDraggingTeamId("");
                 }}
               >
-                <span className="board-rank">{team.assignedValue}</span>
+                <span className="board-rank">{getDisplayRankFromValue(team.assignedValue)}</span>
                 <div className="board-player">
                   <strong>{team.city} {team.name}</strong>
                   <span className="assign-tag">{team.abbreviation}</span>
                 </div>
                 <span>{team.marketLean}% R1</span>
                 <span>{team.expectedPoints} expected pts</span>
-                <span className="muted-inline">{isViewingCurrentUser ? "Drag to reorder" : "Locked board"}</span>
+                <span className="muted-inline">{isViewingCurrentUser ? `${team.assignedValue} pts per series win` : `${team.assignedValue} pts slot`}</span>
               </div>
             ))}
           </div>
@@ -388,7 +398,7 @@ export default function TeamsBoardView() {
         <div className="panel-header">
           <div>
             <span className="label">Scoring table</span>
-            <h2>What a 16-point team is worth by round</h2>
+            <h2>What a rank 1 team is worth by round</h2>
           </div>
         </div>
 

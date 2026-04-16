@@ -50,6 +50,51 @@ export default function TeamValueStandingsView() {
   );
 
   const currentStanding = standings.find((member) => member.isCurrentUser) ?? null;
+  const readyCount = preLockEntries.filter((member) => member.isComplete).length;
+  const consensusLeader = useMemo(() => {
+    const topCounts = Object.values(allAssignmentsByUser ?? {}).reduce((counts, assignmentMap) => {
+      const topTeamId = Object.entries(assignmentMap ?? {}).find(([, value]) => Number(value) === 16)?.[0];
+      if (!topTeamId) return counts;
+      counts[topTeamId] = (counts[topTeamId] ?? 0) + 1;
+      return counts;
+    }, {});
+
+    const bestEntry = Object.entries(topCounts).sort((a, b) => b[1] - a[1])[0];
+    if (!bestEntry) return null;
+    const team = playoffTeams.find((entry) => entry.id === bestEntry[0]);
+    return team ? { label: `${team.city} ${team.name}`, count: bestEntry[1] } : null;
+  }, [allAssignmentsByUser, playoffTeams]);
+  const biggestOutlier = useMemo(() => {
+    const assignmentEntries = Object.entries(allAssignmentsByUser ?? {});
+    if (!assignmentEntries.length) return null;
+
+    const averageByTeam = playoffTeams.reduce((map, team) => {
+      const values = assignmentEntries
+        .map(([, assignmentMap]) => Number(assignmentMap?.[team.id] ?? 0))
+        .filter((value) => value > 0);
+      map[team.id] = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+      return map;
+    }, {});
+
+    let best = null;
+    preLockEntries.forEach((member) => {
+      const assignmentMap = allAssignmentsByUser?.[member.id] ?? {};
+      playoffTeams.forEach((team) => {
+        const assignedValue = Number(assignmentMap?.[team.id] ?? 0);
+        if (!assignedValue) return;
+        const gap = Math.abs(assignedValue - (averageByTeam[team.id] ?? assignedValue));
+        if (!best || gap > best.gap) {
+          best = {
+            memberName: member.displayName ?? member.name,
+            teamLabel: `${team.city} ${team.name}`,
+            gap: Math.round(gap),
+          };
+        }
+      });
+    });
+
+    return best;
+  }, [allAssignmentsByUser, playoffTeams, preLockEntries]);
   const sortedStandings = useMemo(() => {
     const comparator = SORT_OPTIONS[sortKey]?.compare ?? SORT_OPTIONS.points.compare;
     const direction = sortDirection === "asc" ? 1 : -1;
@@ -82,7 +127,7 @@ export default function TeamValueStandingsView() {
           <h1>{phase === "pre_lock" ? "See who is ready for the board to lock." : "See who is ahead, and whose board can hold up."}</h1>
           <p className="subtle">
             {phase === "pre_lock"
-              ? `Before lock, this page is the roster and submission board. Once lineups lock on ${new Date(TEAM_VALUE_LOCK_AT).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}, it turns into the full standings and win-probability view.`
+              ? `Before lock, this page should tell you what the room looks like. Once lineups lock on ${new Date(TEAM_VALUE_LOCK_AT).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}, it turns into the full standings and win-probability view.`
               : currentStanding
               ? `You are ${currentStanding.place}${currentStanding.place === 1 ? "st" : currentStanding.place === 2 ? "nd" : currentStanding.place === 3 ? "rd" : "th"} with ${currentStanding.summary.totalPoints} points, ${currentStanding.liveValueRemaining} live value left, and ${currentStanding.winProbability}% win probability.`
               : "This board tracks current points, live value, and the strongest remaining assets under the team-value format."}
@@ -94,8 +139,8 @@ export default function TeamValueStandingsView() {
         <section className="panel">
           <div className="panel-header">
             <div>
-              <span className="label">Entries</span>
-              <h2>Pool roster before lock</h2>
+              <span className="label">Pool pulse</span>
+              <h2>What the room looks like before lock</h2>
             </div>
             <div className="nba-report-actions">
               <Link className="secondary-button" to="/dashboard">
@@ -110,10 +155,24 @@ export default function TeamValueStandingsView() {
             </div>
           </div>
 
+          <div className="nba-team-board-status">
+            <div className="detail-card inset-card">
+              <span className="micro-label">Lock watch</span>
+              <p>{readyCount}/{preLockEntries.length} boards are fully ranked and ready for lock.</p>
+            </div>
+            <div className="detail-card inset-card">
+              <span className="micro-label">Top consensus</span>
+              <p>{consensusLeader ? `${consensusLeader.label} is sitting in rank 1 on ${consensusLeader.count}/${preLockEntries.length} boards.` : "Consensus will sharpen as more boards settle in."}</p>
+            </div>
+            <div className="detail-card inset-card">
+              <span className="micro-label">Biggest outlier</span>
+              <p>{biggestOutlier ? `${biggestOutlier.memberName} is furthest from the room on ${biggestOutlier.teamLabel}.` : "The room is still settling into shape."}</p>
+            </div>
+          </div>
+
           <div className="leaderboard-table">
             <div className="leaderboard-head prelock-entries-head">
               <span>Entry</span>
-              <span>Role</span>
               <span>Board</span>
               <span>Status</span>
             </div>
@@ -122,16 +181,15 @@ export default function TeamValueStandingsView() {
                 <div className="leaderboard-player">
                   {member.isCurrentUser ? (
                     <a className="standings-board-link" href="/teams">
-                      <strong>{member.name}</strong>
+                      <strong>{member.displayName ?? member.name}</strong>
                     </a>
                   ) : (
                     <span className="tooltip-wrap standings-tooltip-wrap">
-                      <strong className="standings-board-link disabled-link">{member.name}</strong>
+                      <strong className="standings-board-link disabled-link">{member.displayName ?? member.name}</strong>
                       <span className="tooltip-bubble">Other boards unlock after {new Date(TEAM_VALUE_LOCK_AT).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                     </span>
                   )}
                 </div>
-                <span className="subtle">{member.roleLabel}</span>
                 <span>{member.assignmentCount}/16</span>
                 <span className={member.isComplete ? "chip active" : "chip"}>
                   {member.isComplete ? "Ready for lock" : "Still building"}
@@ -181,19 +239,19 @@ export default function TeamValueStandingsView() {
                       <div className="nba-standings-name-cell">
                         {member.isCurrentUser ? (
                           <a className="standings-board-link" href="/teams">
-                            <strong>{member.name}</strong>
+                            <strong>{member.displayName ?? member.name}</strong>
                           </a>
                         ) : canViewOtherBoards ? (
                           <a className="standings-board-link" href={`/teams?viewer=${member.id}`}>
-                            <strong>{member.name}</strong>
+                            <strong>{member.displayName ?? member.name}</strong>
                           </a>
                         ) : (
                           <span className="tooltip-wrap standings-tooltip-wrap">
-                            <strong className="standings-board-link disabled-link">{member.name}</strong>
+                            <strong className="standings-board-link disabled-link">{member.displayName ?? member.name}</strong>
                             <span className="tooltip-bubble">Boards unlock for everyone after {new Date(TEAM_VALUE_LOCK_AT).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                           </span>
                         )}
-                        <span>{member.roleLabel}</span>
+                        <span>{member.isCurrentUser ? "You" : "Pool entry"}</span>
                       </div>
                     </td>
                     <td>{member.summary.totalPoints}</td>

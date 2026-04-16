@@ -85,6 +85,30 @@ function rememberKnownPoolId(poolId) {
   window.localStorage.setItem(KNOWN_POOLS_KEY, JSON.stringify(next))
 }
 
+function buildDisplayNames(memberEntries, currentUserId) {
+  const duplicateCounts = memberEntries.reduce((counts, member) => {
+    const key = member.username
+    counts[key] = (counts[key] ?? 0) + 1
+    return counts
+  }, {})
+
+  const seenCounts = {}
+
+  return memberEntries.map((member) => {
+    const baseName = member.username
+    const totalForName = duplicateCounts[baseName] ?? 1
+    seenCounts[baseName] = (seenCounts[baseName] ?? 0) + 1
+    const duplicateIndex = seenCounts[baseName]
+    const suffix = member.user_id === currentUserId ? "You" : totalForName > 1 ? `Entry ${duplicateIndex}` : null
+
+    return {
+      ...member,
+      display_name: suffix ? `${baseName} · ${suffix}` : baseName,
+      hasDuplicateName: totalForName > 1,
+    }
+  })
+}
+
 export function PoolProvider({ children }) {
   const { session, profile } = useAuth()
   const [pool, setPool] = useState(null)
@@ -164,10 +188,17 @@ export function PoolProvider({ children }) {
     return [...members, ...previewToAdd]
   }, [members])
 
+  const namedMembers = useMemo(
+    () => buildDisplayNames(effectiveMembers, session?.user?.id),
+    [effectiveMembers, session?.user?.id]
+  )
+
   const memberList = useMemo(() => {
-    return effectiveMembers.map(m => ({
+    return namedMembers.map(m => ({
       id: m.user_id,
       name: m.username,
+      displayName: m.display_name ?? m.username,
+      hasDuplicateName: Boolean(m.hasDuplicateName),
       isSiteAdmin: m.is_admin,
       isCommissioner: pool?.admin_id === m.user_id,
       isCurrentUser: m.user_id === session?.user?.id,
@@ -184,7 +215,7 @@ export function PoolProvider({ children }) {
                   ? "Commissioner"
                   : "Member",
     }))
-  }, [effectiveMembers, pool?.admin_id, session?.user?.id])
+  }, [namedMembers, pool?.admin_id, session?.user?.id])
 
   function settingsForPool(targetPool = pool) {
     if (!targetPool) return TEAM_VALUE_SETTINGS_DEFAULTS

@@ -69,7 +69,7 @@ export default function LoginPage() {
         <div className="auth-brand">
           <div className="brand-mark large">NBA</div>
           <h1>NBA Playoff Predictor</h1>
-          <p>Join a playoff pool, build your bracket, and track every series with friends.</p>
+          <p>Join a playoff pool, rank all 16 playoff teams, and watch the points roll in as they win.</p>
         </div>
 
         <div className="auth-tabs" role="tablist">

@@ -1,4 +1,5 @@
 export const TEAM_VALUE_SLOTS = Array.from({ length: 16 }, (_, index) => 16 - index);
+export const TEAM_VALUE_DISPLAY_RANKS = Array.from({ length: 16 }, (_, index) => index + 1);
 
 export const ROUND_BONUS = {
   round_1: 0,
@@ -63,6 +64,22 @@ export function validateTeamValueAssignments(assignments, teamIds) {
     duplicateValues: [...new Set(duplicates)].sort((a, b) => b - a),
     missingValues: TEAM_VALUE_SLOTS.filter((slot) => !assignedValues.includes(slot)),
   };
+}
+
+export function getDisplayRankFromValue(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return null;
+  return TEAM_VALUE_SLOTS.length + 1 - numericValue;
+}
+
+export function getValueFromDisplayRank(rank) {
+  const numericRank = Number(rank);
+  if (!Number.isFinite(numericRank) || numericRank <= 0) return null;
+  return TEAM_VALUE_SLOTS.length + 1 - numericRank;
+}
+
+export function getPointsForDisplayRank(rank) {
+  return getValueFromDisplayRank(rank);
 }
 
 export function scoreSeriesForAssignments(assignmentsByTeamId, series) {

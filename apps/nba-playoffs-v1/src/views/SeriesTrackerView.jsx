@@ -35,10 +35,10 @@ function OutcomeChip({ score }) {
 function formatSavedLabel(lastSavedAt, persistenceMode, saveState) {
   if (saveState === "saving") return "Saving changes…";
   if (saveState === "error") return "Could not save your latest change";
-  if (!lastSavedAt) return persistenceMode === "supabase" ? "Autosave is on" : "Autosave is on locally";
+  if (!lastSavedAt) return persistenceMode === "supabase" ? "Autosave is on for your account" : "Autosave is on for this board";
 
   const time = new Date(lastSavedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  return persistenceMode === "supabase" ? `Saved at ${time}` : `Saved locally at ${time}`;
+  return persistenceMode === "supabase" ? `Saved to your account at ${time}` : `Saved on this board at ${time}`;
 }
 
 export default function SeriesTrackerView() {
@@ -74,7 +74,6 @@ export default function SeriesTrackerView() {
     () => summarizePickScores(visiblePicksBySeriesId, series, settings),
     [visiblePicksBySeriesId, series, settings]
   );
-  const currentMember = memberList.find((member) => member.isCurrentUser) ?? null;
   const roundLocks = settings.round_locks ?? {};
   const isCommissioner = pool?.admin_id === profile?.id;
 
@@ -109,7 +108,7 @@ export default function SeriesTrackerView() {
 
         <div className="detail-card inset-card">
           <p>
-            {formatRoundLabel(availableRoundKey)} is open right now. Exact 5/6 is worth {currentRoundScoring.exactBase}, exact 4/7 is worth {currentRoundScoring.exactEdge}, off by 1 is worth {currentRoundScoring.offBy1}, and off by 2 is worth {currentRoundScoring.offBy2}. {" "}
+            {formatRoundLabel(availableRoundKey)} is open right now. An exact pick like <strong>DET in 6</strong> is worth {currentRoundScoring.exactBase} points, an exact sweep or exact 7-game call is worth {currentRoundScoring.exactEdge}, off by 1 game is worth {currentRoundScoring.offBy1}, and off by 2 games is worth {currentRoundScoring.offBy2}. {" "}
             {loading ? "Loading picks…" : `${formatSavedLabel(lastSavedAt, persistenceMode, saveState)}.`} {" "}
             {isViewingCurrentUser
               ? `You currently have ${scoreSummary.totalPoints} points with ${scoreSummary.exact} exact calls.`
@@ -328,7 +327,7 @@ export default function SeriesTrackerView() {
                     </p>
                   </div>
                   <div>
-                    <span className="micro-label">Save status</span>
+                    <span className="micro-label">Board status</span>
                     <p>{isViewingCurrentUser ? formatSavedLabel(lastSavedAt, persistenceMode, saveState) : "Read-only view"}</p>
                   </div>
                 </div>
@@ -347,29 +346,6 @@ export default function SeriesTrackerView() {
         </div>
       </section>
 
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <span className="label">Roles</span>
-            <h2>Who can do what in this product?</h2>
-          </div>
-        </div>
-
-        <div className="nba-placeholder-grid">
-          <article className="detail-card inset-card">
-            <span className="micro-label">Your role</span>
-            <p>{currentMember ? currentMember.roleLabel : "Viewer"}</p>
-          </article>
-          <article className="detail-card inset-card">
-            <span className="micro-label">Commissioner powers</span>
-            <p>Pool scoring, lock behavior, invite flow, and round-level pool governance.</p>
-          </article>
-          <article className="detail-card inset-card">
-            <span className="micro-label">Site admin powers</span>
-            <p>Cross-pool fixes, league-wide data corrections, and product-level maintenance.</p>
-          </article>
-        </div>
-      </section>
     </div>
   );
 }

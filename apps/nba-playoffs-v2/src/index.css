@@ -218,10 +218,18 @@ p { margin: 0; }
     linear-gradient(145deg, rgba(248, 239, 223, 0.98), rgba(240, 225, 198, 0.98));
 }
 
+.nba-hero-panel.board-complete {
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.2fr);
+}
+
 .nba-hero-copy {
   display: grid;
   gap: 14px;
   align-content: start;
+}
+
+.nba-hero-copy.is-secondary {
+  gap: 12px;
 }
 
 .nba-hero-copy h1 {
@@ -229,6 +237,11 @@ p { margin: 0; }
   font-size: clamp(1.35rem, 2.15vw, 2rem);
   line-height: 1.08;
   letter-spacing: -0.03em;
+}
+
+.nba-hero-copy.is-secondary h1 {
+  max-width: 16ch;
+  font-size: clamp(1.05rem, 1.7vw, 1.45rem);
 }
 
 .nba-hero-actions {
@@ -259,6 +272,11 @@ p { margin: 0; }
     linear-gradient(180deg, rgba(92, 57, 42, 0.98), rgba(74, 45, 35, 0.98));
   color: #fff6e9;
   box-shadow: var(--shadow-md);
+}
+
+.nba-scoreboard-card.is-primary-focus {
+  border-color: rgba(240, 195, 106, 0.34);
+  box-shadow: 0 18px 34px rgba(34, 22, 16, 0.22);
 }
 
 .nba-scoreboard-card .subtle,
@@ -394,6 +412,24 @@ p { margin: 0; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin-top: 14px;
+}
+
+.nba-team-board-team-cell {
+  display: grid;
+  gap: 6px;
+}
+
+.nba-team-board-team-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.subtle-chip {
+  background: rgba(238, 221, 191, 0.92);
+  color: var(--text-2);
+  border-color: rgba(178, 144, 105, 0.54);
 }
 
 .nba-roadmap-grid {
@@ -1365,6 +1401,12 @@ p { margin: 0; }
   box-shadow: var(--shadow-xs);
 }
 
+.team-value-select.is-primary-control {
+  min-width: 112px;
+  border-color: rgba(194, 90, 44, 0.52);
+  box-shadow: 0 0 0 1px rgba(194, 90, 44, 0.12), var(--shadow-xs);
+}
+
 .team-value-select:hover {
   background: rgba(239, 223, 195, 0.98);
   border-color: rgba(194, 90, 44, 0.42);
@@ -1385,6 +1427,10 @@ p { margin: 0; }
   color: var(--text-3);
   font-size: 0.82rem;
   white-space: nowrap;
+}
+
+.nba-team-board-ev {
+  color: var(--brand-dark);
 }
 
 .tooltip-wrap {
@@ -3339,7 +3385,7 @@ select:focus {
 
 .prelock-entries-head,
 .prelock-entry-row {
-  grid-template-columns: minmax(0, 1.6fr) minmax(120px, 0.9fr) 0.6fr 0.85fr;
+  grid-template-columns: minmax(0, 1.6fr) 0.7fr 0.95fr;
 }
 
 .prelock-entry-row {
@@ -3567,6 +3613,11 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .nba-hero-copy.is-secondary h1 {
+    max-width: 14ch;
+    font-size: clamp(1.2rem, 2vw, 1.7rem);
+  }
+
   .board-table-head,
   .board-row {
     grid-template-columns: 42px minmax(140px, 2fr) 0.6fr 1fr auto;
@@ -3693,6 +3744,11 @@ select:focus {
     font-size: 12px;
   }
 
+  .prelock-entries-head,
+  .prelock-entry-row {
+    grid-template-columns: minmax(0, 1.3fr) 0.7fr 0.95fr;
+  }
+
   .mini-row { flex-direction: column; }
   .mini-row span { text-align: left; }
 
@@ -3700,4 +3756,43 @@ select:focus {
   .auth-card { padding: 24px 18px; }
 
   .mode-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .nav-shell {
+    height: auto;
+    min-height: 54px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    align-items: flex-start;
+  }
+
+  .nav-actions {
+    justify-content: flex-start;
+  }
+
+  .nav-select {
+    min-width: 112px;
+  }
+
+  .nav-button {
+    padding: 0 8px;
+    font-size: 0.78rem;
+  }
+
+  .nba-team-board-table-shell {
+    margin: 0 -4px;
+  }
+
+  .leaderboard-head,
+  .leaderboard-row,
+  .prelock-entries-head,
+  .prelock-entry-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .leaderboard-head span:not(:first-child) {
+    display: none;
+  }
 }
