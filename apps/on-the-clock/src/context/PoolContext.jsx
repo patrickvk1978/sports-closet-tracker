@@ -1,8 +1,9 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import { PoolContext } from '@sports/shared/pools'
 
-export const PoolContext = createContext(null)
+export { PoolContext }
 
 const ACTIVE_KEY = 'otc_active_pool_id'
 

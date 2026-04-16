@@ -1,11 +1,12 @@
-import { createContext, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@sports/shared/supabase'
 import { useAuth } from '@sports/shared/auth'
+import { PoolContext } from '@sports/shared/pools'
 import { useGames } from '../hooks/useGames'
 import { useSimResults } from '../hooks/useSimResults'
 import { buildPlayersArray } from '../lib/scoring'
 
-export const PoolContext = createContext(null)
+export { PoolContext }
 
 function generateInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
