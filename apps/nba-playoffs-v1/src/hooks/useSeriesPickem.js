@@ -5,6 +5,11 @@ import { supabase } from "../lib/supabase";
 
 const PREVIEW_MEMBER_PREFIX = "preview-";
 
+function isMissingSeriesPicksTable(error) {
+  const message = `${error?.message ?? ""} ${error?.details ?? ""} ${error?.hint ?? ""}`.toLowerCase();
+  return error?.code === "PGRST205" || error?.status === 404 || message.includes("nba_series_picks");
+}
+
 function storageKey(poolId) {
   return `nba_series_pickem_${poolId ?? "default"}`;
 }
@@ -143,7 +148,7 @@ export function useSeriesPickem(series) {
         setSaveState("idle");
         setLastSavedAt(latestSavedAt);
         setLoading(false);
-        return;
+        return !isMissingSeriesPicksTable(error);
       }
 
       const nextAll = {};
@@ -167,22 +172,30 @@ export function useSeriesPickem(series) {
       setPersistenceMode("supabase");
       setSaveState("idle");
       setLoading(false);
+      return true;
     }
 
-    loadPicks();
+    let channel = null;
 
-    const channel = supabase
-      .channel(`nba-series-picks-${pool.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "nba_series_picks", filter: `pool_id=eq.${pool.id}` },
-        () => loadPicks()
-      )
-      .subscribe();
+    (async () => {
+      const shouldSubscribe = await loadPicks();
+      if (cancelled || !shouldSubscribe) return;
+
+      channel = supabase
+        .channel(`nba-series-picks-${pool.id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "nba_series_picks", filter: `pool_id=eq.${pool.id}` },
+          () => loadPicks()
+        )
+        .subscribe();
+    })();
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [memberList, pool?.id, series, session?.user?.id]);
 
