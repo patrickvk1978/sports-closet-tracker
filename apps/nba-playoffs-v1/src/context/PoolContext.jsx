@@ -28,20 +28,25 @@ const SERIES_SETTINGS_DEFAULTS = {
 
 function normalizeNbaPool(pool) {
   if (!pool) return pool
+  const persistedSettings = pool.scoring_config ?? pool.settings ?? {}
   return {
     ...pool,
     game_mode: 'series_pickem',
     settings: {
       ...SERIES_SETTINGS_DEFAULTS,
-      ...(pool.settings ?? {}),
+      ...persistedSettings,
       product_key: NBA_PRODUCT_KEY,
     },
   }
 }
 
 function isNbaPool(pool) {
-  const productKey = pool?.settings?.product_key ?? pool?.settings?.productKey
-  return productKey === NBA_PRODUCT_KEY || ['bracket_pool', 'series_pickem'].includes(pool?.game_mode)
+  const productKey =
+    pool?.settings?.product_key ??
+    pool?.settings?.productKey ??
+    pool?.scoring_config?.product_key ??
+    pool?.scoring_config?.productKey
+  return productKey === NBA_PRODUCT_KEY || pool?.game_type === NBA_PRODUCT_KEY || ['bracket_pool', 'series_pickem'].includes(pool?.game_mode)
 }
 
 function getKnownPoolIds() {
@@ -104,11 +109,12 @@ export function PoolProvider({ children }) {
     if (activeId) rememberKnownPoolId(activeId)
     const knownPoolIds = new Set(getKnownPoolIds())
     const ownedPools = (pools ?? []).filter((candidate) => isNbaPool(candidate) || knownPoolIds.has(candidate.id))
-    setAllPools(ownedPools)
+    const normalizedPools = ownedPools.map(normalizeNbaPool)
+    setAllPools(normalizedPools)
 
     // Restore active pool from localStorage
-    const restoredActiveId = activeId ?? ownedPools[0]?.id ?? null
-    const activePool = ownedPools.find(p => p.id === restoredActiveId) ?? ownedPools[0] ?? null
+    const restoredActiveId = activeId ?? normalizedPools[0]?.id ?? null
+    const activePool = normalizedPools.find(p => p.id === restoredActiveId) ?? normalizedPools[0] ?? null
     setPool(activePool)
 
     if (activePool) {
