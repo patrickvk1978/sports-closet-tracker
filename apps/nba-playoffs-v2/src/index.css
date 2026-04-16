@@ -1406,6 +1406,8 @@ p { margin: 0; }
   font-weight: 700;
   cursor: pointer;
   box-shadow: var(--shadow-xs);
+  text-align: center;
+  text-align-last: center;
 }
 
 .team-value-select.is-primary-control {

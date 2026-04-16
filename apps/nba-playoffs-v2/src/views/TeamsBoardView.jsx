@@ -8,7 +8,6 @@ import {
   TEAM_VALUE_DISPLAY_RANKS,
   buildScoringTable,
   getDisplayRankFromValue,
-  getPointsForDisplayRank,
   getValueFromDisplayRank,
 } from "../lib/teamValueGame";
 import { buildTeamSelectionRows, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
@@ -195,7 +194,7 @@ export default function TeamsBoardView() {
         <div className="detail-card inset-card">
           <p>
             {isViewingCurrentUser
-              ? <>Rank <strong>1</strong> is your strongest team and earns <strong>16 points</strong> per series win. Rank <strong>16</strong> is your lowest slot and earns <strong>1 point</strong>. The decision is not just who is best, but who is best for each rank before lock on <strong>Saturday, April 18, 2026</strong>.</>
+              ? <>Rank <strong>1</strong> is your strongest team. Rank <strong>16</strong> is your lowest slot. The decision is not just who is best, but who is best for each rank before lock on <strong>Saturday, April 18, 2026</strong>.</>
               : <>This is the locked rank order for this entry, with <strong>1</strong> at the top and <strong>16</strong> at the bottom. Once the board is public, the useful questions become where the top ranks sit and which teams are carrying the most live value.</>}
           </p>
         </div>
@@ -285,7 +284,7 @@ export default function TeamsBoardView() {
           <p>
             {boardViewMode === "drag"
               ? isViewingCurrentUser
-                ? "Drag teams up and down to reorder the whole board. The top row becomes rank 1, which scores 16 points per series win. The bottom row becomes rank 16."
+                ? "Drag teams up and down to reorder the whole board. The top row becomes rank 1. The bottom row becomes rank 16."
                 : "After lock, this is the cleanest way to read another entry’s full board from top rank to bottom slot."
               : "Use the research table to compare short-term safety, title ceiling, expected points, and pool EV before you decide where each rank belongs."}
           </p>
@@ -295,7 +294,7 @@ export default function TeamsBoardView() {
           <div className="nba-board-glossary-grid">
             <div className="detail-card inset-card">
               <span className="micro-label">How to read rank 1</span>
-              <p>Rank 1 is your strongest slot. It sits at the top of the board and earns 16 points per series win.</p>
+              <p>Rank 1 is your strongest slot. It sits at the top of the board and should hold the team you trust most.</p>
             </div>
             <div className="detail-card inset-card">
               <span className="micro-label">What to scan first</span>
@@ -391,7 +390,7 @@ export default function TeamsBoardView() {
                         <option value="" disabled>Rank</option>
                         {TEAM_VALUE_DISPLAY_RANKS.map((rank) => (
                           <option key={rank} value={rank}>
-                            {rank} · {getPointsForDisplayRank(rank)} pts
+                            {rank}
                           </option>
                         ))}
                       </select>
@@ -428,7 +427,7 @@ export default function TeamsBoardView() {
                 </div>
                 <span>{team.marketLean}% R1</span>
                 <span>{team.expectedPoints} expected pts</span>
-                <span className="muted-inline">{isViewingCurrentUser ? `${team.assignedValue} pts per series win` : `${team.assignedValue} pts slot`}</span>
+                <span className="muted-inline">Rank {getDisplayRankFromValue(team.assignedValue)}</span>
               </div>
             ))}
           </div>
