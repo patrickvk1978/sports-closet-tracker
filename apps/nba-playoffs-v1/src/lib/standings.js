@@ -1,10 +1,14 @@
 import { scoreSeriesPickAgainstResult, summarizePickScores } from "./seriesPickem";
 
 export function buildStandings(memberList, allPicksByUser, series, settings) {
-  return memberList
+  const safeMembers = Array.isArray(memberList) ? memberList : [];
+  const safePicksByUser = allPicksByUser && typeof allPicksByUser === "object" ? allPicksByUser : {};
+  const safeSeries = Array.isArray(series) ? series : [];
+
+  return safeMembers
     .map((member) => ({
       ...member,
-      summary: summarizePickScores(allPicksByUser[member.id] ?? {}, series, settings),
+      summary: summarizePickScores(safePicksByUser[member.id] ?? {}, safeSeries, settings),
     }))
     .sort(
       (a, b) =>
@@ -57,10 +61,14 @@ function sampleSeriesResult(series) {
 }
 
 export function buildCurrentRoundWinOdds(memberList, allPicksByUser, currentRoundSeries, allSeries, settings, iterations = 3000) {
-  const baseStandings = buildStandings(memberList, allPicksByUser, allSeries, settings);
-  const unresolvedSeries = currentRoundSeries.filter((series) => series.status !== "completed");
+  const safeMembers = Array.isArray(memberList) ? memberList : [];
+  const safePicksByUser = allPicksByUser && typeof allPicksByUser === "object" ? allPicksByUser : {};
+  const safeCurrentRoundSeries = Array.isArray(currentRoundSeries) ? currentRoundSeries : [];
+  const safeAllSeries = Array.isArray(allSeries) ? allSeries : [];
+  const baseStandings = buildStandings(safeMembers, safePicksByUser, safeAllSeries, settings);
+  const unresolvedSeries = safeCurrentRoundSeries.filter((series) => series.status !== "completed");
 
-  if (!memberList.length) {
+  if (!safeMembers.length) {
     return {};
   }
 
@@ -68,19 +76,19 @@ export function buildCurrentRoundWinOdds(memberList, allPicksByUser, currentRoun
     const bestScore = Math.max(...baseStandings.map((member) => member.summary.totalPoints));
     const leaders = baseStandings.filter((member) => member.summary.totalPoints === bestScore);
     const share = leaders.length ? 100 / leaders.length : 0;
-    return Object.fromEntries(memberList.map((member) => [member.id, leaders.some((leader) => leader.id === member.id) ? share : 0]));
+    return Object.fromEntries(safeMembers.map((member) => [member.id, leaders.some((leader) => leader.id === member.id) ? share : 0]));
   }
 
   const basePointsByMember = Object.fromEntries(baseStandings.map((member) => [member.id, member.summary.totalPoints]));
-  const winShareByMember = Object.fromEntries(memberList.map((member) => [member.id, 0]));
+  const winShareByMember = Object.fromEntries(safeMembers.map((member) => [member.id, 0]));
 
   for (let iteration = 0; iteration < iterations; iteration += 1) {
     const totals = { ...basePointsByMember };
 
     for (const series of unresolvedSeries) {
       const simulatedResult = sampleSeriesResult(series);
-      for (const member of memberList) {
-        const pick = allPicksByUser[member.id]?.[series.id] ?? null;
+      for (const member of safeMembers) {
+        const pick = safePicksByUser[member.id]?.[series.id] ?? null;
         const score = scoreSeriesPickAgainstResult(pick, simulatedResult, series.roundKey, settings);
         if (score) {
           totals[member.id] += score.points;
@@ -89,7 +97,7 @@ export function buildCurrentRoundWinOdds(memberList, allPicksByUser, currentRoun
     }
 
     const bestScore = Math.max(...Object.values(totals));
-    const leaders = memberList.filter((member) => totals[member.id] === bestScore);
+    const leaders = safeMembers.filter((member) => totals[member.id] === bestScore);
     const share = leaders.length ? 1 / leaders.length : 0;
     leaders.forEach((member) => {
       winShareByMember[member.id] += share;
@@ -97,6 +105,6 @@ export function buildCurrentRoundWinOdds(memberList, allPicksByUser, currentRoun
   }
 
   return Object.fromEntries(
-    memberList.map((member) => [member.id, Number(((winShareByMember[member.id] / iterations) * 100).toFixed(1))])
+    safeMembers.map((member) => [member.id, Number(((winShareByMember[member.id] / iterations) * 100).toFixed(1))])
   );
 }

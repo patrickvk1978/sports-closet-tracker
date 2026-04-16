@@ -125,10 +125,26 @@ export function summarizePickScores(picksBySeriesId, series, settings) {
 }
 
 export function summarizeSeriesMarket(allPicksByUser, memberList, series) {
-  const picks = memberList
+  const safeMembers = Array.isArray(memberList) ? memberList : [];
+  const safePicksByUser = allPicksByUser && typeof allPicksByUser === "object" ? allPicksByUser : {};
+  if (!series?.id || !series?.homeTeam?.id || !series?.awayTeam?.id) {
+    return {
+      total: 0,
+      homeBackers: 0,
+      awayBackers: 0,
+      homePct: 0,
+      awayPct: 0,
+      consensusWinnerTeamId: null,
+      leadingGames: null,
+      leadingGamesCount: 0,
+      noPickCount: safeMembers.length,
+    };
+  }
+
+  const picks = safeMembers
     .map((member) => ({
       member,
-      pick: allPicksByUser[member.id]?.[series.id] ?? null,
+      pick: safePicksByUser[member.id]?.[series.id] ?? null,
     }))
     .filter((entry) => entry.pick?.winnerTeamId);
 
@@ -160,6 +176,6 @@ export function summarizeSeriesMarket(allPicksByUser, memberList, series) {
             : series.awayTeam.id,
     leadingGames: leadingGames ? Number(leadingGames[0]) : null,
     leadingGamesCount: leadingGames ? leadingGames[1] : 0,
-    noPickCount: memberList.length - total,
+    noPickCount: safeMembers.length - total,
   };
 }
