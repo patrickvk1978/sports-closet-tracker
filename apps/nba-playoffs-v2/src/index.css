@@ -414,6 +414,13 @@ p { margin: 0; }
   margin-top: 14px;
 }
 
+.nba-board-glossary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 2px;
+}
+
 .nba-team-board-team-cell {
   display: grid;
   gap: 6px;
@@ -1405,6 +1412,17 @@ p { margin: 0; }
   min-width: 112px;
   border-color: rgba(194, 90, 44, 0.52);
   box-shadow: 0 0 0 1px rgba(194, 90, 44, 0.12), var(--shadow-xs);
+}
+
+.metric-help {
+  gap: 6px;
+  vertical-align: baseline;
+}
+
+.metric-help .help-dot {
+  width: 18px;
+  height: 18px;
+  font-size: 0.72rem;
 }
 
 .team-value-select:hover {
@@ -3588,17 +3606,10 @@ select:focus {
   .nba-hero-panel,
   .nba-bracket-layout,
   .nba-bracket-rounds,
-  .nba-dashboard-grid,
-  .nba-reports-summary,
-  .nba-feature-grid,
-  .nba-roadmap-grid,
   .nba-bracket-board,
   .nba-round-tabs,
-  .nba-series-pick-grid,
-  .nba-series-meta-grid,
   .nba-pick-footer,
   .nba-series-tracker-grid,
-  .nba-placeholder-grid,
   .mode-prep-layout,
   .live-hero-head,
   .tracking-hero,
@@ -3616,6 +3627,30 @@ select:focus {
   .nba-hero-copy.is-secondary h1 {
     max-width: 14ch;
     font-size: clamp(1.2rem, 2vw, 1.7rem);
+  }
+
+  .nba-dashboard-grid,
+  .nba-feature-grid,
+  .nba-roadmap-grid,
+  .nba-placeholder-grid,
+  .nba-board-glossary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nba-reports-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nav-actions {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .nav-select,
+  .nav-button {
+    flex-shrink: 0;
   }
 
   .board-table-head,
@@ -3644,6 +3679,10 @@ select:focus {
   }
 
   .nba-team-board-status {
+    grid-template-columns: 1fr;
+  }
+
+  .nba-board-glossary-grid {
     grid-template-columns: 1fr;
   }
 

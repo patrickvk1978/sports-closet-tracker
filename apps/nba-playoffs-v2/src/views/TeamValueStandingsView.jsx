@@ -51,6 +51,10 @@ export default function TeamValueStandingsView() {
 
   const currentStanding = standings.find((member) => member.isCurrentUser) ?? null;
   const readyCount = preLockEntries.filter((member) => member.isComplete).length;
+  const lockCountdown = Math.max(
+    0,
+    Math.round((new Date(TEAM_VALUE_LOCK_AT).getTime() - Date.now()) / (1000 * 60 * 60))
+  );
   const consensusLeader = useMemo(() => {
     const topCounts = Object.values(allAssignmentsByUser ?? {}).reduce((counts, assignmentMap) => {
       const topTeamId = Object.entries(assignmentMap ?? {}).find(([, value]) => Number(value) === 16)?.[0];
@@ -161,12 +165,16 @@ export default function TeamValueStandingsView() {
               <p>{readyCount}/{preLockEntries.length} boards are fully ranked and ready for lock.</p>
             </div>
             <div className="detail-card inset-card">
+              <span className="micro-label">Countdown</span>
+              <p>{lockCountdown > 0 ? `${lockCountdown} hours until lock.` : "Lock window is here."}</p>
+            </div>
+            <div className="detail-card inset-card">
               <span className="micro-label">Top consensus</span>
               <p>{consensusLeader ? `${consensusLeader.label} is sitting in rank 1 on ${consensusLeader.count}/${preLockEntries.length} boards.` : "Consensus will sharpen as more boards settle in."}</p>
             </div>
             <div className="detail-card inset-card">
               <span className="micro-label">Biggest outlier</span>
-              <p>{biggestOutlier ? `${biggestOutlier.memberName} is furthest from the room on ${biggestOutlier.teamLabel}.` : "The room is still settling into shape."}</p>
+              <p>{biggestOutlier ? `${biggestOutlier.memberName} is furthest from the room on ${biggestOutlier.teamLabel}, about ${biggestOutlier.gap} rank${biggestOutlier.gap === 1 ? "" : "s"} from consensus.` : "The room is still settling into shape."}</p>
             </div>
           </div>
 

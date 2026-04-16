@@ -239,7 +239,7 @@ function buildDeskIntro({ reportState, completionCount }) {
   }
 
   return {
-    headline: "Your board is in. Now narrow it to the two or three teams worth reopening.",
+    headline: "You are done ranking. Now narrow it to the two or three teams worth reopening.",
       body:
         strategicMove?.body ??
         "The highest-value work from here is not reading every report evenly. It is deciding which few teams still deserve a meaningful reprice before lock.",

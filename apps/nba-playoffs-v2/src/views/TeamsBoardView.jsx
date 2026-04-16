@@ -54,6 +54,25 @@ const SORT_OPTIONS = {
   },
 };
 
+const TERM_HELP = {
+  market: "Round 1 market is the outside expectation for who survives the first series. Higher usually means safer right away.",
+  expectedPoints: "Expected points is the first-pass estimate of how many points this team-slot pairing could return if the bracket plays out from here.",
+  poolEv: "Pool EV is the rough value score for this team at this rank after blending team strength, path, and how the slot pays out.",
+  title: "Championship is the long-run ceiling view. It matters more in the top ranks than the bottom ones.",
+};
+
+function HelpTerm({ label, description }) {
+  return (
+    <span className="tooltip-wrap tooltip-wrap-inline metric-help">
+      <span>{label}</span>
+      <span className="help-dot" aria-hidden="true">
+        ?
+      </span>
+      <span className="tooltip-bubble">{description}</span>
+    </span>
+  );
+}
+
 export default function TeamsBoardView() {
   const { profile, session } = useAuth();
   const { memberList } = usePool();
@@ -194,7 +213,12 @@ export default function TeamsBoardView() {
           </div>
           <div className="detail-card inset-card">
             <span className="micro-label">Selection lens</span>
-            <p>Round 1 market is a quick read on short-term safety. Championship odds show long-run upside. Expected points and pool EV are first-pass estimates of how much each rank-team pairing is worth.</p>
+            <p>
+              <HelpTerm label="Round 1 market" description={TERM_HELP.market} /> is the quick safety read.{" "}
+              <HelpTerm label="Championship" description={TERM_HELP.title} /> is the long-tail ceiling read.{" "}
+              <HelpTerm label="Expected points" description={TERM_HELP.expectedPoints} /> and{" "}
+              <HelpTerm label="Pool EV" description={TERM_HELP.poolEv} /> are first-pass value checks for where a team belongs.
+            </p>
           </div>
         </div>
       </section>
@@ -263,9 +287,26 @@ export default function TeamsBoardView() {
               ? isViewingCurrentUser
                 ? "Drag teams up and down to reorder the whole board. The top row becomes rank 1, which scores 16 points per series win. The bottom row becomes rank 16."
                 : "After lock, this is the cleanest way to read another entry’s full board from top rank to bottom slot."
-              : "Use the research table to compare safety, title upside, expected points, and pool EV before you decide where each rank belongs."}
+              : "Use the research table to compare short-term safety, title ceiling, expected points, and pool EV before you decide where each rank belongs."}
           </p>
         </div>
+
+        {boardViewMode === "table" ? (
+          <div className="nba-board-glossary-grid">
+            <div className="detail-card inset-card">
+              <span className="micro-label">How to read rank 1</span>
+              <p>Rank 1 is your strongest slot. It sits at the top of the board and earns 16 points per series win.</p>
+            </div>
+            <div className="detail-card inset-card">
+              <span className="micro-label">What to scan first</span>
+              <p>Start with Pool EV and Expected points. Use Round 1 market and Championship to decide whether the slot should lean safer or bolder.</p>
+            </div>
+            <div className="detail-card inset-card">
+              <span className="micro-label">Good board habit</span>
+              <p>Do not ask which team is “best” in a vacuum. Ask which team makes the most sense at this exact rank.</p>
+            </div>
+          </div>
+        ) : null}
 
         {boardViewMode === "table" ? (
           <div className="nba-team-board-table-shell">
@@ -289,12 +330,12 @@ export default function TeamsBoardView() {
                   </th>
                   <th>
                     <button className="nba-sort-button" type="button" onClick={() => handleSort("market")}>
-                      {sortLabel("market")}
+                      <HelpTerm label={sortLabel("market")} description={TERM_HELP.market} />
                     </button>
                   </th>
                   <th>
                     <button className="nba-sort-button" type="button" onClick={() => handleSort("title")}>
-                      {sortLabel("title")}
+                      <HelpTerm label={sortLabel("title")} description={TERM_HELP.title} />
                     </button>
                   </th>
                   <th>
@@ -304,12 +345,12 @@ export default function TeamsBoardView() {
                   </th>
                   <th>
                     <button className="nba-sort-button" type="button" onClick={() => handleSort("expectedPoints")}>
-                      {sortLabel("expectedPoints")}
+                      <HelpTerm label={sortLabel("expectedPoints")} description={TERM_HELP.expectedPoints} />
                     </button>
                   </th>
                   <th>
                     <button className="nba-sort-button" type="button" onClick={() => handleSort("poolEv")}>
-                      {sortLabel("poolEv")}
+                      <HelpTerm label={sortLabel("poolEv")} description={TERM_HELP.poolEv} />
                     </button>
                   </th>
                   <th>

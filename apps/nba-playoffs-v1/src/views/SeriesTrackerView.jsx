@@ -21,6 +21,13 @@ function formatRoundLabel(roundKey) {
   return roundKey.replaceAll("_", " ");
 }
 
+function formatRoundStatus(round, availableRoundKey, settings) {
+  const isAvailable = round.key === availableRoundKey;
+  if (settings?.round_locks?.[round.key]) return "Locked by commissioner";
+  if (isAvailable) return "Open for picks";
+  return round.complete ? "Scored" : "Waiting on prior round";
+}
+
 function OutcomeChip({ score }) {
   if (!score) return <span className="chip">Open</span>;
   const className =
@@ -107,13 +114,25 @@ export default function SeriesTrackerView() {
         </div>
 
         <div className="detail-card inset-card">
-          <p>
-            {formatRoundLabel(availableRoundKey)} is open right now. An exact pick like <strong>DET in 6</strong> is worth {currentRoundScoring.exactBase} points, an exact sweep or exact 7-game call is worth {currentRoundScoring.exactEdge}, off by 1 game is worth {currentRoundScoring.offBy1}, and off by 2 games is worth {currentRoundScoring.offBy2}. {" "}
-            {loading ? "Loading picks…" : `${formatSavedLabel(lastSavedAt, persistenceMode, saveState)}.`} {" "}
-            {isViewingCurrentUser
-              ? `You currently have ${scoreSummary.totalPoints} points with ${scoreSummary.exact} exact calls.`
-              : `${selectedViewer?.name ?? "This entry"} currently has ${scoreSummary.totalPoints} points with ${scoreSummary.exact} exact calls.`}
-          </p>
+          <div className="nba-series-summary-strip">
+            <div>
+              <span className="micro-label">Current round</span>
+              <p>{formatRoundLabel(availableRoundKey)} is open right now.</p>
+            </div>
+            <div>
+              <span className="micro-label">Scoring</span>
+              <p>Exact like <strong>DET in 6</strong>: {currentRoundScoring.exactBase}. Exact sweep or 7: {currentRoundScoring.exactEdge}. Off by 1: {currentRoundScoring.offBy1}. Off by 2: {currentRoundScoring.offBy2}.</p>
+            </div>
+            <div>
+              <span className="micro-label">{isViewingCurrentUser ? "Board status" : "This card"}</span>
+              <p>
+                {loading ? "Loading picks…" : `${formatSavedLabel(lastSavedAt, persistenceMode, saveState)}.`}{" "}
+                {isViewingCurrentUser
+                  ? `${scoreSummary.totalPoints} points · ${scoreSummary.exact} exact calls.`
+                  : `${selectedViewer?.name ?? "This entry"} has ${scoreSummary.totalPoints} points with ${scoreSummary.exact} exact calls.`}
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -163,6 +182,7 @@ export default function SeriesTrackerView() {
                 >
                   <span>{round.shortLabel}</span>
                   <strong>{round.label}</strong>
+                  <small>{formatRoundStatus(round, availableRoundKey, settings)}</small>
                 </button>
                 {isCommissioner ? (
                   <button
