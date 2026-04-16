@@ -352,7 +352,7 @@ export default function DashboardView() {
               <div className="nba-dashboard-row" key={member.id}>
                 <span className="nba-dashboard-rank">{member.place ?? index + 1}</span>
                 <div>
-                  <strong>{member.name}</strong>
+                  <strong>{member.name ?? "Pool member"}</strong>
                   <p>{member.summary.totalPoints} pts · {member.summary.exact} exact · {member.pointsBack} back</p>
                 </div>
               </div>

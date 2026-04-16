@@ -12,7 +12,7 @@ export function buildStandings(memberList, allPicksByUser, series, settings) {
         b.summary.exact - a.summary.exact ||
         b.summary.close - a.summary.close ||
         b.summary.near - a.summary.near ||
-        a.name.localeCompare(b.name)
+        (a.name ?? "").localeCompare(b.name ?? "")
     )
     .map((member, index, array) => ({
       ...member,

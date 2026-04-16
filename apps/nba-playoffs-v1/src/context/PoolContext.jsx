@@ -133,9 +133,11 @@ export function PoolProvider({ children }) {
 
   // Derived member list for views
   const memberList = useMemo(() => {
-    return members.map(m => ({
+    return members.map(m => {
+      const fallbackName = m.username?.trim() || m.email?.trim() || `Member ${String(m.user_id ?? "").slice(0, 8)}`;
+      return ({
       id: m.user_id,
-      name: m.username,
+      name: fallbackName,
       isSiteAdmin: m.is_admin,
       isCommissioner: pool?.admin_id === m.user_id,
       isCurrentUser: m.user_id === session?.user?.id,
@@ -151,7 +153,7 @@ export function PoolProvider({ children }) {
                 : pool?.admin_id === m.user_id
                   ? "Commissioner"
                   : "Member",
-    }))
+    })})
   }, [members, pool?.admin_id, session?.user?.id])
 
   function settingsForPool(targetPool = pool) {

@@ -22,7 +22,7 @@ const SORT_OPTIONS = {
   },
   name: {
     label: "Player",
-    compare: (a, b) => a.name.localeCompare(b.name),
+    compare: (a, b) => (a.name ?? "").localeCompare(b.name ?? ""),
   },
   points: {
     label: "Points",
