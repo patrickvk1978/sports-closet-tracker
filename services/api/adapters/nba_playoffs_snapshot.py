@@ -22,21 +22,21 @@ NBA_PLAYOFFS_SERIES_SNAPSHOT: dict[str, dict[str, Any]] = {
     },
     "east-r1-2": {
         "home_team": "Boston",
-        "away_team": "East No. 7",
-        "market": {"source_name": "provisional_seed_estimate", "home_win_pct": 67.0, "away_win_pct": 33.0},
+        "away_team": "Philadelphia",
+        "market": {"source_name": "post_playin_estimate_apr_16_2026", "home_win_pct": 67.0, "away_win_pct": 33.0},
         "model": {"source_name": "local_seeded_model", "home_win_pct": 65.0, "away_win_pct": 35.0},
     },
     "east-r1-3": {
         "home_team": "New York",
         "away_team": "Atlanta",
-        "market": {"source_name": "fanduel_static_series_apr_15_2026", "home_win_pct": 71.0, "away_win_pct": 29.0},
-        "model": {"source_name": "local_seeded_model", "home_win_pct": 68.0, "away_win_pct": 32.0},
+        "market": {"source_name": "fanduel_static_series_apr_15_2026", "home_win_pct": 61.0, "away_win_pct": 39.0},
+        "model": {"source_name": "local_seeded_model", "home_win_pct": 59.0, "away_win_pct": 41.0},
     },
     "east-r1-4": {
         "home_team": "Cleveland",
         "away_team": "Toronto",
-        "market": {"source_name": "fanduel_static_series_apr_15_2026", "home_win_pct": 82.0, "away_win_pct": 18.0},
-        "model": {"source_name": "local_seeded_model", "home_win_pct": 78.0, "away_win_pct": 22.0},
+        "market": {"source_name": "fanduel_static_series_apr_15_2026", "home_win_pct": 55.0, "away_win_pct": 45.0},
+        "model": {"source_name": "local_seeded_model", "home_win_pct": 57.0, "away_win_pct": 43.0},
     },
     "west-r1-1": {
         "home_team": "Oklahoma City",
@@ -47,26 +47,26 @@ NBA_PLAYOFFS_SERIES_SNAPSHOT: dict[str, dict[str, Any]] = {
     "west-r1-2": {
         "home_team": "San Antonio",
         "away_team": "Portland",
-        "market": {"source_name": "fanduel_static_series_apr_15_2026", "home_win_pct": 71.0, "away_win_pct": 29.0},
-        "model": {"source_name": "local_seeded_model", "home_win_pct": 68.0, "away_win_pct": 32.0},
+        "market": {"source_name": "fanduel_static_series_apr_15_2026", "home_win_pct": 63.0, "away_win_pct": 37.0},
+        "model": {"source_name": "local_seeded_model", "home_win_pct": 60.0, "away_win_pct": 40.0},
     },
     "west-r1-3": {
         "home_team": "Denver",
         "away_team": "Minnesota",
-        "market": {"source_name": "fanduel_static_series_apr_15_2026", "home_win_pct": 75.0, "away_win_pct": 25.0},
-        "model": {"source_name": "local_seeded_model", "home_win_pct": 72.0, "away_win_pct": 28.0},
+        "market": {"source_name": "fanduel_static_series_apr_15_2026", "home_win_pct": 52.0, "away_win_pct": 48.0},
+        "model": {"source_name": "local_seeded_model", "home_win_pct": 51.0, "away_win_pct": 49.0},
     },
     "west-r1-4": {
         "home_team": "Los Angeles Lakers",
         "away_team": "Houston",
-        "market": {"source_name": "fanduel_static_series_apr_15_2026", "home_win_pct": 15.0, "away_win_pct": 85.0},
-        "model": {"source_name": "local_seeded_model", "home_win_pct": 19.0, "away_win_pct": 81.0},
+        "market": {"source_name": "fanduel_static_series_apr_15_2026", "home_win_pct": 51.0, "away_win_pct": 49.0},
+        "model": {"source_name": "local_seeded_model", "home_win_pct": 50.0, "away_win_pct": 50.0},
     },
     "east-playin-1": {
         "home_team": "Philadelphia",
         "away_team": "Orlando",
-        "market": {"source_name": "fanduel_static_game_apr_15_2026", "home_win_pct": 54.0, "away_win_pct": 46.0},
-        "model": {"source_name": "local_seeded_model", "home_win_pct": 52.0, "away_win_pct": 48.0},
+        "market": {"source_name": "completed_playin_game_apr_15_2026", "home_win_pct": 100.0, "away_win_pct": 0.0},
+        "model": {"source_name": "completed_playin_game_apr_15_2026", "home_win_pct": 100.0, "away_win_pct": 0.0},
     },
     "east-playin-2": {
         "home_team": "Charlotte",
@@ -77,14 +77,14 @@ NBA_PLAYOFFS_SERIES_SNAPSHOT: dict[str, dict[str, Any]] = {
     "west-playin-1": {
         "home_team": "Phoenix",
         "away_team": "Portland",
-        "market": {"source_name": "fanduel_static_game_apr_14_2026", "home_win_pct": 62.0, "away_win_pct": 38.0},
-        "model": {"source_name": "local_seeded_model", "home_win_pct": 59.0, "away_win_pct": 41.0},
+        "market": {"source_name": "completed_playin_game_apr_14_2026", "home_win_pct": 0.0, "away_win_pct": 100.0},
+        "model": {"source_name": "completed_playin_game_apr_14_2026", "home_win_pct": 0.0, "away_win_pct": 100.0},
     },
     "west-playin-2": {
         "home_team": "Los Angeles Clippers",
         "away_team": "Golden State",
-        "market": {"source_name": "fanduel_static_game_apr_15_2026", "home_win_pct": 56.0, "away_win_pct": 44.0},
-        "model": {"source_name": "local_seeded_model", "home_win_pct": 54.0, "away_win_pct": 46.0},
+        "market": {"source_name": "completed_playin_game_apr_15_2026", "home_win_pct": 0.0, "away_win_pct": 100.0},
+        "model": {"source_name": "completed_playin_game_apr_15_2026", "home_win_pct": 0.0, "away_win_pct": 100.0},
     },
     "east-sf-1": {
         "home_team": "East Semifinal 1",
@@ -129,4 +129,3 @@ NBA_PLAYOFFS_SERIES_SNAPSHOT: dict[str, dict[str, Any]] = {
         "model": {"source_name": "local_seeded_model", "home_win_pct": 50.0, "away_win_pct": 50.0},
     },
 }
-

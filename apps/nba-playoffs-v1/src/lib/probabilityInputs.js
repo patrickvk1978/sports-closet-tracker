@@ -42,6 +42,9 @@ export function formatProbabilitySourceLabel(probability) {
   if (sourceName === "fanduel_static_game_apr_13_2026") return "FanDuel static game market";
   if (sourceName === "fanduel_static_series_apr_15_2026") return "FanDuel static series market";
   if (sourceName === "fanduel_static_game_apr_15_2026") return "FanDuel static game market";
+  if (sourceName === "post_playin_estimate_apr_16_2026") return "Post play-in estimate";
+  if (sourceName === "completed_playin_game_apr_14_2026") return "Completed play-in result";
+  if (sourceName === "completed_playin_game_apr_15_2026") return "Completed play-in result";
   if (sourceName === "provisional_seed_estimate") return "Current-seed estimate";
   if (sourceName === "future_round_estimate") return "Future-round estimate";
   if (sourceName === "local_seeded_market") return "Local seeded market";
