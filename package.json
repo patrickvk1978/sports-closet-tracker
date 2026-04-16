@@ -13,6 +13,7 @@
     "build:nba:v1": "pnpm --filter nba-playoffs-v1 build",
     "build:nba:v2": "pnpm --filter nba-playoffs-v2 build",
     "seed:nba:probabilities": "python3 services/api/seed_nba_probabilities.py",
+    "run:nba:pipeline": "python3 services/api/run_nba_pipeline.py --discover",
     "lint": "turbo run lint",
     "db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > packages/shared/src/types/database.ts"
   },
