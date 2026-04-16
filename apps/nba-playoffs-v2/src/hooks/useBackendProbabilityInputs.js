@@ -24,10 +24,20 @@ function normalizeRows(rows, entityIds) {
   return next;
 }
 
+function buildChannelName(productKey, entityType, entityIds) {
+  const signature = (entityIds ?? []).join("|");
+  const hash = signature.split("").reduce((total, char, index) => total + char.charCodeAt(0) * (index + 1), 0);
+  return `probability-inputs-${productKey}-${entityType}-${hash}`;
+}
+
 export function useBackendProbabilityInputs({ productKey, entityIds = [], entityType = "series" }) {
   const stableEntityIds = useMemo(
     () => Array.from(new Set((entityIds ?? []).filter(Boolean))).sort(),
     [entityIds]
+  );
+  const channelName = useMemo(
+    () => buildChannelName(productKey, entityType, stableEntityIds),
+    [entityType, productKey, stableEntityIds]
   );
   const [probabilityMap, setProbabilityMap] = useState(() => buildDefaultMap(stableEntityIds));
 
@@ -56,7 +66,7 @@ export function useBackendProbabilityInputs({ productKey, entityIds = [], entity
     fetchProbabilities();
 
     const channel = supabase
-      .channel(`probability-inputs-${productKey}-${entityType}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
@@ -73,7 +83,7 @@ export function useBackendProbabilityInputs({ productKey, entityIds = [], entity
       active = false;
       supabase.removeChannel(channel);
     };
-  }, [entityType, productKey, stableEntityIds]);
+  }, [channelName, entityType, productKey, stableEntityIds]);
 
   return { probabilityMap };
 }
