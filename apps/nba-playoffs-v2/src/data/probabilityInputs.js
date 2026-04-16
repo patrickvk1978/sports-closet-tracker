@@ -4,8 +4,8 @@ export const SERIES_PROBABILITY_INPUTS = {
     model: { sourceName: "local_seeded_model", homeWinPct: 72, awayWinPct: 28, capturedAt: "2026-04-15T09:00:00-04:00" },
   },
   "east-r1-2": {
-    market: { sourceName: "provisional_seed_estimate", homeWinPct: 67, awayWinPct: 33, capturedAt: "2026-04-15T09:00:00-04:00" },
-    model: { sourceName: "local_seeded_model", homeWinPct: 65, awayWinPct: 35, capturedAt: "2026-04-15T09:00:00-04:00" },
+    market: { sourceName: "post_playin_estimate_apr_16_2026", homeWinPct: 67, awayWinPct: 33, capturedAt: "2026-04-16T08:00:00-04:00" },
+    model: { sourceName: "local_seeded_model", homeWinPct: 65, awayWinPct: 35, capturedAt: "2026-04-16T08:00:00-04:00" },
   },
   "east-r1-3": {
     market: { sourceName: "fanduel_static_series_apr_15_2026", homeWinPct: 71, awayWinPct: 29, capturedAt: "2026-04-15T09:00:00-04:00" },
@@ -32,8 +32,8 @@ export const SERIES_PROBABILITY_INPUTS = {
     model: { sourceName: "local_seeded_model", homeWinPct: 19, awayWinPct: 81, capturedAt: "2026-04-15T09:00:00-04:00" },
   },
   "east-playin-1": {
-    market: { sourceName: "fanduel_static_game_apr_15_2026", homeWinPct: 54, awayWinPct: 46, capturedAt: "2026-04-15T09:00:00-04:00" },
-    model: { sourceName: "local_seeded_model", homeWinPct: 52, awayWinPct: 48, capturedAt: "2026-04-15T09:00:00-04:00" },
+    market: { sourceName: "completed_playin_game_apr_15_2026", homeWinPct: 100, awayWinPct: 0, capturedAt: "2026-04-16T08:00:00-04:00" },
+    model: { sourceName: "completed_playin_game_apr_15_2026", homeWinPct: 100, awayWinPct: 0, capturedAt: "2026-04-16T08:00:00-04:00" },
   },
   "east-playin-2": {
     market: { sourceName: "fanduel_static_game_apr_14_2026", homeWinPct: 66, awayWinPct: 34, capturedAt: "2026-04-14T18:30:00-04:00" },
@@ -44,8 +44,8 @@ export const SERIES_PROBABILITY_INPUTS = {
     model: { sourceName: "local_seeded_model", homeWinPct: 59, awayWinPct: 41, capturedAt: "2026-04-14T22:00:00-04:00" },
   },
   "west-playin-2": {
-    market: { sourceName: "fanduel_static_game_apr_15_2026", homeWinPct: 56, awayWinPct: 44, capturedAt: "2026-04-15T09:00:00-04:00" },
-    model: { sourceName: "local_seeded_model", homeWinPct: 54, awayWinPct: 46, capturedAt: "2026-04-15T09:00:00-04:00" },
+    market: { sourceName: "completed_playin_game_apr_15_2026", homeWinPct: 0, awayWinPct: 100, capturedAt: "2026-04-16T08:30:00-04:00" },
+    model: { sourceName: "completed_playin_game_apr_15_2026", homeWinPct: 0, awayWinPct: 100, capturedAt: "2026-04-16T08:30:00-04:00" },
   },
   "east-sf-1": {
     market: { sourceName: "future_round_estimate", homeWinPct: 60, awayWinPct: 40, capturedAt: "2026-04-15T09:00:00-04:00" },

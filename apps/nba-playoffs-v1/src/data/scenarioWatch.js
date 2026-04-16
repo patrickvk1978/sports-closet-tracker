@@ -1,4 +1,4 @@
-export const SCENARIO_WATCH_DATE = "April 15, 2026";
+export const SCENARIO_WATCH_DATE = "April 16, 2026";
 
 export const SCENARIO_WATCH_ITEMS = [
   {
@@ -15,17 +15,17 @@ export const SCENARIO_WATCH_ITEMS = [
     id: "east-eight-still-open",
     title: "Detroit and Boston still do not know their final East path",
     sourced:
-      "Philadelphia-Orlando is still for the East 7 seed, and Charlotte is still alive for the final East 8 spot after knocking out Miami.",
+      "Philadelphia beat Orlando on Wednesday, April 15, 2026 to lock in the East No. 7 seed, while Charlotte is still alive for the final East No. 8 spot.",
     likelyImpact:
-      "That keeps the top of the East bracket unsettled, especially for users deciding how aggressive to be on Detroit and Boston's likely first-round draw.",
+      "Boston now has a real Round 1 matchup, but Detroit is still waiting on the Orlando-Charlotte winner and that keeps one real question alive at the top of the East.",
     whyItMatters:
-      "The East top line is now a narrower question, but it is still a real one.",
+      "The East top line is much cleaner than it was yesterday, but Detroit's first-round path is still not final.",
   },
   {
     id: "okc-still-waiting",
     title: "Oklahoma City is still waiting on the final West 8 seed",
     sourced:
-      "Phoenix fell into the final Play-In game, and the Clippers-Warriors winner is still alive for the last West playoff spot.",
+      "Phoenix fell into the final Play-In game, and Golden State advanced on Wednesday, April 15, 2026 to meet the Suns for the last West playoff spot.",
     likelyImpact:
       "The Thunder still have opponent uncertainty, but it is now a cleaner, more focused problem than the full West 7/8/9/10 tangle was before Tuesday night.",
     whyItMatters:
