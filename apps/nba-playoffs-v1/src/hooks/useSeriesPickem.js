@@ -14,6 +14,11 @@ function storageKey(poolId) {
   return `nba_series_pickem_${poolId ?? "default"}`;
 }
 
+function isSeriesResolvedForPicking(seriesItem) {
+  if (!seriesItem?.homeTeam || !seriesItem?.awayTeam) return false;
+  return seriesItem.homeTeam.abbreviation !== "TBD" && seriesItem.awayTeam.abbreviation !== "TBD";
+}
+
 function writeLocalPicks(poolId, picks) {
   if (typeof window === "undefined" || !poolId) return;
   window.localStorage.setItem(storageKey(poolId), JSON.stringify(picks));
@@ -32,6 +37,7 @@ function readLocalPicks(poolId, series) {
 
 function sanitizePicksForSeries(rawPicksBySeriesId, series) {
   if (!rawPicksBySeriesId || typeof rawPicksBySeriesId !== "object") return {};
+  const seriesById = Object.fromEntries(series.map((seriesItem) => [seriesItem.id, seriesItem]));
   const validTeamIdsBySeries = Object.fromEntries(
     series.map((seriesItem) => [seriesItem.id, new Set([seriesItem.homeTeam?.id, seriesItem.awayTeam?.id])])
   );
@@ -39,6 +45,7 @@ function sanitizePicksForSeries(rawPicksBySeriesId, series) {
   return Object.fromEntries(
     Object.entries(rawPicksBySeriesId).filter(([seriesId, pick]) => {
       if (!pick?.winnerTeamId) return false;
+      if (!isSeriesResolvedForPicking(seriesById[seriesId])) return false;
       const validTeamIds = validTeamIdsBySeries[seriesId];
       return Boolean(validTeamIds?.has(pick.winnerTeamId));
     })
@@ -200,7 +207,7 @@ export function useSeriesPickem(series) {
   }, [memberList, pool?.id, series, session?.user?.id]);
 
   const pickedSeriesCount = useMemo(
-    () => series.filter((item) => picksBySeriesId[item.id]?.winnerTeamId).length,
+    () => series.filter((item) => isSeriesResolvedForPicking(item) && picksBySeriesId[item.id]?.winnerTeamId).length,
     [series, picksBySeriesId]
   );
 

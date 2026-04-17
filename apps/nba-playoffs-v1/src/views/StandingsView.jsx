@@ -100,9 +100,11 @@ export default function StandingsView() {
             <Link className="secondary-button" to="/reports">
               Open Reports
             </Link>
-            <Link className="secondary-button" to="/matrix">
-              Open Matrix
-            </Link>
+            {canViewOtherBoards ? (
+              <Link className="secondary-button" to="/matrix">
+                Open Matrix
+              </Link>
+            ) : null}
             <Link className="secondary-button" to="/series">
               Review Series Picks
             </Link>

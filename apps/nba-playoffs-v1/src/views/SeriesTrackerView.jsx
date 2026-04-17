@@ -82,6 +82,13 @@ function formatSeriesSlotLabel(seriesItem) {
   return `${conferenceLabel} ${seriesItem.homeTeam.seed} vs ${seriesItem.awayTeam.seed}`;
 }
 
+function isSeriesReadyForPicks(seriesItem) {
+  if (!seriesItem?.homeTeam || !seriesItem?.awayTeam) return false;
+  if (seriesItem.homeTeam.abbreviation === "TBD" || seriesItem.awayTeam.abbreviation === "TBD") return false;
+  if (getSeriesPlaceholderCopy(seriesItem.homeTeam) || getSeriesPlaceholderCopy(seriesItem.awayTeam)) return false;
+  return true;
+}
+
 export default function SeriesTrackerView() {
   const { profile } = useAuth();
   const { pool, settingsForPool, memberList, updatePoolSettings } = usePool();
@@ -117,6 +124,13 @@ export default function SeriesTrackerView() {
   );
   const roundLocks = settings.round_locks ?? {};
   const isCommissioner = pool?.admin_id === profile?.id;
+  const validSavedPickCount = useMemo(
+    () =>
+      series.filter(
+        (seriesItem) => isSeriesReadyForPicks(seriesItem) && visiblePicksBySeriesId[seriesItem.id]?.winnerTeamId
+      ).length,
+    [series, visiblePicksBySeriesId]
+  );
   const activeRoundPickedCount = useMemo(
     () => activeSeries.filter((seriesItem) => visiblePicksBySeriesId[seriesItem.id]?.winnerTeamId).length,
     [activeSeries, visiblePicksBySeriesId]
@@ -191,7 +205,7 @@ export default function SeriesTrackerView() {
                 <span className="tooltip-bubble">Available once the round locks or games begin.</span>
               </span>
             )}
-            <span className="chip">{isViewingCurrentUser ? pickedSeriesCount : Object.values(visiblePicksBySeriesId).filter((pick) => pick?.winnerTeamId).length} saved picks</span>
+            <span className="chip">{isViewingCurrentUser ? pickedSeriesCount : validSavedPickCount} saved picks</span>
           </div>
         </div>
 
@@ -228,7 +242,7 @@ export default function SeriesTrackerView() {
                   {activeSeries.map((seriesItem) => {
                     const homeDisplay = formatSeriesTeam(seriesItem.homeTeam);
                     const awayDisplay = formatSeriesTeam(seriesItem.awayTeam);
-                    const isPicked = Boolean(visiblePicksBySeriesId[seriesItem.id]?.winnerTeamId);
+                    const isPicked = isSeriesReadyForPicks(seriesItem) && Boolean(visiblePicksBySeriesId[seriesItem.id]?.winnerTeamId);
                     return (
                       <option key={seriesItem.id} value={seriesItem.id}>
                         {seriesItem.homeTeam.seed} {homeDisplay.short} vs {seriesItem.awayTeam.seed} {awayDisplay.short} {isPicked ? "• picked" : "• open"}
@@ -245,7 +259,9 @@ export default function SeriesTrackerView() {
             <div className="nba-series-pick-grid nba-series-pick-grid-single">
           {(() => {
             const seriesItem = currentSeries;
-            const pick = visiblePicksBySeriesId[seriesItem.id];
+            const rawPick = visiblePicksBySeriesId[seriesItem.id];
+            const isSeriesReady = isSeriesReadyForPicks(seriesItem);
+            const pick = isSeriesReady ? rawPick : null;
             const score = scoreSeriesPick(pick, seriesItem, settings);
             const marketFavorite =
               seriesItem.market.homeWinPct >= seriesItem.market.awayWinPct
@@ -258,6 +274,7 @@ export default function SeriesTrackerView() {
             const homeDisplay = formatSeriesTeam(seriesItem.homeTeam);
             const awayDisplay = formatSeriesTeam(seriesItem.awayTeam);
             const matchupLabel = `${homeDisplay.primary} vs ${awayDisplay.primary}`;
+            const isEditable = isViewingCurrentUser && !roundLocks[seriesItem.roundKey] && isSeriesReady;
             const setupNote =
               getSeriesPlaceholderCopy(seriesItem.homeTeam) || getSeriesPlaceholderCopy(seriesItem.awayTeam)
                 ? seriesItem.nextGame
@@ -296,7 +313,7 @@ export default function SeriesTrackerView() {
                         key={team.id}
                         type="button"
                         className={selected ? "nba-team-pick active" : "nba-team-pick"}
-                        disabled={isLocked || !isViewingCurrentUser}
+                        disabled={!isEditable}
                         onClick={() => saveSeriesPick(seriesItem.id, team.id, pick?.games ?? 6, seriesItem.roundKey)}
                       >
                         <span className="micro-label">Seed {team.seed}</span>
@@ -316,7 +333,7 @@ export default function SeriesTrackerView() {
                           key={games}
                           type="button"
                           className={pick?.games === games ? "nba-games-option active" : "nba-games-option"}
-                          disabled={Boolean(roundLocks[seriesItem.roundKey]) || !pick?.winnerTeamId || !isViewingCurrentUser}
+                          disabled={!isEditable || !pick?.winnerTeamId}
                           onClick={() => saveSeriesPick(seriesItem.id, pick?.winnerTeamId ?? seriesItem.homeTeam.id, games, seriesItem.roundKey)}
                         >
                           {games}
@@ -329,7 +346,7 @@ export default function SeriesTrackerView() {
                     <button
                       type="button"
                       className="secondary-button"
-                      disabled={Boolean(roundLocks[seriesItem.roundKey]) || !isViewingCurrentUser}
+                      disabled={!isEditable}
                       onClick={() => clearSeriesPick(seriesItem.id)}
                     >
                       Clear pick
@@ -350,6 +367,10 @@ export default function SeriesTrackerView() {
                 {roundLocks[seriesItem.roundKey] ? (
                   <div className="nba-lock-banner">
                     Commissioner has locked this round. Picks are read-only until it is reopened.
+                  </div>
+                ) : !isSeriesReady ? (
+                  <div className="nba-lock-banner">
+                    This matchup becomes pickable once the current round is set.
                   </div>
                 ) : !isViewingCurrentUser ? (
                   <div className="nba-lock-banner">

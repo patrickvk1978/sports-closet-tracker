@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
@@ -7,13 +7,13 @@ import { formatProbabilityFreshness, formatProbabilitySourceLabel } from "../lib
 import { areRoundPicksPublic } from "../lib/pickVisibility";
 
 const EAST_SEMIS = [
-  { id: "east-sf-1", sources: ["east-r1-1", "east-r1-3"] },
-  { id: "east-sf-2", sources: ["east-r1-2", "east-r1-4"] },
+  { id: "east-sf-1", sources: ["east-r1-1", "east-r1-4"] },
+  { id: "east-sf-2", sources: ["east-r1-3", "east-r1-2"] },
 ];
 
 const WEST_SEMIS = [
   { id: "west-sf-1", sources: ["west-r1-1", "west-r1-4"] },
-  { id: "west-sf-2", sources: ["west-r1-2", "west-r1-3"] },
+  { id: "west-sf-2", sources: ["west-r1-3", "west-r1-2"] },
 ];
 
 const EAST_FINALS = [{ id: "east-finals", sources: ["east-sf-1", "east-sf-2"] }];
@@ -23,7 +23,9 @@ const ROUND_ONE_ORDER = ["1-8", "4-5", "3-6", "2-7"];
 
 function getPickedTeam(seriesItem, pick, slot) {
   if (!seriesItem || !pick?.winnerTeamId) return null;
+  if (seriesItem.homeTeam?.abbreviation === "TBD" || seriesItem.awayTeam?.abbreviation === "TBD") return null;
   const pickedTeam = pick.winnerTeamId === seriesItem.homeTeam.id ? seriesItem.homeTeam : seriesItem.awayTeam;
+  if (!pickedTeam || pickedTeam.abbreviation === "TBD") return null;
   return {
     id: pickedTeam.id,
     abbreviation: pickedTeam.abbreviation === "TBD" ? "" : pickedTeam.abbreviation,
@@ -36,7 +38,8 @@ function getPickedTeam(seriesItem, pick, slot) {
 function getRoundOneSlot(seriesItem, pick, side) {
   if (!seriesItem) return { id: `${side}-empty`, abbreviation: "", active: false, slot: side };
   const team = side === "top" ? seriesItem.homeTeam : seriesItem.awayTeam;
-  const isSelected = pick?.winnerTeamId === team.id;
+  const canShowSelection = seriesItem.homeTeam?.abbreviation !== "TBD" && seriesItem.awayTeam?.abbreviation !== "TBD";
+  const isSelected = canShowSelection && pick?.winnerTeamId === team.id;
   return {
     id: team.id,
     abbreviation: team.abbreviation === "TBD" ? "" : team.abbreviation,
@@ -48,7 +51,9 @@ function getRoundOneSlot(seriesItem, pick, side) {
 
 function formatPickLabel(seriesItem, pick) {
   if (!seriesItem || !pick?.winnerTeamId || !pick?.games) return "No pick yet";
+  if (seriesItem.homeTeam?.abbreviation === "TBD" || seriesItem.awayTeam?.abbreviation === "TBD") return "No pick yet";
   const pickedTeam = pick.winnerTeamId === seriesItem.homeTeam.id ? seriesItem.homeTeam : seriesItem.awayTeam;
+  if (!pickedTeam || pickedTeam.abbreviation === "TBD") return "No pick yet";
   return `${pickedTeam.abbreviation} in ${pick.games}`;
 }
 
@@ -66,64 +71,186 @@ function buildDisplayName(entry, seriesItem) {
   return [top, bottom].filter(Boolean).join(" vs ");
 }
 
+function canPickSeries(seriesItem, currentRoundKey, isViewingCurrentUser) {
+  if (!seriesItem || !isViewingCurrentUser) return false;
+  if (seriesItem.roundKey !== currentRoundKey) return false;
+  if (seriesItem.status === "completed") return false;
+  if (!seriesItem.homeTeam || !seriesItem.awayTeam) return false;
+  if (seriesItem.homeTeam.abbreviation === "TBD" || seriesItem.awayTeam.abbreviation === "TBD") return false;
+  return true;
+}
+
 function getSeedOrderValue(seriesItem) {
   const matchup = `${seriesItem.homeSeed}-${seriesItem.awaySeed}`;
   const orderIndex = ROUND_ONE_ORDER.indexOf(matchup);
   return orderIndex === -1 ? ROUND_ONE_ORDER.length : orderIndex;
 }
 
-function BracketPopover({ detail }) {
+function BracketPopover({ detail, placement, onClose, onPickGames }) {
   if (!detail) return null;
 
-  return (
-    <div className="nba-bracket-popover">
-      <span className="micro-label">{detail.title}</span>
-      <div className="nba-bracket-popover-grid">
-        <div>
-          <span className="micro-label">Current pick</span>
-          <p>{detail.pickLabel}</p>
+  if (detail.mode === "selector") {
+    return (
+      <div className={`nba-bracket-popover nba-bracket-popover-${placement}`}>
+        <span className="micro-label">{detail.title}</span>
+        <p className="nba-bracket-popover-copy">{detail.body}</p>
+        <div className="nba-bracket-games-picker" role="group" aria-label={`Choose games for ${detail.title}`}>
+          {[4, 5, 6, 7].map((games) => (
+            <button
+              key={games}
+              type="button"
+              className={`nba-bracket-games-pill ${detail.currentGames === games ? "active" : ""}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onPickGames(games);
+              }}
+            >
+              {games}
+            </button>
+          ))}
         </div>
-        <div>
-          <span className="micro-label">Market lean</span>
-          <p>{detail.marketLean}</p>
-          <span className="micro-copy">{detail.marketMeta}</span>
-        </div>
-        <div>
-          <span className="micro-label">Model lean</span>
-          <p>{detail.modelLean}</p>
-          <span className="micro-copy">{detail.modelMeta}</span>
-        </div>
+        {detail.canClear ? (
+          <button
+            type="button"
+            className="nba-bracket-clear-link"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClose();
+            }}
+          >
+            Cancel
+          </button>
+        ) : null}
       </div>
+    );
+  }
+
+  return (
+    <div className={`nba-bracket-popover nba-bracket-popover-${placement}`}>
+      <span className="micro-label">{detail.title}</span>
+      {detail.body ? <p className="nba-bracket-popover-copy">{detail.body}</p> : null}
+      {detail.showGrid ? (
+        <div className="nba-bracket-popover-grid">
+          <div>
+            <span className="micro-label">Current pick</span>
+            <p>{detail.pickLabel}</p>
+          </div>
+          <div>
+            <span className="micro-label">Market lean</span>
+            <p>{detail.marketLean}</p>
+            <span className="micro-copy">{detail.marketMeta}</span>
+          </div>
+          <div>
+            <span className="micro-label">Model lean</span>
+            <p>{detail.modelLean}</p>
+            <span className="micro-copy">{detail.modelMeta}</span>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function BracketSeries({ entry, side, roundKey, style, isFocused, onFocus, onBlurSeries, detail }) {
+function BracketSeries({
+  entry,
+  side,
+  roundKey,
+  rowStart,
+  style,
+  isFocused,
+  onFocus,
+  onBlurSeries,
+  detail,
+  interactive,
+  onSelectTeam,
+  selectionState,
+  onPickGames,
+  onCancelSelection,
+}) {
   const { top, bottom } = entry;
+  const selectorDetail = selectionState
+    ? {
+        mode: "selector",
+        title: selectionState.teamAbbreviation,
+        body: "Pick the number of games it takes this team to win the series.",
+        currentGames: selectionState.currentGames,
+        canClear: true,
+      }
+    : null;
+  const activeDetail = selectorDetail ?? detail;
+  const horizontalPlacement = side === "west" ? "west" : side === "center" ? "center" : "east";
+  const verticalPlacement = rowStart >= 6 ? "north" : "south";
+  const placement = `${horizontalPlacement}-${verticalPlacement}`;
+
   return (
-    <button
-      type="button"
+    <div
       className={`nba-bracket-series ${side} ${roundKey} ${isFocused ? "is-focused" : ""}`}
       style={style}
       onMouseEnter={() => onFocus(entry.id)}
       onMouseLeave={onBlurSeries}
       onFocus={() => onFocus(entry.id)}
-      onClick={() => onFocus(entry.id)}
+      tabIndex={0}
     >
-      {isFocused ? <BracketPopover detail={detail} /> : null}
-      <div className={top.active ? "nba-bracket-line active" : "nba-bracket-line"}>
+      {isFocused ? (
+        <BracketPopover
+          detail={activeDetail}
+          placement={placement}
+          onClose={onCancelSelection}
+          onPickGames={onPickGames}
+        />
+      ) : null}
+      <button
+        type="button"
+        className={`${top.active ? "nba-bracket-line active" : "nba-bracket-line"} ${interactive ? "is-pickable" : "is-static"}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!interactive) {
+            onFocus(entry.id);
+            return;
+          }
+          onSelectTeam(top.id, top.abbreviation);
+        }}
+        disabled={!interactive}
+      >
         <span>{top.abbreviation}</span>
         {top.detail ? <em>{top.detail}</em> : null}
-      </div>
-      <div className={bottom.active ? "nba-bracket-line active" : "nba-bracket-line"}>
+      </button>
+      <button
+        type="button"
+        className={`${bottom.active ? "nba-bracket-line active" : "nba-bracket-line"} ${interactive ? "is-pickable" : "is-static"}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!interactive) {
+            onFocus(entry.id);
+            return;
+          }
+          onSelectTeam(bottom.id, bottom.abbreviation);
+        }}
+        disabled={!interactive}
+      >
         <span>{bottom.abbreviation}</span>
         {bottom.detail ? <em>{bottom.detail}</em> : null}
-      </div>
-    </button>
+      </button>
+    </div>
   );
 }
 
-function BracketColumn({ title, seriesList, side, roundKey, rowStarts, focusedSeriesId, onFocus, onBlurSeries, detailById }) {
+function BracketColumn({
+  title,
+  seriesList,
+  side,
+  roundKey,
+  rowStarts,
+  focusedSeriesId,
+  onFocus,
+  onBlurSeries,
+  detailById,
+  interactiveIds,
+  selectionState,
+  onSelectTeam,
+  onPickGames,
+  onCancelSelection,
+}) {
   return (
     <div className={`nba-bracket-column ${side}`}>
       <span className="micro-label">{title}</span>
@@ -134,11 +261,17 @@ function BracketColumn({ title, seriesList, side, roundKey, rowStarts, focusedSe
             entry={entry}
             side={side}
             roundKey={roundKey}
+            rowStart={rowStarts[index]}
             style={{ gridRow: `${rowStarts[index]} / span 2` }}
             isFocused={focusedSeriesId === entry.id}
             onFocus={onFocus}
             onBlurSeries={onBlurSeries}
             detail={detailById[entry.id]}
+            interactive={interactiveIds.has(entry.id)}
+            selectionState={selectionState?.seriesId === entry.id ? selectionState : null}
+            onSelectTeam={(teamId, teamAbbreviation) => onSelectTeam(entry.id, teamId, teamAbbreviation)}
+            onPickGames={(games) => onPickGames(entry.id, games)}
+            onCancelSelection={onCancelSelection}
           />
         ))}
       </div>
@@ -150,10 +283,11 @@ export default function BracketWorkspaceView() {
   const { series, seriesByConference, currentRound, seriesByRound } = usePlayoffData();
   const { memberList, pool, settingsForPool } = usePool();
   const settings = settingsForPool(pool);
-  const { picksBySeriesId, allPicksByUser } = useSeriesPickem(series);
+  const { picksBySeriesId, allPicksByUser, saveSeriesPick } = useSeriesPickem(series);
   const currentMember = memberList.find((member) => member.isCurrentUser) ?? memberList[0] ?? null;
   const [searchParams, setSearchParams] = useSearchParams();
   const [focusedSeriesId, setFocusedSeriesId] = useState(null);
+  const [selectionState, setSelectionState] = useState(null);
   const activeSeries = seriesByRound[currentRound.key] ?? [];
   const canViewOtherBrackets = areRoundPicksPublic(activeSeries, currentRound.key, settings);
   const requestedViewerId = searchParams.get("viewer") ?? "";
@@ -225,21 +359,37 @@ export default function BracketWorkspaceView() {
     ...nbaFinalsDisplay,
   ];
   const displayEntryById = Object.fromEntries(allDisplayEntries.map((entry) => [entry.id, entry]));
-  const activeFocusedSeriesId = displayEntryById[focusedSeriesId] ? focusedSeriesId : null;
+  const activeFocusedSeriesId = displayEntryById[focusedSeriesId] ? focusedSeriesId : selectionState?.seriesId ?? null;
+  const interactiveSeriesIds = new Set(
+    series
+      .filter((seriesItem) => canPickSeries(seriesItem, currentRound.key, isViewingCurrentUser))
+      .map((seriesItem) => seriesItem.id)
+  );
   const detailById = Object.fromEntries(
     allDisplayEntries.map((entry) => {
       const seriesItem = seriesById[entry.id] ?? null;
       const pick = selectedPicksBySeriesId[entry.id] ?? null;
+      const isInteractive = interactiveSeriesIds.has(entry.id);
+      const isFutureSeries = !seriesItem || !isInteractive;
       return [
         entry.id,
-        {
-          title: buildDisplayName(entry, seriesItem),
-          pickLabel: formatPickLabel(seriesItem, pick),
-          marketLean: formatLean(seriesItem, seriesItem?.market),
-          modelLean: formatLean(seriesItem, seriesItem?.model),
-          marketMeta: `${formatProbabilitySourceLabel(seriesItem?.market)} · ${formatProbabilityFreshness(seriesItem?.market)}`,
-          modelMeta: `${formatProbabilitySourceLabel(seriesItem?.model)} · ${formatProbabilityFreshness(seriesItem?.model)}`,
-        },
+        isFutureSeries
+          ? {
+              title: buildDisplayName(entry, seriesItem) || "Series TBD",
+              body: seriesItem
+                ? "This matchup becomes pickable once the current round is set."
+                : "This series is still TBD until the current round settles.",
+              showGrid: false,
+            }
+          : {
+              title: buildDisplayName(entry, seriesItem),
+              pickLabel: formatPickLabel(seriesItem, pick),
+              marketLean: formatLean(seriesItem, seriesItem?.market),
+              modelLean: formatLean(seriesItem, seriesItem?.model),
+              marketMeta: `${formatProbabilitySourceLabel(seriesItem?.market)} · ${formatProbabilityFreshness(seriesItem?.market)}`,
+              modelMeta: `${formatProbabilitySourceLabel(seriesItem?.model)} · ${formatProbabilityFreshness(seriesItem?.model)}`,
+              showGrid: true,
+            },
       ];
     })
   );
@@ -258,6 +408,8 @@ export default function BracketWorkspaceView() {
 
   function handleViewerChange(event) {
     const nextViewerId = event.target.value;
+    setSelectionState(null);
+    setFocusedSeriesId(null);
     if (!nextViewerId) {
       setSearchParams({}, { replace: true });
       return;
@@ -265,15 +417,47 @@ export default function BracketWorkspaceView() {
     setSearchParams({ viewer: nextViewerId }, { replace: true });
   }
 
+  function handleSelectTeam(seriesId, teamId, teamAbbreviation) {
+    const currentPick = selectedPicksBySeriesId[seriesId] ?? null;
+    setFocusedSeriesId(seriesId);
+    setSelectionState({
+      seriesId,
+      teamId,
+      teamAbbreviation,
+      currentGames: currentPick?.winnerTeamId === teamId ? currentPick.games : null,
+    });
+  }
+
+  async function handlePickGames(seriesId, games) {
+    const seriesItem = seriesById[seriesId];
+    if (!seriesItem || !selectionState?.teamId) return;
+    await saveSeriesPick(seriesId, selectionState.teamId, games, seriesItem.roundKey);
+    setSelectionState(null);
+    setFocusedSeriesId(seriesId);
+  }
+
+  function handleBlurSeries() {
+    if (selectionState) return;
+    setFocusedSeriesId(null);
+  }
+
+  useEffect(() => {
+    if (!isViewingCurrentUser) {
+      setSelectionState(null);
+    }
+  }, [isViewingCurrentUser]);
+
   return (
     <div className="nba-shell">
       <section className="panel">
         <div className="panel-header">
           <div>
             <span className="label">Bracket</span>
-            <h2>{isViewingCurrentUser ? "Playoff path" : `${selectedViewer?.name ?? "This entry"}'s playoff path`}</h2>
+            <h2>{isViewingCurrentUser ? "Make your picks in the bracket" : `${selectedViewer?.name ?? "This entry"}'s playoff path`}</h2>
             <p className="subtle">
-              Keep the board simple. Hover or tap a series to see the pick view plus market and model context.
+              {isViewingCurrentUser
+                ? "Hover for context. Click a team in the current round, then choose 4-7 games to save the pick."
+                : "Hover or tap a series to see the pick view plus market and model context."}
             </p>
           </div>
           <div className="nba-report-actions">
@@ -293,17 +477,27 @@ export default function BracketWorkspaceView() {
                   ))}
                 </select>
               </label>
-            ) : (
+            ) : null}
+            <span className="tooltip-wrap tooltip-wrap-inline">
+              <Link className="secondary-button" to="/series">
+                Series view
+              </Link>
+              <span className="tooltip-bubble">Use the more detailed series-by-series picker if you want a slower, guided selection flow.</span>
+            </span>
+            <span className="tooltip-wrap tooltip-wrap-inline">
+              <Link className="secondary-button" to="/reports">
+                View reports
+              </Link>
+              <span className="tooltip-bubble">Open the deeper probability, leverage, and pool-reading tools without leaving your picks behind.</span>
+            </span>
+            {canViewOtherBrackets ? (
               <span className="tooltip-wrap tooltip-wrap-inline">
-                <button type="button" className="secondary-button" disabled>
-                  View another bracket
-                </button>
-                <span className="tooltip-bubble">Available once the round locks or games begin.</span>
+                <Link className="secondary-button" to="/matrix">
+                  Open matrix
+                </Link>
+                <span className="tooltip-bubble">Compare the full room once picks are public and the round is live or locked.</span>
               </span>
-            )}
-            <Link className="secondary-button" to="/matrix">
-              Open matrix
-            </Link>
+            ) : null}
           </div>
         </div>
 
@@ -320,8 +514,13 @@ export default function BracketWorkspaceView() {
                   {...column}
                   focusedSeriesId={activeFocusedSeriesId}
                   onFocus={setFocusedSeriesId}
-                  onBlurSeries={() => setFocusedSeriesId(null)}
+                  onBlurSeries={handleBlurSeries}
                   detailById={detailById}
+                  interactiveIds={interactiveSeriesIds}
+                  selectionState={selectionState}
+                  onSelectTeam={handleSelectTeam}
+                  onPickGames={handlePickGames}
+                  onCancelSelection={() => setSelectionState(null)}
                 />
               ))}
             </div>
@@ -336,11 +535,17 @@ export default function BracketWorkspaceView() {
                   entry={entry}
                   side="center"
                   roundKey="finals"
+                  rowStart={5}
                   style={{ gridRow: "5 / span 2" }}
                   isFocused={activeFocusedSeriesId === entry.id}
                   onFocus={setFocusedSeriesId}
-                  onBlurSeries={() => setFocusedSeriesId(null)}
+                  onBlurSeries={handleBlurSeries}
                   detail={detailById[entry.id]}
+                  interactive={interactiveSeriesIds.has(entry.id)}
+                  selectionState={selectionState?.seriesId === entry.id ? selectionState : null}
+                  onSelectTeam={(teamId, teamAbbreviation) => handleSelectTeam(entry.id, teamId, teamAbbreviation)}
+                  onPickGames={(games) => handlePickGames(entry.id, games)}
+                  onCancelSelection={() => setSelectionState(null)}
                 />
               ))}
             </div>
@@ -357,8 +562,13 @@ export default function BracketWorkspaceView() {
                   {...column}
                   focusedSeriesId={activeFocusedSeriesId}
                   onFocus={setFocusedSeriesId}
-                  onBlurSeries={() => setFocusedSeriesId(null)}
+                  onBlurSeries={handleBlurSeries}
                   detailById={detailById}
+                  interactiveIds={interactiveSeriesIds}
+                  selectionState={selectionState}
+                  onSelectTeam={handleSelectTeam}
+                  onPickGames={handlePickGames}
+                  onCancelSelection={() => setSelectionState(null)}
                 />
               ))}
             </div>

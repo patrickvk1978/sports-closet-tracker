@@ -221,19 +221,33 @@ export default function DashboardView() {
     <div className="nba-shell">
       <section className="panel nba-hero-panel">
         <div className="nba-hero-copy">
-          <span className="label">Play-In watch · {SCENARIO_WATCH_DATE}</span>
-          <h1>{heroCommentary?.headline ?? "\u00A0"}</h1>
-          <p className="subtle">{heroCommentary?.body ?? "\u00A0"}</p>
+          <span className="label">How to play</span>
+          <h1>Pick the winners in the bracket.</h1>
+          <p className="subtle">
+            Start on the bracket page. Click a team in each current-round series, then choose how many games it takes
+            them to win. That saves the pick right away.
+          </p>
           <div className="nba-commentary-placeholder">
-            <strong>{heroCommentary?.eyebrow ?? "\u00A0"}</strong>
-            <span>{heroCommentary?.support ?? "\u00A0"}</span>
+            <strong>{remainingRoundPicks > 0 ? `${remainingRoundPicks} pick${remainingRoundPicks === 1 ? "" : "s"} still open` : "Your bracket is filled in"}</strong>
+            <span>
+              {remainingRoundPicks > 0
+                ? "Reports and the detailed series selector are optional helpers. They should never be the first step."
+                : "Use reports or the detailed series view only if you want a second look at the board."}
+            </span>
           </div>
           <div className="nba-hero-actions">
-            <Link className="primary-button" to={heroCommentary?.actionPath ?? "/series"}>
-              {heroCommentary?.actionLabel ?? "Open series tracker"}
+            <Link className="primary-button" to="/bracket">
+              Go to Bracket
             </Link>
-            <Link className="secondary-button" to="/reports">
-              Open all reports
+          </div>
+          <div className="nba-hero-secondary-grid">
+            <Link className="detail-card inset-card nba-hero-secondary-link" to="/reports">
+              <span className="micro-label">Optional</span>
+              <strong>View Reports</strong>
+            </Link>
+            <Link className="detail-card inset-card nba-hero-secondary-link" to="/series">
+              <span className="micro-label">Optional</span>
+              <strong>Series View</strong>
             </Link>
           </div>
         </div>
@@ -256,38 +270,10 @@ export default function DashboardView() {
               <strong>{remainingRoundPicks > 0 ? "Finish round" : "Track shifts"}</strong>
             </div>
           </div>
-          <div className="nba-reports-summary">
-            <div className="detail-card inset-card">
-              <span className="micro-label">Safest lean</span>
-              <p>
-                {safestSeries
-                  ? `${safestSeries.marketFavoritePct >= (safestSeries.seriesItem.market.homeWinPct ?? 0)
-                      ? safestSeries.seriesItem.homeTeam.abbreviation
-                      : safestSeries.seriesItem.awayTeam.abbreviation} at ${formatPct(safestSeries.marketFavoritePct)}`
-                  : "Still settling"}
-              </p>
-            </div>
-            <div className="detail-card inset-card">
-              <span className="micro-label">Biggest swing</span>
-              <p>
-                {biggestSwingSeries
-                  ? biggestSwingSeries.pick
-                    ? canViewPoolSignals
-                      ? `${biggestSwingSeries.yourTeam?.abbreviation ?? "Your pick"} at ${formatPct(biggestSwingSeries.yourShare)} room share`
-                      : `${biggestSwingSeries.yourTeam?.abbreviation ?? "Your pick"} is worth another look`
-                    : `${biggestSwingSeries.matchup} still unpicked`
-                  : "No active swing yet"}
-              </p>
-            </div>
-          </div>
           <div className="nba-quick-actions">
             <Link className="primary-button" to="/series">
               {remainingRoundPicks > 0 ? "Finish this round" : "Review your picks"}
             </Link>
-            <div className="detail-card inset-card">
-              <span className="micro-label">Pool</span>
-              <p>{pool?.name ?? "No active pool"} · {pool?.invite_code ?? "Pending code"}</p>
-            </div>
           </div>
         </div>
       </section>

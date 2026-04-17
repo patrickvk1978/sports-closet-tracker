@@ -42,7 +42,7 @@ function PoolHomeRedirect() {
     return <Navigate to="/join" replace />;
   }
 
-  return <Navigate to="/dashboard" replace />;
+  return <Navigate to="/bracket" replace />;
 }
 
 export default function App() {

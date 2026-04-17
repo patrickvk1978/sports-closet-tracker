@@ -225,7 +225,7 @@ p { margin: 0; }
 }
 
 .nba-hero-copy h1 {
-  max-width: 14ch;
+  max-width: none;
   font-size: clamp(1.55rem, 2.6vw, 2.45rem);
 }
 
@@ -233,6 +233,24 @@ p { margin: 0; }
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.nba-hero-secondary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nba-hero-secondary-link {
+  display: grid;
+  gap: 4px;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.nba-hero-secondary-link strong {
+  font-size: 1rem;
+  color: var(--text-1);
 }
 
 .nba-commentary-placeholder {
@@ -434,7 +452,7 @@ p { margin: 0; }
   border: 0;
   padding: 0;
   background: transparent;
-  cursor: pointer;
+  cursor: default;
   text-align: inherit;
 }
 
@@ -458,6 +476,22 @@ p { margin: 0; }
   font-weight: 700;
   letter-spacing: 0.02em;
   position: relative;
+  appearance: none;
+  text-align: inherit;
+}
+
+.nba-bracket-line.is-pickable {
+  cursor: pointer;
+}
+
+.nba-bracket-line.is-pickable:hover,
+.nba-bracket-line.is-pickable:focus-visible {
+  border-color: color-mix(in srgb, var(--brand) 34%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 20%, transparent);
+}
+
+.nba-bracket-line.is-static {
+  cursor: default;
 }
 
 .nba-bracket-line span {
@@ -488,10 +522,7 @@ p { margin: 0; }
 
 .nba-bracket-popover {
   position: absolute;
-  left: 50%;
-  bottom: calc(100% + 10px);
-  transform: translateX(-50%);
-  z-index: 10;
+  z-index: 40;
   width: min(260px, 76vw);
   padding: 12px 14px;
   border-radius: var(--r-md);
@@ -500,17 +531,79 @@ p { margin: 0; }
   box-shadow: var(--shadow-lg);
 }
 
+.nba-bracket-popover-east-south,
+.nba-bracket-popover-east-north {
+  left: 0;
+}
+
+.nba-bracket-popover-west-south,
+.nba-bracket-popover-west-north {
+  right: 0;
+}
+
+.nba-bracket-popover-center-south,
+.nba-bracket-popover-center-north {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.nba-bracket-popover-east-south,
+.nba-bracket-popover-west-south,
+.nba-bracket-popover-center-south {
+  top: calc(100% + 10px);
+}
+
+.nba-bracket-popover-east-north,
+.nba-bracket-popover-west-north,
+.nba-bracket-popover-center-north {
+  bottom: calc(100% + 10px);
+}
+
 .nba-bracket-popover::after {
   content: "";
   position: absolute;
-  left: 50%;
-  bottom: -7px;
   width: 12px;
   height: 12px;
-  transform: translateX(-50%) rotate(45deg);
+  transform: rotate(45deg);
+  background: color-mix(in srgb, var(--surface-0) 96%, white);
+}
+
+.nba-bracket-popover-east-south::after,
+.nba-bracket-popover-east-north::after {
+  left: 22px;
+}
+
+.nba-bracket-popover-west-south::after,
+.nba-bracket-popover-west-north::after {
+  right: 22px;
+}
+
+.nba-bracket-popover-center-south::after,
+.nba-bracket-popover-center-north::after {
+  left: calc(50% - 6px);
+}
+
+.nba-bracket-popover-east-south::after,
+.nba-bracket-popover-west-south::after,
+.nba-bracket-popover-center-south::after {
+  top: -7px;
+  border-left: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
+  border-top: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
+}
+
+.nba-bracket-popover-east-north::after,
+.nba-bracket-popover-west-north::after,
+.nba-bracket-popover-center-north::after {
+  bottom: -7px;
   border-right: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
   border-bottom: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
-  background: color-mix(in srgb, var(--surface-0) 96%, white);
+}
+
+.nba-bracket-popover-copy {
+  margin: 8px 0 0;
+  color: var(--text-2);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .nba-bracket-popover-grid {
@@ -521,6 +614,45 @@ p { margin: 0; }
 
 .nba-bracket-popover-grid p {
   margin: 4px 0 0;
+}
+
+.nba-bracket-games-picker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.nba-bracket-games-pill {
+  min-height: 38px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-1);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nba-bracket-games-pill.active,
+.nba-bracket-games-pill:hover,
+.nba-bracket-games-pill:focus-visible {
+  border-color: var(--brand-border);
+  background: var(--brand-subtle);
+  color: var(--brand-dark);
+}
+
+.nba-bracket-clear-link {
+  width: fit-content;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .nba-bracket-series.east .nba-bracket-line {
@@ -1021,15 +1153,18 @@ p { margin: 0; }
   text-align: left;
   padding: 9px 11px;
   border-radius: var(--r-md);
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(249, 241, 227, 0.96), rgba(239, 223, 195, 0.96));
+  border: 1px solid rgba(36, 58, 94, 0.54);
+  background: linear-gradient(180deg, rgba(31, 51, 83, 0.96), rgba(20, 36, 62, 0.98));
+  color: var(--nav-text);
   cursor: pointer;
   transition: border-color var(--t-fast), transform var(--t-fast), background var(--t-fast);
 }
 
 .nba-round-tab.active {
-  border-color: var(--brand);
-  background: linear-gradient(180deg, rgba(194, 90, 44, 0.12), rgba(196, 154, 58, 0.12));
+  border-color: rgba(240, 195, 106, 0.6);
+  background: linear-gradient(180deg, rgba(44, 66, 102, 0.98), rgba(29, 48, 78, 0.98));
+  color: var(--nav-active);
+  box-shadow: 0 8px 18px rgba(20, 36, 62, 0.22);
 }
 
 .nba-round-tab:disabled {
@@ -1038,15 +1173,15 @@ p { margin: 0; }
 }
 
 .nba-round-tab small {
-  color: var(--text-3);
+  color: rgba(255, 246, 231, 0.74);
   font-size: 0.75rem;
   line-height: 1.25;
 }
 
 .nba-lock-button {
-  border: 1px solid var(--border);
-  background: rgba(247, 237, 220, 0.96);
-  color: var(--text-2);
+  border: 1px solid rgba(36, 58, 94, 0.54);
+  background: linear-gradient(180deg, rgba(31, 51, 83, 0.96), rgba(20, 36, 62, 0.98));
+  color: var(--nav-text);
   border-radius: var(--r-md);
   padding: 8px 10px;
   font-size: 0.82rem;
@@ -1055,9 +1190,9 @@ p { margin: 0; }
 }
 
 .nba-lock-button.locked {
-  background: var(--brand-subtle);
-  border-color: var(--brand-border);
-  color: var(--brand-dark);
+  background: linear-gradient(180deg, rgba(44, 66, 102, 0.98), rgba(29, 48, 78, 0.98));
+  border-color: rgba(240, 195, 106, 0.46);
+  color: var(--nav-active);
 }
 
 .nba-series-pick-grid {
@@ -1074,6 +1209,11 @@ p { margin: 0; }
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(36, 58, 94, 0.5);
+  background: linear-gradient(180deg, rgba(31, 51, 83, 0.94), rgba(20, 36, 62, 0.96));
+  color: var(--nav-text);
 }
 
 .nba-series-selector-bar {
@@ -1084,8 +1224,9 @@ p { margin: 0; }
   margin-bottom: 12px;
   padding: 12px 14px;
   border-radius: var(--r-md);
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(247, 237, 220, 0.96), rgba(239, 223, 195, 0.96));
+  border: 1px solid rgba(36, 58, 94, 0.5);
+  background: linear-gradient(180deg, rgba(31, 51, 83, 0.94), rgba(20, 36, 62, 0.96));
+  color: var(--nav-text);
 }
 
 .nba-series-selector-head {
@@ -1095,8 +1236,13 @@ p { margin: 0; }
 
 .nba-series-selector-head p {
   margin: 0;
-  color: var(--text-2);
+  color: var(--nav-text);
   font-size: 0.95rem;
+}
+
+.nba-series-progress-strip .micro-copy,
+.nba-series-selector-bar .micro-label {
+  color: rgba(255, 246, 231, 0.76);
 }
 
 .nba-series-selector-actions {
@@ -1111,8 +1257,8 @@ p { margin: 0; }
   gap: 8px;
   padding: 12px;
   border-radius: var(--r-lg);
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(249, 241, 227, 0.98), rgba(238, 221, 191, 0.98));
+  border: 1px solid rgba(190, 145, 84, 0.32);
+  background: linear-gradient(180deg, rgba(247, 238, 222, 0.98), rgba(239, 227, 203, 0.98));
   box-shadow: 0 14px 28px rgba(88, 55, 34, 0.12);
 }
 
@@ -1123,10 +1269,34 @@ p { margin: 0; }
 .nba-series-head-note {
   display: block;
   margin-top: 3px;
+  color: #7a6451;
 }
 
 .nba-series-meta-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.nba-series-meta-grid > .detail-card {
+  border-width: 1px;
+  box-shadow: none;
+}
+
+.nba-series-meta-grid > .detail-card:first-child {
+  border-color: rgba(196, 154, 58, 0.34);
+  background: linear-gradient(180deg, rgba(232, 194, 82, 0.92), rgba(201, 156, 52, 0.9));
+  color: #21150b;
+}
+
+.nba-series-meta-grid > .detail-card:last-child {
+  border-color: rgba(173, 106, 55, 0.34);
+  background: linear-gradient(180deg, rgba(220, 148, 90, 0.92), rgba(192, 118, 64, 0.9));
+  color: #21120a;
+}
+
+.nba-series-meta-grid > .detail-card p,
+.nba-series-meta-grid > .detail-card .micro-copy,
+.nba-series-meta-grid > .detail-card .micro-label {
+  color: #1f140c;
 }
 
 .nba-team-pick-grid {
@@ -1135,8 +1305,8 @@ p { margin: 0; }
 
 .nba-team-pick,
 .nba-games-option {
-  border: 1px solid var(--border);
-  background: rgba(247, 237, 220, 0.98);
+  border: 1px solid rgba(190, 145, 84, 0.34);
+  background: linear-gradient(180deg, rgba(248, 240, 226, 0.98), rgba(241, 231, 212, 0.98));
   border-radius: var(--r-md);
   cursor: pointer;
   transition: border-color var(--t-fast), background var(--t-fast), transform var(--t-fast);
@@ -1149,17 +1319,44 @@ p { margin: 0; }
   text-align: left;
 }
 
+.nba-team-pick strong {
+  color: #4b281a;
+  font-size: 1.12rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.nba-team-pick span {
+  color: #6a4b36;
+  font-size: 0.96rem;
+}
+
 .nba-team-pick.active,
 .nba-games-option.active {
-  border-color: var(--brand);
-  background: var(--brand-subtle);
+  border-color: rgba(150, 103, 64, 0.42);
+  background:
+    radial-gradient(circle at top right, rgba(196, 154, 58, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(125, 82, 58, 0.99), rgba(108, 70, 50, 0.99));
+  color: #fff5ea;
+  box-shadow: 0 8px 18px rgba(88, 55, 34, 0.24);
+}
+
+.nba-team-pick.active strong,
+.nba-team-pick.active span,
+.nba-team-pick.active .micro-label,
+.nba-games-option.active {
+  color: #fff5ea;
+}
+
+.nba-team-pick.active .micro-label {
+  opacity: 0.86;
 }
 
 .nba-team-pick:hover,
 .nba-games-option:hover,
 .nba-round-tab:hover {
   transform: translateY(-1px);
-  border-color: var(--brand-border);
+  border-color: rgba(138, 52, 44, 0.44);
 }
 
 .nba-team-pick:disabled,
@@ -1285,6 +1482,8 @@ p { margin: 0; }
 .nba-games-option {
   padding: 10px 0;
   font-weight: 700;
+  background: linear-gradient(180deg, rgba(247, 239, 226, 0.98), rgba(240, 231, 214, 0.98));
+  color: #6f4931;
 }
 
 .nba-pick-footer {
@@ -1292,7 +1491,13 @@ p { margin: 0; }
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(190, 145, 84, 0.28);
+}
+
+.nba-pick-footer p {
+  margin: 0;
+  color: #6f4931;
+  font-weight: 700;
 }
 
 .nba-lock-banner {

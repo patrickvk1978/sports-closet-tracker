@@ -16,15 +16,13 @@ export default function NavBar() {
   const isSettings  = location.pathname === "/pool-settings";
   const isDashboard = location.pathname === "/dashboard";
   const isStandings = location.pathname === "/standings";
-  const isMatrix = location.pathname === "/matrix";
-  const isSeries = location.pathname === "/series";
   const isBracket = location.pathname === "/bracket";
   const isReports = location.pathname === "/reports" || location.pathname.startsWith("/reports/");
   const isPoolCreator = pool?.admin_id === profile?.id;
   const canSettings   = isPoolCreator || Boolean(profile?.is_admin);
 
   function goHome() {
-    navigate("/dashboard");
+    navigate("/bracket");
   }
 
   function handlePoolSelect(e) {
@@ -36,7 +34,7 @@ export default function NavBar() {
 
   return (
     <nav className="nav-shell" aria-label="Primary navigation">
-      <button className="brand-link" onClick={goHome} aria-label="Go to dashboard">
+      <button className="brand-link" onClick={goHome} aria-label="Go to bracket">
         <span className="brand-mark">NBA</span>
         <span>Playoff Predictor V1</span>
       </button>
@@ -72,22 +70,6 @@ export default function NavBar() {
           aria-label="Standings"
         >
           Standings
-        </button>
-
-        <button
-          className={buttonClass(isMatrix)}
-          onClick={() => navigate("/matrix")}
-          aria-label="Pick matrix"
-        >
-          Matrix
-        </button>
-
-        <button
-          className={buttonClass(isSeries)}
-          onClick={() => navigate("/series")}
-          aria-label="Series tracker"
-        >
-          Series
         </button>
 
         <button
