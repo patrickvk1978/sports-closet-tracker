@@ -465,7 +465,7 @@ p { margin: 0; }
   min-height: 46px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   padding: 0 14px;
   width: 100%;
@@ -478,16 +478,27 @@ p { margin: 0; }
   position: relative;
   appearance: none;
   text-align: inherit;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
 }
 
 .nba-bracket-line.is-pickable {
   cursor: pointer;
+  border-color: color-mix(in srgb, var(--accent-hot) 44%, #8b4623);
+  background: linear-gradient(135deg, #c25a2c 0%, #a84d26 54%, #924320 100%);
+  color: #fff4e3;
 }
 
 .nba-bracket-line.is-pickable:hover,
 .nba-bracket-line.is-pickable:focus-visible {
-  border-color: color-mix(in srgb, var(--brand) 34%, var(--border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 20%, transparent);
+  border-color: color-mix(in srgb, #efb67e 34%, var(--accent-rust));
+  background: linear-gradient(135deg, #cf6734 0%, #b7592b 54%, #9d4823 100%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-hot) 18%, transparent);
+  transform: translateY(-1px);
 }
 
 .nba-bracket-line.is-static {
@@ -497,6 +508,10 @@ p { margin: 0; }
 .nba-bracket-line span {
   min-width: 3ch;
   line-height: 1;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
 }
 
 .nba-bracket-line em {
@@ -507,12 +522,17 @@ p { margin: 0; }
   color: inherit;
   opacity: 0.8;
   white-space: nowrap;
+  position: relative;
+  z-index: 1;
 }
 
 .nba-bracket-line.active {
-  border-color: var(--brand-border);
-  background: var(--brand-subtle);
-  color: var(--brand-dark);
+  border-color: color-mix(in srgb, #c79a6a 46%, #5a3828);
+  background:
+    radial-gradient(circle at top right, rgba(214, 175, 112, 0.24), transparent 50%),
+    linear-gradient(135deg, #583423 0%, #6b4330 52%, #80543b 100%);
+  color: #fff4e3;
+  box-shadow: 0 12px 26px rgba(53, 28, 18, 0.18);
 }
 
 .nba-bracket-series.is-focused .nba-bracket-line {
@@ -526,9 +546,12 @@ p { margin: 0; }
   width: min(260px, 76vw);
   padding: 12px 14px;
   border-radius: var(--r-md);
-  border: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
-  background: color-mix(in srgb, var(--surface-0) 96%, white);
-  box-shadow: var(--shadow-lg);
+  border: 1px solid color-mix(in srgb, var(--nav-border) 74%, #0d1522);
+  background:
+    radial-gradient(circle at top right, rgba(240, 195, 106, 0.18), transparent 46%),
+    linear-gradient(160deg, #1a2c4b 0%, #122038 100%);
+  color: var(--nav-text);
+  box-shadow: 0 18px 34px rgba(15, 24, 40, 0.26);
 }
 
 .nba-bracket-popover-east-south,
@@ -565,7 +588,7 @@ p { margin: 0; }
   width: 12px;
   height: 12px;
   transform: rotate(45deg);
-  background: color-mix(in srgb, var(--surface-0) 96%, white);
+  background: #162744;
 }
 
 .nba-bracket-popover-east-south::after,
@@ -587,21 +610,21 @@ p { margin: 0; }
 .nba-bracket-popover-west-south::after,
 .nba-bracket-popover-center-south::after {
   top: -7px;
-  border-left: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
-  border-top: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
+  border-left: 1px solid color-mix(in srgb, var(--nav-border) 74%, #0d1522);
+  border-top: 1px solid color-mix(in srgb, var(--nav-border) 74%, #0d1522);
 }
 
 .nba-bracket-popover-east-north::after,
 .nba-bracket-popover-west-north::after,
 .nba-bracket-popover-center-north::after {
   bottom: -7px;
-  border-right: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
-  border-bottom: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
+  border-right: 1px solid color-mix(in srgb, var(--nav-border) 74%, #0d1522);
+  border-bottom: 1px solid color-mix(in srgb, var(--nav-border) 74%, #0d1522);
 }
 
 .nba-bracket-popover-copy {
   margin: 8px 0 0;
-  color: var(--text-2);
+  color: rgba(255, 246, 231, 0.9);
   font-size: 0.88rem;
   line-height: 1.45;
 }
@@ -614,6 +637,15 @@ p { margin: 0; }
 
 .nba-bracket-popover-grid p {
   margin: 4px 0 0;
+  color: var(--nav-text);
+}
+
+.nba-bracket-popover .micro-label {
+  color: var(--nav-active);
+}
+
+.nba-bracket-popover .micro-copy {
+  color: rgba(255, 246, 231, 0.72);
 }
 
 .nba-bracket-games-picker {
@@ -626,20 +658,28 @@ p { margin: 0; }
 .nba-bracket-games-pill {
   min-height: 38px;
   border-radius: var(--r-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text-1);
+  border: 1px solid color-mix(in srgb, var(--accent-hot) 44%, #8b4623);
+  background: linear-gradient(135deg, #c25a2c 0%, #a84d26 54%, #924320 100%);
+  color: #fff4e3;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
 }
 
 .nba-bracket-games-pill.active,
 .nba-bracket-games-pill:hover,
 .nba-bracket-games-pill:focus-visible {
-  border-color: var(--brand-border);
-  background: var(--brand-subtle);
-  color: var(--brand-dark);
+  border-color: color-mix(in srgb, #b48a5f 48%, #5b3728);
+  background:
+    radial-gradient(circle at top right, rgba(196, 154, 92, 0.22), transparent 52%),
+    linear-gradient(135deg, #5a3828 0%, #6d4733 54%, #7c573d 100%);
+  color: #fff4e3;
+  transform: translateY(-1px);
 }
 
 .nba-bracket-clear-link {
@@ -648,23 +688,52 @@ p { margin: 0; }
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text-3);
+  color: var(--nav-active);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
 }
 
+.secondary-button.bracket-tool-button {
+  border-width: 1px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.secondary-button.bracket-tool-button-series {
+  border-color: rgba(36, 58, 94, 0.6);
+  background: linear-gradient(135deg, #1c3150 0%, #14243e 100%);
+  color: var(--nav-active);
+  box-shadow: 0 10px 18px rgba(20, 36, 62, 0.16);
+}
+
+.secondary-button.bracket-tool-button-series:hover:not(:disabled) {
+  background: linear-gradient(135deg, #233b60 0%, #1b2f4f 100%);
+  border-color: rgba(240, 195, 106, 0.48);
+}
+
+.secondary-button.bracket-tool-button-reports {
+  border-color: rgba(36, 58, 94, 0.6);
+  background: linear-gradient(135deg, #1c3150 0%, #14243e 100%);
+  color: var(--nav-active);
+  box-shadow: 0 10px 18px rgba(20, 36, 62, 0.16);
+}
+
+.secondary-button.bracket-tool-button-reports:hover:not(:disabled) {
+  background: linear-gradient(135deg, #233b60 0%, #1b2f4f 100%);
+  border-color: rgba(240, 195, 106, 0.48);
+}
+
 .nba-bracket-series.east .nba-bracket-line {
-  justify-content: space-between;
   border-right-width: 3px;
 }
 
 .nba-bracket-series.west .nba-bracket-line {
-  justify-content: space-between;
   text-align: right;
   border-left-width: 3px;
 }
+
 
 .nba-bracket-series.center .nba-bracket-line {
   justify-content: center;
@@ -789,6 +858,48 @@ p { margin: 0; }
   display: flex;
   gap: 8px;
   margin-top: 12px;
+}
+
+.nba-bracket-hero-header {
+  position: relative;
+  align-items: start;
+  min-height: 92px;
+}
+
+.nba-bracket-hero-copy {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+  max-width: 44rem;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.nba-bracket-hero-header .nba-bracket-hero-copy h2 {
+  font-size: clamp(2.1rem, 3.6vw, 3rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.nba-bracket-hero-body {
+  margin: 0;
+  color: rgba(24, 19, 16, 0.92);
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+
+.nba-bracket-hero-header .nba-report-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-top: 0;
+}
+
+.nba-bracket-hero-divider {
+  height: 1px;
+  margin: 6px -6px 18px;
+  background: linear-gradient(90deg, transparent 0%, rgba(178, 144, 105, 0.26) 6%, rgba(178, 144, 105, 0.7) 50%, rgba(178, 144, 105, 0.26) 94%, transparent 100%);
 }
 
 .nba-report-metric-wrap {

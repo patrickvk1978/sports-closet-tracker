@@ -86,7 +86,7 @@ function getSeedOrderValue(seriesItem) {
   return orderIndex === -1 ? ROUND_ONE_ORDER.length : orderIndex;
 }
 
-function BracketPopover({ detail, placement, onClose, onPickGames }) {
+function BracketPopover({ detail, placement, onClose, onPickGames, onClearSelection }) {
   if (!detail) return null;
 
   if (detail.mode === "selector") {
@@ -115,12 +115,23 @@ function BracketPopover({ detail, placement, onClose, onPickGames }) {
             className="nba-bracket-clear-link"
             onClick={(event) => {
               event.stopPropagation();
+              onClearSelection();
+            }}
+          >
+            Clear Pick
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="nba-bracket-clear-link"
+            onClick={(event) => {
+              event.stopPropagation();
               onClose();
             }}
           >
             Cancel
           </button>
-        ) : null}
+        )}
       </div>
     );
   }
@@ -166,6 +177,7 @@ function BracketSeries({
   selectionState,
   onPickGames,
   onCancelSelection,
+  onClearSelection,
 }) {
   const { top, bottom } = entry;
   const selectorDetail = selectionState
@@ -197,6 +209,7 @@ function BracketSeries({
           placement={placement}
           onClose={onCancelSelection}
           onPickGames={onPickGames}
+          onClearSelection={onClearSelection}
         />
       ) : null}
       <button
@@ -250,6 +263,7 @@ function BracketColumn({
   onSelectTeam,
   onPickGames,
   onCancelSelection,
+  onClearSelection,
 }) {
   return (
     <div className={`nba-bracket-column ${side}`}>
@@ -272,6 +286,7 @@ function BracketColumn({
             onSelectTeam={(teamId, teamAbbreviation) => onSelectTeam(entry.id, teamId, teamAbbreviation)}
             onPickGames={(games) => onPickGames(entry.id, games)}
             onCancelSelection={onCancelSelection}
+            onClearSelection={onClearSelection}
           />
         ))}
       </div>
@@ -283,7 +298,7 @@ export default function BracketWorkspaceView() {
   const { series, seriesByConference, currentRound, seriesByRound } = usePlayoffData();
   const { memberList, pool, settingsForPool } = usePool();
   const settings = settingsForPool(pool);
-  const { picksBySeriesId, allPicksByUser, saveSeriesPick } = useSeriesPickem(series);
+  const { picksBySeriesId, allPicksByUser, saveSeriesPick, clearSeriesPick } = useSeriesPickem(series);
   const currentMember = memberList.find((member) => member.isCurrentUser) ?? memberList[0] ?? null;
   const [searchParams, setSearchParams] = useSearchParams();
   const [focusedSeriesId, setFocusedSeriesId] = useState(null);
@@ -425,6 +440,7 @@ export default function BracketWorkspaceView() {
       teamId,
       teamAbbreviation,
       currentGames: currentPick?.winnerTeamId === teamId ? currentPick.games : null,
+      hasExistingPick: Boolean(currentPick?.winnerTeamId),
     });
   }
 
@@ -441,6 +457,17 @@ export default function BracketWorkspaceView() {
     setFocusedSeriesId(null);
   }
 
+  async function handleClearSelection() {
+    if (!selectionState?.seriesId) return;
+    if (!selectionState.hasExistingPick) {
+      setSelectionState(null);
+      return;
+    }
+    await clearSeriesPick(selectionState.seriesId);
+    setSelectionState(null);
+    setFocusedSeriesId(selectionState.seriesId);
+  }
+
   useEffect(() => {
     if (!isViewingCurrentUser) {
       setSelectionState(null);
@@ -450,13 +477,12 @@ export default function BracketWorkspaceView() {
   return (
     <div className="nba-shell">
       <section className="panel">
-        <div className="panel-header">
-          <div>
-            <span className="label">Bracket</span>
-            <h2>{isViewingCurrentUser ? "Make your picks in the bracket" : `${selectedViewer?.name ?? "This entry"}'s playoff path`}</h2>
-            <p className="subtle">
+        <div className="panel-header nba-bracket-hero-header">
+          <div className="nba-bracket-hero-copy">
+            <h2>{isViewingCurrentUser ? "Make Your Picks" : `${selectedViewer?.name ?? "This entry"}'s Bracket`}</h2>
+            <p className="nba-bracket-hero-body">
               {isViewingCurrentUser
-                ? "Hover for context. Click a team in the current round, then choose 4-7 games to save the pick."
+                ? <>Choose winners for the current round directly in the bracket.<br />Hover for context, then click a team and choose 4-7 games to save the series.<br />Future rounds stay locked until this round is set.</>
                 : "Hover or tap a series to see the pick view plus market and model context."}
             </p>
           </div>
@@ -479,14 +505,14 @@ export default function BracketWorkspaceView() {
               </label>
             ) : null}
             <span className="tooltip-wrap tooltip-wrap-inline">
-              <Link className="secondary-button" to="/series">
-                Series view
+              <Link className="secondary-button bracket-tool-button bracket-tool-button-series" to="/series">
+                Series View
               </Link>
               <span className="tooltip-bubble">Use the more detailed series-by-series picker if you want a slower, guided selection flow.</span>
             </span>
             <span className="tooltip-wrap tooltip-wrap-inline">
-              <Link className="secondary-button" to="/reports">
-                View reports
+              <Link className="secondary-button bracket-tool-button bracket-tool-button-reports" to="/reports">
+                Reports Page
               </Link>
               <span className="tooltip-bubble">Open the deeper probability, leverage, and pool-reading tools without leaving your picks behind.</span>
             </span>
@@ -500,6 +526,7 @@ export default function BracketWorkspaceView() {
             ) : null}
           </div>
         </div>
+        <div className="nba-bracket-hero-divider" aria-hidden="true" />
 
         <div className="nba-bracket-simple-shell">
         <div className="nba-bracket-simple">
@@ -521,6 +548,7 @@ export default function BracketWorkspaceView() {
                   onSelectTeam={handleSelectTeam}
                   onPickGames={handlePickGames}
                   onCancelSelection={() => setSelectionState(null)}
+                  onClearSelection={handleClearSelection}
                 />
               ))}
             </div>
@@ -546,6 +574,7 @@ export default function BracketWorkspaceView() {
                   onSelectTeam={(teamId, teamAbbreviation) => handleSelectTeam(entry.id, teamId, teamAbbreviation)}
                   onPickGames={(games) => handlePickGames(entry.id, games)}
                   onCancelSelection={() => setSelectionState(null)}
+                  onClearSelection={handleClearSelection}
                 />
               ))}
             </div>
@@ -569,6 +598,7 @@ export default function BracketWorkspaceView() {
                   onSelectTeam={handleSelectTeam}
                   onPickGames={handlePickGames}
                   onCancelSelection={() => setSelectionState(null)}
+                  onClearSelection={handleClearSelection}
                 />
               ))}
             </div>
