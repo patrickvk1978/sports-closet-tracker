@@ -26,7 +26,7 @@ export default function NavBar() {
 
   return (
     <nav className="nav-shell" aria-label="Primary navigation">
-      <a className="brand-link" href="/dashboard" aria-label="Go to dashboard">
+      <a className="brand-link" href="/teams" aria-label="Go to board">
         <span className="brand-mark">NBA</span>
         <span>Playoff Predictor V2</span>
       </a>
@@ -48,16 +48,16 @@ export default function NavBar() {
           <option value="__create__">+ Create a Pool</option>
         </select>
 
+        <a className={isTeams ? "nav-button active" : "nav-button"} href="/teams" aria-label="My board">
+          My Board
+        </a>
+
         <a className={isDashboard ? "nav-button active" : "nav-button"} href="/dashboard" aria-label="Dashboard">
           Dashboard
         </a>
 
         <a className={isStandings ? "nav-button active" : "nav-button"} href="/standings" aria-label="Standings">
           Standings
-        </a>
-
-        <a className={isTeams ? "nav-button active" : "nav-button"} href="/teams" aria-label="My board">
-          My Board
         </a>
 
         <a className={isReports ? "nav-button active" : "nav-button"} href="/reports" aria-label="Reports">

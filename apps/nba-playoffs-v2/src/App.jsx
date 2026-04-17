@@ -18,7 +18,9 @@ import TeamValueStandingsView from "./views/TeamValueStandingsView";
 import TeamValueDashboardView from "./views/TeamValueDashboardView";
 import TeamValueReportsView from "./views/TeamValueReportsView";
 import TeamValueReportDetailView from "./views/TeamValueReportDetailView";
+import TeamValueScoringView from "./views/TeamValueScoringView";
 import { usePool } from "./hooks/usePool";
+import { getTeamValuePhase } from "./lib/teamValueReports";
 
 function AppChrome() {
   const location = useLocation();
@@ -35,12 +37,13 @@ function AppChrome() {
 
 function PoolHomeRedirect() {
   const { pool } = usePool();
+  const phase = getTeamValuePhase();
 
   if (!pool) {
     return <Navigate to="/join" replace />;
   }
 
-  return <Navigate to="/dashboard" replace />;
+  return <Navigate to={phase === "post_lock" ? "/dashboard" : "/teams"} replace />;
 }
 
 export default function App() {
@@ -67,6 +70,7 @@ export default function App() {
                       <Route path="/standings" element={<TeamValueStandingsView />} />
                       <Route path="/reports" element={<TeamValueReportsView />} />
                       <Route path="/reports/:reportKey" element={<TeamValueReportDetailView />} />
+                      <Route path="/scoring" element={<TeamValueScoringView />} />
                       <Route path="/pool-settings" element={<PoolSettingsPage />} />
                       <Route path="/pool-members" element={<PoolMembersPage />} />
                     </Route>

@@ -438,6 +438,106 @@ p { margin: 0; }
   margin: 14px 0 18px;
 }
 
+.nba-board-entry-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 10px 0 14px;
+}
+
+.nba-board-entry-strip p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 0.92rem;
+}
+
+.nba-board-hero-header {
+  align-items: start;
+}
+
+.nba-board-hero-copy {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+.nba-board-hero-header .nba-board-hero-copy h2 {
+  font-size: clamp(2.2rem, 3.8vw, 3.3rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.nba-board-hero-body {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.nba-board-hero-body br {
+  display: block;
+  content: "";
+  margin-top: 4px;
+}
+
+.nba-board-main-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) 280px;
+  gap: 20px;
+  align-items: start;
+}
+
+.nba-board-main-column {
+  min-width: 0;
+}
+
+.nba-board-side-rail {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 84px;
+}
+
+.nba-board-rail-card {
+  min-height: 150px;
+}
+
+.nba-board-side-rail .detail-card:first-child {
+  background: linear-gradient(180deg, rgba(20, 36, 62, 0.98), rgba(29, 52, 89, 0.96));
+  border-color: rgba(240, 195, 106, 0.24);
+}
+
+.nba-board-side-rail .detail-card:first-child .micro-label,
+.nba-board-side-rail .detail-card:first-child p {
+  color: #fff7ea;
+}
+
+.nba-board-rail-card.reports-card {
+  background: linear-gradient(180deg, rgba(196, 154, 58, 0.92), rgba(228, 187, 91, 0.82));
+  border-color: rgba(149, 110, 28, 0.54);
+}
+
+.nba-board-rail-card.scoring-card {
+  background: linear-gradient(180deg, rgba(194, 90, 44, 0.9), rgba(221, 126, 74, 0.82));
+  border-color: rgba(146, 67, 32, 0.5);
+}
+
+.nba-board-rail-card .micro-label,
+.nba-board-rail-card p {
+  color: rgba(52, 31, 18, 0.92);
+}
+
+.nba-board-rail-card .secondary-button {
+  background: rgba(255, 248, 233, 0.96);
+  border-color: rgba(91, 55, 43, 0.18);
+  color: var(--text-1);
+}
+
 .nba-board-glossary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -447,14 +547,21 @@ p { margin: 0; }
 
 .nba-team-board-team-cell {
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.nba-team-board-team-cell strong {
+  font-size: 1.16rem;
+  line-height: 1.12;
 }
 
 .nba-team-board-team-meta {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   align-items: center;
+  min-width: 0;
 }
 
 .subtle-chip {
@@ -478,16 +585,20 @@ p { margin: 0; }
 
 .nba-team-board-table {
   width: 100%;
-  min-width: 760px;
+  min-width: 700px;
   border-collapse: collapse;
 }
 
 .nba-team-board-table th,
 .nba-team-board-table td {
-  padding: 14px 12px;
+  padding: 13px 10px;
   border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: middle;
+}
+
+.nba-team-board-table td:first-child {
+  min-width: 220px;
 }
 
 .nba-team-board-table th {
@@ -1495,7 +1606,7 @@ p { margin: 0; }
 }
 
 .team-value-select.is-primary-control {
-  min-width: 112px;
+  min-width: 92px;
   border-color: rgba(194, 90, 44, 0.52);
   box-shadow: 0 0 0 1px rgba(194, 90, 44, 0.12), var(--shadow-xs);
 }
@@ -2249,6 +2360,10 @@ select:focus {
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 4px;
+}
+
+.nba-board-workspace-nav {
+  margin-bottom: 14px;
 }
 
 .tab-set,
@@ -3304,25 +3419,14 @@ select:focus {
 .board-table-head,
 .board-row {
   display: grid;
-  grid-template-columns: 52px minmax(160px, 2fr) 0.6fr 1fr auto;
+  grid-template-columns: 52px minmax(180px, 1.8fr) minmax(220px, 1fr);
   gap: 10px;
   align-items: center;
 }
 
-.board-table-head {
-  padding: 0 14px 8px;
-  color: var(--text-3);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 2px;
-}
-
 .board-row {
   width: 100%;
-  padding: 11px 14px;
+  padding: 16px 16px;
   border-radius: var(--r-md);
   border: 1px solid var(--border);
   background: var(--surface-0);
@@ -3355,28 +3459,86 @@ select:focus {
 }
 
 .board-player {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(180px, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.board-player-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
+  gap: 6px;
   flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.board-player strong {
+  font-size: 1.32rem;
+  line-height: 1.08;
+  justify-self: center;
+  text-align: center;
 }
 
 .board-rank {
   display: inline-grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 42px;
+  height: 42px;
   border-radius: var(--r-full);
-  background: var(--surface-2);
+  background: linear-gradient(180deg, rgba(20, 36, 62, 0.98), rgba(29, 52, 89, 0.98));
+  color: #fff7ea;
   font-weight: 800;
-  font-size: 0.825rem;
+  font-size: 1rem;
   flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
 .board-row.selected .board-rank {
-  background: var(--brand);
-  color: white;
+  background: linear-gradient(180deg, rgba(20, 36, 62, 1), rgba(18, 31, 54, 1));
+  color: #f0c36a;
+}
+
+.board-row-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.board-row-metrics span {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: rgba(244, 233, 213, 0.78);
+  border: 1px solid rgba(178, 144, 105, 0.2);
+  text-align: center;
+}
+
+.board-row-metrics strong {
+  font-size: 1rem;
+  color: var(--text-1);
+}
+
+.board-row-metrics small {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.board-meta-pill {
+  min-width: 82px;
+  justify-content: center;
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+.board-meta-pill-accent {
+  background: linear-gradient(180deg, rgba(20, 36, 62, 0.96), rgba(29, 52, 89, 0.96));
+  color: #fff7ea;
+  border-color: rgba(240, 195, 106, 0.24);
 }
 
 /* assign-tag replaces the old assign-pill + board-status dual indicator */
@@ -3798,6 +3960,15 @@ select:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .nba-board-main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nba-board-side-rail {
+    position: static;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .nba-reports-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3816,7 +3987,7 @@ select:focus {
 
   .board-table-head,
   .board-row {
-    grid-template-columns: 42px minmax(140px, 2fr) 0.6fr 1fr auto;
+    grid-template-columns: 42px minmax(140px, 1.6fr) minmax(190px, 1fr);
   }
 
   .board-action-bar {
@@ -3848,6 +4019,10 @@ select:focus {
   }
 
   .nba-board-glossary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nba-board-side-rail {
     grid-template-columns: 1fr;
   }
 
@@ -3918,6 +4093,15 @@ select:focus {
 
   .pool-status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .board-row {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .board-row-metrics {
+    grid-column: 1 / -1;
+    margin-left: 52px;
   }
 
   .mock-fixed-header,
