@@ -24,6 +24,35 @@ function ordinal(value) {
   return `${value}th`;
 }
 
+function ReportMetricsTable({ metrics, ariaLabel = "Report metrics" }) {
+  if (!metrics.length) {
+    return null;
+  }
+
+  const columnTemplate = `repeat(${metrics.length}, minmax(0, 1fr))`;
+
+  return (
+    <div className="nba-report-metric-wrap">
+      <div className="nba-report-metric-table" role="table" aria-label={ariaLabel}>
+        <div className="nba-report-metric-row nba-report-metric-row-head" role="row" style={{ gridTemplateColumns: columnTemplate }}>
+          {metrics.map((metric) => (
+            <span className="nba-report-metric-cell" role="columnheader" key={metric.label}>
+              {metric.label}
+            </span>
+          ))}
+        </div>
+        <div className="nba-report-metric-row" role="row" style={{ gridTemplateColumns: columnTemplate }}>
+          {metrics.map((metric) => (
+            <strong className="nba-report-metric-cell nba-report-metric-value" role="cell" key={metric.label}>
+              {metric.value}
+            </strong>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function hashSeed(value) {
   return Array.from(String(value ?? "")).reduce((total, char, index) => {
     return total + char.charCodeAt(0) * (index + 1);
@@ -1105,8 +1134,15 @@ export default function ReportDetailView() {
                   <strong>{row.title}</strong>
                   <p>{row.matchup} · Consensus: {row.consensusTeam}</p>
                   <p>{row.body}</p>
-                  <p>{row.homePct}% on the home side · {row.awayPct}% on the away side</p>
-                  <p>Most common length: {row.leadingGames ? `${row.leadingGames} games` : "No lean yet"} · Open cards: {row.noPickCount}</p>
+                  <ReportMetricsTable
+                    ariaLabel="Pool exposure metrics"
+                    metrics={[
+                      { label: `${row.matchup.split(" vs ")[0]} side`, value: `${row.homePct}%` },
+                      { label: `${row.matchup.split(" vs ")[1]} side`, value: `${row.awayPct}%` },
+                      { label: "Top length", value: row.leadingGames ? `${row.leadingGames} games` : "No lean yet" },
+                      { label: "Open cards", value: row.noPickCount },
+                    ]}
+                  />
                 </div>
               </div>
             )) : (
@@ -1171,7 +1207,13 @@ export default function ReportDetailView() {
                   <strong>{row.title}</strong>
                   <p>{row.matchup}</p>
                   <p>{row.body}</p>
-                  <p>Market lean: {row.marketLean} · Model lean: {row.modelLean}</p>
+                  <ReportMetricsTable
+                    ariaLabel="Win odds metrics"
+                    metrics={[
+                      { label: "Market lean", value: row.marketLean },
+                      { label: "Model lean", value: row.modelLean },
+                    ]}
+                  />
                 </div>
               </div>
             ))}

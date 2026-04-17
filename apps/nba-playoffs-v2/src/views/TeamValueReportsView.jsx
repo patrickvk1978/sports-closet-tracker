@@ -1,12 +1,13 @@
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
 import { getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
-import { SCENARIO_WATCH_ITEMS } from "../data/scenarioWatch";
 
 function ReportCard({ report, sampleRows, to }) {
+  const featuredRow = sampleRows[0];
   return (
     <article className="panel">
       <div className="panel-header">
@@ -16,18 +17,18 @@ function ReportCard({ report, sampleRows, to }) {
         </div>
       </div>
 
-      <p className="subtle">{report.description}</p>
+      <p className="subtle nba-report-card-summary">{report.description}</p>
 
-      <div className="nba-dashboard-list">
-        {sampleRows.map((row) => (
-          <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
+      {featuredRow ? (
+        <div className="nba-dashboard-list">
+          <div className="nba-dashboard-row nba-dashboard-row-stacked" key={featuredRow.id}>
             <div>
-              <strong>{row.headline}</strong>
-              <p>{row.body}</p>
+              <strong>{featuredRow.headline}</strong>
+              <p>{featuredRow.body}</p>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      ) : null}
 
       <div className="nba-report-actions">
         <a className="secondary-button" href={to}>
@@ -39,38 +40,30 @@ function ReportCard({ report, sampleRows, to }) {
 }
 
 function buildReportsHero(reportState) {
-  const slotFit = reportState.reports["slot-fits"]?.rows?.[0];
-  const strategicMove = reportState.reports["strategic-moves"]?.rows?.[0];
-  const modelGap = reportState.reports["model-gaps"]?.rows?.[0];
-  const topScenario = SCENARIO_WATCH_ITEMS[0];
-  const secondScenario = SCENARIO_WATCH_ITEMS[1];
-
   if (reportState.phase === "pre_lock") {
     return {
-      headline: "This is the decision desk for the board you are about to lock.",
-      body: modelGap
-        ? `${topScenario?.likelyImpact ?? "The board tightened last night, but it did not finish itself."} ${modelGap.teamLabel} is one of the clearest outside-signal disagreements on your board, while ${slotFit?.teamLabel ?? "your top slot-fit issue"} is still one of the cleanest placement questions. The real pre-lock job is not reading everything. It is finding the two or three teams worth revisiting.`
-        : `${secondScenario?.likelyImpact ?? "The useful pre-lock question is not “what do the reports say?” so much as “which few teams are worth one more hard look?”"} Start with slot fit, strategic moves, and any major outside-signal disagreement.`,
+      headline: "Use reports to narrow the board to the few teams still worth revisiting.",
+      body: "Start with Best slot fits. Then use Strategic moves and Market vs. model to pressure-test the calls you are least sure about. The goal here is not to read everything. It is to find the two or three assignments worth one more pass before lock.",
       stats: [
         {
-          label: "First report",
+          label: "Start here",
           value: "Best slot fits",
         },
         {
-          label: "High-signal check",
+          label: "Outside check",
           value: "Market vs. model",
         },
         {
-          label: "Decision lens",
-          value: strategicMove?.moveType ?? "Strategic moves",
+          label: "Main question",
+          value: "Board decisions",
         },
       ],
     };
   }
 
   return {
-    headline: reportState.summary.headline,
-    body: reportState.summary.body,
+    headline: "Use reports to understand what is driving your board now that it is live.",
+    body: "Start with Overweight / underweight and Biggest assets to see where your exposure sits. Then use Rooting guide and Market vs. model to understand what outcomes matter most and where the outside signals still disagree.",
     stats: reportState.summary.stats,
   };
 }
@@ -94,67 +87,101 @@ export default function TeamValueReportsView() {
     reportState.phase === "pre_lock"
       ? [
           "slot-fits",
-          "model-gaps",
           "strategic-moves",
+          "model-gaps",
           "assets",
-          "rooting",
           "fragility",
-          "overweight",
         ]
       : [
           "overweight",
           "assets",
           "rooting",
           "slot-fits",
-          "strategic-moves",
           "model-gaps",
-          "fragility",
         ];
   const visibleReports = reportOrder
     .filter((key) => reportState.visibleReportKeys.includes(key))
-    .map((key) => reportState.reports[key]);
+    .map((key) => reportState.reports[key])
+    .slice(0, 4);
+  const reportChoices = useMemo(() => visibleReports, [visibleReports]);
+  const [selectedReportKey, setSelectedReportKey] = useState(reportChoices[0]?.key ?? "");
+
+  useEffect(() => {
+    if (!reportChoices.length) {
+      setSelectedReportKey("");
+      return;
+    }
+
+    if (!reportChoices.some((report) => report.key === selectedReportKey)) {
+      setSelectedReportKey(reportChoices[0].key);
+    }
+  }, [reportChoices, selectedReportKey]);
+
+  const selectedIndex = reportChoices.findIndex((report) => report.key === selectedReportKey);
+  const activeReport = selectedIndex >= 0 ? reportChoices[selectedIndex] : reportChoices[0] ?? null;
 
   return (
     <div className="nba-shell">
-      <section className="panel nba-reports-hero">
-        <div>
-          <span className="label">Reports</span>
-          <h2>{heroState.headline}</h2>
-          <p className="subtle">{heroState.body}</p>
-        </div>
-        <div className="nba-stat-grid">
-          {heroState.stats.map((stat) => (
-            <div className="nba-stat-card" key={stat.label}>
-              <span className="micro-label">{stat.label}</span>
-              <strong>{stat.value}</strong>
+      {activeReport ? (
+        <section className="nba-report-browser">
+          <section className="panel nba-reports-hero nba-report-browser-hero">
+            <div className="nba-report-browser-copy">
+              <span className="label">Reports</span>
+              <h2>{heroState.headline}</h2>
+              <p className="subtle">{heroState.body}</p>
+              <div className="nba-report-browser-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setSelectedReportKey(reportChoices[Math.max(selectedIndex - 1, 0)].key)}
+                  disabled={selectedIndex <= 0}
+                >
+                  Previous
+                </button>
+                <label className="nba-report-browser-select-wrap">
+                  <span className="micro-label">Choose report</span>
+                  <select
+                    className="nba-report-browser-select"
+                    value={activeReport.key}
+                    onChange={(event) => setSelectedReportKey(event.target.value)}
+                  >
+                    {reportChoices.map((report) => (
+                      <option key={report.key} value={report.key}>
+                        {report.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setSelectedReportKey(reportChoices[Math.min(selectedIndex + 1, reportChoices.length - 1)].key)}
+                  disabled={selectedIndex === reportChoices.length - 1}
+                >
+                  Next
+                </button>
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
+            <div className="nba-stat-grid">
+              {heroState.stats.map((stat) => (
+                <div className="nba-stat-card" key={stat.label}>
+                  <span className="micro-label">{stat.label}</span>
+                  <strong>{stat.value}</strong>
+                </div>
+              ))}
+            </div>
+          </section>
 
-      <section className="panel">
-        <div className="detail-card inset-card">
-          <span className="micro-label">Report mode</span>
-          <p>
-            {reportState.phase === "pre_lock"
-              ? "This is the pre-lock report set. It is built to help you place the slots well without leaking anything about the rest of the pool."
-              : "This is the post-lock report set. Now the reports can compare your live portfolio to the room and show true pool-specific leverage."}
-          </p>
-        </div>
-      </section>
-
-      <section className="nba-dashboard-grid">
-        {visibleReports.map((report) => {
-          return (
+          <section className="nba-dashboard-grid nba-reports-grid nba-reports-grid-single">
             <ReportCard
-              key={report.key}
-              report={report}
-              sampleRows={report.rows.slice(0, 2)}
-              to={`/reports/${report.key}`}
+              key={activeReport.key}
+              report={activeReport}
+              sampleRows={activeReport.rows.slice(0, 1)}
+              to={`/reports/${activeReport.key}`}
             />
-          );
-        })}
-      </section>
+          </section>
+        </section>
+      ) : null}
     </div>
   );
 }

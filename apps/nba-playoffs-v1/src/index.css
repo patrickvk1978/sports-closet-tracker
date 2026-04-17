@@ -591,6 +591,62 @@ p { margin: 0; }
   gap: 18px;
 }
 
+.nba-reports-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.nba-reports-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.nba-report-browser {
+  display: grid;
+  gap: 16px;
+}
+
+.nba-report-browser-hero {
+  align-items: start;
+}
+
+.nba-report-browser-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.nba-report-browser-controls {
+  display: grid;
+  gap: 14px;
+}
+
+.nba-report-browser-controls h3 {
+  margin-top: 4px;
+}
+
+.nba-report-browser-actions {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nba-report-browser-select-wrap {
+  display: grid;
+  gap: 6px;
+  min-width: min(320px, 100%);
+  flex: 1 1 240px;
+}
+
+.nba-report-browser-select {
+  width: 100%;
+  min-height: 44px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface-0);
+  color: var(--text-1);
+  padding: 10px 12px;
+  font: inherit;
+}
+
 .nba-reports-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -601,6 +657,44 @@ p { margin: 0; }
   display: flex;
   gap: 8px;
   margin-top: 12px;
+}
+
+.nba-report-metric-wrap {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.nba-report-metric-table {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(178, 144, 105, 0.54);
+  background: rgba(247, 237, 220, 0.84);
+}
+
+.nba-report-metric-row {
+  display: grid;
+  gap: 10px;
+}
+
+.nba-report-metric-cell {
+  min-width: 0;
+}
+
+.nba-report-metric-row-head .nba-report-metric-cell {
+  color: var(--text-3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nba-report-metric-value {
+  color: var(--text-1);
+  font-size: 0.95rem;
+  font-weight: 800;
 }
 
 .tooltip-wrap {

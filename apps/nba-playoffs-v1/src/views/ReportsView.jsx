@@ -510,6 +510,28 @@ function buildReportsHeroState(reportsSummary, { showScenarioCard, scenarioRows,
   return reportsSummary;
 }
 
+function ReportPreviewPanel({ heading, title, children, to, ctaLabel = "Open full report", control }) {
+  return (
+    <article className="panel">
+      <div className="panel-header">
+        <div>
+          <span className="label">{heading}</span>
+          <h2>{title}</h2>
+        </div>
+        {control ?? null}
+      </div>
+      <div className="nba-dashboard-list">
+        {children}
+        <div className="nba-report-actions">
+          <Link className="secondary-button" to={to}>
+            {ctaLabel}
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function ReportsView() {
   const { profile } = useAuth();
   const { pool, memberList, settingsForPool } = usePool();
@@ -879,234 +901,156 @@ export default function ReportsView() {
       .slice(0, 3);
   }, [activeRoundSeries, allPicksByUser, canViewPoolSignals, memberList, picksBySeriesId]);
 
-  return (
-    <div className="nba-shell">
-      <section className="panel nba-reports-hero">
-        <div>
-          <span className="label">Reports</span>
-          <h2>{heroState.headline}</h2>
-          <p className="subtle">
-            {heroState.body}
-          </p>
-        </div>
-        <div className="nba-stat-grid">
-          {heroState.stats.map((stat) => (
-            <div className="nba-stat-card" key={stat.label}>
-              <span className="micro-label">{stat.label}</span>
-              <strong>{stat.value}</strong>
+  const reportOptions = useMemo(() => {
+    const options = [];
+
+    if (showScenarioCard) {
+      options.push({
+        key: "scenarios",
+        label: "Scenario watch",
+        title: "What can still move before Round 1 locks?",
+        to: "/reports/scenarios",
+        children: (
+          <>
+            {scenarioRows.map((item) => (
+              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={item.id}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.sourced}</p>
+                  <p>{item.likelyImpact}</p>
+                </div>
+              </div>
+            ))}
+            <p className="subtle">Sourced through {SCENARIO_WATCH_DATE}. Matchup and market implications are local product inference.</p>
+          </>
+        ),
+      });
+    }
+
+    options.push({
+      key: "rooting",
+      label: "Rooting guide",
+      title: "What should you care about most?",
+      to: "/reports/rooting",
+      children: (
+        <>
+          {rootingRows.slice(0, 2).map((row) => (
+            <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
+              <div>
+                <strong>{row.note.title}</strong>
+                <p>{row.matchup} · {row.status}</p>
+                <p>{row.note.body}</p>
+              </div>
             </div>
           ))}
-        </div>
-      </section>
+        </>
+      ),
+    });
 
-      <section className="nba-dashboard-grid">
-        {showScenarioCard ? (
-          <article className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="label">Scenario watch</span>
-                <h2>What can still move before Round 1 locks?</h2>
-              </div>
-            </div>
-            <div className="nba-dashboard-list">
-              {scenarioRows.map((item) => (
-                <div className="nba-dashboard-row nba-dashboard-row-stacked" key={item.id}>
-                  <div>
-                    <strong>{item.title}</strong>
-                    <p>{item.sourced}</p>
-                    <p>{item.likelyImpact}</p>
-                  </div>
-                </div>
-              ))}
-              <div className="nba-report-actions">
-                <Link className="secondary-button" to="/reports/scenarios">
-                  Open full report
-                </Link>
-              </div>
-              <p className="subtle">Sourced through {SCENARIO_WATCH_DATE}. Matchup and market implications are local product inference.</p>
-            </div>
-          </article>
-        ) : (
-          <article className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="label">Rooting guide</span>
-                <h2>What should you care about most?</h2>
-              </div>
-            </div>
-            <div className="nba-dashboard-list">
-              {rootingRows.slice(0, 2).map((row) => (
-                <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
-                  <div>
-                    <strong>{row.note.title}</strong>
-                    <p>{row.matchup} · {row.status}</p>
-                    <p>{row.note.body}</p>
-                  </div>
-                </div>
-              ))}
-              <div className="nba-report-actions">
-                <Link className="secondary-button" to="/reports/rooting">
-                  Open full report
-                </Link>
-              </div>
-            </div>
-          </article>
-        )}
-
-        <article className="panel">
-          <div className="panel-header">
+    options.push({
+      key: "win-odds",
+      label: "Win odds",
+      title: "What is driving your current-round probability?",
+      to: "/reports/win-odds",
+      children: (
+        <>
+          <div className="nba-dashboard-row nba-dashboard-row-stacked">
             <div>
-              <span className="label">Win odds</span>
-              <h2>What is driving your current-round probability?</h2>
+              <strong>{currentStanding ? `${currentStanding.roundWinOdds}% current-round win odds` : "Current-round odds still forming"}</strong>
+              <p>
+                This first-pass number simulates the unresolved series in the current round using the market probabilities already on the board. The same probability layer is also feeding the market/model signals across Dashboard, Series, and Bracket.
+              </p>
             </div>
           </div>
-          <div className="nba-dashboard-list">
-            <div className="nba-dashboard-row nba-dashboard-row-stacked">
+          {probabilityRows.slice(0, 2).map((row) => (
+            <div className="nba-dashboard-row nba-dashboard-row-stacked" key={`${row.id}-probability`}>
               <div>
-                <strong>{currentStanding ? `${currentStanding.roundWinOdds}% current-round win odds` : "Current-round odds still forming"}</strong>
-                <p>
-                  This first-pass number simulates the unresolved series in the current round using the market probabilities already on the board. The same probability layer is also feeding the market/model signals across Dashboard, Series, and Bracket.
-                </p>
+                <strong>{row.title}</strong>
+                <p>{row.matchup}</p>
+                <p>{row.body}</p>
+                <p>Market lean: {row.marketLean} · Model lean: {row.modelLean}</p>
               </div>
             </div>
-            {probabilityRows.slice(0, 2).map((row) => (
-              <div className="nba-dashboard-row nba-dashboard-row-stacked" key={`${row.id}-probability`}>
-                <div>
-                  <strong>{row.title}</strong>
-                  <p>{row.matchup}</p>
-                  <p>{row.body}</p>
-                  <p>Market lean: {row.marketLean} · Model lean: {row.modelLean}</p>
-                </div>
+          ))}
+        </>
+      ),
+    });
+
+    options.push({
+      key: "swing",
+      label: "Swing spots",
+      title: "Which series can move your standing?",
+      to: "/reports/swing",
+      children: (
+        <>
+          {swingRows.slice(0, 2).map((row) => (
+            <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
+              <div>
+                <strong>{row.title}</strong>
+                <p>{row.matchup}</p>
+                <p>{row.body}</p>
               </div>
+            </div>
+          ))}
+        </>
+      ),
+    });
+
+    if (canViewPoolSignals) {
+      options.push({
+        key: "head-to-head",
+        label: "Head to head",
+        title: "How do you differ from one opponent?",
+        to: selectedOpponent ? `/reports/opponent/${selectedOpponent.id}` : "/reports",
+        ctaLabel: selectedOpponent ? "Open matchup report" : "Need another entry first",
+        control: selectedOpponent ? (
+          <select
+            className="nav-select"
+            value={selectedOpponentId}
+            onChange={(event) => setSelectedOpponentId(event.target.value)}
+            aria-label="Select opponent"
+          >
+            {opponents.map((member) => (
+              <option key={member.id} value={member.id}>{member.name}</option>
             ))}
-            <div className="nba-report-actions">
-              <Link className="secondary-button" to="/reports/win-odds">
-                Open full report
-              </Link>
+          </select>
+        ) : null,
+        children: !selectedOpponent ? (
+          <p className="subtle">Add another member to the pool to unlock head-to-head comparisons.</p>
+        ) : (
+          <>
+            <div className="nba-reports-summary">
+              <div className="detail-card inset-card">
+                <span className="micro-label">You</span>
+                <p>{currentMember?.name ?? "You"} · {currentStanding?.summary.totalPoints ?? 0} pts</p>
+              </div>
+              <div className="detail-card inset-card">
+                <span className="micro-label">{selectedOpponent.name}</span>
+                <p>{selectedOpponent.summary?.totalPoints ?? summarizePickScores(opponentPicks, series, settings).totalPoints} pts</p>
+              </div>
             </div>
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-header">
-            <div>
-              <span className="label">Swing spots</span>
-              <h2>Which series can move your standing?</h2>
-            </div>
-          </div>
-          <div className="nba-dashboard-list">
-            {swingRows.slice(0, 2).map((row) => (
+            {headToHeadSummary ? <p className="subtle">{headToHeadSummary}</p> : null}
+            {headToHeadRows.length ? headToHeadRows.slice(0, 2).map((row) => (
               <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
                 <div>
-                  <strong>{row.title}</strong>
-                  <p>{row.matchup}</p>
-                  <p>{row.body}</p>
+                  <strong>{row.matchup}</strong>
+                  <p>{row.label}</p>
+                  <p>You: {row.yourPick} · {selectedOpponent.name}: {row.theirPick}</p>
+                  <p>Room lean: {row.roomLean}</p>
                 </div>
               </div>
-            ))}
-            <div className="nba-report-actions">
-              <Link className="secondary-button" to="/reports/swing">
-                Open full report
-              </Link>
-            </div>
-          </div>
-        </article>
-      </section>
+            )) : <p className="subtle">You and {selectedOpponent.name} are aligned on the current round so far.</p>}
+          </>
+        ),
+      });
 
-      <section className="nba-dashboard-grid">
-        {showScenarioCard ? (
-          <article className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="label">Rooting guide</span>
-                <h2>What should you care about most?</h2>
-              </div>
-            </div>
-            <div className="nba-dashboard-list">
-              {rootingRows.slice(0, 2).map((row) => (
-                <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
-                  <div>
-                    <strong>{row.note.title}</strong>
-                    <p>{row.matchup} · {row.status}</p>
-                    <p>{row.note.body}</p>
-                  </div>
-                </div>
-              ))}
-              <div className="nba-report-actions">
-                <Link className="secondary-button" to="/reports/rooting">
-                  Open full report
-                </Link>
-              </div>
-            </div>
-          </article>
-        ) : null}
-
-        {canViewPoolSignals ? (
-        <article className="panel">
-          <div className="panel-header">
-            <div>
-              <span className="label">Head to head</span>
-              <h2>How do you differ from one opponent?</h2>
-            </div>
-            {selectedOpponent ? (
-              <select
-                className="nav-select"
-                value={selectedOpponentId}
-                onChange={(event) => setSelectedOpponentId(event.target.value)}
-                aria-label="Select opponent"
-              >
-                {opponents.map((member) => (
-                  <option key={member.id} value={member.id}>{member.name}</option>
-                ))}
-              </select>
-            ) : null}
-          </div>
-          <div className="nba-dashboard-list">
-            {!selectedOpponent ? (
-              <p className="subtle">Add another member to the pool to unlock head-to-head comparisons.</p>
-            ) : (
-              <>
-                <div className="nba-reports-summary">
-                  <div className="detail-card inset-card">
-                    <span className="micro-label">You</span>
-                    <p>{currentMember?.name ?? "You"} · {currentStanding?.summary.totalPoints ?? 0} pts</p>
-                  </div>
-                  <div className="detail-card inset-card">
-                    <span className="micro-label">{selectedOpponent.name}</span>
-                    <p>{selectedOpponent.summary?.totalPoints ?? summarizePickScores(opponentPicks, series, settings).totalPoints} pts</p>
-                  </div>
-                </div>
-                {headToHeadSummary ? <p className="subtle">{headToHeadSummary}</p> : null}
-                {headToHeadRows.length ? headToHeadRows.slice(0, 2).map((row) => (
-                  <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
-                    <div>
-                      <strong>{row.matchup}</strong>
-                      <p>{row.label}</p>
-                      <p>You: {row.yourPick} · {selectedOpponent.name}: {row.theirPick}</p>
-                      <p>Room lean: {row.roomLean}</p>
-                    </div>
-                  </div>
-                )) : <p className="subtle">You and {selectedOpponent.name} are aligned on the current round so far.</p>}
-                <div className="nba-report-actions">
-                  <Link className="secondary-button" to={`/reports/opponent/${selectedOpponent.id}`}>
-                    Open matchup report
-                  </Link>
-                </div>
-              </>
-            )}
-          </div>
-        </article>
-        ) : null}
-
-        {canViewPoolSignals ? (
-        <article className="panel">
-          <div className="panel-header">
-            <div>
-              <span className="label">Pool exposure</span>
-              <h2>Where is the room concentrated?</h2>
-            </div>
-          </div>
-          <div className="nba-dashboard-list">
+      options.push({
+        key: "exposure",
+        label: "Pool exposure",
+        title: "Where is the room concentrated?",
+        to: "/reports/exposure",
+        children: (
+          <>
             {exposureRows.slice(0, 2).map((row) => (
               <div className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
                 <div>
@@ -1117,46 +1061,137 @@ export default function ReportsView() {
                 </div>
               </div>
             ))}
-            <div className="nba-report-actions">
-              <Link className="secondary-button" to="/reports/exposure">
-                Open full report
-              </Link>
+          </>
+        ),
+      });
+    }
+
+    if (!showScenarioCard) {
+      options.push({
+        key: "outlook",
+        label: "Position outlook",
+        title: "What does your standing mean?",
+        to: "/reports/outlook",
+        children: (
+          <div className="nba-dashboard-row nba-dashboard-row-stacked">
+            <div>
+              <strong>{currentStandingIndex >= 0 ? `You are currently ${ordinal(currentStandingIndex + 1)}` : "Standing still forming"}</strong>
+              <p>
+                {pointsBack > 0
+                  ? `You are ${pointsBack} point${pointsBack === 1 ? "" : "s"} behind ${leader?.name ?? "the leader"}, so contrarian hits matter more than safe consensus wins right now.`
+                  : pointsBack === 0 && leader
+                    ? `You are level with the top of the pool, so the biggest risk now is getting caught on the room's chalk while someone else hits a live swing.`
+                    : "Once more picks and results come in, this section will tell a cleaner story about what you need next."}
+              </p>
             </div>
           </div>
-        </article>
-        ) : null}
+        ),
+      });
+    }
 
-        {!showScenarioCard ? (
-          <article className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="label">Position outlook</span>
-                <h2>What does your standing mean?</h2>
+    return options;
+  }, [
+    canViewPoolSignals,
+    currentMember?.name,
+    currentStanding,
+    currentStandingIndex,
+    exposureRows,
+    headToHeadRows,
+    headToHeadSummary,
+    leader?.name,
+    opponents,
+    pointsBack,
+    probabilityRows,
+    rootingRows,
+    scenarioRows,
+    selectedOpponent,
+    selectedOpponentId,
+    series,
+    settings,
+    showScenarioCard,
+    swingRows,
+  ]);
+  const [selectedReportKey, setSelectedReportKey] = useState(reportOptions[0]?.key ?? "");
+
+  useEffect(() => {
+    if (!reportOptions.length) {
+      setSelectedReportKey("");
+      return;
+    }
+
+    if (!reportOptions.some((option) => option.key === selectedReportKey)) {
+      setSelectedReportKey(reportOptions[0].key);
+    }
+  }, [reportOptions, selectedReportKey]);
+
+  const selectedReportIndex = reportOptions.findIndex((option) => option.key === selectedReportKey);
+  const activeReport = selectedReportIndex >= 0 ? reportOptions[selectedReportIndex] : reportOptions[0] ?? null;
+
+  return (
+    <div className="nba-shell">
+      {activeReport ? (
+        <section className="nba-report-browser">
+          <section className="panel nba-reports-hero nba-report-browser-hero">
+            <div className="nba-report-browser-copy">
+              <span className="label">Reports</span>
+              <h2>{heroState.headline}</h2>
+              <p className="subtle">{heroState.body}</p>
+              <div className="nba-report-browser-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setSelectedReportKey(reportOptions[Math.max(selectedReportIndex - 1, 0)].key)}
+                  disabled={selectedReportIndex <= 0}
+                >
+                  Previous
+                </button>
+                <label className="nba-report-browser-select-wrap">
+                  <span className="micro-label">Choose report</span>
+                  <select
+                    className="nba-report-browser-select"
+                    value={activeReport.key}
+                    onChange={(event) => setSelectedReportKey(event.target.value)}
+                  >
+                    {reportOptions.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setSelectedReportKey(reportOptions[Math.min(selectedReportIndex + 1, reportOptions.length - 1)].key)}
+                  disabled={selectedReportIndex === reportOptions.length - 1}
+                >
+                  Next
+                </button>
               </div>
             </div>
-            <div className="nba-dashboard-list">
-              <div className="nba-dashboard-row nba-dashboard-row-stacked">
-                <div>
-                  <strong>{currentStandingIndex >= 0 ? `You are currently ${ordinal(currentStandingIndex + 1)}` : "Standing still forming"}</strong>
-                  <p>
-                    {pointsBack > 0
-                      ? `You are ${pointsBack} point${pointsBack === 1 ? "" : "s"} behind ${leader?.name ?? "the leader"}, so contrarian hits matter more than safe consensus wins right now.`
-                      : pointsBack === 0 && leader
-                        ? `You are level with the top of the pool, so the biggest risk now is getting caught on the room's chalk while someone else hits a live swing.`
-                        : "Once more picks and results come in, this section will tell a cleaner story about what you need next."}
-                  </p>
+            <div className="nba-stat-grid">
+              {heroState.stats.map((stat) => (
+                <div className="nba-stat-card" key={stat.label}>
+                  <span className="micro-label">{stat.label}</span>
+                  <strong>{stat.value}</strong>
                 </div>
-              </div>
-              <div className="nba-report-actions">
-                <Link className="secondary-button" to="/reports/outlook">
-                  Open full report
-                </Link>
-              </div>
+              ))}
             </div>
-          </article>
-        ) : null}
+          </section>
 
-      </section>
+          <section className="nba-dashboard-grid nba-reports-grid nba-reports-grid-single">
+            <ReportPreviewPanel
+              heading={activeReport.label}
+              title={activeReport.title}
+              to={activeReport.to}
+              ctaLabel={activeReport.ctaLabel}
+              control={activeReport.control}
+            >
+              {activeReport.children}
+            </ReportPreviewPanel>
+          </section>
+        </section>
+      ) : null}
 
     </div>
   );

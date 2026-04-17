@@ -165,15 +165,6 @@ export default function SeriesTrackerView() {
       <section className="panel">
         <div className="panel-header">
           <div>
-            <span className="label">Series Pick'em</span>
-            <h2>Make your picks for the current playoff round.</h2>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <div>
             <span className="label">Series board</span>
             <h2>{isViewingCurrentUser ? "Current round board" : `${selectedViewer?.name ?? "This entry"}'s round board`}</h2>
           </div>

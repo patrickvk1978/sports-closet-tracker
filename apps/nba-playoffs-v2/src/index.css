@@ -316,7 +316,16 @@ p { margin: 0; }
   align-content: start;
 }
 
+.nba-report-group-table {
+  gap: 0;
+  border: 1px solid color-mix(in srgb, var(--brand) 20%, var(--border));
+  border-radius: var(--r-lg);
+  background: rgba(248, 241, 227, 0.62);
+  overflow: hidden;
+}
+
 .nba-report-column-intro {
+  display: grid;
   gap: 8px;
   padding: 16px 18px;
   border: 1px solid color-mix(in srgb, var(--brand) 28%, var(--border));
@@ -324,13 +333,22 @@ p { margin: 0; }
   background:
     linear-gradient(180deg, rgba(240, 226, 199, 0.98), rgba(231, 214, 186, 0.98));
   box-shadow: none;
+  text-align: center;
+}
+
+.nba-report-group-table .nba-report-column-intro {
+  margin-top: 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border));
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(240, 226, 199, 0.98), rgba(234, 220, 193, 0.98));
 }
 
 .nba-report-column-intro .label,
 .nba-report-column-intro .micro-label {
   color: var(--brand-dark);
-  text-align: left;
-  justify-self: start;
+  text-align: center;
+  justify-self: center;
   font-size: 0.9rem;
   letter-spacing: 0.08em;
 }
@@ -338,24 +356,29 @@ p { margin: 0; }
 .nba-report-column-kicker {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
 .nba-report-column-title-row {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  text-align: left;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
 }
 
 .nba-report-column-intro h3 {
   font-size: 0.88rem;
   line-height: 1.2;
   font-weight: 700;
-  text-align: left;
+  text-align: center;
+}
+
+.nba-report-column-title-row .help-dot {
+  position: static;
+  flex: 0 0 auto;
 }
 
 .help-dot {
@@ -386,6 +409,7 @@ p { margin: 0; }
 
 .nba-report-persona {
   margin-top: -2px;
+  justify-self: center;
 }
 
 .nba-report-voice-row {
@@ -411,7 +435,7 @@ p { margin: 0; }
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
-  margin-top: 14px;
+  margin: 14px 0 18px;
 }
 
 .nba-board-glossary-grid {
@@ -728,10 +752,70 @@ p { margin: 0; }
   gap: 18px;
 }
 
+.nba-reports-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.nba-reports-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.nba-report-browser {
+  display: grid;
+  gap: 16px;
+}
+
+.nba-report-browser-hero {
+  align-items: start;
+}
+
+.nba-report-browser-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.nba-report-browser-controls {
+  display: grid;
+  gap: 14px;
+}
+
+.nba-report-browser-controls h3 {
+  margin-top: 4px;
+}
+
+.nba-report-browser-actions {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nba-report-browser-select-wrap {
+  display: grid;
+  gap: 6px;
+  min-width: min(320px, 100%);
+  flex: 1 1 240px;
+}
+
+.nba-report-browser-select {
+  width: 100%;
+  min-height: 44px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface-0);
+  color: var(--text-1);
+  padding: 10px 12px;
+  font: inherit;
+}
+
 .nba-reports-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.nba-report-card-summary {
+  margin-bottom: 10px;
 }
 
 .nba-report-actions {
@@ -1938,6 +2022,65 @@ select:focus {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 14px;
+}
+
+.nba-report-metric-wrap {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.nba-report-metric-table {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(178, 144, 105, 0.54);
+  background: rgba(247, 237, 220, 0.84);
+}
+
+.nba-report-metric-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.nba-report-metric-cell {
+  min-width: 0;
+}
+
+.nba-report-metric-row-head .nba-report-metric-cell {
+  color: var(--text-3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nba-report-metric-value {
+  color: var(--text-1);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.nba-report-group-body {
+  display: grid;
+  gap: 0;
+  padding: 14px;
+}
+
+.nba-report-group-body-strategic {
+  grid-auto-rows: 1fr;
+}
+
+.nba-report-group-body .detail-card.inset-card {
+  margin-top: 0;
+}
+
+.nba-strategic-card {
+  display: grid;
+  align-content: start;
+  height: 100%;
 }
 
 /* ─── Chips, Badges, Pills ───────────────────────────────────────────────── */
@@ -3405,7 +3548,7 @@ select:focus {
 
 .prelock-entries-head,
 .prelock-entry-row {
-  grid-template-columns: minmax(0, 1.45fr) 0.55fr minmax(0, 1fr) 0.9fr;
+  grid-template-columns: minmax(0, 1.7fr) 0.65fr 0.9fr;
 }
 
 .prelock-entry-row {
@@ -3424,21 +3567,15 @@ select:focus {
 }
 
 .prelock-entry-main,
-.prelock-entry-top-slot,
 .prelock-entry-status {
   display: grid;
   gap: 3px;
 }
 
-.prelock-entry-main span,
-.prelock-entry-top-slot span {
+.prelock-entry-main span {
   color: var(--text-3);
   font-size: 0.82rem;
   line-height: 1.35;
-}
-
-.prelock-entry-top-slot strong {
-  font-size: 0.92rem;
 }
 
 .prelock-entry-status {
@@ -3695,6 +3832,10 @@ select:focus {
   .nba-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .nba-report-metric-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -3708,6 +3849,10 @@ select:focus {
 
   .nba-board-glossary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .nba-report-metric-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .nba-team-pick-grid {
@@ -3809,7 +3954,7 @@ select:focus {
 
   .prelock-entries-head,
   .prelock-entry-row {
-    grid-template-columns: minmax(0, 1.2fr) 0.55fr minmax(0, 0.9fr) 0.85fr;
+    grid-template-columns: minmax(0, 1.35fr) 0.65fr 0.85fr;
   }
 
   .mini-row { flex-direction: column; }
