@@ -68,7 +68,7 @@ export default function LoginPage() {
       <div className="auth-card fade-in">
         <div className="auth-brand">
           <div className="brand-mark large">NBA</div>
-          <h1>NBA Playoff Predictor</h1>
+          <h1>Playoff Bracket Challenge</h1>
           <p>Join a playoff pool, build your bracket, and track every series with friends.</p>
         </div>
 

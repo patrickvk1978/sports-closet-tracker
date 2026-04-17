@@ -28,7 +28,7 @@ export default function NavBar() {
     <nav className="nav-shell" aria-label="Primary navigation">
       <a className="brand-link" href="/teams" aria-label="Go to board">
         <span className="brand-mark">NBA</span>
-        <span>Playoff Predictor V2</span>
+        <span>Playoff Value Board</span>
       </a>
 
       <div className="nav-actions">
