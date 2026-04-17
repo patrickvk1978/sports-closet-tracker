@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./useAuth";
 import { usePool } from "./usePool";
+import { supabase } from "../lib/supabase";
 import { TEAM_VALUE_SLOTS, validateTeamValueAssignments } from "../lib/teamValueGame";
 
 function storageKey(poolId) {
@@ -48,10 +49,16 @@ function sanitizeAssignments(rawAssignments, teamIds) {
   );
 }
 
+function rowsToAssignments(rows) {
+  return Object.fromEntries(rows.map((r) => [r.team_id, r.assigned_value]));
+}
+
 export function useTeamValueBoard(teamEntries) {
   const { pool, memberList } = usePool();
   const { session } = useAuth();
   const [assignmentsByUser, setAssignmentsByUser] = useState({});
+  const [persistenceMode, setPersistenceMode] = useState("local");
+  const channelRef = useRef(null);
 
   const teamIds = useMemo(() => teamEntries.map((team) => team.id), [teamEntries]);
   const teamKey = useMemo(() => teamIds.join("|"), [teamIds]);
@@ -63,25 +70,94 @@ export function useTeamValueBoard(teamEntries) {
       return;
     }
 
-    const storedCurrent = sanitizeAssignments(readLocalBoard(pool.id), teamIds);
-    const seededCurrent =
-      validateTeamValueAssignments(storedCurrent, teamIds).valid
-        ? storedCurrent
-        : buildSeededAssignments(teamEntries, 0);
+    let cancelled = false;
 
-    const seededByUser = Object.fromEntries(
-      memberList.map((member, index) => {
-        if (member.id === currentUserId) {
-          return [member.id, seededCurrent];
-        }
+    async function loadBoard() {
+      const { data, error } = await supabase
+        .schema("nba_playoffs")
+        .from("team_values")
+        .select("user_id, team_id, assigned_value")
+        .eq("pool_id", pool.id);
 
-        const seedOffset = (hashString(member.id) + index) % TEAM_VALUE_SLOTS.length;
-        return [member.id, buildSeededAssignments(teamEntries, seedOffset)];
-      })
-    );
+      if (cancelled) return;
 
-    setAssignmentsByUser(seededByUser);
-    writeLocalBoard(pool.id, seededCurrent);
+      if (error) {
+        // Fall back to localStorage; other members get seeded assignments
+        const storedCurrent = sanitizeAssignments(readLocalBoard(pool.id), teamIds);
+        const seededCurrent =
+          validateTeamValueAssignments(storedCurrent, teamIds).valid
+            ? storedCurrent
+            : buildSeededAssignments(teamEntries, 0);
+
+        const seededByUser = Object.fromEntries(
+          memberList.map((member, index) => {
+            if (member.id === currentUserId) return [member.id, seededCurrent];
+            const seedOffset = (hashString(member.id) + index) % TEAM_VALUE_SLOTS.length;
+            return [member.id, buildSeededAssignments(teamEntries, seedOffset)];
+          })
+        );
+        setAssignmentsByUser(seededByUser);
+        setPersistenceMode("local");
+        return;
+      }
+
+      // Group DB rows by user
+      const byUser = {};
+      for (const row of data ?? []) {
+        byUser[row.user_id] ??= {};
+        byUser[row.user_id][row.team_id] = row.assigned_value;
+      }
+
+      // For each member: use DB assignments if present, seed otherwise
+      const nextByUser = Object.fromEntries(
+        memberList.map((member, index) => {
+          const raw = byUser[member.id];
+          if (raw) {
+            const sanitized = sanitizeAssignments(raw, teamIds);
+            if (validateTeamValueAssignments(sanitized, teamIds).valid) {
+              return [member.id, sanitized];
+            }
+          }
+          // No valid DB assignment — seed deterministically
+          const seedOffset =
+            member.id === currentUserId
+              ? 0
+              : (hashString(member.id) + index) % TEAM_VALUE_SLOTS.length;
+          return [member.id, buildSeededAssignments(teamEntries, seedOffset)];
+        })
+      );
+
+      setAssignmentsByUser(nextByUser);
+      setPersistenceMode("supabase");
+
+      // Cache current user's board locally
+      if (currentUserId && nextByUser[currentUserId]) {
+        writeLocalBoard(pool.id, nextByUser[currentUserId]);
+      }
+    }
+
+    loadBoard();
+
+    // Realtime subscription — reload on any change in this pool
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
+    channelRef.current = supabase
+      .channel(`nba-team-values-${pool.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "nba_playoffs", table: "team_values", filter: `pool_id=eq.${pool.id}` },
+        () => { if (!cancelled) loadBoard(); }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [currentUserId, memberList, pool?.id, teamEntries, teamIds, teamKey]);
 
   const currentAssignments = currentUserId ? assignmentsByUser[currentUserId] ?? {} : {};
@@ -100,6 +176,28 @@ export function useTeamValueBoard(teamEntries) {
     [currentAssignments, teamEntries]
   );
 
+  async function persistAssignments(nextAssignments) {
+    if (!pool?.id || !currentUserId || persistenceMode !== "supabase") {
+      writeLocalBoard(pool.id, nextAssignments);
+      return;
+    }
+
+    writeLocalBoard(pool.id, nextAssignments);
+
+    const rows = Object.entries(nextAssignments).map(([teamId, value]) => ({
+      pool_id: pool.id,
+      user_id: currentUserId,
+      team_id: teamId,
+      assigned_value: Number(value),
+      updated_at: new Date().toISOString(),
+    }));
+
+    await supabase
+      .schema("nba_playoffs")
+      .from("team_values")
+      .upsert(rows, { onConflict: "pool_id,user_id,team_id" });
+  }
+
   function saveAssignment(teamId, value) {
     if (!pool?.id || !currentUserId) return;
     const nextValue = Number(value);
@@ -114,7 +212,7 @@ export function useTeamValueBoard(teamEntries) {
       }
 
       currentAssignmentsForUser[teamId] = nextValue;
-      writeLocalBoard(pool.id, currentAssignmentsForUser);
+      persistAssignments(currentAssignmentsForUser);
 
       return {
         ...current,
@@ -130,7 +228,7 @@ export function useTeamValueBoard(teamEntries) {
       const nextAssignments = Object.fromEntries(
         orderedTeamIds.map((teamId, index) => [teamId, TEAM_VALUE_SLOTS[index] ?? 0])
       );
-      writeLocalBoard(pool.id, nextAssignments);
+      persistAssignments(nextAssignments);
 
       return {
         ...current,
@@ -144,6 +242,7 @@ export function useTeamValueBoard(teamEntries) {
     currentAssignments,
     allAssignmentsByUser: assignmentsByUser,
     boardValidation,
+    persistenceMode,
     completionCount: Object.keys(currentAssignments).length,
     saveAssignment,
     saveBoardOrder,
