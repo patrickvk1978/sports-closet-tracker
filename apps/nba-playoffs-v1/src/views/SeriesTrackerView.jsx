@@ -10,10 +10,19 @@ import {
   scoreSeriesPick,
   summarizePickScores,
 } from "../lib/seriesPickem";
-import { formatProbabilityFreshness, formatProbabilitySourceLabel } from "../lib/probabilityInputs";
+import {
+  formatProbabilityFreshness,
+  formatProbabilityMainFreshness,
+  formatProbabilitySourceLabel,
+} from "../lib/probabilityInputs";
 import { areRoundPicksPublic } from "../lib/pickVisibility";
 
 const GAME_OPTIONS = [4, 5, 6, 7];
+const EXACT_RESULT_ORDER = ["home_4", "home_5", "home_6", "home_7", "away_7", "away_6", "away_5", "away_4"];
+const DEFAULT_MATRIX_SORT = {
+  market: { key: "result", direction: "asc" },
+  model: { key: "result", direction: "asc" },
+};
 
 function formatRoundLabel(roundKey) {
   return roundKey.replaceAll("_", " ");
@@ -27,7 +36,7 @@ function formatRoundStatus(round, availableRoundKey, settings) {
 }
 
 function OutcomeChip({ score }) {
-  if (!score) return <span className="chip">Open</span>;
+  if (!score) return null;
   const className =
     score.outcome === "exact"
       ? "chip nba-chip-exact"
@@ -89,6 +98,38 @@ function isSeriesReadyForPicks(seriesItem) {
   return true;
 }
 
+function buildExactResultRows(seriesItem, source) {
+  const exactResults = source?.exactResults ?? {};
+  return EXACT_RESULT_ORDER.map((key) => {
+    const [side, gamesText] = key.split("_");
+    const games = Number(gamesText);
+    const team = side === "home" ? seriesItem.homeTeam : seriesItem.awayTeam;
+    const probability = Number(exactResults[key] ?? 0);
+    return {
+      key,
+      label: `${team.abbreviation} in ${games}`,
+      value: `${Math.round(probability)}%`,
+      probability,
+    };
+  });
+}
+
+function sortExactResultRows(rows, sortState) {
+  const key = sortState?.key ?? "result";
+  const direction = sortState?.direction ?? "asc";
+  const sorted = [...rows].sort((left, right) => {
+    if (key === "odds") {
+      return direction === "asc"
+        ? left.probability - right.probability
+        : right.probability - left.probability;
+    }
+    return direction === "asc"
+      ? EXACT_RESULT_ORDER.indexOf(left.key) - EXACT_RESULT_ORDER.indexOf(right.key)
+      : EXACT_RESULT_ORDER.indexOf(right.key) - EXACT_RESULT_ORDER.indexOf(left.key);
+  });
+  return sorted;
+}
+
 export default function SeriesTrackerView() {
   const { profile } = useAuth();
   const { pool, settingsForPool, memberList, updatePoolSettings } = usePool();
@@ -97,6 +138,7 @@ export default function SeriesTrackerView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeRound, setActiveRound] = useState("round_1");
   const [showCommissionerControls, setShowCommissionerControls] = useState(false);
+  const [matrixSort, setMatrixSort] = useState(DEFAULT_MATRIX_SORT);
   const {
     picksBySeriesId,
     pickedSeriesCount,
@@ -172,6 +214,19 @@ export default function SeriesTrackerView() {
     const currentIndex = activeSeries.findIndex((seriesItem) => seriesItem.id === currentSeries.id);
     const nextIndex = (currentIndex + direction + activeSeries.length) % activeSeries.length;
     setActiveSeriesId(activeSeries[nextIndex].id);
+  }
+
+  function toggleMatrixSort(sectionKey, nextKey) {
+    setMatrixSort((current) => {
+      const existing = current[sectionKey] ?? DEFAULT_MATRIX_SORT[sectionKey];
+      return {
+        ...current,
+        [sectionKey]: {
+          key: nextKey,
+          direction: existing.key === nextKey && existing.direction === "asc" ? "desc" : "asc",
+        },
+      };
+    });
   }
 
   return (
@@ -294,12 +349,20 @@ export default function SeriesTrackerView() {
                   <div className="detail-card inset-card">
                     <span className="micro-label">Market</span>
                     <p>{marketFavorite}</p>
-                    <span className="micro-copy">{formatProbabilitySourceLabel(seriesItem.market)} · {formatProbabilityFreshness(seriesItem.market)}</span>
+                    <span className="micro-copy">
+                      {[formatProbabilityMainLabel(seriesItem.market), formatProbabilityMainFreshness(seriesItem.market)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
                   </div>
                   <div className="detail-card inset-card">
                     <span className="micro-label">Model</span>
                     <p>{modelLean}</p>
-                    <span className="micro-copy">{formatProbabilitySourceLabel(seriesItem.model)} · {formatProbabilityFreshness(seriesItem.model)}</span>
+                    <span className="micro-copy">
+                      {[formatProbabilityMainLabel(seriesItem.model), formatProbabilityMainFreshness(seriesItem.model)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
                   </div>
                 </div>
 
@@ -354,7 +417,7 @@ export default function SeriesTrackerView() {
                   </div>
                 </div>
 
-                <div className="nba-pick-footer">
+                <div className={`nba-pick-footer ${pick ? "has-pick" : "is-empty"}`}>
                   <div>
                     <span className="micro-label">{isViewingCurrentUser ? "Your pick" : `${selectedViewer?.name ?? "Their"} pick`}</span>
                     <p>
@@ -364,6 +427,75 @@ export default function SeriesTrackerView() {
                     </p>
                   </div>
                 </div>
+                <details className="nba-result-matrix">
+                  <summary>
+                    <div className="nba-result-matrix-summary-copy">
+                      <span className="nba-result-matrix-summary-open">Open Result Matrix</span>
+                      <span className="nba-result-matrix-summary-close">Close Result Matrix</span>
+                    </div>
+                    <span className="nba-result-matrix-summary-icon" aria-hidden="true">+</span>
+                  </summary>
+                  <div className="nba-result-matrix-grid">
+                    <section className="detail-card inset-card nba-result-matrix-card nba-result-matrix-card-market">
+                      <div className="nba-result-matrix-head">
+                        <div className="nba-result-matrix-title-wrap">
+                          <span className="micro-label">Market</span>
+                        </div>
+                        <span className="micro-copy">{formatProbabilitySourceLabel(seriesItem.market)} · {formatProbabilityFreshness(seriesItem.market)}</span>
+                      </div>
+                      <div className="nba-result-matrix-table" role="table" aria-label="Market result matrix">
+                        <div className="nba-result-matrix-row nba-result-matrix-row-head" role="row">
+                          <button type="button" role="columnheader" className="nba-result-matrix-sort" onClick={() => toggleMatrixSort("market", "result")}>
+                            Result
+                          </button>
+                          <button type="button" role="columnheader" className="nba-result-matrix-sort nba-result-matrix-sort-right" onClick={() => toggleMatrixSort("market", "odds")}>
+                            Odds
+                          </button>
+                        </div>
+                        {sortExactResultRows(buildExactResultRows(seriesItem, seriesItem.market), matrixSort.market).map((row) => (
+                          <div
+                            className="nba-result-matrix-row"
+                            role="row"
+                            key={row.key}
+                            style={{ "--matrix-alpha": `${Math.max(0.14, row.probability / 100)}` }}
+                          >
+                            <span role="cell">{row.label}</span>
+                            <strong role="cell">{row.value}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                    <section className="detail-card inset-card nba-result-matrix-card nba-result-matrix-card-model">
+                      <div className="nba-result-matrix-head">
+                        <div className="nba-result-matrix-title-wrap">
+                          <span className="micro-label">Model</span>
+                        </div>
+                        <span className="micro-copy">{formatProbabilitySourceLabel(seriesItem.model)} · {formatProbabilityFreshness(seriesItem.model)}</span>
+                      </div>
+                      <div className="nba-result-matrix-table" role="table" aria-label="Model result matrix">
+                        <div className="nba-result-matrix-row nba-result-matrix-row-head" role="row">
+                          <button type="button" role="columnheader" className="nba-result-matrix-sort" onClick={() => toggleMatrixSort("model", "result")}>
+                            Result
+                          </button>
+                          <button type="button" role="columnheader" className="nba-result-matrix-sort nba-result-matrix-sort-right" onClick={() => toggleMatrixSort("model", "odds")}>
+                            Odds
+                          </button>
+                        </div>
+                        {sortExactResultRows(buildExactResultRows(seriesItem, seriesItem.model), matrixSort.model).map((row) => (
+                          <div
+                            className="nba-result-matrix-row"
+                            role="row"
+                            key={row.key}
+                            style={{ "--matrix-alpha": `${Math.max(0.14, row.probability / 100)}` }}
+                          >
+                            <span role="cell">{row.label}</span>
+                            <strong role="cell">{row.value}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
+                </details>
                 {roundLocks[seriesItem.roundKey] ? (
                   <div className="nba-lock-banner">
                     Commissioner has locked this round. Picks are read-only until it is reopened.

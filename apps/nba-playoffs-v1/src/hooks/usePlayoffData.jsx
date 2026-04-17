@@ -26,6 +26,7 @@ export function PlayoffDataProvider({ children }) {
     productKey: "nba_playoffs",
     entityIds: seriesIds,
     entityType: "series",
+    includeExactResults: true,
   });
 
   const value = useMemo(() => {
@@ -33,7 +34,7 @@ export function PlayoffDataProvider({ children }) {
     const series = PLAYOFF_SERIES.map((item) => {
       const homeTeam = teamsById[item.homeTeamId];
       const awayTeam = teamsById[item.awayTeamId];
-      const probabilityInputs = mergeProbabilityInputs(item.id, probabilityMap?.[item.id]);
+      const probabilityInputs = mergeProbabilityInputs(item.id, probabilityMap?.[item.id], { wins: item.wins });
       return {
         ...item,
         homeTeam,

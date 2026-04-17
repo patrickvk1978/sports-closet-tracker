@@ -29,6 +29,54 @@ def series_win_prob(home_win_pct: float, predicted_games: int) -> float:
     return fn(p) if fn else 0.0
 
 
+def build_exact_result_distribution(
+    home_win_pct: float,
+    current_home_wins: int = 0,
+    current_away_wins: int = 0,
+) -> dict[str, float]:
+    """Return exact-result percentages keyed as home_4 ... away_7."""
+    p = max(0.1, min(home_win_pct / 100, 0.9))
+    games_played = current_home_wins + current_away_wins
+    home_needed = max(0, 4 - current_home_wins)
+    away_needed = max(0, 4 - current_away_wins)
+    distribution = {
+        f"{side}_{games}": 0.0 for side in ("home", "away") for games in range(4, 8)
+    }
+
+    if home_needed == 0:
+        distribution[f"home_{games_played}"] = 100.0
+        return distribution
+    if away_needed == 0:
+        distribution[f"away_{games_played}"] = 100.0
+        return distribution
+
+    min_remaining_games = min(home_needed, away_needed)
+    max_remaining_games = home_needed + away_needed - 1
+
+    for remaining_games in range(min_remaining_games, max_remaining_games + 1):
+        final_games = games_played + remaining_games
+        if not 4 <= final_games <= 7:
+            continue
+
+        if remaining_games >= home_needed:
+            home_probability = (
+                math.comb(remaining_games - 1, home_needed - 1)
+                * (p ** home_needed)
+                * ((1 - p) ** (remaining_games - home_needed))
+            )
+            distribution[f"home_{final_games}"] = round(home_probability * 100, 4)
+
+        if remaining_games >= away_needed:
+            away_probability = (
+                math.comb(remaining_games - 1, away_needed - 1)
+                * ((1 - p) ** away_needed)
+                * (p ** (remaining_games - away_needed))
+            )
+            distribution[f"away_{final_games}"] = round(away_probability * 100, 4)
+
+    return distribution
+
+
 class NBAPlayoffsAdapter(GameAdapter):
     product_key = 'nba_playoffs'
 
@@ -83,24 +131,13 @@ class NBAPlayoffsAdapter(GameAdapter):
         total = sum(weights) or 1.0
         return [weight / total for weight in weights]
 
-    def _sample_by_weights(self, values: list[int], weights: list[float], rng: random.Random) -> int:
+    def _sample_by_weights(self, values: list[Any], weights: list[float], rng: random.Random) -> Any:
         threshold = rng.random()
         for value, weight in zip(values, weights):
             threshold -= weight
             if threshold <= 0:
                 return value
         return values[-1]
-
-    def _sample_series_games(self, team_win_pct: float, rng: random.Random) -> int:
-        clamped = max(0.2, min(team_win_pct / 100, 0.8))
-        strength = (clamped - 0.5) / 0.3
-        weights = self._normalize_weights([
-            max(0.04, 0.1 + strength * 0.1),
-            max(0.08, 0.22 + strength * 0.06),
-            max(0.16, 0.35 - strength * 0.05),
-            max(0.16, 0.33 - strength * 0.11),
-        ])
-        return self._sample_by_weights([4, 5, 6, 7], weights, rng)
 
     def _simulate_series_from_state(
         self,
@@ -132,6 +169,32 @@ class NBAPlayoffsAdapter(GameAdapter):
             state['home_team_id'], state['away_team_id'], home_win_pct, 0, 0, rng
         )
 
+    def _sample_series_result_from_exact(
+        self,
+        home_team_id: str,
+        away_team_id: str,
+        exact_distribution: dict[str, float],
+        rng: random.Random,
+    ) -> dict[str, Any]:
+        outcomes: list[tuple[str, int]] = []
+        weights: list[float] = []
+        for games in range(4, 8):
+            for side in ("home", "away"):
+                weight = float(exact_distribution.get(f"{side}_{games}", 0.0))
+                if weight <= 0:
+                    continue
+                outcomes.append((side, games))
+                weights.append(weight)
+
+        if not outcomes:
+            return {"winner_team_id": home_team_id, "games": 7}
+
+        winner_side, games = self._sample_by_weights(outcomes, self._normalize_weights(weights), rng)
+        return {
+            "winner_team_id": home_team_id if winner_side == "home" else away_team_id,
+            "games": games,
+        }
+
     def _load_series_state(self, pool_id: str) -> dict[str, dict[str, Any]]:
         """Load current series state from nba_playoffs.matchups for this pool."""
         resp = self.db.schema('nba_playoffs').from_('matchups').select(
@@ -160,9 +223,29 @@ class NBAPlayoffsAdapter(GameAdapter):
     def _load_series_probs(self) -> dict[str, dict[str, Any]]:
         """Load per-game win probabilities from probability_inputs (market source)."""
         resp = self.db.from_('probability_inputs').select(
-            'entity_id, probabilities'
-        ).eq('product_key', self.product_key).eq('source_type', 'market').execute()
-        return {row['entity_id']: row['probabilities'] for row in (resp.data or [])}
+            'entity_id, probabilities, captured_at'
+        ).eq('product_key', self.product_key).eq('entity_type', 'series').eq('source_type', 'market') \
+            .order('captured_at', desc=True).execute()
+        latest: dict[str, dict[str, Any]] = {}
+        for row in resp.data or []:
+            entity_id = row.get('entity_id')
+            if not entity_id or entity_id in latest:
+                continue
+            latest[entity_id] = row.get('probabilities') or {}
+        return latest
+
+    def _load_exact_series_probs(self) -> dict[str, dict[str, Any]]:
+        resp = self.db.from_('probability_inputs').select(
+            'entity_id, probabilities, captured_at'
+        ).eq('product_key', self.product_key).eq('entity_type', 'series_exact_result').eq('source_type', 'market') \
+            .order('captured_at', desc=True).execute()
+        latest: dict[str, dict[str, Any]] = {}
+        for row in resp.data or []:
+            entity_id = row.get('entity_id')
+            if not entity_id or entity_id in latest:
+                continue
+            latest[entity_id] = row.get('probabilities') or {}
+        return latest
 
     def _fetch_series_picks(self, pool_id: str) -> tuple[list[dict[str, Any]], bool]:
         response = self.db.from_('nba_series_picks') \
@@ -189,7 +272,11 @@ class NBAPlayoffsAdapter(GameAdapter):
         captured_at = datetime.now(timezone.utc).isoformat()
 
         rows = []
+        live_state = self._load_series_state(pool_id) or NBA_PLAYOFFS_SERIES_STATE
         for series_id, snapshot in NBA_PLAYOFFS_SERIES_SNAPSHOT.items():
+            state = live_state.get(series_id) or NBA_PLAYOFFS_SERIES_STATE.get(series_id) or {}
+            home_wins = int(state.get('home_wins', 0) or 0)
+            away_wins = int(state.get('away_wins', 0) or 0)
             for source_type in ('market', 'model'):
                 source = snapshot[source_type]
                 rows.append({
@@ -204,6 +291,19 @@ class NBAPlayoffsAdapter(GameAdapter):
                         'home_win_pct': source['home_win_pct'],
                         'away_win_pct': source['away_win_pct'],
                     },
+                    'captured_at': captured_at,
+                })
+                rows.append({
+                    'product_key': self.product_key,
+                    'entity_type': 'series_exact_result',
+                    'entity_id': series_id,
+                    'source_type': source_type,
+                    'source_name': f"{source['source_name']}_exact_result_derived",
+                    'probabilities': build_exact_result_distribution(
+                        float(source['home_win_pct']),
+                        home_wins,
+                        away_wins,
+                    ),
                     'captured_at': captured_at,
                 })
 
@@ -227,6 +327,7 @@ class NBAPlayoffsAdapter(GameAdapter):
         series_state = db_state if db_state else NBA_PLAYOFFS_SERIES_STATE
 
         series_probs = self._load_series_probs()
+        exact_series_probs = self._load_exact_series_probs()
 
         completed_series = {
             series_id: {
@@ -304,10 +405,18 @@ class NBAPlayoffsAdapter(GameAdapter):
                     p_data = series_probs.get(series_id) or {}
                     if not p_data and series_id in NBA_PLAYOFFS_SERIES_SNAPSHOT:
                         p_data = NBA_PLAYOFFS_SERIES_SNAPSHOT[series_id]['market']
-                    home_win_pct = float(p_data.get('home_win_pct', 50.0))
-                    simulated = self._simulate_series_from_state(
-                        s['home_team_id'], s['away_team_id'], home_win_pct,
-                        s.get('home_wins', 0), s.get('away_wins', 0), rng,
+                    exact_data = exact_series_probs.get(series_id)
+                    if not exact_data:
+                        exact_data = build_exact_result_distribution(
+                            float(p_data.get('home_win_pct', 50.0)),
+                            int(s.get('home_wins', 0) or 0),
+                            int(s.get('away_wins', 0) or 0),
+                        )
+                    simulated = self._sample_series_result_from_exact(
+                        s['home_team_id'],
+                        s['away_team_id'],
+                        exact_data,
+                        rng,
                     )
                     round_key = s['round_key']
                     for user_id, picks in user_picks.items():

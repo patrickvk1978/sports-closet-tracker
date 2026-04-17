@@ -12,12 +12,13 @@ export function useProbabilityInputs(seriesList = []) {
     productKey: "nba_playoffs",
     entityIds,
     entityType: "series",
+    includeExactResults: true,
   });
 
   return useMemo(
     () =>
       seriesList.map((series) => {
-        const merged = mergeProbabilityInputs(series.id, probabilityMap?.[series.id]);
+        const merged = mergeProbabilityInputs(series.id, probabilityMap?.[series.id], { wins: series.wins });
         return {
           entityId: series.id,
           market: merged.market,

@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 function buildDefaultMap(entityIds) {
-  return Object.fromEntries((entityIds ?? []).map((entityId) => [entityId, { market: null, model: null }]));
+  return Object.fromEntries(
+    (entityIds ?? []).map((entityId) => [
+      entityId,
+      { market: null, model: null, marketExact: null, modelExact: null },
+    ])
+  );
 }
 
 function normalizeRows(rows, entityIds) {
@@ -11,7 +16,20 @@ function normalizeRows(rows, entityIds) {
   for (const row of rows ?? []) {
     if (!row?.entity_id || !next[row.entity_id]) continue;
     const sourceType = row.source_type === "model" ? "model" : row.source_type === "market" ? "market" : null;
-    if (!sourceType || next[row.entity_id][sourceType]) continue;
+    if (!sourceType) continue;
+    const exactKey = sourceType === "market" ? "marketExact" : "modelExact";
+
+    if (row.entity_type === "series_exact_result") {
+      if (next[row.entity_id][exactKey]) continue;
+      next[row.entity_id][exactKey] = {
+        sourceName: row.source_name ?? "unknown_source",
+        exactResults: row.probabilities ?? {},
+        capturedAt: row.captured_at ?? null,
+      };
+      continue;
+    }
+
+    if (next[row.entity_id][sourceType]) continue;
 
     next[row.entity_id][sourceType] = {
       sourceName: row.source_name ?? "unknown_source",
@@ -30,7 +48,7 @@ function buildChannelName(productKey, entityType, entityIds) {
   return `probability-inputs-${productKey}-${entityType}-${hash}`;
 }
 
-export function useBackendProbabilityInputs({ productKey, entityIds = [], entityType = "series" }) {
+export function useBackendProbabilityInputs({ productKey, entityIds = [], entityType = "series", includeExactResults = false }) {
   const stableEntityIds = useMemo(
     () => Array.from(new Set((entityIds ?? []).filter(Boolean))).sort(),
     [entityIds]
@@ -52,11 +70,11 @@ export function useBackendProbabilityInputs({ productKey, entityIds = [], entity
     async function fetchProbabilities() {
       const { data } = await supabase
         .from("probability_inputs")
-        .select("entity_id, source_type, source_name, probabilities, captured_at")
+        .select("entity_id, entity_type, source_type, source_name, probabilities, captured_at")
         .eq("product_key", productKey)
-        .eq("entity_type", entityType)
         .in("entity_id", stableEntityIds)
         .in("source_type", ["market", "model"])
+        .in("entity_type", includeExactResults ? [entityType, `${entityType}_exact_result`] : [entityType])
         .order("captured_at", { ascending: false });
 
       if (!active) return;
@@ -83,7 +101,7 @@ export function useBackendProbabilityInputs({ productKey, entityIds = [], entity
       active = false;
       supabase.removeChannel(channel);
     };
-  }, [channelName, entityType, productKey, stableEntityIds]);
+  }, [channelName, entityType, includeExactResults, productKey, stableEntityIds]);
 
   return { probabilityMap };
 }

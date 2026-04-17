@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
-import { formatProbabilityFreshness, formatProbabilitySourceLabel } from "../lib/probabilityInputs";
+import { formatProbabilityMainFreshness, formatProbabilityMainLabel } from "../lib/probabilityInputs";
 import { areRoundPicksPublic } from "../lib/pickVisibility";
 
 const EAST_SEMIS = [
@@ -149,12 +149,12 @@ function BracketPopover({ detail, placement, onClose, onPickGames, onClearSelect
           <div>
             <span className="micro-label">Market lean</span>
             <p>{detail.marketLean}</p>
-            <span className="micro-copy">{detail.marketMeta}</span>
+            {detail.marketMeta ? <span className="micro-copy">{detail.marketMeta}</span> : null}
           </div>
           <div>
             <span className="micro-label">Model lean</span>
             <p>{detail.modelLean}</p>
-            <span className="micro-copy">{detail.modelMeta}</span>
+            {detail.modelMeta ? <span className="micro-copy">{detail.modelMeta}</span> : null}
           </div>
         </div>
       ) : null}
@@ -401,8 +401,8 @@ export default function BracketWorkspaceView() {
               pickLabel: formatPickLabel(seriesItem, pick),
               marketLean: formatLean(seriesItem, seriesItem?.market),
               modelLean: formatLean(seriesItem, seriesItem?.model),
-              marketMeta: `${formatProbabilitySourceLabel(seriesItem?.market)} · ${formatProbabilityFreshness(seriesItem?.market)}`,
-              modelMeta: `${formatProbabilitySourceLabel(seriesItem?.model)} · ${formatProbabilityFreshness(seriesItem?.model)}`,
+              marketMeta: [formatProbabilityMainLabel(seriesItem?.market), formatProbabilityMainFreshness(seriesItem?.market)].filter(Boolean).join(" · "),
+              modelMeta: [formatProbabilityMainLabel(seriesItem?.model), formatProbabilityMainFreshness(seriesItem?.model)].filter(Boolean).join(" · "),
               showGrid: true,
             },
       ];
