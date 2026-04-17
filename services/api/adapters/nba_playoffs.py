@@ -12,6 +12,8 @@ import random
 from adapters.base import GameAdapter
 from adapters.nba_playoffs_snapshot import NBA_PLAYOFFS_SERIES_SNAPSHOT, NBA_PLAYOFFS_SERIES_STATE
 
+ROUND_NUMBER_TO_KEY = {1: "round_1", 2: "semifinals", 3: "finals", 4: "nba_finals"}
+
 SERIES_WIN_TABLE = {
     4: lambda p: p**4,
     5: lambda p: 4 * p**4 * (1-p),
@@ -100,17 +102,67 @@ class NBAPlayoffsAdapter(GameAdapter):
         ])
         return self._sample_by_weights([4, 5, 6, 7], weights, rng)
 
+    def _simulate_series_from_state(
+        self,
+        home_team_id: str,
+        away_team_id: str,
+        home_win_pct: float,
+        current_home_wins: int,
+        current_away_wins: int,
+        rng: random.Random,
+    ) -> dict[str, Any]:
+        """Simulate remaining games from current series state using per-game probability."""
+        p = max(0.1, min(home_win_pct / 100, 0.9))
+        wins_to_close = 4
+        h = current_home_wins
+        a = current_away_wins
+        while h < wins_to_close and a < wins_to_close:
+            if rng.random() <= p:
+                h += 1
+            else:
+                a += 1
+        winner = home_team_id if h >= wins_to_close else away_team_id
+        return {'winner_team_id': winner, 'games': h + a}
+
     def _sample_series_result(self, series_id: str, rng: random.Random) -> dict[str, Any]:
         snapshot = NBA_PLAYOFFS_SERIES_SNAPSHOT[series_id]
         state = NBA_PLAYOFFS_SERIES_STATE[series_id]
         home_win_pct = float(snapshot['market']['home_win_pct'])
-        home_wins = rng.random() <= home_win_pct / 100
-        winner_team_id = state['home_team_id'] if home_wins else state['away_team_id']
-        winner_win_pct = home_win_pct if home_wins else float(snapshot['market']['away_win_pct'])
-        return {
-            'winner_team_id': winner_team_id,
-            'games': self._sample_series_games(winner_win_pct, rng),
-        }
+        return self._simulate_series_from_state(
+            state['home_team_id'], state['away_team_id'], home_win_pct, 0, 0, rng
+        )
+
+    def _load_series_state(self, pool_id: str) -> dict[str, dict[str, Any]]:
+        """Load current series state from nba_playoffs.matchups for this pool."""
+        resp = self.db.schema('nba_playoffs').from_('matchups').select(
+            'series_key, home_team_id, away_team_id, winner_team_id, '
+            'home_wins, away_wins, games_played, status, round'
+        ).eq('pool_id', pool_id).execute()
+
+        state = {}
+        for row in resp.data or []:
+            key = row.get('series_key')
+            if not key:
+                continue
+            round_key = ROUND_NUMBER_TO_KEY.get(int(row.get('round') or 1), 'round_1')
+            state[key] = {
+                'round_key': round_key,
+                'status': row.get('status', 'pending'),
+                'home_team_id': row.get('home_team_id'),
+                'away_team_id': row.get('away_team_id'),
+                'winner_team_id': row.get('winner_team_id'),
+                'games_played': int(row.get('games_played') or 0),
+                'home_wins': int(row.get('home_wins') or 0),
+                'away_wins': int(row.get('away_wins') or 0),
+            }
+        return state
+
+    def _load_series_probs(self) -> dict[str, dict[str, Any]]:
+        """Load per-game win probabilities from probability_inputs (market source)."""
+        resp = self.db.from_('probability_inputs').select(
+            'entity_id, probabilities'
+        ).eq('product_key', self.product_key).eq('source_type', 'market').execute()
+        return {row['entity_id']: row['probabilities'] for row in (resp.data or [])}
 
     def _fetch_series_picks(self, pool_id: str) -> tuple[list[dict[str, Any]], bool]:
         response = self.db.from_('nba_series_picks') \
@@ -170,17 +222,26 @@ class NBAPlayoffsAdapter(GameAdapter):
         if not user_picks:
             return []
 
+        # Load live series state from DB; fall back to snapshot if pool has no matchups yet.
+        db_state = self._load_series_state(pool_id)
+        series_state = db_state if db_state else NBA_PLAYOFFS_SERIES_STATE
+
+        series_probs = self._load_series_probs()
+
         completed_series = {
             series_id: {
-                'winner_team_id': state['winner_team_id'],
-                'games': state['games_played'],
+                'winner_team_id': s['winner_team_id'],
+                'games': s['games_played'],
             }
-            for series_id, state in NBA_PLAYOFFS_SERIES_STATE.items()
-            if state.get('status') == 'completed' and state.get('winner_team_id')
+            for series_id, s in series_state.items()
+            if s.get('status') == 'completed' and s.get('winner_team_id')
         }
+
+        # Unresolved = both teams known but series not yet complete
         unresolved_series = [
-            series_id for series_id, state in NBA_PLAYOFFS_SERIES_STATE.items()
-            if state.get('round_key') == 'round_1' and state.get('status') != 'completed'
+            series_id for series_id, s in series_state.items()
+            if s.get('home_team_id') and s.get('away_team_id')
+            and s.get('status') != 'completed'
         ]
 
         base_scores: dict[str, dict[str, Any]] = {}
@@ -194,14 +255,14 @@ class NBAPlayoffsAdapter(GameAdapter):
             max_possible = 0
 
             for series_id, pick in picks.items():
-                series_state = NBA_PLAYOFFS_SERIES_STATE.get(series_id)
-                if not series_state:
+                s = series_state.get(series_id)
+                if not s:
                     continue
                 picked_series_count += 1
-                scoring = self._get_round_scoring(series_state['round_key'], settings)
+                scoring = self._get_round_scoring(s['round_key'], settings)
                 max_possible += scoring['exactBase'] + scoring['edgeBonus']
                 result = completed_series.get(series_id)
-                score = self._score_pick_against_result(pick, result, series_state['round_key'], settings)
+                score = self._score_pick_against_result(pick, result, s['round_key'], settings)
                 if not score:
                     continue
                 points += score['points']
@@ -239,8 +300,16 @@ class NBAPlayoffsAdapter(GameAdapter):
             for _ in range(iterations):
                 totals = {user_id: score['points'] for user_id, score in base_scores.items()}
                 for series_id in unresolved_series:
-                    simulated = self._sample_series_result(series_id, rng)
-                    round_key = NBA_PLAYOFFS_SERIES_STATE[series_id]['round_key']
+                    s = series_state[series_id]
+                    p_data = series_probs.get(series_id) or {}
+                    if not p_data and series_id in NBA_PLAYOFFS_SERIES_SNAPSHOT:
+                        p_data = NBA_PLAYOFFS_SERIES_SNAPSHOT[series_id]['market']
+                    home_win_pct = float(p_data.get('home_win_pct', 50.0))
+                    simulated = self._simulate_series_from_state(
+                        s['home_team_id'], s['away_team_id'], home_win_pct,
+                        s.get('home_wins', 0), s.get('away_wins', 0), rng,
+                    )
+                    round_key = s['round_key']
                     for user_id, picks in user_picks.items():
                         score = self._score_pick_against_result(picks.get(series_id), simulated, round_key, settings)
                         if score:
