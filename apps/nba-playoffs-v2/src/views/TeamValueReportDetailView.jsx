@@ -74,7 +74,7 @@ function buildVoiceFrame(reportKey) {
 
 function buildDetailInstruction(reportKey) {
   if (reportKey === "slot-fits") {
-    return "Use this page to spot which teams are priced too high, which still look cheap, and which assignments are already close enough to leave alone.";
+    return "Use this page to spot which teams are slotted too aggressively, which still look cheap, and which assignments are already close enough to leave alone.";
   }
 
   if (reportKey === "strategic-moves") {
@@ -162,7 +162,7 @@ function buildDecisionOptions(reportKey, row) {
       primary:
         row.fitType === "under"
           ? `Move ${row.teamLabel} up if you think the team is more likely to bank early wins than this slot assumes.`
-          : `Move ${row.teamLabel} down if you think this slot is paying too much for the path.`,
+          : `Move ${row.teamLabel} down if you think this slot is asking too much from the path.`,
       secondary:
         row.fitType === "under"
           ? `Hold it if you like the upside but do not see a clearly better floor than the nearby teams.`
@@ -480,8 +480,8 @@ function buildSlotFitSummary(rows) {
 
   return {
     body: topRisk || topUpside
-      ? `${topRisk?.teamLabel ?? "Your priciest slot"} is still one of the clearest places where the board may be paying too much, while ${topUpside?.teamLabel ?? "your cheapest upside team"} is the best example of a team that may deserve a little more respect. This page is about getting the pricing right before lock, not chasing every last decimal.`
-      : "This page is about pricing discipline before lock: where you may be overpaying, where the board still sees cheap upside, and which teams are probably fine where they are.",
+      ? `${topRisk?.teamLabel ?? "Your priciest slot"} is still one of the clearest places where the board may be asking too much from a slot, while ${topUpside?.teamLabel ?? "your cheapest upside team"} is the best example of a team that may deserve a little more respect. This page is about getting the assignments right before lock, not chasing every last decimal.`
+      : "This page is about assignment discipline before lock: where a slot may be too aggressive, where the board still sees cheap upside, and which teams are probably fine where they are.",
     stats: [
       { label: "Biggest risks", value: biggestRisks.length },
       { label: "Under-slotted", value: underSlotted.length },

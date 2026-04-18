@@ -175,12 +175,24 @@ export function buildCommentaryPreview({
 
   if (!top) {
     return {
-      eyebrow: "What matters right now",
-      headline: "Your pool story will sharpen once the board fills in.",
-      body: "As picks and live results settle, this space can focus on the single series most likely to change your position.",
+      eyebrow: chooseVariant(["What matters right now", "Board note", "Start here"], currentRound?.key, "notop-eyebrow"),
+      headline: chooseVariant([
+        "Your pool story will sharpen once the board fills in.",
+        "The useful story starts once the card gives us something real to react to.",
+        "This read gets better the moment the board stops being mostly blank.",
+      ], currentRound?.key, "notop-head"),
+      body: chooseVariant([
+        "As picks and live results settle, this space can focus on the single series most likely to change your position.",
+        "Right now this card still has to speak broadly. A fuller board lets it start pointing to the one or two places that really matter.",
+        "The product can only coach what it can see. Once the card has more shape, this becomes much more useful.",
+      ], currentRound?.key, "notop-body"),
       actionLabel: "Open series tracker",
       actionPath: "/series",
-      support: "This early version is reading from your card, the room, and the probability signals already on the board.",
+      support: chooseVariant([
+        "This early version is reading from your card, the room, and the probability signals already on the board.",
+        "A blank board makes for generic advice. A real board makes for coaching.",
+        "The sharper read comes when the board gives the inputs something specific to react to.",
+      ], currentRound?.key, "notop-support"),
     };
   }
 

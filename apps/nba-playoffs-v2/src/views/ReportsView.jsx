@@ -24,6 +24,19 @@ function ordinal(value) {
   return `${value}th`;
 }
 
+function hashSeed(...parts) {
+  return parts
+    .filter(Boolean)
+    .join("|")
+    .split("")
+    .reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 1), 0);
+}
+
+function chooseVariant(options, ...seedParts) {
+  if (!options.length) return "";
+  return options[hashSeed(...seedParts) % options.length];
+}
+
 function winnerLabel(series, winnerTeamId, games) {
   if (!winnerTeamId) return "No pick";
   const team = winnerTeamId === series.homeTeam.id ? series.homeTeam : series.awayTeam;
@@ -33,32 +46,89 @@ function winnerLabel(series, winnerTeamId, games) {
 function buildRootingNote(series, pick, marketSummary) {
   if (!pick) {
     return {
-      title: `Make your ${series.homeTeam.abbreviation}-${series.awayTeam.abbreviation} pick`,
-      body: "You have not picked this series yet, so this is the clearest place to lock in value before the room moves around you.",
+      title: chooseVariant([
+        `Make your ${series.homeTeam.abbreviation}-${series.awayTeam.abbreviation} pick`,
+        `${series.homeTeam.abbreviation}-${series.awayTeam.abbreviation} still needs your call`,
+        "This is still an open decision on your card",
+      ], series.id, "root-open-title"),
+      body: chooseVariant([
+        "You have not picked this series yet, so this is the clearest place to lock in value before the room moves around you.",
+        "This is still blank on your card, which makes it a better use of attention than rechecking already-settled spots.",
+        "Until this series is filled in, the rest of the report has to work around an avoidable hole.",
+      ], series.id, "root-open-body"),
     };
   }
 
   const pickedTeam = pick.winnerTeamId === series.homeTeam.id ? series.homeTeam : series.awayTeam;
   const otherTeam = pick.winnerTeamId === series.homeTeam.id ? series.awayTeam : series.homeTeam;
   const againstField = marketSummary.consensusWinnerTeamId && marketSummary.consensusWinnerTeamId !== pick.winnerTeamId;
+  const pickedShare = pick.winnerTeamId === series.homeTeam.id ? marketSummary.homePct : marketSummary.awayPct;
 
   if (againstField) {
     return {
-      title: `You need ${pickedTeam.abbreviation} more than the room does`,
-      body: `${pickedTeam.city} is your leverage side here. Most of the pool is leaning ${otherTeam.abbreviation}, so a ${pickedTeam.abbreviation} win would help you make up ground fast.`,
+      title: pickedShare <= 28
+        ? chooseVariant([
+            `${pickedTeam.abbreviation} is one of your real separation bets`,
+            `You need ${pickedTeam.abbreviation} a lot more than the room does`,
+            `${pickedTeam.abbreviation} is your clearest contrarian root here`,
+          ], series.id, pickedTeam.abbreviation, "root-hard-title")
+        : chooseVariant([
+            `You need ${pickedTeam.abbreviation} more than the room does`,
+            `${pickedTeam.abbreviation} is still giving you real leverage`,
+            `${pickedTeam.abbreviation} is a live swing side for you`,
+          ], series.id, pickedTeam.abbreviation, "root-title"),
+      body: pickedShare <= 28
+        ? chooseVariant([
+            `${pickedTeam.city} is a true minority position for you here. Most of the pool is leaning ${otherTeam.abbreviation}, so this result can create real movement fast.`,
+            `This is not just mild disagreement. ${pickedTeam.abbreviation} sits well off the room's center, which makes this one of your cleaner upside routes.`,
+            `${pickedTeam.abbreviation} is the kind of result that can actually separate your card, not just decorate it.`,
+          ], series.id, pickedTeam.abbreviation, "root-hard-body")
+        : chooseVariant([
+            `${pickedTeam.city} is your leverage side here. Most of the pool is leaning ${otherTeam.abbreviation}, so a ${pickedTeam.abbreviation} win would help you make up ground fast.`,
+            `${pickedTeam.abbreviation} is still against the room enough to matter. This is a useful swing, even if it is not your wildest one.`,
+            `The room is still tilted toward ${otherTeam.abbreviation}, which gives ${pickedTeam.abbreviation} enough separation value to deserve real attention.`,
+          ], series.id, pickedTeam.abbreviation, "root-body"),
     };
   }
 
   if (marketSummary.consensusWinnerTeamId === pick.winnerTeamId) {
     return {
-      title: `${pickedTeam.abbreviation} is defensive rooting for you`,
-      body: `You are with the room on this series, so ${pickedTeam.abbreviation} winning is more about protecting position than creating separation.`,
+      title: pickedShare >= 72
+        ? chooseVariant([
+            `${pickedTeam.abbreviation} is mostly a protect-the-board root`,
+            `${pickedTeam.abbreviation} is defensive rooting for you`,
+            `${pickedTeam.abbreviation} is about avoiding damage more than creating it`,
+          ], series.id, pickedTeam.abbreviation, "defense-hard-title")
+        : chooseVariant([
+            `${pickedTeam.abbreviation} is more hold than swing`,
+            `${pickedTeam.abbreviation} is a steadier result for you`,
+            `${pickedTeam.abbreviation} is not your loudest path, but it still matters`,
+          ], series.id, pickedTeam.abbreviation, "defense-title"),
+      body: pickedShare >= 72
+        ? chooseVariant([
+            `You are very much with the room on this series, so ${pickedTeam.abbreviation} winning is more about not losing ground than creating any real separation.`,
+            `${pickedTeam.abbreviation} is close to chalk for your pool, which makes this result more about stability than upside.`,
+            `This is the kind of pick that keeps your board intact. The reward is mostly in avoiding a miss, not pulling away.`,
+          ], series.id, pickedTeam.abbreviation, "defense-hard-body")
+        : chooseVariant([
+            `You are with a decent chunk of the room on this series, so ${pickedTeam.abbreviation} is more about holding your footing than springing a jump.`,
+            `${pickedTeam.abbreviation} is not pure chalk, but it is still a result that protects more than it surprises.`,
+            `This is one of those roots that helps more by staying on script than by creating fireworks.`,
+          ], series.id, pickedTeam.abbreviation, "defense-body"),
     };
   }
 
   return {
-    title: `Watch ${pickedTeam.abbreviation} for your own path`,
-    body: `${pickedTeam.city} is still a meaningful result for your card even though the room has not settled strongly on either side yet.`,
+    title: chooseVariant([
+      `Watch ${pickedTeam.abbreviation} for your own path`,
+      `${pickedTeam.abbreviation} is still a live read for your board`,
+      `${pickedTeam.abbreviation} sits in the useful middle ground`,
+    ], series.id, pickedTeam.abbreviation, "middle-title"),
+    body: chooseVariant([
+      `${pickedTeam.city} is still a meaningful result for your card even though the room has not settled strongly on either side yet.`,
+      `The pool has not crowded this matchup too hard, which makes ${pickedTeam.abbreviation} a quieter but still useful swing.`,
+      `${pickedTeam.abbreviation} is not giving you full contrarian juice, but it still matters because the room has not fully decided this series either.`,
+    ], series.id, pickedTeam.abbreviation, "middle-body"),
   };
 }
 
@@ -76,8 +146,16 @@ function differenceLabel(currentUserPick, opponentPick, series) {
 function buildSwingSummary(series, yourPick, marketSummary, currentStandingIndex, poolSize) {
   if (!yourPick) {
     return {
-      title: `Unmade pick is the biggest swing here`,
-      body: `You are still open on ${series.homeTeam.abbreviation}-${series.awayTeam.abbreviation}. Until you pick a side, this series is pure uncertainty for your position.`,
+      title: chooseVariant([
+        "Unmade pick is the biggest swing here",
+        "Blank card is still the main volatility here",
+        "No pick means this series is all uncertainty for you",
+      ], series.id, "swing-open-title"),
+      body: chooseVariant([
+        `You are still open on ${series.homeTeam.abbreviation}-${series.awayTeam.abbreviation}. Until you pick a side, this series is pure uncertainty for your position.`,
+        `This matchup is still unresolved on your card, so the biggest movement here is still self-inflicted rather than strategic.`,
+        `Before you can judge upside or defense here, you still need to decide which result you actually want attached to your board.`,
+      ], series.id, "swing-open-body"),
     };
   }
 
@@ -85,23 +163,77 @@ function buildSwingSummary(series, yourPick, marketSummary, currentStandingIndex
   const roomPct = yourPick.winnerTeamId === series.homeTeam.id ? marketSummary.homePct : marketSummary.awayPct;
   const place = currentStandingIndex >= 0 ? currentStandingIndex + 1 : null;
 
-  if (roomPct <= 35) {
+  if (roomPct <= 22) {
     return {
-      title: `${pickedTeam.abbreviation} is your upside swing`,
-      body: `${formatPct(roomPct)} of the room is with ${pickedTeam.abbreviation}, so this is one of your clearest ways to gain from ${place ? ordinal(place) : "your current position"}.`,
+      title: chooseVariant([
+        `${pickedTeam.abbreviation} is one of your loudest upside swings`,
+        `${pickedTeam.abbreviation} is a real jump-ball result for your place`,
+        `${pickedTeam.abbreviation} is the kind of hit that can actually move you`,
+      ], series.id, pickedTeam.abbreviation, "swing-hard-up-title"),
+      body: chooseVariant([
+        `Only ${formatPct(roomPct)} of the room is with ${pickedTeam.abbreviation}, so this is one of your clearest ways to make up real ground from ${place ? ordinal(place) : "where you are now"}.`,
+        `${pickedTeam.abbreviation} is well off the room's center here. If this lands for you, the reward is more than cosmetic.`,
+        `This is one of the rare results that can actually change the shape of your week instead of just nudging it.`,
+      ], series.id, pickedTeam.abbreviation, place, "swing-hard-up-body"),
     };
   }
 
-  if (roomPct >= 65) {
+  if (roomPct <= 38) {
     return {
-      title: `${pickedTeam.abbreviation} is mostly about holding serve`,
-      body: `${formatPct(roomPct)} of the pool is already on your side here. That makes this series more about not losing ground than about creating separation.`,
+      title: chooseVariant([
+        `${pickedTeam.abbreviation} is your upside swing`,
+        `${pickedTeam.abbreviation} is still a live gain spot`,
+        `${pickedTeam.abbreviation} gives you some real separation room`,
+      ], series.id, pickedTeam.abbreviation, "swing-up-title"),
+      body: chooseVariant([
+        `${formatPct(roomPct)} of the room is with ${pickedTeam.abbreviation}, so this is one of your clearer ways to gain from ${place ? ordinal(place) : "your current position"}.`,
+        `${pickedTeam.abbreviation} is still enough of a minority result to matter if you are trying to create movement.`,
+        `This is not your most extreme leverage point, but it is still one of the series that can help you climb rather than just hold.`,
+      ], series.id, pickedTeam.abbreviation, place, "swing-up-body"),
+    };
+  }
+
+  if (roomPct >= 78) {
+    return {
+      title: chooseVariant([
+        `${pickedTeam.abbreviation} is mostly about holding serve`,
+        `${pickedTeam.abbreviation} is close to pure defense for you`,
+        `${pickedTeam.abbreviation} is a protect-position result first`,
+      ], series.id, pickedTeam.abbreviation, "swing-defense-hard-title"),
+      body: chooseVariant([
+        `${formatPct(roomPct)} of the pool is already on your side here. That makes this series much more about not losing ground than about creating any real separation.`,
+        `${pickedTeam.abbreviation} is so close to pool consensus that the upside is thin. The value here is mostly in avoiding a leak.`,
+        `When this much of the room agrees with you, the interesting part is not upside. It is the cost of being wrong.`,
+      ], series.id, pickedTeam.abbreviation, "swing-defense-hard-body"),
+    };
+  }
+
+  if (roomPct >= 62) {
+    return {
+      title: chooseVariant([
+        `${pickedTeam.abbreviation} is more hold than jump`,
+        `${pickedTeam.abbreviation} is leaning defensive for you`,
+        `${pickedTeam.abbreviation} is steadier than explosive`,
+      ], series.id, pickedTeam.abbreviation, "swing-defense-title"),
+      body: chooseVariant([
+        `${formatPct(roomPct)} of the pool is already with you, so this result helps more by keeping you on pace than by creating a real burst.`,
+        `${pickedTeam.abbreviation} still matters, but the payoff is more about protecting your place than springing a surprise.`,
+        `A lot of the room is already parked here, which means this series is useful mainly as a stability check.`,
+      ], series.id, pickedTeam.abbreviation, "swing-defense-body"),
     };
   }
 
   return {
-    title: `${pickedTeam.abbreviation} is a live middle-ground swing`,
-    body: `${formatPct(roomPct)} of the pool agrees with you, so this series can still move your standing without being a full contrarian bet. ${poolSize > 2 ? "A clean result here can matter more than it looks." : ""}`,
+    title: chooseVariant([
+      `${pickedTeam.abbreviation} is a live middle-ground swing`,
+      `${pickedTeam.abbreviation} sits in the useful middle of the board`,
+      `${pickedTeam.abbreviation} is neither chalk nor a moonshot`,
+    ], series.id, pickedTeam.abbreviation, "swing-middle-title"),
+    body: chooseVariant([
+      `${formatPct(roomPct)} of the pool agrees with you, so this series can still move your standing without being a full contrarian bet. ${poolSize > 2 ? "A clean result here can matter more than it looks." : ""}`,
+      `The room is split enough that ${pickedTeam.abbreviation} can still move your place, but not so split that it has to carry the whole card.`,
+      `${pickedTeam.abbreviation} lives in that useful in-between zone: enough agreement to feel sane, enough disagreement to still matter.`,
+    ], series.id, pickedTeam.abbreviation, poolSize, "swing-middle-body"),
   };
 }
 
@@ -138,8 +270,16 @@ function buildReportsSummary({
 
   if (showScenarioCard) {
     return {
-      headline: "Today is still about the bracket settling, not just your picks",
-      body: `The most useful read right now is which finale-day results and Play-In paths will reshape Round 1 before the Saturday, April 18, 2026 lock.`,
+      headline: chooseVariant([
+        "Today is still about the bracket settling, not just your picks",
+        "The board is still being shaped before it can really be judged",
+        "Right now the useful job is reading the bracket movement before lock",
+      ], currentRound?.key, pointsBack, "summary-scenario-head"),
+      body: chooseVariant([
+        "The most useful read right now is which finale-day results and Play-In paths will reshape Round 1 before the Saturday, April 18, 2026 lock.",
+        "Before you over-interpret your own board, make sure the bracket inputs underneath it have actually settled.",
+        "This is still a pre-lock information problem before it becomes a true strategy problem.",
+      ], currentRound?.key, incompleteCount, "summary-scenario-body"),
       stats: [
         { label: "Open series", value: incompleteCount },
         { label: "Current place", value: placeLabel },
@@ -150,8 +290,16 @@ function buildReportsSummary({
 
   if (incompleteCount > 0) {
     return {
-      headline: `${incompleteCount} ${incompleteCount === 1 ? "series still needs your pick" : "series still need your picks"}`,
-      body: `Your report story is still mostly about getting fully set for ${currentRound.label}. Once the board is filled in, the leverage picture will sharpen fast.`,
+      headline: chooseVariant([
+        `${incompleteCount} ${incompleteCount === 1 ? "series still needs your pick" : "series still need your picks"}`,
+        `Your board still has ${incompleteCount} open ${incompleteCount === 1 ? "series" : "series"}`,
+        `You still have ${incompleteCount} unresolved ${incompleteCount === 1 ? "decision" : "decisions"} before the report gets sharper`,
+      ], currentRound?.key, incompleteCount, "summary-open-head"),
+      body: chooseVariant([
+        `Your report story is still mostly about getting fully set for ${currentRound.label}. Once the board is filled in, the leverage picture will sharpen fast.`,
+        "Right now the best use of the reports is helping you finish the card, not pretending the strategic read is already complete.",
+        "A fuller board will immediately make these reads more actionable. Until then, the biggest edge is still housekeeping done well.",
+      ], currentRound?.key, incompleteCount, "summary-open-body"),
       stats: [
         { label: "Open series", value: incompleteCount },
         { label: "Current place", value: placeLabel },
@@ -162,8 +310,16 @@ function buildReportsSummary({
 
   if (pointsBack <= 2) {
     return {
-      headline: `You are within one series of the lead`,
-      body: `From ${placeLabel}, your reports are mostly about protecting good ground while finding one or two spots that can still create separation.`,
+      headline: chooseVariant([
+        "You are within one series of the lead",
+        "You are close enough that one clean swing can matter",
+        "This is still a one-series race for you",
+      ], placeLabel, pointsBack, "summary-close-head"),
+      body: chooseVariant([
+        `From ${placeLabel}, your reports are mostly about protecting good ground while finding one or two spots that can still create separation.`,
+        `From ${placeLabel}, this is less about a wild comeback and more about identifying the couple of places where a clean read can still move you.`,
+        "You are close enough that discipline matters as much as aggression here. One or two good swings can do plenty.",
+      ], placeLabel, pointsBack, "summary-close-body"),
       stats: [
         { label: "Points back", value: pointsBack },
         { label: "Current place", value: placeLabel },
@@ -174,8 +330,16 @@ function buildReportsSummary({
 
   if (contrarianCount > 0) {
     return {
-      headline: `${contrarianCount} contrarian ${contrarianCount === 1 ? "call is" : "calls are"} carrying your upside`,
-      body: `You are chasing from ${placeLabel}, and your clearest path is through the series where you differ meaningfully from the room.`,
+      headline: chooseVariant([
+        `${contrarianCount} contrarian ${contrarianCount === 1 ? "call is" : "calls are"} carrying your upside`,
+        `Your best climb is still tied to ${contrarianCount} contrarian ${contrarianCount === 1 ? "spot" : "spots"}`,
+        `The card is asking your off-room ${contrarianCount === 1 ? "pick" : "picks"} to do real work`,
+      ], contrarianCount, placeLabel, "summary-contrarian-head"),
+      body: chooseVariant([
+        `You are chasing from ${placeLabel}, and your clearest path is through the series where you differ meaningfully from the room.`,
+        `From ${placeLabel}, the upside still lives mostly in the places where your board is willing to break from consensus.`,
+        "If you are going to climb from here, it is probably not through the safe spots. It is through the series where your card has some nerve.",
+      ], contrarianCount, placeLabel, "summary-contrarian-body"),
       stats: [
         { label: "Points back", value: pointsBack },
         { label: "Contrarian picks", value: contrarianCount },
@@ -185,8 +349,16 @@ function buildReportsSummary({
   }
 
   return {
-    headline: `Your board is mostly aligned with the room`,
-    body: `From ${placeLabel}, this report set is less about one huge swing and more about where market, model, and pool consensus start to diverge.`,
+    headline: chooseVariant([
+      "Your board is mostly aligned with the room",
+      "The card is not screaming for a huge rewrite",
+      "This board looks steadier than dramatic right now",
+    ], placeLabel, pointsBack, "summary-steady-head"),
+    body: chooseVariant([
+      `From ${placeLabel}, this report set is less about one huge swing and more about where market, model, and pool consensus start to diverge.`,
+      "The useful work now is not inventing drama. It is finding the quieter places where the signals start to separate.",
+      "This is the kind of board that benefits more from sharper pressure-testing than from forced action.",
+    ], placeLabel, pointsBack, "summary-steady-body"),
     stats: [
       { label: "Points back", value: pointsBack },
       { label: "Current place", value: placeLabel },
