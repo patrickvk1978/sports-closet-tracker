@@ -51,6 +51,12 @@ export default function TeamValueStandingsView() {
   );
 
   const readyCount = preLockEntries.filter((member) => member.isComplete).length;
+  const lockAtDisplay = new Date(getTeamValueLockAt(settings)).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
   const lockCountdown = Math.max(
     0,
     Math.round((new Date(getTeamValueLockAt(settings)).getTime() - Date.now()) / (1000 * 60 * 60))
@@ -144,7 +150,7 @@ export default function TeamValueStandingsView() {
                         <strong className="standings-board-link disabled-link">{member.displayName ?? member.name}</strong>
                         <span>{member.roomRead}</span>
                       </span>
-                      <span className="tooltip-bubble">Other boards unlock after {new Date(TEAM_VALUE_LOCK_AT).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                      <span className="tooltip-bubble">Other boards unlock after {lockAtDisplay}</span>
                     </span>
                   )}
                 </div>
@@ -208,7 +214,7 @@ export default function TeamValueStandingsView() {
                         ) : (
                           <span className="tooltip-wrap standings-tooltip-wrap">
                             <strong className="standings-board-link disabled-link">{member.displayName ?? member.name}</strong>
-                            <span className="tooltip-bubble">Boards unlock for everyone after {new Date(TEAM_VALUE_LOCK_AT).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                            <span className="tooltip-bubble">Boards unlock for everyone after {lockAtDisplay}</span>
                           </span>
                         )}
                         <span>{member.isCurrentUser ? "You" : "Pool entry"}</span>
