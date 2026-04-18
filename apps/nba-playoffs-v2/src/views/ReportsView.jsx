@@ -577,7 +577,7 @@ export default function ReportsView() {
   }, [activeRoundSeries, allPicksByUser, memberList, picksBySeriesId]);
 
   return (
-    <div className="nba-shell">
+    <div className="nba-shell nba-reports-page">
       <section className="panel nba-reports-hero">
         <div>
           <span className="label">Reports</span>
@@ -597,7 +597,7 @@ export default function ReportsView() {
       </section>
 
       <section className="nba-dashboard-grid">
-        <article className="panel">
+        <article className="panel nba-report-preview-panel">
           <div className="panel-header">
             <div>
               <span className="label">Rooting guide</span>
@@ -622,7 +622,7 @@ export default function ReportsView() {
           </div>
         </article>
 
-        <article className="panel">
+        <article className="panel nba-report-preview-panel">
           <div className="panel-header">
             <div>
               <span className="label">Win odds</span>
@@ -656,7 +656,7 @@ export default function ReportsView() {
           </div>
         </article>
 
-        <article className="panel">
+        <article className="panel nba-report-preview-panel">
           <div className="panel-header">
             <div>
               <span className="label">Swing spots</span>
@@ -683,7 +683,7 @@ export default function ReportsView() {
       </section>
 
       <section className="nba-dashboard-grid">
-        <article className="panel">
+        <article className="panel nba-report-preview-panel">
           <div className="panel-header">
             <div>
               <span className="label">Head to head</span>
@@ -738,7 +738,7 @@ export default function ReportsView() {
           </div>
         </article>
 
-        <article className="panel">
+        <article className="panel nba-report-preview-panel">
           <div className="panel-header">
             <div>
               <span className="label">Pool exposure</span>
@@ -764,7 +764,7 @@ export default function ReportsView() {
         </article>
 
         {showScenarioCard ? (
-          <article className="panel">
+          <article className="panel nba-report-preview-panel">
             <div className="panel-header">
               <div>
                 <span className="label">Scenario watch</span>
@@ -790,7 +790,7 @@ export default function ReportsView() {
             </div>
           </article>
         ) : (
-          <article className="panel">
+          <article className="panel nba-report-preview-panel">
             <div className="panel-header">
               <div>
                 <span className="label">Position outlook</span>

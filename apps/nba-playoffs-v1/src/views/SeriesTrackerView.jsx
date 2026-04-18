@@ -515,8 +515,12 @@ export default function SeriesTrackerView() {
                     <div className="nba-result-matrix-summary-copy">
                       <span className="nba-result-matrix-summary-open">Open Result Matrix</span>
                       <span className="nba-result-matrix-summary-close">Close Result Matrix</span>
+                      <span className="nba-result-matrix-summary-subtitle">Compare every exact result side by side</span>
                     </div>
-                    <span className="nba-result-matrix-summary-icon" aria-hidden="true">+</span>
+                    <div className="nba-result-matrix-summary-meta">
+                      <span className="nba-result-matrix-summary-badge">Market + Model</span>
+                      <span className="nba-result-matrix-summary-icon" aria-hidden="true">+</span>
+                    </div>
                   </summary>
                   <div className="nba-result-matrix-grid">
                     <section className="detail-card inset-card nba-result-matrix-card nba-result-matrix-card-market">

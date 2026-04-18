@@ -973,6 +973,46 @@ p { margin: 0; }
   margin-top: 12px;
 }
 
+.nba-reports-page .nba-report-preview-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.nba-reports-page .nba-report-preview-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, rgba(34, 55, 87, 0.92), rgba(207, 157, 54, 0.88));
+  opacity: 0.9;
+}
+
+.nba-reports-page .nba-report-preview-panel .panel-header {
+  margin-bottom: 6px;
+}
+
+.nba-reports-page .nba-report-preview-panel .nba-dashboard-row:first-of-type {
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(190, 145, 84, 0.34);
+  background:
+    linear-gradient(135deg, rgba(239, 199, 95, 0.12), transparent 44%),
+    linear-gradient(180deg, rgba(249, 241, 224, 0.98), rgba(241, 229, 205, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255, 248, 236, 0.88);
+}
+
+.nba-reports-page .nba-report-preview-panel .nba-dashboard-row:first-of-type strong {
+  display: block;
+  color: #1f140d;
+  font-size: 1.08rem;
+  line-height: 1.28;
+}
+
+.nba-reports-page .nba-report-preview-panel .nba-dashboard-row:first-of-type p:first-of-type {
+  color: rgba(78, 58, 41, 0.92);
+  font-weight: 700;
+}
+
 .nba-conference-column,
 .nba-series-column,
 .nba-series-list {
