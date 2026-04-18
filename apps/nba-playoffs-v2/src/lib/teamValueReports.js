@@ -76,12 +76,12 @@ function buildSummary(currentStanding, slotFitRows, fragilityRows) {
     headline: boothLine([
       `${topFit?.teamLabel ?? "Your board"} is shaping the whole story right now.`,
       `${topFit?.teamLabel ?? "Your top slot"} is one of the names steering this board`,
-      `Your board is still being defined by the way you priced ${topFit?.teamLabel ?? "the top end"}`,
+      `Your board is still being defined by the way you slotted ${topFit?.teamLabel ?? "the top end"}`,
     ], topFit?.teamLabel, topFragility?.teamLabel, currentStanding.place, "summary-head"),
     body: `${boothLine([
       `From ${ordinal(currentStanding.place)}, your board still has ${currentStanding.liveValueRemaining} live value. The biggest question is whether your highest slots are in the right teams and whether ${topFragility?.teamLabel ?? "your top exposures"} are sturdier than they look.`,
       `From ${ordinal(currentStanding.place)}, you still have ${currentStanding.liveValueRemaining} live value working for you. The interesting tension is whether your premium slots are on the right teams and whether ${topFragility?.teamLabel ?? "the thinner exposures"} can really hold up.`,
-      `There is still ${currentStanding.liveValueRemaining} live value on your side from ${ordinal(currentStanding.place)}. What matters now is whether the expensive teams are worth the price and whether ${topFragility?.teamLabel ?? "the shakier names"} can keep collecting wins long enough to justify the slot.`,
+      `There is still ${currentStanding.liveValueRemaining} live value on your side from ${ordinal(currentStanding.place)}. What matters now is whether your highest slots are asking too much and whether ${topFragility?.teamLabel ?? "the shakier names"} can keep collecting wins long enough to justify the assignment.`,
     ], topFit?.teamLabel, topFragility?.teamLabel, currentStanding.place, "summary-body")} ${colorLine([
       `This is where the board stops being a spreadsheet and starts becoming a mood.`,
       `Some boards feel sturdy. Some feel spicy. This one is still deciding which it wants to be.`,
@@ -117,32 +117,32 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
       if (slotDelta >= 3.5) {
         fitType = "over";
         headline = coachLine([
-          `${team.abbreviation} is one of the steepest prices on your board`,
+          `${team.abbreviation} is one of the steepest asks on your board`,
           `${team.abbreviation} is being asked to justify a very ambitious slot`,
-          `${team.abbreviation} is one of the clearest premium-overpay spots`,
+          `${team.abbreviation} is one of the clearest overextended slots`,
         ], team.abbreviation, slotDelta, yourValue, "slot-hard-over-head");
         body = `${coachLine([
-          `At ${yourValue}, ${team.abbreviation} is being priced well above the board's fair view of ${team.fairValue}.`,
-          `This is no longer just a small pricing lean. ${team.abbreviation} is being treated more like a top-shelf asset than the board currently supports.`,
-          `The board still likes ${team.abbreviation}; it just does not like paying this much for the path.`,
+          `At ${yourValue}, ${team.abbreviation} is sitting well above the board's fair view of ${team.fairValue}.`,
+          `This is no longer just a small lean. ${team.abbreviation} is being treated more like a top-shelf asset than the board currently supports.`,
+          `The board still likes ${team.abbreviation}; it just does not like using this strong a slot on the path.`,
         ], team.abbreviation, slotDelta, yourValue, "slot-hard-over-body")} ${colorLine([
           `This is the kind of slot that can quietly drag the rest of the board uphill.`,
           `Useful if it lands. Heavy if it misses.`,
-          `This is where price stops being background noise and starts becoming the whole story.`,
+          `This is where slot cost stops being background noise and starts becoming the whole story.`,
         ], team.abbreviation, slotDelta, "slot-hard-over-color")}`;
       } else if (slotDelta >= 2) {
         fitType = "over";
         headline = coachLine([
-          `${team.abbreviation} is one of your richer slots`,
+          `${team.abbreviation} is one of your richest slots`,
           `${team.abbreviation} is getting premium treatment on your board`,
-          `${team.abbreviation} is one of the pricier bets you are carrying`,
+          `${team.abbreviation} is one of the stronger asks you are carrying`,
         ], team.abbreviation, slotDelta, "slot-over-head");
         body = `${coachLine([
-          `You are spending ${yourValue} on ${team.abbreviation}, while the board reads them closer to ${team.fairValue}.`,
-          `${team.abbreviation} is being priced more like a ${yourValue} than the board really wants to pay; it sees them nearer ${team.fairValue}.`,
-          `The question is not whether ${team.abbreviation} is good. It is whether this board should be paying ${yourValue} when the fair landing spot still looks closer to ${team.fairValue}.`,
+          `You are using a ${yourValue} slot on ${team.abbreviation}, while the board reads them closer to ${team.fairValue}.`,
+          `${team.abbreviation} is sitting more like a ${yourValue} than the board really wants; it sees them nearer ${team.fairValue}.`,
+          `The question is not whether ${team.abbreviation} is good. It is whether this board should be using a ${yourValue} slot when the fair landing spot still looks closer to ${team.fairValue}.`,
         ], team.abbreviation, slotDelta, "slot-over-body")} ${colorLine([
-          `That is not a ban on the team. It is a reminder that sticker price matters too.`,
+          `That is not a ban on the team. It is a reminder that slot cost matters too.`,
           `The team may still hit; the slot is what is starting to blink.`,
           `There is a difference between liking the team and paying retail for the team.`,
         ], team.abbreviation, slotDelta, "slot-over-color")}`;
@@ -151,7 +151,7 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
         headline = coachLine([
           `${team.abbreviation} may be a touch expensive`,
           `${team.abbreviation} is close, but maybe still a little rich`,
-          `${team.abbreviation} is not far off, though the price is leaning high`,
+          `${team.abbreviation} is not far off, though the slot is leaning high`,
         ], team.abbreviation, slotDelta, "slot-soft-over-head");
         body = `${coachLine([
           `${team.abbreviation} is only slightly above the board's fair slot, so the real question is whether ${expectedPoints} expected points and ${poolEv} pool EV justify the extra spend.`,
@@ -171,8 +171,8 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
         ], team.abbreviation, slotDelta, yourValue, "slot-hard-under-head");
         body = `${coachLine([
           `At ${yourValue}, ${team.abbreviation} is landing well below the board's fair view of ${team.fairValue}.`,
-          `This is more than a small discount. ${team.abbreviation} is being carried materially lighter than the board would normally price it.`,
-          `If this team hangs around, the board gets more from the slot than the slot price is implying.`,
+          `This is more than a small discount. ${team.abbreviation} is being carried materially lighter than the board would normally place it.`,
+          `If this team hangs around, the board gets more from the slot than the current assignment is implying.`,
         ], team.abbreviation, slotDelta, yourValue, "slot-hard-under-body")} ${boothLine([
           `This is how a board finds room to breathe.`,
           `This is one of the cleaner ways to buy ceiling without paying full freight.`,
@@ -183,12 +183,12 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
         headline = coachLine([
           `${team.abbreviation} looks under-slotted for the upside`,
           `${team.abbreviation} is one of your cleaner upside buys`,
-          `${team.abbreviation} may be sitting lower than the board would price it`,
+          `${team.abbreviation} may be sitting lower than the board would usually place it`,
         ], team.abbreviation, slotDelta, "slot-under-head");
         body = `${coachLine([
           `${team.abbreviation} is sitting at ${yourValue}, even though the board would push them nearer ${team.fairValue}.`,
           `The board sees ${team.abbreviation} as more of a ${team.fairValue} than a ${yourValue}, which is what makes this one interesting.`,
-          `At ${yourValue}, ${team.abbreviation} is getting priced lighter than the underlying board read suggests.`,
+          `At ${yourValue}, ${team.abbreviation} is landing lighter than the underlying board read suggests.`,
         ], team.abbreviation, slotDelta, "slot-under-body")} ${boothLine([
           `That is how a board steals ceiling without advertising it.`,
           `This is the kind of quiet buy that can make the rest of the board breathe easier.`,
@@ -214,12 +214,12 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
         headline = coachLine([
           `${team.abbreviation} is about as clean a fit as you have`,
           `${team.abbreviation} looks very close to dead-on`,
-          `${team.abbreviation} is one of the tidier prices on the page`,
+          `${team.abbreviation} is one of the tidier assignments on the page`,
         ], team.abbreviation, "slot-very-clean-head");
         body = `${coachLine([
           `${team.abbreviation} is essentially where the board would put them already.`,
           `This is one of the spots where the slot, expected points, and pool EV are all telling a very similar story.`,
-          `There is not much daylight here between your price and the board's price.`,
+          `There is not much daylight here between your slot and the board's preferred slot.`,
         ], team.abbreviation, "slot-very-clean-body")} ${colorLine([
           `Probably not where today's board gains or loses the most.`,
           `This is not where the board is asking for attention.`,
@@ -228,13 +228,13 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
       } else {
         headline = coachLine([
           `${team.abbreviation} already sits in a clean slot`,
-          `${team.abbreviation} looks priced about right`,
-          `${team.abbreviation} is one of the steadier prices on your board`,
+          `${team.abbreviation} looks slotted about right`,
+          `${team.abbreviation} is one of the steadier assignments on your board`,
         ], team.abbreviation, "slot-clean-head");
         body = `${coachLine([
           `You already have ${team.abbreviation} in the range the board expects, with ${expectedPoints} expected points and ${poolEv} pool EV.`,
           `${team.abbreviation} is not really asking for a move right now. The slot, expected points, and pool EV are mostly telling the same story.`,
-          `This is one of the calmer assignments on the page: the board is not throwing a flag on the price.`,
+          `This is one of the calmer assignments on the page: the board is not throwing a flag on the slot.`,
         ], team.abbreviation, "slot-clean-body")} ${colorLine([
           `No emergency here.`,
           `Keep moving.`,
@@ -371,7 +371,7 @@ function buildRootingRows(selectionRows, seriesByRound, currentAssignments) {
       body:
         gap === 0
           ? `${boothLine([
-              `You priced both sides similarly, so this series is more about broad bracket texture than one concentrated asset.`,
+              `You slotted both sides similarly, so this series is more about broad bracket texture than one concentrated asset.`,
               `This is more of a bracket-shape series for you than a concentrated rooting spot.`,
               `The board does not have a giant thumb on the scale here, which makes this one more informational than emotional.`,
             ], seriesItem.id, "rooting-even-body")} ${colorLine([
@@ -416,13 +416,13 @@ function buildModelGapRows(selectionRows, currentAssignments) {
         body = `The model is materially warmer than the market here, and because you already have real board value tied up in ${team.abbreviation}, this is more than a passing disagreement.`;
       } else if (modelHigher && weightedGap >= 10 && toneSeed === 1) {
         headline = `${team.abbreviation} is drawing one of the louder internal votes of confidence`;
-        body = `The outside price is cautious, but the model is leaning much harder into ${team.abbreviation}. When the gap is this clear, it is usually worth asking whether the market is lagging the path or the board is getting seduced by noise.`;
+        body = `The market read is cautious, but the model is leaning much harder into ${team.abbreviation}. When the gap is this clear, it is usually worth asking whether the market is lagging the path or the board is getting seduced by noise.`;
       } else if (modelHigher && toneSeed === 0) {
         headline = `${team.abbreviation} is one of the clearer model-over-market spots`;
-        body = `The model is buying ${team.abbreviation} more aggressively than the market is. At ${modelLean}% versus ${marketLean}%, this is the kind of team that asks whether the public price is being a little too cautious.`;
+        body = `The model is buying ${team.abbreviation} more aggressively than the market is. At ${modelLean}% versus ${marketLean}%, this is the kind of team that asks whether the public read is being a little too cautious.`;
       } else if (modelHigher && toneSeed === 1) {
         headline = `${team.abbreviation} is getting a quieter vote of confidence from the model`;
-        body = `${team.abbreviation} is not being priced quite as warmly by the market, but the model still sees more runway here. If you already have real value tied up in them, that disagreement is worth respecting because a longer stay now pays out more gradually along the way.`;
+        body = `${team.abbreviation} is not being viewed quite as warmly by the market, but the model still sees more runway here. If you already have real value tied up in them, that disagreement is worth respecting because a longer stay now pays out more gradually along the way.`;
       } else if (modelHigher && toneSeed === 2) {
         headline = `${team.abbreviation} may have more under the hood than the market is giving it credit for`;
         body = `The market is sitting at ${marketLean}%, but the model pushes ${team.abbreviation} to ${modelLean}%. That does not automatically make them right, but it does make this one of the better cases for taking a closer second look.`;
@@ -431,22 +431,22 @@ function buildModelGapRows(selectionRows, currentAssignments) {
         body = `This is not the market and model shrugging past each other. The model is materially warmer on ${team.abbreviation}, which makes them one of the better “check the assumptions” teams before lock.`;
       } else if (!modelHigher && weightedGap >= 10 && toneSeed === 0) {
         headline = `${team.abbreviation} is one of the clearer market-over-model warnings`;
-        body = `The public price is leaning a lot harder than the model here, which makes this a useful “what exactly am I paying for?” check if the team is sitting in a meaningful slot.`;
+        body = `The public read is leaning a lot harder than the model here, which makes this a useful “what exactly is this slot asking me to believe?” check if the team is sitting in a meaningful assignment.`;
       } else if (!modelHigher && weightedGap >= 10 && toneSeed === 1) {
         headline = `${team.abbreviation} is carrying more public confidence than model support`;
         body = `This is not just a small split. The market is making a much firmer case than the model, which is often where a board ends up paying for the consensus story a little too dearly.`;
       } else if (!modelHigher && toneSeed === 0) {
         headline = `${team.abbreviation} is one of the spots where the market is more convinced`;
-        body = `The public price is stronger than the model here, which can mean one of two things: either the market is seeing a cleaner path, or the team is being priced close to its ceiling already.`;
+        body = `The market is stronger than the model here, which can mean one of two things: either the market is seeing a cleaner path, or the team is already being treated close to its ceiling.`;
       } else if (!modelHigher && toneSeed === 1) {
         headline = `${team.abbreviation} is drawing more market trust than model trust`;
-        body = `${marketLean}% market versus ${modelLean}% model is not a small split. If you have a heavy slot on ${team.abbreviation}, this is exactly the sort of disagreement that should make you ask what assumption you are really paying for.`;
+        body = `${marketLean}% market versus ${modelLean}% model is not a small split. If you have a heavy slot on ${team.abbreviation}, this is exactly the sort of disagreement that should make you ask what assumption the assignment is really leaning on.`;
       } else if (toneSeed === 2) {
         headline = `${team.abbreviation} looks a little more public-facing than model-backed`;
         body = `The market is leaning harder into ${team.abbreviation} than the model is. Sometimes that is justified; sometimes it is just a reminder that the consensus case has already been priced in.`;
       } else {
         headline = `${team.abbreviation} is getting the louder market microphone`;
-        body = `The market is speaking more confidently than the model on ${team.abbreviation}. That does not settle the argument, but it does tell you where the public price is willing to lean harder than the underlying model read.`;
+        body = `The market is speaking more confidently than the model on ${team.abbreviation}. That does not settle the argument, but it does tell you where the broader read is willing to lean harder than the underlying model view.`;
       }
 
       return {
@@ -580,13 +580,13 @@ function buildStrategicMoveRows(selectionRows, currentAssignments) {
           headline = `${team.abbreviation} may be too expensive in this slot`;
           body = `You have ${team.abbreviation} above where the board model currently wants them. The upside is still there, but the cost of the slot may now be doing too much of the work.`;
         } else if (toneSeed === 1) {
-          headline = `${team.abbreviation} is starting to look like a luxury price`;
-          body = `The team can still hit, but this slot is charging close to full freight already. That is usually the moment to ask whether you are paying for the team or paying for the story of the team.`;
+          headline = `${team.abbreviation} is starting to look like a luxury slot`;
+          body = `The team can still hit, but this slot is asking close to full freight already. That is usually the moment to ask whether you are backing the team or just the story of the team.`;
         } else if (toneSeed === 2) {
           headline = `${team.abbreviation} is one of the richer bets on your board`;
           body = `This is not a bad team problem; it is a pricing problem. The board can like ${team.abbreviation} and still think you are asking too much of them at this number.`;
         } else {
-          headline = `${team.abbreviation} is being asked to justify a pretty steep sticker price`;
+          headline = `${team.abbreviation} is being asked to justify a pretty steep slot`;
           body = `The team can work. The slot can still be too ambitious. That is the whole argument here.`;
         }
       } else if (yourValue > 0 && slotGap <= -3 && team.poolEv >= 15.5) {
@@ -628,7 +628,7 @@ function buildStrategicMoveRows(selectionRows, currentAssignments) {
           headline = `${team.abbreviation} is the classic safe answer, but it is not cheap`;
           body = `The floor is real. So is the opportunity cost. This is the kind of slot that stabilizes a board while quietly asking whether the ceiling sacrifice is worth it.`;
         } else if (toneSeed === 2) {
-          headline = `${team.abbreviation} is buying comfort at a meaningful price`;
+          headline = `${team.abbreviation} is buying comfort at a meaningful cost`;
           body = `The assignment makes the board easier to live with, but it also spends a strong slot on a calmer outcome profile.`;
         } else {
           headline = `${team.abbreviation} is the steady hand option, with the usual expensive strings attached`;
@@ -748,7 +748,7 @@ export function buildTeamValueReports({
     "model-gaps": {
       key: "model-gaps",
       label: "Market vs model",
-      title: "Where do the public price and model disagree?",
+      title: "Where do the market and model disagree?",
       description: "This stays fair pre-lock because it compares your board to outside signals, not to hidden room selections.",
       rows: modelGaps,
       stage: "always",

@@ -231,7 +231,7 @@ function buildDeskIntro({ reportState, completionCount }) {
     return {
       headline: `${topMisfit.teamLabel} is probably the cleanest rank tweak still left.`,
       body:
-        `Your board is in. The job now is not another full rebuild; it is tightening the few teams that still look mispriced against the current bracket and market picture.`,
+        `Your board is in. The job now is not another full rebuild; it is tightening the few teams that still look out of place against the current bracket and market picture.`,
       currentRead:
         topScenario?.likelyImpact ??
         "Portland locking the West 7 line turned one side of the board into a real series. That is the kind of shift that should move a slot, not just your mood.",
@@ -242,7 +242,7 @@ function buildDeskIntro({ reportState, completionCount }) {
     headline: "You are done ranking. Now narrow it to the two or three teams worth reopening.",
       body:
         strategicMove?.body ??
-        "The highest-value work from here is not reading every report evenly. It is deciding which few teams still deserve a meaningful reprice before lock.",
+        "The highest-value work from here is not reading every report evenly. It is deciding which few teams still deserve a meaningful second look before lock.",
     currentRead:
       topScenario?.likelyImpact ??
       "The board is mature enough now that the only really useful changes are the ones tied to actual bracket movement or a clear outside-signal disagreement.",

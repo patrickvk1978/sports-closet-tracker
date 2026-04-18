@@ -161,12 +161,28 @@ function buildDecisionOptions(reportKey, row) {
       title: "Decision angle",
       primary:
         row.fitType === "under"
-          ? `Move ${row.teamLabel} up if you think the team is more likely to bank early wins than this slot assumes.`
-          : `Move ${row.teamLabel} down if you think this slot is asking too much from the path.`,
+          ? chooseVariant([
+              `Move ${row.teamLabel} up if you think the team is more likely to bank early wins than this slot assumes.`,
+              `Push ${row.teamLabel} higher if you think this slot is leaving too much room on the table.`,
+              `Move ${row.teamLabel} up if you trust the early-win floor more than the current rank does.`,
+            ], row.id, reportKey, "decision-under-primary")
+          : chooseVariant([
+              `Move ${row.teamLabel} down if you think this slot is asking too much from the path.`,
+              `Slide ${row.teamLabel} down if this rank feels too ambitious for the likely route.`,
+              `Move ${row.teamLabel} lower if you think this slot is demanding more than the team is likely to deliver.`,
+            ], row.id, reportKey, "decision-over-primary"),
       secondary:
         row.fitType === "under"
-          ? `Hold it if you like the upside but do not see a clearly better floor than the nearby teams.`
-          : `Hold it if you still trust the clinching ceiling enough to justify the price.`,
+          ? chooseVariant([
+              `Hold it if you like the upside but do not see a clearly better floor than the nearby teams.`,
+              `Leave it where it is if the upside is real, but not clearly stronger than the neighboring options.`,
+              `Keep it in place if you like the case, but not enough to crowd out a steadier team nearby.`,
+            ], row.id, reportKey, "decision-under-secondary")
+          : chooseVariant([
+              `Hold it if you still trust the clinching ceiling enough to justify the slot.`,
+              `Leave it where it is if you still think the top-end payoff is worth this rank.`,
+              `Keep it here if you think the ceiling still supports a stronger slot than the nearby teams.`,
+            ], row.id, reportKey, "decision-over-secondary"),
     };
   }
 
@@ -175,12 +191,28 @@ function buildDecisionOptions(reportKey, row) {
       title: "Action options",
       primary:
         row.moveType === "Upside buy" || row.moveType === "Risk with upside"
-          ? `Move ${row.teamLabel} up if you believe the partial-win floor is real enough to support a higher rank.`
-          : `Move ${row.teamLabel} down if you think the board is buying reputation more than scoring path.`,
+          ? chooseVariant([
+              `Move ${row.teamLabel} up if you believe the partial-win floor is real enough to support a higher rank.`,
+              `Push ${row.teamLabel} higher if you think the team can stack enough wins along the way to earn a better slot.`,
+              `Move ${row.teamLabel} up if you trust the scoring path more than the current rank does.`,
+            ], row.id, reportKey, "strategic-up-primary")
+          : chooseVariant([
+              `Move ${row.teamLabel} down if you think the board is buying reputation more than scoring path.`,
+              `Slide ${row.teamLabel} lower if the name feels stronger than the likely point path.`,
+              `Move ${row.teamLabel} down if the slot feels more based on comfort than on actual scoring return.`,
+            ], row.id, reportKey, "strategic-down-primary"),
       secondary:
         row.moveType === "Upside buy" || row.moveType === "Risk with upside"
-          ? `Leave it if you like the team, but not enough to push out a steadier source of points above it.`
-          : `Leave it if you still prefer the safer path and shorter route to the clincher.`,
+          ? chooseVariant([
+              `Leave it if you like the team, but not enough to push out a steadier source of points above it.`,
+              `Keep it here if you like the upside, but not enough to dislodge a safer point source above it.`,
+              `Hold it if the team is interesting, but not clearly better than the steadier names around it.`,
+            ], row.id, reportKey, "strategic-up-secondary")
+          : chooseVariant([
+              `Leave it if you still prefer the safer path and shorter route to the clincher.`,
+              `Keep it here if the steadier route still matters more to you than chasing a little extra flair.`,
+              `Hold it if you still trust the cleaner path more than the flashier alternatives nearby.`,
+            ], row.id, reportKey, "strategic-down-secondary"),
     };
   }
 
@@ -189,11 +221,27 @@ function buildDecisionOptions(reportKey, row) {
     return {
       title: "Decision angle",
       primary: modelHigher
-        ? `Move ${row.teamLabel} up if you trust the model more than the outside price here.`
-        : `Move ${row.teamLabel} down if you think the market is telling the truer story here.`,
+        ? chooseVariant([
+            `Move ${row.teamLabel} up if you trust the model more than the market read here.`,
+            `Push ${row.teamLabel} higher if you think the model is seeing something the market is missing.`,
+            `Move ${row.teamLabel} up if you think the quieter read is the better one here.`,
+          ], row.id, reportKey, "model-up-primary")
+        : chooseVariant([
+            `Move ${row.teamLabel} down if you think the market is telling the truer story here.`,
+            `Slide ${row.teamLabel} lower if you think the market read is more believable than the model here.`,
+            `Move ${row.teamLabel} down if you think the public lean is closer to reality on this team.`,
+          ], row.id, reportKey, "model-down-primary"),
       secondary: modelHigher
-        ? `Keep it in place if the disagreement feels real, but not strong enough to outrank the nearby options.`
-        : `Keep it in place if you still think the ceiling justifies the slot.`,
+        ? chooseVariant([
+            `Keep it in place if the disagreement feels real, but not strong enough to outrank the nearby options.`,
+            `Leave it where it is if you respect the disagreement, but not enough to reorder the slot.`,
+            `Hold it here if the model case is interesting, but not decisive versus the nearby teams.`,
+          ], row.id, reportKey, "model-up-secondary")
+        : chooseVariant([
+            `Keep it in place if you still think the ceiling justifies the slot.`,
+            `Leave it where it is if you still think the upside is enough to support the rank.`,
+            `Hold it here if you still trust the top-end case more than the doubt.`,
+          ], row.id, reportKey, "model-down-secondary"),
     };
   }
 
@@ -548,7 +596,7 @@ function SlotFitColumns({ rows, reportLabel, reportTitle, reportBody, reportCue,
         <section className="nba-report-split-column nba-report-group-table">
           <SectionIntro
             label="Biggest risks"
-            title="Where are you paying the richest prices?"
+            title="Where are your strongest slots carrying the heaviest burden?"
             description="These are the teams your board is asking the most to justify. They may still work, but the slot cost is doing some of the heavy lifting."
           />
           <div className="nba-dashboard-list nba-report-group-body">
@@ -718,7 +766,7 @@ function ModelGapColumns({ rows, reportLabel, reportTitle, reportBody, reportCue
           <SectionIntro
             label="Model stronger"
             title="Where does the model see more than the market?"
-            description="These are the teams where the model is more optimistic than the public price. They are often the more interesting pre-lock second looks."
+            description="These are the teams where the model is more optimistic than the market read. They are often the more interesting pre-lock second looks."
           />
           <div className="nba-dashboard-list nba-report-group-body">
             {renderRows(modelHigher, "No obvious model-over-market teams right now.")}
@@ -733,7 +781,7 @@ function ModelGapColumns({ rows, reportLabel, reportTitle, reportBody, reportCue
         <section className="nba-report-split-column nba-report-group-table">
           <SectionIntro
             label="Market stronger"
-            title="Where is the public price more confident?"
+            title="Where is the market more confident?"
             description="These are the teams where the market is leaning harder than the model. Sometimes that is signal. Sometimes it is just expensive consensus."
           />
           <div className="nba-dashboard-list nba-report-group-body">
