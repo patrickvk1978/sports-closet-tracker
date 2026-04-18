@@ -288,9 +288,15 @@ export function PoolProvider({ children }) {
   async function updatePoolSettings(settingsPatch) {
     if (!pool) return
     const nextSettings = { ...(pool.settings ?? {}), ...settingsPatch }
-    await supabase.from('pools').update({ scoring_config: nextSettings }).eq('id', pool.id)
-    setPool(prev => prev ? normalizeNbaPool({ ...prev, scoring_config: nextSettings }) : prev)
-    setAllPools(prev => prev.map(p => p.id === pool.id ? normalizeNbaPool({ ...p, scoring_config: nextSettings }) : p))
+    const { data } = await supabase
+      .from('pools')
+      .update({ scoring_config: nextSettings })
+      .eq('id', pool.id)
+      .select()
+      .single()
+    const updatedPool = normalizeNbaPool(data ?? { ...pool, scoring_config: nextSettings })
+    setPool(updatedPool)
+    setAllPools(prev => prev.map(p => p.id === pool.id ? normalizeNbaPool(data ?? { ...p, scoring_config: nextSettings }) : p))
   }
 
   async function updatePoolMeta(patch) {

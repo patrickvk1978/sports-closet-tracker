@@ -36,8 +36,8 @@ function AppChrome() {
 }
 
 function PoolHomeRedirect() {
-  const { pool } = usePool();
-  const phase = getTeamValuePhase();
+  const { pool, settingsForPool } = usePool();
+  const phase = getTeamValuePhase(settingsForPool(pool));
 
   if (!pool) {
     return <Navigate to="/join" replace />;

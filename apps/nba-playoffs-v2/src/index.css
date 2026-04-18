@@ -453,8 +453,15 @@ p { margin: 0; }
   font-size: 0.92rem;
 }
 
-.nba-board-hero-header {
+.panel-header.nba-board-hero-header {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 280px;
   align-items: start;
+  gap: 12px;
+}
+
+.nba-board-hero-balance {
+  min-height: 1px;
 }
 
 .nba-board-hero-copy {
@@ -464,6 +471,10 @@ p { margin: 0; }
   text-align: center;
   max-width: 42rem;
   margin: 0 auto;
+}
+
+.panel-header.nba-board-hero-header .nba-report-actions {
+  justify-self: end;
 }
 
 .nba-board-hero-header .nba-board-hero-copy h2 {
@@ -504,7 +515,7 @@ p { margin: 0; }
 }
 
 .nba-board-rail-card {
-  min-height: 150px;
+  min-height: 0;
 }
 
 .nba-board-side-rail .detail-card:first-child {
@@ -522,6 +533,12 @@ p { margin: 0; }
   border-color: rgba(149, 110, 28, 0.54);
 }
 
+.nba-board-rail-card.reports-card .micro-label {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
 .nba-board-rail-card.scoring-card {
   background: linear-gradient(180deg, rgba(194, 90, 44, 0.9), rgba(221, 126, 74, 0.82));
   border-color: rgba(146, 67, 32, 0.5);
@@ -535,28 +552,69 @@ p { margin: 0; }
 .nba-board-rail-select-wrap {
   display: grid;
   gap: 6px;
-  margin: 10px 0 6px;
+  margin: 10px 0 10px;
+}
+
+.nba-board-rail-select-shell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 10px 0 0;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(98, 63, 23, 0.28);
+  background: rgba(255, 248, 233, 0.96);
 }
 
 .nba-board-rail-select {
   width: 100%;
+  min-width: 0;
   border-radius: var(--r-sm);
-  border: 1px solid rgba(98, 63, 23, 0.28);
-  background: rgba(255, 248, 233, 0.96);
+  border: 0;
+  background: transparent;
   color: rgba(52, 31, 18, 0.96);
-  padding: 11px 13px;
-  font-size: 0.95rem;
+  padding: 12px 12px 11px 13px;
+  font-size: 0.88rem;
   font-weight: 700;
+  line-height: 1.1;
 }
 
-.nba-board-rail-description {
-  min-height: 66px;
+.nba-board-rail-select:focus {
+  outline: none;
 }
 
 .nba-board-rail-card .secondary-button {
   background: rgba(255, 248, 233, 0.96);
   border-color: rgba(91, 55, 43, 0.18);
   color: var(--text-1);
+}
+
+.nba-board-rail-card .tooltip-wrap {
+  color: inherit;
+}
+
+.nba-board-rail-select-inline-help {
+  flex: 0 0 auto;
+}
+
+.nba-board-rail-select-inline-help .help-dot {
+  background: rgba(255, 248, 233, 0.92);
+  border-color: rgba(98, 63, 23, 0.24);
+  color: rgba(52, 31, 18, 0.96);
+}
+
+.nba-board-rail-card .tooltip-bubble {
+  top: calc(100% + 12px);
+  left: auto;
+  right: 0;
+  transform: translateX(0);
+  min-width: 220px;
+  max-width: 260px;
+}
+
+.nba-board-rail-card .tooltip-wrap:hover .tooltip-bubble,
+.nba-board-rail-card .tooltip-wrap:focus-within .tooltip-bubble {
+  transform: translateX(0);
 }
 
 .nba-board-glossary-grid {
@@ -983,8 +1041,23 @@ p { margin: 0; }
   position: absolute;
   inset: 0 0 auto;
   height: 4px;
-  background: linear-gradient(90deg, rgba(34, 55, 87, 0.92), rgba(207, 157, 54, 0.88));
   opacity: 0.9;
+}
+
+.nba-reports-page .nba-report-preview-panel-navy::before {
+  background: linear-gradient(90deg, rgba(34, 55, 87, 0.96), rgba(61, 93, 140, 0.86));
+}
+
+.nba-reports-page .nba-report-preview-panel-mustard::before {
+  background: linear-gradient(90deg, rgba(181, 136, 38, 0.96), rgba(219, 181, 86, 0.86));
+}
+
+.nba-reports-page .nba-report-preview-panel-orange::before {
+  background: linear-gradient(90deg, rgba(169, 91, 38, 0.96), rgba(213, 125, 71, 0.86));
+}
+
+.nba-reports-page .nba-report-preview-panel-walnut::before {
+  background: linear-gradient(90deg, rgba(94, 60, 45, 0.96), rgba(135, 92, 68, 0.84));
 }
 
 .nba-reports-page .nba-report-preview-panel .panel-header {
@@ -1011,6 +1084,35 @@ p { margin: 0; }
 .nba-reports-page .nba-report-preview-panel .nba-dashboard-row:first-of-type p:first-of-type {
   color: rgba(78, 58, 41, 0.92);
   font-weight: 700;
+}
+
+.nba-report-action-button {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.nba-report-action-button-navy {
+  border-color: rgba(37, 59, 94, 0.58);
+  background: linear-gradient(180deg, rgba(33, 54, 85, 0.98), rgba(24, 39, 62, 0.98));
+  color: #f2d792;
+}
+
+.nba-report-action-button-mustard {
+  border-color: rgba(176, 135, 47, 0.58);
+  background: linear-gradient(180deg, rgba(215, 178, 85, 0.98), rgba(187, 143, 49, 0.98));
+  color: #22160d;
+}
+
+.nba-report-action-button-orange {
+  border-color: rgba(168, 92, 44, 0.58);
+  background: linear-gradient(180deg, rgba(205, 118, 61, 0.98), rgba(170, 91, 40, 0.98));
+  color: #fff3df;
+}
+
+.nba-report-action-button-walnut {
+  border-color: rgba(97, 63, 47, 0.58);
+  background: linear-gradient(180deg, rgba(110, 72, 55, 0.98), rgba(84, 52, 39, 0.98));
+  color: #f7ead8;
 }
 
 .nba-conference-column,
@@ -3176,6 +3278,12 @@ select:focus {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.pool-member-edit-link {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.84rem;
 }
 
 .member-status {

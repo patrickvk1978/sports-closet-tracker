@@ -7,8 +7,15 @@ import {
 
 export const TEAM_VALUE_LOCK_AT = "2026-04-18T12:00:00-04:00";
 
-export function getTeamValuePhase(now = new Date()) {
-  const lockAt = new Date(TEAM_VALUE_LOCK_AT);
+export function getTeamValueLockAt(settings) {
+  return settings?.lock_at ?? TEAM_VALUE_LOCK_AT;
+}
+
+export function getTeamValuePhase(settingsOrNow = new Date(), maybeNow) {
+  const hasSettings = settingsOrNow && typeof settingsOrNow === "object" && !(settingsOrNow instanceof Date);
+  const settings = hasSettings ? settingsOrNow : null;
+  const now = hasSettings ? (maybeNow ?? new Date()) : settingsOrNow;
+  const lockAt = new Date(getTeamValueLockAt(settings));
   return now < lockAt ? "pre_lock" : "post_lock";
 }
 

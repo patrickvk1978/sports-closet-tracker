@@ -860,6 +860,64 @@ p { margin: 0; }
   margin-top: 12px;
 }
 
+.nba-report-preview-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.nba-report-preview-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  opacity: 0.92;
+}
+
+.nba-report-preview-panel-navy::before {
+  background: linear-gradient(90deg, rgba(34, 55, 87, 0.96), rgba(61, 93, 140, 0.86));
+}
+
+.nba-report-preview-panel-mustard::before {
+  background: linear-gradient(90deg, rgba(181, 136, 38, 0.96), rgba(219, 181, 86, 0.86));
+}
+
+.nba-report-preview-panel-orange::before {
+  background: linear-gradient(90deg, rgba(169, 91, 38, 0.96), rgba(213, 125, 71, 0.86));
+}
+
+.nba-report-preview-panel-walnut::before {
+  background: linear-gradient(90deg, rgba(94, 60, 45, 0.96), rgba(135, 92, 68, 0.84));
+}
+
+.nba-report-action-button {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.nba-report-action-button-navy {
+  border-color: rgba(37, 59, 94, 0.58);
+  background: linear-gradient(180deg, rgba(33, 54, 85, 0.98), rgba(24, 39, 62, 0.98));
+  color: #f2d792;
+}
+
+.nba-report-action-button-mustard {
+  border-color: rgba(176, 135, 47, 0.58);
+  background: linear-gradient(180deg, rgba(215, 178, 85, 0.98), rgba(187, 143, 49, 0.98));
+  color: #22160d;
+}
+
+.nba-report-action-button-orange {
+  border-color: rgba(168, 92, 44, 0.58);
+  background: linear-gradient(180deg, rgba(205, 118, 61, 0.98), rgba(170, 91, 40, 0.98));
+  color: #fff3df;
+}
+
+.nba-report-action-button-walnut {
+  border-color: rgba(97, 63, 47, 0.58);
+  background: linear-gradient(180deg, rgba(110, 72, 55, 0.98), rgba(84, 52, 39, 0.98));
+  color: #f7ead8;
+}
+
 .nba-bracket-hero-header {
   position: relative;
   align-items: start;
@@ -3229,6 +3287,18 @@ select:focus {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.pool-member-edit-link {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.84rem;
+}
+
+.nba-series-commissioner-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
 }
 
 .member-status {

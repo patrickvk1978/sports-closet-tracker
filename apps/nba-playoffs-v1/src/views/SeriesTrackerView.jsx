@@ -172,6 +172,15 @@ function getDisplayTimingLine(seriesItem, roundLocked, backendSchedule) {
   return getSeriesTimingLine(seriesItem, roundLocked);
 }
 
+function hasSeriesTipoffLocked(seriesItem, settings, backendSchedule) {
+  if (settings?.allow_edits_until_tipoff === false) return false;
+  const lockAt = backendSchedule?.lockAt ?? seriesItem?.schedule?.lockAt ?? null;
+  if (!lockAt) return false;
+  const date = new Date(lockAt);
+  if (Number.isNaN(date.getTime())) return false;
+  return Date.now() >= date.getTime();
+}
+
 function isSeriesReadyForPicks(seriesItem) {
   if (!seriesItem?.homeTeam || !seriesItem?.awayTeam) return false;
   if (seriesItem.homeTeam.abbreviation === "TBD" || seriesItem.awayTeam.abbreviation === "TBD") return false;
@@ -223,6 +232,7 @@ export default function SeriesTrackerView() {
   const [matrixSort, setMatrixSort] = useState(DEFAULT_MATRIX_SORT);
   const {
     picksBySeriesId,
+    allPicksByUser,
     pickedSeriesCount,
     loading,
     persistenceMode,
@@ -234,8 +244,11 @@ export default function SeriesTrackerView() {
   const availableRoundKey = getAvailableRoundKey(roundSummaries);
   const activeSeries = seriesByRound[activeRound] ?? [];
   const [activeSeriesId, setActiveSeriesId] = useState("");
-  const canViewOtherBoards = areRoundPicksPublic(activeSeries, activeRound, settings);
+  const isSiteAdmin = Boolean(profile?.is_admin);
+  const isCommissioner = pool?.admin_id === profile?.id || isSiteAdmin;
+  const canViewOtherBoards = areRoundPicksPublic(activeSeries, activeRound, settings) || isCommissioner;
   const requestedViewerId = searchParams.get("viewer") ?? "";
+  const isEditingOtherCard = searchParams.get("edit") === "1";
   const availableViewers = memberList.filter((member) => member.id !== profile?.id);
   const selectedViewer = canViewOtherBoards
     ? availableViewers.find((member) => member.id === requestedViewerId) ?? null
@@ -247,7 +260,7 @@ export default function SeriesTrackerView() {
     [visiblePicksBySeriesId, series, settings]
   );
   const roundLocks = settings.round_locks ?? {};
-  const isCommissioner = pool?.admin_id === profile?.id;
+  const seriesUnlockOverrides = settings.series_unlock_overrides ?? {};
   const validSavedPickCount = useMemo(
     () =>
       series.filter(
@@ -278,7 +291,9 @@ export default function SeriesTrackerView() {
       setSearchParams({}, { replace: true });
       return;
     }
-    setSearchParams({ viewer: nextViewerId }, { replace: true });
+    const nextParams = { viewer: nextViewerId };
+    if (isCommissioner && isEditingOtherCard) nextParams.edit = "1";
+    setSearchParams(nextParams, { replace: true });
   }
 
   async function setRoundLock(roundKey, locked) {
@@ -289,6 +304,23 @@ export default function SeriesTrackerView() {
         [roundKey]: locked,
       },
     });
+  }
+
+  async function setSeriesUnlock(seriesId, unlocked) {
+    if (!isCommissioner) return;
+    await updatePoolSettings({
+      series_unlock_overrides: {
+        ...seriesUnlockOverrides,
+        [seriesId]: unlocked,
+      },
+    });
+  }
+
+  function toggleCommissionerEditMode() {
+    if (!isCommissioner || !selectedViewer) return;
+    const nextParams = { viewer: selectedViewer.id };
+    if (!isEditingOtherCard) nextParams.edit = "1";
+    setSearchParams(nextParams, { replace: true });
   }
 
   function goToSeries(direction) {
@@ -317,7 +349,13 @@ export default function SeriesTrackerView() {
         <div className="panel-header">
           <div>
             <span className="label">Series board</span>
-            <h2>{isViewingCurrentUser ? "Current round board" : `${selectedViewer?.name ?? "This entry"}'s round board`}</h2>
+            <h2>
+              {isViewingCurrentUser
+                ? "Current round board"
+                : isEditingOtherCard
+                  ? `Edit ${selectedViewer?.name ?? "this entry"}'s round board`
+                  : `${selectedViewer?.name ?? "This entry"}'s round board`}
+            </h2>
           </div>
           <div className="nba-report-actions">
             {canViewOtherBoards ? (
@@ -342,6 +380,11 @@ export default function SeriesTrackerView() {
                 <span className="tooltip-bubble">Available once the round locks or games begin.</span>
               </span>
             )}
+            {isCommissioner && selectedViewer ? (
+              <button type="button" className={isEditingOtherCard ? "nav-button" : "secondary-button"} onClick={toggleCommissionerEditMode}>
+                {isEditingOtherCard ? "Stop Editing" : "Edit This Card"}
+              </button>
+            ) : null}
             <span className="chip">{isViewingCurrentUser ? pickedSeriesCount : validSavedPickCount} saved picks</span>
           </div>
         </div>
@@ -354,7 +397,9 @@ export default function SeriesTrackerView() {
                 ? "Loading picks…"
                 : isViewingCurrentUser
                   ? `${formatSavedLabel(lastSavedAt, persistenceMode, saveState)}. Work the round one series at a time.`
-                  : `${selectedViewer?.name ?? "This entry"} has ${scoreSummary.totalPoints} points with ${scoreSummary.exact} exact calls.`}
+                  : isEditingOtherCard
+                    ? `Editing ${selectedViewer?.name ?? "this entry"}'s card. Your changes save directly to that entry.`
+                    : `${selectedViewer?.name ?? "This entry"} has ${scoreSummary.totalPoints} points with ${scoreSummary.exact} exact calls.`}
             </span>
           </div>
         </div>
@@ -411,10 +456,16 @@ export default function SeriesTrackerView() {
             const homeDisplay = formatSeriesTeam(seriesItem.homeTeam);
             const awayDisplay = formatSeriesTeam(seriesItem.awayTeam);
             const matchupLabel = `${homeDisplay.primary} vs ${awayDisplay.primary}`;
-            const isEditable = isViewingCurrentUser && !roundLocks[seriesItem.roundKey] && isSeriesReady;
+            const lockedByRound = Boolean(roundLocks[seriesItem.roundKey]);
+            const lockedByTipoff = hasSeriesTipoffLocked(seriesItem, settings, scheduleBySeriesId[seriesItem.id]);
+            const unlockedForEveryone = Boolean(seriesUnlockOverrides[seriesItem.id]);
+            const isCommissionerEditing = isCommissioner && !isViewingCurrentUser && isEditingOtherCard;
+            const isEditable =
+              isSeriesReady &&
+              (isCommissionerEditing || (!lockedByRound && (!lockedByTipoff || unlockedForEveryone)));
             const setupNote = getDisplayTimingLine(
               seriesItem,
-              Boolean(roundLocks[seriesItem.roundKey]),
+              lockedByRound,
               scheduleBySeriesId[seriesItem.id]
             );
 
@@ -460,7 +511,10 @@ export default function SeriesTrackerView() {
                         type="button"
                         className={selected ? "nba-team-pick active" : "nba-team-pick"}
                         disabled={!isEditable}
-                        onClick={() => saveSeriesPick(seriesItem.id, team.id, pick?.games ?? 6, seriesItem.roundKey)}
+                        onClick={() =>
+                          saveSeriesPick(seriesItem.id, team.id, pick?.games ?? 6, seriesItem.roundKey, {
+                            targetUserId: selectedViewer?.id ?? profile?.id,
+                          })}
                       >
                         <span className="micro-label">Seed {team.seed}</span>
                         <strong>{teamDisplay.primary}</strong>
@@ -480,7 +534,10 @@ export default function SeriesTrackerView() {
                           type="button"
                           className={pick?.games === games ? "nba-games-option active" : "nba-games-option"}
                           disabled={!isEditable || !pick?.winnerTeamId}
-                          onClick={() => saveSeriesPick(seriesItem.id, pick?.winnerTeamId ?? seriesItem.homeTeam.id, games, seriesItem.roundKey)}
+                          onClick={() =>
+                            saveSeriesPick(seriesItem.id, pick?.winnerTeamId ?? seriesItem.homeTeam.id, games, seriesItem.roundKey, {
+                              targetUserId: selectedViewer?.id ?? profile?.id,
+                            })}
                         >
                           {games}
                         </button>
@@ -493,7 +550,7 @@ export default function SeriesTrackerView() {
                       type="button"
                       className="secondary-button"
                       disabled={!isEditable}
-                      onClick={() => clearSeriesPick(seriesItem.id)}
+                      onClick={() => clearSeriesPick(seriesItem.id, { targetUserId: selectedViewer?.id ?? profile?.id })}
                     >
                       Clear pick
                     </button>
@@ -587,13 +644,32 @@ export default function SeriesTrackerView() {
                   <div className="nba-lock-banner">
                     Commissioner has locked this round. Picks are read-only until it is reopened.
                   </div>
+                ) : lockedByTipoff && !unlockedForEveryone && !isCommissionerEditing ? (
+                  <div className="nba-lock-banner">
+                    This series is locked at tipoff. The commissioner can still reopen it for everyone.
+                  </div>
                 ) : !isSeriesReady ? (
                   <div className="nba-lock-banner">
                     This matchup becomes pickable once the current round is set.
                   </div>
+                ) : isCommissionerEditing ? (
+                  <div className="nba-lock-banner">
+                    Commissioner edit mode is on. Changes here save directly to {selectedViewer?.name ?? "this entry"}'s card.
+                  </div>
                 ) : !isViewingCurrentUser ? (
                   <div className="nba-lock-banner">
                     You are viewing {selectedViewer?.name ?? "another entry"}'s public card. This view is read-only.
+                  </div>
+                ) : null}
+                {isCommissioner && isSeriesReady ? (
+                  <div className="nba-series-commissioner-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setSeriesUnlock(seriesItem.id, !unlockedForEveryone)}
+                    >
+                      {unlockedForEveryone ? "Return To Tipoff Lock" : "Unlock This Series For Everyone"}
+                    </button>
                   </div>
                 ) : null}
               </article>

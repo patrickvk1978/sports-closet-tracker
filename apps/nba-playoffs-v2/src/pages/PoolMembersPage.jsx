@@ -97,6 +97,11 @@ export default function PoolMembersPage() {
                 {member.isCommissioner ? <span className="chip active">Commissioner</span> : null}
                 {member.isSiteAdmin ? <span className="chip">Site admin</span> : null}
                 {member.isCurrentUser ? <span className="chip">You</span> : null}
+                {isCommissioner && !member.isCurrentUser ? (
+                  <Link className="secondary-button pool-member-edit-link" to={`/teams?viewer=${member.id}&edit=1`}>
+                    Edit Board
+                  </Link>
+                ) : null}
               </div>
             </div>
           ))}

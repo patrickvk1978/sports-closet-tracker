@@ -8,9 +8,10 @@ import {
   TEAM_VALUE_DISPLAY_RANKS,
   getDisplayRankFromValue,
   getValueFromDisplayRank,
+  validateTeamValueAssignments,
 } from "../lib/teamValueGame";
 import { buildTeamSelectionRows, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
-import { TEAM_VALUE_LOCK_AT, buildTeamValueReports, getTeamValuePhase } from "../lib/teamValueReports";
+import { buildTeamValueReports, getTeamValuePhase } from "../lib/teamValueReports";
 
 const SORT_OPTIONS = {
   team: {
@@ -73,29 +74,45 @@ function HelpTerm({ label, description }) {
   );
 }
 
+function formatReportHelpText(report) {
+  const fallback = "Highlights the angle this report is best at before you open it.";
+  const text = String(report?.description ?? "").trim();
+  if (!text) return fallback;
+  if (text.startsWith("This ")) return text.replace(/^This /, "");
+  if (text.startsWith("These ")) return text.replace(/^These /, "");
+  return text;
+}
+
 export default function TeamsBoardView() {
   const { profile, session } = useAuth();
-  const { memberList } = usePool();
+  const { pool, memberList, settingsForPool } = usePool();
   const [searchParams, setSearchParams] = useSearchParams();
   const { seriesByRound, teamsById, series } = usePlayoffData();
   const playoffTeams = useMemo(() => getRoundOneTeamsFromData(seriesByRound, teamsById), [seriesByRound, teamsById]);
-  const { boardRows, allAssignmentsByUser, boardValidation, completionCount, saveAssignment, saveBoardOrder } = useTeamValueBoard(playoffTeams);
+  const { boardRows, allAssignmentsByUser, saveAssignment, saveBoardOrder } = useTeamValueBoard(playoffTeams);
   const [sortKey, setSortKey] = useState("poolEv");
   const [sortDirection, setSortDirection] = useState("desc");
   const [draggingTeamId, setDraggingTeamId] = useState("");
   const [boardViewMode, setBoardViewMode] = useState("drag");
   const [selectedReportKey, setSelectedReportKey] = useState("");
-  const phase = getTeamValuePhase();
+  const settings = settingsForPool(pool);
+  const phase = getTeamValuePhase(settings);
   const currentUserId = session?.user?.id ?? profile?.id ?? null;
   const requestedViewerId = searchParams.get("viewer") ?? "";
+  const isCommissioner = pool?.admin_id === currentUserId || Boolean(profile?.is_admin);
+  const isEditingOtherBoard = searchParams.get("edit") === "1";
   const availableViewers = memberList.filter((member) => member.id !== currentUserId);
-  const canViewOtherBoards = phase === "post_lock";
+  const canViewOtherBoards = phase === "post_lock" || isCommissioner;
   const selectedViewerId =
     canViewOtherBoards && memberList.some((member) => member.id === requestedViewerId)
       ? requestedViewerId
       : currentUserId;
   const selectedViewer = memberList.find((member) => member.id === selectedViewerId) ?? memberList.find((member) => member.id === currentUserId) ?? null;
   const isViewingCurrentUser = selectedViewerId === currentUserId;
+  const isBoardLocked = phase === "post_lock";
+  const isEditableBoard =
+    (!isBoardLocked && isViewingCurrentUser) ||
+    (isCommissioner && !isViewingCurrentUser && isEditingOtherBoard);
 
   useEffect(() => {
     if (!canViewOtherBoards && requestedViewerId) {
@@ -122,6 +139,14 @@ export default function TeamsBoardView() {
         assignedValue: Number(viewedAssignments?.[team.id] ?? 0),
       })),
     [selectionRows, viewedAssignments]
+  );
+  const selectedCompletionCount = useMemo(
+    () => Object.values(viewedAssignments ?? {}).filter((value) => Number(value) > 0).length,
+    [viewedAssignments]
+  );
+  const selectedBoardValidation = useMemo(
+    () => validateTeamValueAssignments(viewedAssignments ?? {}, playoffTeams.map((team) => team.id)),
+    [playoffTeams, viewedAssignments]
   );
   const reportState = useMemo(
     () =>
@@ -199,7 +224,16 @@ export default function TeamsBoardView() {
       setSearchParams({}, { replace: true });
       return;
     }
-    setSearchParams({ viewer: nextViewerId }, { replace: true });
+    const nextParams = { viewer: nextViewerId };
+    if (isCommissioner && isEditingOtherBoard) nextParams.edit = "1";
+    setSearchParams(nextParams, { replace: true });
+  }
+
+  function toggleCommissionerEditMode() {
+    if (!isCommissioner || isViewingCurrentUser) return;
+    const nextParams = { viewer: selectedViewerId };
+    if (!isEditingOtherBoard) nextParams.edit = "1";
+    setSearchParams(nextParams, { replace: true });
   }
 
   function moveDraggedTeam(targetTeamId) {
@@ -211,22 +245,31 @@ export default function TeamsBoardView() {
 
     const [moved] = nextOrder.splice(fromIndex, 1);
     nextOrder.splice(toIndex, 0, moved);
-    saveBoardOrder(nextOrder.map((team) => team.id));
+    saveBoardOrder(nextOrder.map((team) => team.id), { targetUserId: selectedViewerId });
   }
 
   return (
     <div className="nba-shell">
       <section className="panel">
         <div className="panel-header nba-board-hero-header">
+          <div className="nba-board-hero-balance" aria-hidden="true" />
           <div className="nba-board-hero-copy">
-            <h2>{isViewingCurrentUser ? "Build Your Board" : `Read ${selectedViewer?.displayName ?? selectedViewer?.name ?? "this entry"}’s Board`}</h2>
-            <p className="nba-board-hero-body">
+            <h2>
               {isViewingCurrentUser
+                ? "Build Your Board"
+                : isEditableBoard
+                  ? `Edit ${selectedViewer?.displayName ?? selectedViewer?.name ?? "this entry"}’s Board`
+                  : `Read ${selectedViewer?.displayName ?? selectedViewer?.name ?? "this entry"}’s Board`}
+            </h2>
+            <p className="nba-board-hero-body">
+              {isEditableBoard
                 ? boardViewMode === "drag"
                   ? <>Drag teams into rank order.<br />Rank 1 is your strongest slot and rank 16 is your lowest.<br />For more data, switch to Research Table or open Reports.</>
                   : <>Use the table to compare the teams before you decide where each rank belongs.<br />Rank 1 is your strongest slot and rank 16 is your lowest.<br />When you are ready to place them quickly, switch back to Drag / Drop.</>
-                : "This board is shown in locked rank order, from rank 1 at the top to rank 16 at the bottom."}
-            </p>
+                : isViewingCurrentUser
+                  ? "This board is locked right now. Move the commissioner lock time later if you want to reopen it for everyone."
+                  : "This board is shown in locked rank order, from rank 1 at the top to rank 16 at the bottom."}
+              </p>
           </div>
           <div className="nba-report-actions">
             {canViewOtherBoards ? (
@@ -244,14 +287,23 @@ export default function TeamsBoardView() {
                 ))}
               </select>
             ) : null}
+            {isCommissioner && !isViewingCurrentUser ? (
+              <button type="button" className={isEditingOtherBoard ? "nav-button" : "secondary-button"} onClick={toggleCommissionerEditMode}>
+                {isEditingOtherBoard ? "Stop Editing" : "Edit This Board"}
+              </button>
+            ) : null}
           </div>
         </div>
 
-        <div className="nba-board-entry-strip">
-          <span className="chip">
-            {isViewingCurrentUser ? `${completionCount}/16 assigned` : `Viewing ${selectedViewer?.displayName ?? selectedViewer?.name ?? "member"}’s board`}
-          </span>
-        </div>
+        {!isViewingCurrentUser ? (
+          <div className="nba-board-entry-strip">
+            <span className="chip">
+              {isEditingOtherBoard
+                ? `Editing ${selectedViewer?.displayName ?? selectedViewer?.name ?? "member"}’s board`
+                : `Viewing ${selectedViewer?.displayName ?? selectedViewer?.name ?? "member"}’s board`}
+            </span>
+          </div>
+        ) : null}
 
         <div className="workspace-nav nba-board-workspace-nav">
           <div className="tab-set">
@@ -346,9 +398,12 @@ export default function TeamsBoardView() {
                           <select
                             className="team-value-select is-primary-control"
                             value={getDisplayRankFromValue(team.assignedValue) ?? ""}
-                            onChange={(event) => saveAssignment(team.id, Number(getValueFromDisplayRank(event.target.value)))}
+                            onChange={(event) =>
+                              saveAssignment(team.id, Number(getValueFromDisplayRank(event.target.value)), {
+                                targetUserId: selectedViewerId,
+                              })}
                             aria-label={`Assign rank for ${team.city} ${team.name}`}
-                            disabled={!isViewingCurrentUser}
+                            disabled={!isEditableBoard}
                           >
                             <option value="" disabled>Rank</option>
                             {TEAM_VALUE_DISPLAY_RANKS.map((rank) => (
@@ -368,16 +423,16 @@ export default function TeamsBoardView() {
                 {rankedRows.map((team) => (
                   <div
                     key={team.id}
-                    className={`board-row ${draggingTeamId === team.id ? "selected" : ""} ${!isViewingCurrentUser ? "read-only" : ""}`}
-                    draggable={isViewingCurrentUser}
+                    className={`board-row ${draggingTeamId === team.id ? "selected" : ""} ${!isEditableBoard ? "read-only" : ""}`}
+                    draggable={isEditableBoard}
                     onDragStart={() => setDraggingTeamId(team.id)}
                     onDragEnd={() => setDraggingTeamId("")}
                     onDragOver={(event) => {
-                      if (!isViewingCurrentUser) return;
+                      if (!isEditableBoard) return;
                       event.preventDefault();
                     }}
                     onDrop={(event) => {
-                      if (!isViewingCurrentUser) return;
+                      if (!isEditableBoard) return;
                       event.preventDefault();
                       moveDraggedTeam(team.id);
                       setDraggingTeamId("");
@@ -419,33 +474,39 @@ export default function TeamsBoardView() {
             <article className="detail-card inset-card">
               <span className="micro-label">Board status</span>
               <p>
-                {isViewingCurrentUser && boardValidation.valid
+                {isEditableBoard && selectedBoardValidation.valid
                   ? <><strong>Complete.</strong> You can still reshuffle it until lock.</>
-                  : isViewingCurrentUser
-                    ? `${completionCount}/16 ranks are filled. Keep going until every slot is assigned.`
-                    : "This is a locked, read-only board."}
+                  : isEditableBoard
+                    ? `${selectedCompletionCount}/16 ranks are filled. Keep going until every slot is assigned.`
+                    : isViewingCurrentUser
+                      ? "This board is locked. The commissioner can still reopen the full board from settings."
+                      : "This is a locked, read-only board."}
               </p>
             </article>
 
             <article className="detail-card inset-card nba-board-rail-card reports-card">
-              <span className="micro-label">Report options</span>
+              <span className="micro-label">Report Options</span>
               <label className="nba-board-rail-select-wrap">
-                <span className="micro-label">Choose report</span>
-                <select
-                  className="nba-board-rail-select"
-                  value={activeReport?.key ?? ""}
-                  onChange={(event) => setSelectedReportKey(event.target.value)}
-                >
-                  {reportChoices.map((report) => (
-                    <option key={report.key} value={report.key}>
-                      {report.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="nba-board-rail-select-shell">
+                  <select
+                    className="nba-board-rail-select"
+                    value={activeReport?.key ?? ""}
+                    onChange={(event) => setSelectedReportKey(event.target.value)}
+                  >
+                    {reportChoices.map((report) => (
+                      <option key={report.key} value={report.key}>
+                        {report.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="tooltip-wrap tooltip-wrap-inline metric-help nba-board-rail-select-inline-help">
+                    <span className="help-dot" aria-hidden="true">
+                      ?
+                    </span>
+                    <span className="tooltip-bubble">{formatReportHelpText(activeReport)}</span>
+                  </span>
+                </div>
               </label>
-              <p className="nba-board-rail-description">
-                {activeReport?.description ?? "Choose a report to see what kind of decision help it gives you before lock."}
-              </p>
               <Link className="secondary-button full" to={activeReport ? `/reports/${activeReport.key}` : "/reports"}>
                 Open Report
               </Link>
@@ -453,7 +514,6 @@ export default function TeamsBoardView() {
 
             <article className="detail-card inset-card nba-board-rail-card scoring-card">
               <span className="micro-label">Scoring guide</span>
-              <p>See the clean point map by rank, round, and series length.</p>
               <Link className="secondary-button full" to="/scoring">
                 Open Scoring
               </Link>

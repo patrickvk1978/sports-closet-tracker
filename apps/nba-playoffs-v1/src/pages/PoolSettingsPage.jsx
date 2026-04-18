@@ -145,10 +145,10 @@ export default function PoolSettingsPage() {
             })}
           </div>
           <label className="field">
-            <span>Allow edits until tipoff</span>
+            <span>Lock each series at tipoff</span>
             <select
               name="allow_edits_until_tipoff"
-              defaultValue={String(pool?.settings?.allow_edits_until_tipoff ?? true)}
+              defaultValue={String(settings.allow_edits_until_tipoff ?? true)}
             >
               <option value="true">Yes</option>
               <option value="false">No</option>
@@ -165,6 +165,10 @@ export default function PoolSettingsPage() {
           <div className="detail-card">
             <span className="micro-label">Round locks</span>
             <p>Commissioners can lock or unlock each playoff round below. Locked rounds become read-only on the Series board.</p>
+          </div>
+          <div className="detail-card">
+            <span className="micro-label">Series unlocks</span>
+            <p>Once a series locks at tipoff, the commissioner can still reopen that one series for everyone from the Series page.</p>
           </div>
         </div>
 

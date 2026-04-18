@@ -211,7 +211,9 @@ export function useSeriesPickem(series) {
     [series, picksBySeriesId]
   );
 
-  async function saveSeriesPick(seriesId, winnerTeamId, games, roundKey) {
+  async function saveSeriesPick(seriesId, winnerTeamId, games, roundKey, options = {}) {
+    const targetUserId = options.targetUserId ?? session?.user?.id ?? "";
+    if (!targetUserId) return;
     const nextPick = {
       winnerTeamId,
       games,
@@ -220,28 +222,28 @@ export function useSeriesPickem(series) {
     };
     setSaveState("saving");
 
-    setPicksBySeriesId((current) => {
-      const next = {
-        ...current,
-        [seriesId]: nextPick,
-      };
-      if (pool?.id) {
-        writeLocalPicks(pool.id, next);
-      }
-      return next;
-    });
-
-    if (session?.user?.id) {
-      setAllPicksByUser((current) => ({
-        ...current,
-        [session.user.id]: {
-          ...(current[session.user.id] ?? {}),
+    if (targetUserId === session?.user?.id) {
+      setPicksBySeriesId((current) => {
+        const next = {
+          ...current,
           [seriesId]: nextPick,
-        },
-      }));
+        };
+        if (pool?.id) {
+          writeLocalPicks(pool.id, next);
+        }
+        return next;
+      });
     }
 
-    if (persistenceMode !== "supabase" || !pool?.id || !session?.user?.id) {
+    setAllPicksByUser((current) => ({
+      ...current,
+      [targetUserId]: {
+        ...(current[targetUserId] ?? {}),
+        [seriesId]: nextPick,
+      },
+    }));
+
+    if (persistenceMode !== "supabase" || !pool?.id || !targetUserId) {
       setLastSavedAt(nextPick.updatedAt);
       setSaveState("saved");
       return;
@@ -249,7 +251,7 @@ export function useSeriesPickem(series) {
 
     const { error } = await supabase.from("nba_series_picks").upsert({
       pool_id: pool.id,
-      user_id: session.user.id,
+      user_id: targetUserId,
       series_id: seriesId,
       round_key: roundKey,
       winner_team_id: winnerTeamId,
@@ -266,29 +268,31 @@ export function useSeriesPickem(series) {
     setSaveState("saved");
   }
 
-  async function clearSeriesPick(seriesId) {
+  async function clearSeriesPick(seriesId, options = {}) {
+    const targetUserId = options.targetUserId ?? session?.user?.id ?? "";
+    if (!targetUserId) return;
     const updatedAt = new Date().toISOString();
     setSaveState("saving");
-    setPicksBySeriesId((current) => {
-      const next = { ...current };
-      delete next[seriesId];
-      if (pool?.id) {
-        writeLocalPicks(pool.id, next);
-      }
-      return next;
-    });
-
-    if (session?.user?.id) {
-      setAllPicksByUser((current) => {
+    if (targetUserId === session?.user?.id) {
+      setPicksBySeriesId((current) => {
         const next = { ...current };
-        const userPicks = { ...(next[session.user.id] ?? {}) };
-        delete userPicks[seriesId];
-        next[session.user.id] = userPicks;
+        delete next[seriesId];
+        if (pool?.id) {
+          writeLocalPicks(pool.id, next);
+        }
         return next;
       });
     }
 
-    if (persistenceMode !== "supabase" || !pool?.id || !session?.user?.id) {
+    setAllPicksByUser((current) => {
+      const next = { ...current };
+      const userPicks = { ...(next[targetUserId] ?? {}) };
+      delete userPicks[seriesId];
+      next[targetUserId] = userPicks;
+      return next;
+    });
+
+    if (persistenceMode !== "supabase" || !pool?.id || !targetUserId) {
       setLastSavedAt(updatedAt);
       setSaveState("saved");
       return;
@@ -298,7 +302,7 @@ export function useSeriesPickem(series) {
       .from("nba_series_picks")
       .delete()
       .eq("pool_id", pool.id)
-      .eq("user_id", session.user.id)
+      .eq("user_id", targetUserId)
       .eq("series_id", seriesId);
 
     if (error) {

@@ -5,6 +5,18 @@ import { useAuth } from "../hooks/useAuth";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { buildScoringTable } from "../lib/teamValueGame";
 
+function formatDateTimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 export default function PoolSettingsPage() {
   const { pool, settingsForPool, updatePoolMeta, updatePoolSettings, memberList } = usePool();
   const { profile } = useAuth();
@@ -48,12 +60,14 @@ export default function PoolSettingsPage() {
   async function handleSave(event) {
     event.preventDefault();
     setSaved(false);
+    const form = new FormData(event.currentTarget);
+    const lockAtValue = String(form.get("lock_at") ?? "").trim();
 
     await updatePoolMeta({ name: name.trim() || pool.name });
-    const form = new FormData(event.currentTarget);
 
     await updatePoolSettings({
       allow_edits_until_tipoff: form.get("allow_edits_until_tipoff") === "true",
+      lock_at: lockAtValue ? new Date(lockAtValue).toISOString() : settings.lock_at,
     });
 
     setSaved(true);
@@ -133,10 +147,18 @@ export default function PoolSettingsPage() {
             ))}
           </div>
           <label className="field">
-            <span>Allow edits until playoff lock</span>
+            <span>Board stays editable until</span>
+            <input
+              type="datetime-local"
+              name="lock_at"
+              defaultValue={formatDateTimeLocal(settings.lock_at)}
+            />
+          </label>
+          <label className="field">
+            <span>Use automatic board lock</span>
             <select
               name="allow_edits_until_tipoff"
-              defaultValue={String(pool?.settings?.allow_edits_until_tipoff ?? true)}
+              defaultValue={String(settings.allow_edits_until_tipoff ?? true)}
             >
               <option value="true">Yes</option>
               <option value="false">No</option>
@@ -148,7 +170,7 @@ export default function PoolSettingsPage() {
           </div>
           <div className="detail-card">
             <span className="micro-label">Board lock</span>
-            <p>Commissioners can keep boards editable into the week or lock them once the playoff field is set. After lock, the board becomes read-only and the contest shifts to tracking live value.</p>
+            <p>Commissioners can move the board lock later if they want everyone to keep editing deeper into Round 1. After lock, the board becomes read-only unless the commissioner reopens it by changing the lock time again.</p>
           </div>
           <div className="detail-card">
             <span className="micro-label">Round locks</span>
@@ -164,12 +186,16 @@ export default function PoolSettingsPage() {
       <section className="panel">
         <div className="panel-header">
           <div>
-            <span className="label">Round control</span>
-            <h2>Lock status and playoff windows</h2>
+            <span className="label">Other playoff windows</span>
+            <h2>Round-level visibility controls</h2>
           </div>
         </div>
 
         <div className="settings-form-grid">
+          <div className="detail-card">
+            <span className="micro-label">Important</span>
+            <p>These round toggles do not lock the main board. The board lock is controlled only by the datetime above.</p>
+          </div>
           {visibleRounds.map((round) => (
             <div className="detail-card commissioner-round-card" key={round.key}>
               <div className="commissioner-round-head">

@@ -4,7 +4,7 @@ import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { usePool } from "../hooks/usePool";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
 import { buildTeamValueStandingsWithOdds, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
-import { TEAM_VALUE_LOCK_AT, getTeamValuePhase } from "../lib/teamValueReports";
+import { getTeamValueLockAt, getTeamValuePhase } from "../lib/teamValueReports";
 
 const SORT_OPTIONS = {
   place: { label: "Place", compare: (a, b) => a.place - b.place },
@@ -16,11 +16,12 @@ const SORT_OPTIONS = {
 };
 
 export default function TeamValueStandingsView() {
-  const { memberList } = usePool();
+  const { memberList, pool, settingsForPool } = usePool();
   const { seriesByRound, teamsById, series } = usePlayoffData();
   const playoffTeams = useMemo(() => getRoundOneTeamsFromData(seriesByRound, teamsById), [seriesByRound, teamsById]);
   const { allAssignmentsByUser } = useTeamValueBoard(playoffTeams);
-  const phase = getTeamValuePhase();
+  const settings = settingsForPool(pool);
+  const phase = getTeamValuePhase(settings);
   const canViewOtherBoards = phase === "post_lock";
   const [sortKey, setSortKey] = useState("points");
   const [sortDirection, setSortDirection] = useState("desc");
@@ -52,7 +53,7 @@ export default function TeamValueStandingsView() {
   const readyCount = preLockEntries.filter((member) => member.isComplete).length;
   const lockCountdown = Math.max(
     0,
-    Math.round((new Date(TEAM_VALUE_LOCK_AT).getTime() - Date.now()) / (1000 * 60 * 60))
+    Math.round((new Date(getTeamValueLockAt(settings)).getTime() - Date.now()) / (1000 * 60 * 60))
   );
   const preLockRows = useMemo(
     () =>

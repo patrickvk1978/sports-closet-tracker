@@ -4,7 +4,7 @@ import { usePool } from "../hooks/usePool";
 import { getTeamValuePhase } from "../lib/teamValueReports";
 
 function routeForPool(pool) {
-  return getTeamValuePhase() === "post_lock" ? "/dashboard" : "/teams";
+  return getTeamValuePhase(pool?.settings ?? pool?.scoring_config ?? {}) === "post_lock" ? "/dashboard" : "/teams";
 }
 
 export default function JoinPoolPage() {

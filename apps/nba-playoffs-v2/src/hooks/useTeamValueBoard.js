@@ -176,17 +176,24 @@ export function useTeamValueBoard(teamEntries) {
     [currentAssignments, teamEntries]
   );
 
-  async function persistAssignments(nextAssignments) {
-    if (!pool?.id || !currentUserId || persistenceMode !== "supabase") {
-      writeLocalBoard(pool.id, nextAssignments);
+  async function persistAssignments(nextAssignments, options = {}) {
+    const targetUserId = options.targetUserId ?? currentUserId;
+    const shouldCacheLocally = targetUserId === currentUserId;
+
+    if (!pool?.id || !targetUserId || persistenceMode !== "supabase") {
+      if (shouldCacheLocally) {
+        writeLocalBoard(pool?.id, nextAssignments);
+      }
       return;
     }
 
-    writeLocalBoard(pool.id, nextAssignments);
+    if (shouldCacheLocally) {
+      writeLocalBoard(pool.id, nextAssignments);
+    }
 
     const rows = Object.entries(nextAssignments).map(([teamId, value]) => ({
       pool_id: pool.id,
-      user_id: currentUserId,
+      user_id: targetUserId,
       team_id: teamId,
       assigned_value: Number(value),
       updated_at: new Date().toISOString(),
@@ -198,13 +205,14 @@ export function useTeamValueBoard(teamEntries) {
       .upsert(rows, { onConflict: "pool_id,user_id,team_id" });
   }
 
-  function saveAssignment(teamId, value) {
-    if (!pool?.id || !currentUserId) return;
+  function saveAssignment(teamId, value, options = {}) {
+    const targetUserId = options.targetUserId ?? currentUserId;
+    if (!pool?.id || !targetUserId) return;
     const nextValue = Number(value);
     if (!Number.isFinite(nextValue)) return;
 
     setAssignmentsByUser((current) => {
-      const currentAssignmentsForUser = { ...(current[currentUserId] ?? {}) };
+      const currentAssignmentsForUser = { ...(current[targetUserId] ?? {}) };
       const existingTeamId = Object.entries(currentAssignmentsForUser).find(([, assigned]) => Number(assigned) === nextValue)?.[0];
 
       if (existingTeamId && existingTeamId !== teamId) {
@@ -212,27 +220,28 @@ export function useTeamValueBoard(teamEntries) {
       }
 
       currentAssignmentsForUser[teamId] = nextValue;
-      persistAssignments(currentAssignmentsForUser);
+      persistAssignments(currentAssignmentsForUser, { targetUserId });
 
       return {
         ...current,
-        [currentUserId]: currentAssignmentsForUser,
+        [targetUserId]: currentAssignmentsForUser,
       };
     });
   }
 
-  function saveBoardOrder(orderedTeamIds) {
-    if (!pool?.id || !currentUserId || !Array.isArray(orderedTeamIds) || !orderedTeamIds.length) return;
+  function saveBoardOrder(orderedTeamIds, options = {}) {
+    const targetUserId = options.targetUserId ?? currentUserId;
+    if (!pool?.id || !targetUserId || !Array.isArray(orderedTeamIds) || !orderedTeamIds.length) return;
 
     setAssignmentsByUser((current) => {
       const nextAssignments = Object.fromEntries(
         orderedTeamIds.map((teamId, index) => [teamId, TEAM_VALUE_SLOTS[index] ?? 0])
       );
-      persistAssignments(nextAssignments);
+      persistAssignments(nextAssignments, { targetUserId });
 
       return {
         ...current,
-        [currentUserId]: nextAssignments,
+        [targetUserId]: nextAssignments,
       };
     });
   }
