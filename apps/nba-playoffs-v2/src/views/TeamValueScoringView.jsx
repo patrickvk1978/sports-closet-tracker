@@ -21,7 +21,7 @@ export default function TeamValueScoringView() {
 
         <div className="detail-card inset-card">
           <p>
-            Rank 1 is worth the most and rank 16 the least. Teams now score along the way, with each playoff win paying a little more than the one before it and the fourth win carrying the biggest jump.
+            Rank 1 is worth the most and rank 16 the least. Teams start scoring as soon as they begin winning playoff games, so points can appear before a series is over. Each win pays a little more than the one before it, and the fourth win carries the biggest jump.
           </p>
         </div>
 

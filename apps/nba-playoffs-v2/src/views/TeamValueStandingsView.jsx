@@ -184,6 +184,11 @@ export default function TeamValueStandingsView() {
             </div>
           </div>
 
+          <div className="detail-card inset-card">
+            <span className="micro-label">How points are showing up already</span>
+            <p>Teams score as they win games, not only when they win the whole series. That means standings can move after Game 1, Game 2, and Game 3, with the fourth win still carrying the biggest jump.</p>
+          </div>
+
           <div className="nba-standings-table-shell">
             <table className="nba-standings-table-expanded">
               <thead>
