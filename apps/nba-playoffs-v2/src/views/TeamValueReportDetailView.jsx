@@ -72,6 +72,22 @@ function buildVoiceFrame(reportKey) {
   };
 }
 
+function buildDetailInstruction(reportKey) {
+  if (reportKey === "slot-fits") {
+    return "Use this page to spot which teams are priced too high, which still look cheap, and which assignments are already close enough to leave alone.";
+  }
+
+  if (reportKey === "strategic-moves") {
+    return "Use this page to separate the moves worth making from the ones that only feel active. Focus on the few assignments most likely to improve the board.";
+  }
+
+  if (reportKey === "model-gaps") {
+    return "Use this page to compare where outside pricing and the model disagree, then decide which teams deserve one more look before you settle the board.";
+  }
+
+  return "Use this page to sharpen the board before lock.";
+}
+
 function buildMetricPairs(reportKey, row) {
   if (reportKey === "slot-fits") {
     return [
@@ -137,6 +153,68 @@ function buildMetricPairs(reportKey, row) {
   }
 
   return [];
+}
+
+function buildDecisionOptions(reportKey, row) {
+  if (reportKey === "slot-fits") {
+    return {
+      title: "Decision angle",
+      primary:
+        row.fitType === "under"
+          ? `Move ${row.teamLabel} up if you think the team is more likely to bank early wins than this slot assumes.`
+          : `Move ${row.teamLabel} down if you think this slot is paying too much for the path.`,
+      secondary:
+        row.fitType === "under"
+          ? `Hold it if you like the upside but do not see a clearly better floor than the nearby teams.`
+          : `Hold it if you still trust the clinching ceiling enough to justify the price.`,
+    };
+  }
+
+  if (reportKey === "strategic-moves") {
+    return {
+      title: "Action options",
+      primary:
+        row.moveType === "Upside buy" || row.moveType === "Risk with upside"
+          ? `Move ${row.teamLabel} up if you believe the partial-win floor is real enough to support a higher rank.`
+          : `Move ${row.teamLabel} down if you think the board is buying reputation more than scoring path.`,
+      secondary:
+        row.moveType === "Upside buy" || row.moveType === "Risk with upside"
+          ? `Leave it if you like the team, but not enough to push out a steadier source of points above it.`
+          : `Leave it if you still prefer the safer path and shorter route to the clincher.`,
+    };
+  }
+
+  if (reportKey === "model-gaps") {
+    const modelHigher = Number(row.modelLean ?? 0) > Number(row.marketLean ?? 0);
+    return {
+      title: "Decision angle",
+      primary: modelHigher
+        ? `Move ${row.teamLabel} up if you trust the model more than the outside price here.`
+        : `Move ${row.teamLabel} down if you think the market is telling the truer story here.`,
+      secondary: modelHigher
+        ? `Keep it in place if the disagreement feels real, but not strong enough to outrank the nearby options.`
+        : `Keep it in place if you still think the ceiling justifies the slot.`,
+    };
+  }
+
+  return {
+    title: "Decision angle",
+    primary: `Move ${row.teamLabel} up if you think the path to points is stronger than the surrounding teams at this part of the board.`,
+    secondary: `Leave ${row.teamLabel} where it is if the current rank already captures both the floor and the upside cleanly.`,
+  };
+}
+
+function DecisionCallout({ reportKey, row }) {
+  const decision = buildDecisionOptions(reportKey, row);
+  if (!decision) return null;
+
+  return (
+    <div className="detail-card inset-card nba-report-decision-callout">
+      <span className="micro-label">{decision.title}</span>
+      <strong className="nba-report-decision-primary">{decision.primary}</strong>
+      <p>{decision.secondary}</p>
+    </div>
+  );
 }
 
 function ReportMetricsTable({ metrics, ariaLabel = "Report metrics" }) {
@@ -292,12 +370,9 @@ function ScoringPathMatrix({ row, seriesItem }) {
 
   return (
     <div className="nba-report-scoring-matrix-shell">
-      <div className="nba-report-scoring-matrix-note">
+      <div className="nba-report-scoring-matrix-kicker">
         <span className="micro-label">Scoring path matrix</span>
-        <p>
-          At <strong>Rank {rank}</strong>, this is what {row.teamLabel} returns across every Round 1 path.
-          It is the quickest way to see the floor from partial wins versus the bigger jump that comes with the clincher.
-        </p>
+        <strong>Rank {rank}: {row.teamLabel}</strong>
       </div>
       <div className="nba-report-scoring-matrix-grid">
         {renderTable("Market", "market-card", "marketPct")}
@@ -326,7 +401,7 @@ function SectionIntro({ label, title, description }) {
   );
 }
 
-function ReportSectionBrowser({ sections, reportLabel, reportTitle, reportBody, reportCue, summaryStats }) {
+function ReportSectionBrowser({ sections, reportLabel, reportTitle, reportBody, reportCue }) {
   const [selectedKey, setSelectedKey] = useState(sections[0]?.key ?? "");
 
   useEffect(() => {
@@ -349,23 +424,17 @@ function ReportSectionBrowser({ sections, reportLabel, reportTitle, reportBody, 
 
   return (
     <div className="nba-report-browser nba-report-browser-detail">
-      <section className="panel nba-reports-hero nba-report-browser-hero">
-        <div className="nba-report-browser-copy">
+      <section className="panel nba-reports-hero nba-report-browser-hero nba-report-browser-hero-compact">
+        <div className="nba-report-browser-copy nba-report-browser-copy-compact">
           <span className="label">{reportLabel}</span>
           <h2>{reportTitle}</h2>
-          <p className="subtle">{reportBody}</p>
-          {reportCue ? <p className="subtle">{reportCue}</p> : null}
+          <p className="subtle">
+            {reportBody}
+            {reportCue ? ` ${reportCue}` : ""}
+          </p>
           <div className="nba-report-browser-actions">
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setSelectedKey(sections[Math.max(selectedIndex - 1, 0)].key)}
-              disabled={selectedIndex <= 0}
-            >
-              Previous
-            </button>
             <label className="nba-report-browser-select-wrap">
-              <span className="micro-label">Choose section</span>
+              <span className="micro-label">Jump to section</span>
               <select
                 className="nba-report-browser-select"
                 value={activeSection.key}
@@ -378,23 +447,7 @@ function ReportSectionBrowser({ sections, reportLabel, reportTitle, reportBody, 
                 ))}
               </select>
             </label>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setSelectedKey(sections[Math.min(selectedIndex + 1, sections.length - 1)].key)}
-              disabled={selectedIndex === sections.length - 1}
-            >
-              Next
-            </button>
           </div>
-        </div>
-        <div className="nba-stat-grid">
-          {summaryStats.map((stat) => (
-            <div className="nba-stat-card" key={stat.label}>
-              <span className="micro-label">{stat.label}</span>
-              <strong>{stat.value}</strong>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -480,6 +533,7 @@ function SlotFitColumns({ rows, reportLabel, reportTitle, reportBody, reportCue,
           </div>
         </div>
         <p>{row.body}</p>
+        <DecisionCallout reportKey="slot-fits" row={row} />
         <ReportMetricsTable metrics={buildMetricPairs("slot-fits", row)} ariaLabel="Best slot fit metrics" />
         <ScoringPathMatrix row={row} seriesItem={roundOneSeriesByTeamId[row.id]} />
       </article>
@@ -528,7 +582,6 @@ function SlotFitColumns({ rows, reportLabel, reportTitle, reportBody, reportCue,
       reportTitle={reportTitle}
       reportBody={reportBody}
       reportCue={reportCue}
-      summaryStats={summaryStats}
     />
   );
 }
@@ -596,6 +649,7 @@ function StrategicMoveColumns({ rows, reportLabel, reportTitle, reportBody, repo
                     </div>
                   </div>
                   <p>{row.body}</p>
+                  <DecisionCallout reportKey="strategic-moves" row={row} />
                   <ReportMetricsTable metrics={buildMetricPairs("strategic-moves", row)} ariaLabel="Strategic move metrics" />
                   <ScoringPathMatrix row={row} seriesItem={roundOneSeriesByTeamId[row.id]} />
                 </article>
@@ -618,7 +672,6 @@ function StrategicMoveColumns({ rows, reportLabel, reportTitle, reportBody, repo
       reportTitle={reportTitle}
       reportBody={reportBody}
       reportCue={reportCue}
-      summaryStats={summaryStats}
     />
   );
 }
@@ -649,6 +702,7 @@ function ModelGapColumns({ rows, reportLabel, reportTitle, reportBody, reportCue
           </div>
         </div>
         <p>{row.body}</p>
+        <DecisionCallout reportKey="model-gaps" row={row} />
         <ReportMetricsTable metrics={buildMetricPairs("model-gaps", row)} ariaLabel="Market versus model metrics" />
         <ScoringPathMatrix row={row} seriesItem={roundOneSeriesByTeamId[row.id]} />
       </article>
@@ -697,7 +751,6 @@ function ModelGapColumns({ rows, reportLabel, reportTitle, reportBody, reportCue
       reportTitle={reportTitle}
       reportBody={reportBody}
       reportCue={reportCue}
-      summaryStats={summaryStats}
     />
   );
 }
@@ -765,6 +818,7 @@ export default function TeamValueReportDetailView() {
         : report.key === "model-gaps"
           ? modelGapSummary?.body
           : report.description;
+  const groupedInstruction = buildDetailInstruction(report.key);
   const groupedReport = ["slot-fits", "strategic-moves", "model-gaps"].includes(report.key);
 
   return (
@@ -772,20 +826,14 @@ export default function TeamValueReportDetailView() {
       <a className="back-link" href="/reports">← Back to Reports</a>
 
       {!groupedReport ? (
-        <section className="panel nba-reports-hero">
+        <section className="panel nba-reports-hero nba-report-detail-hero">
           <div>
             <span className="label">{report.label}</span>
             <h2>{report.title}</h2>
-            <p className="subtle">{reportBody}</p>
-            <p className="subtle">{voiceFrame.cue}</p>
-          </div>
-          <div className="nba-stat-grid">
-            {summaryStats.map((stat) => (
-              <div className="nba-stat-card" key={stat.label}>
-                <span className="micro-label">{stat.label}</span>
-                <strong>{stat.value}</strong>
-              </div>
-            ))}
+            <p className="subtle">
+              {reportBody}
+              {voiceFrame.cue ? ` ${voiceFrame.cue}` : ""}
+            </p>
           </div>
         </section>
       ) : null}
@@ -796,8 +844,8 @@ export default function TeamValueReportDetailView() {
             rows={report.rows}
             reportLabel={report.label}
             reportTitle={report.title}
-            reportBody={reportBody}
-            reportCue={voiceFrame.cue}
+            reportBody={groupedInstruction}
+            reportCue=""
             summaryStats={summaryStats}
             roundOneSeriesByTeamId={roundOneSeriesByTeamId}
           />
@@ -806,8 +854,8 @@ export default function TeamValueReportDetailView() {
             rows={report.rows}
             reportLabel={report.label}
             reportTitle={report.title}
-            reportBody={reportBody}
-            reportCue={voiceFrame.cue}
+            reportBody={groupedInstruction}
+            reportCue=""
             summaryStats={summaryStats}
             roundOneSeriesByTeamId={roundOneSeriesByTeamId}
           />
@@ -816,8 +864,8 @@ export default function TeamValueReportDetailView() {
             rows={report.rows}
             reportLabel={report.label}
             reportTitle={report.title}
-            reportBody={reportBody}
-            reportCue={voiceFrame.cue}
+            reportBody={groupedInstruction}
+            reportCue=""
             summaryStats={summaryStats}
             roundOneSeriesByTeamId={roundOneSeriesByTeamId}
           />
@@ -832,6 +880,7 @@ export default function TeamValueReportDetailView() {
                   </div>
                 </div>
                 <p>{row.body}</p>
+                <DecisionCallout reportKey={report.key} row={row} />
                 <ReportMetricsTable metrics={buildMetricPairs(report.key, row)} ariaLabel={`${report.title} metrics`} />
               </article>
             ))}
