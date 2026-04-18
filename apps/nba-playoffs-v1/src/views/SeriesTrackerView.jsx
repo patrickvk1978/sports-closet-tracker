@@ -58,6 +58,9 @@ function formatSavedLabel(lastSavedAt, persistenceMode, saveState) {
 }
 
 function getSeriesPlaceholderCopy(team) {
+  if (team?.abbreviation && team.abbreviation !== "TBD") {
+    return null;
+  }
   switch (team?.id) {
     case "west-seed-8":
     case "west-playin-8":
