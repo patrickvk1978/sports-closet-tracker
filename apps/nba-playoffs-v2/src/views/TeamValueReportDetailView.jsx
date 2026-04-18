@@ -8,6 +8,19 @@ import { getDisplayRankFromValue } from "../lib/teamValueGame";
 import { buildSeriesScoringPathMatrix, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
 
+function hashSeed(...parts) {
+  return parts
+    .filter(Boolean)
+    .join("|")
+    .split("")
+    .reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 1), 0);
+}
+
+function chooseVariant(options, ...seedParts) {
+  if (!options.length) return "";
+  return options[hashSeed(...seedParts) % options.length];
+}
+
 function buildVoiceFrame(reportKey) {
   if (reportKey === "slot-fits") {
     return {
