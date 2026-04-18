@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
-import { getRoundOneTeamsFromData } from "../lib/teamValuePreview";
+import { getDisplayRankFromValue } from "../lib/teamValueGame";
+import { buildSeriesScoringPathMatrix, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
 
 function buildVoiceFrame(reportKey) {
@@ -167,6 +168,145 @@ function ReportMetricsTable({ metrics, ariaLabel = "Report metrics" }) {
   );
 }
 
+function formatPct(value) {
+  return `${Math.round(Number(value ?? 0))}%`;
+}
+
+function ScoringPathMatrix({ row, seriesItem }) {
+  const rank = getDisplayRankFromValue(row?.yourValue);
+  const matrixRows = useMemo(
+    () => buildSeriesScoringPathMatrix(row?.id, row?.yourValue, seriesItem),
+    [row?.id, row?.yourValue, seriesItem]
+  );
+  const [marketSort, setMarketSort] = useState({ key: "odds", direction: "desc" });
+  const [modelSort, setModelSort] = useState({ key: "odds", direction: "desc" });
+
+  if (!rank || !matrixRows.length) {
+    return null;
+  }
+
+  const marketPeak = Math.max(...matrixRows.map((entry) => entry.marketPct));
+  const modelPeak = Math.max(...matrixRows.map((entry) => entry.modelPct));
+
+  function compareOutcome(a, b) {
+    const parseOutcome = (value) => {
+      const [, result, games] = String(value).match(/(Lose|Win) in (\d)/) ?? [];
+      return {
+        resultOrder: result === "Lose" ? 0 : 1,
+        games: Number(games ?? 0),
+      };
+    };
+
+    const left = parseOutcome(a.outcome);
+    const right = parseOutcome(b.outcome);
+    return left.resultOrder - right.resultOrder || left.games - right.games;
+  }
+
+  function sortRows(rows, sortState, probabilityKey) {
+    const direction = sortState.direction === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      let result = 0;
+      if (sortState.key === "outcome") {
+        result = compareOutcome(a, b);
+      } else if (sortState.key === "points") {
+        result = a.points - b.points;
+      } else {
+        result = a[probabilityKey] - b[probabilityKey];
+      }
+      if (result !== 0) return result * direction;
+      return compareOutcome(a, b);
+    });
+  }
+
+  function toggleSort(current, key) {
+    if (current.key === key) {
+      return {
+        key,
+        direction: current.direction === "asc" ? "desc" : "asc",
+      };
+    }
+    return {
+      key,
+      direction: key === "outcome" ? "asc" : "desc",
+    };
+  }
+
+  function renderTable(label, tone, peakKey) {
+    const sortState = peakKey === "marketPct" ? marketSort : modelSort;
+    const setSortState = peakKey === "marketPct" ? setMarketSort : setModelSort;
+    const sortedRows = sortRows(matrixRows, sortState, peakKey);
+
+    function sortLabel(base, key) {
+      if (sortState.key !== key) return base;
+      return `${base} ${sortState.direction === "asc" ? "↑" : "↓"}`;
+    }
+
+    return (
+      <article className={`detail-card inset-card nba-report-scoring-matrix-card ${tone}`}>
+        <div className="nba-report-scoring-matrix-header">
+          <div className="nba-report-scoring-matrix-title-row">
+            <div>
+              <span className="micro-label">Scoring path</span>
+              <h4>{label}</h4>
+            </div>
+            <span className="tooltip-wrap tooltip-wrap-inline">
+              <button className="help-dot" type="button" aria-label={`More about the ${label} scoring path matrix`}>
+                ?
+              </button>
+              <span className="tooltip-bubble">
+                Sort by outcome, points, or odds to see how this team behaves at Rank {rank}. Odds reflect the {label.toLowerCase()} view of each Round 1 path.
+              </span>
+            </span>
+          </div>
+        </div>
+        <div className="nba-report-scoring-table">
+          <div className="nba-report-scoring-table-head">
+            <button type="button" className="nba-report-scoring-sort" onClick={() => setSortState((current) => toggleSort(current, "outcome"))}>
+              {sortLabel("Outcome", "outcome")}
+            </button>
+            <button type="button" className="nba-report-scoring-sort" onClick={() => setSortState((current) => toggleSort(current, "points"))}>
+              {sortLabel("Points", "points")}
+            </button>
+            <button type="button" className="nba-report-scoring-sort" onClick={() => setSortState((current) => toggleSort(current, "odds"))}>
+              {sortLabel("Odds", "odds")}
+            </button>
+          </div>
+          {sortedRows.map((entry) => {
+            const probability = peakKey === "marketPct" ? entry.marketPct : entry.modelPct;
+            const isTopOutcome = probability === (peakKey === "marketPct" ? marketPeak : modelPeak);
+
+            return (
+              <div className="nba-report-scoring-table-row" key={`${tone}-${entry.key}`}>
+                <strong className="nba-report-scoring-outcome">{entry.outcome}</strong>
+                <span className="nba-report-scoring-points">{entry.points}</span>
+                <span className={`nba-report-scoring-odds ${isTopOutcome ? "is-top-outcome" : ""}`}>
+                  {formatPct(probability)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <div className="nba-report-scoring-matrix-shell">
+      <div className="nba-report-scoring-matrix-note">
+        <span className="micro-label">Scoring path matrix</span>
+        <p>
+          At <strong>Rank {rank}</strong>, this is what {row.teamLabel} returns across every Round 1 path.
+          It is the quickest way to see the floor from partial wins versus the bigger jump that comes with the clincher.
+        </p>
+      </div>
+      <div className="nba-report-scoring-matrix-grid">
+        {renderTable("Market", "market-card", "marketPct")}
+        {renderTable("Model", "model-card", "modelPct")}
+      </div>
+    </div>
+  );
+}
+
 function SectionIntro({ label, title, description }) {
   return (
     <div className="detail-card inset-card nba-report-column-intro">
@@ -314,7 +454,7 @@ function buildModelGapSummary(rows) {
   };
 }
 
-function SlotFitColumns({ rows, reportLabel, reportTitle, reportBody, reportCue, summaryStats }) {
+function SlotFitColumns({ rows, reportLabel, reportTitle, reportBody, reportCue, summaryStats, roundOneSeriesByTeamId }) {
   const biggestRisks = rows
     .filter((row) => row.fitType === "over")
     .sort((a, b) => b.slotDelta - a.slotDelta || b.poolEv - a.poolEv);
@@ -341,6 +481,7 @@ function SlotFitColumns({ rows, reportLabel, reportTitle, reportBody, reportCue,
         </div>
         <p>{row.body}</p>
         <ReportMetricsTable metrics={buildMetricPairs("slot-fits", row)} ariaLabel="Best slot fit metrics" />
+        <ScoringPathMatrix row={row} seriesItem={roundOneSeriesByTeamId[row.id]} />
       </article>
     ));
   };
@@ -392,7 +533,7 @@ function SlotFitColumns({ rows, reportLabel, reportTitle, reportBody, reportCue,
   );
 }
 
-function StrategicMoveColumns({ rows, reportLabel, reportTitle, reportBody, reportCue, summaryStats }) {
+function StrategicMoveColumns({ rows, reportLabel, reportTitle, reportBody, reportCue, summaryStats, roundOneSeriesByTeamId }) {
   const groups = [
     {
       key: "Upside buy",
@@ -456,6 +597,7 @@ function StrategicMoveColumns({ rows, reportLabel, reportTitle, reportBody, repo
                   </div>
                   <p>{row.body}</p>
                   <ReportMetricsTable metrics={buildMetricPairs("strategic-moves", row)} ariaLabel="Strategic move metrics" />
+                  <ScoringPathMatrix row={row} seriesItem={roundOneSeriesByTeamId[row.id]} />
                 </article>
               ))
             ) : (
@@ -481,7 +623,7 @@ function StrategicMoveColumns({ rows, reportLabel, reportTitle, reportBody, repo
   );
 }
 
-function ModelGapColumns({ rows, reportLabel, reportTitle, reportBody, reportCue, summaryStats }) {
+function ModelGapColumns({ rows, reportLabel, reportTitle, reportBody, reportCue, summaryStats, roundOneSeriesByTeamId }) {
   const modelHigher = rows
     .filter((row) => row.modelLean > row.marketLean)
     .sort((a, b) => b.gap - a.gap || b.poolEv - a.poolEv);
@@ -508,6 +650,7 @@ function ModelGapColumns({ rows, reportLabel, reportTitle, reportBody, reportCue
         </div>
         <p>{row.body}</p>
         <ReportMetricsTable metrics={buildMetricPairs("model-gaps", row)} ariaLabel="Market versus model metrics" />
+        <ScoringPathMatrix row={row} seriesItem={roundOneSeriesByTeamId[row.id]} />
       </article>
     ));
   };
@@ -575,6 +718,16 @@ export default function TeamValueReportDetailView() {
     series,
   });
   const report = reportState.reports[reportKey];
+  const roundOneSeriesByTeamId = useMemo(() => {
+    const map = {};
+    for (const seriesItem of seriesByRound.round_1 ?? []) {
+      const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+      const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+      if (homeId) map[homeId] = seriesItem;
+      if (awayId) map[awayId] = seriesItem;
+    }
+    return map;
+  }, [seriesByRound]);
 
   if (!report || !reportState.visibleReportKeys.includes(reportKey)) {
     return (
@@ -646,6 +799,7 @@ export default function TeamValueReportDetailView() {
             reportBody={reportBody}
             reportCue={voiceFrame.cue}
             summaryStats={summaryStats}
+            roundOneSeriesByTeamId={roundOneSeriesByTeamId}
           />
         ) : report.key === "strategic-moves" ? (
           <StrategicMoveColumns
@@ -655,6 +809,7 @@ export default function TeamValueReportDetailView() {
             reportBody={reportBody}
             reportCue={voiceFrame.cue}
             summaryStats={summaryStats}
+            roundOneSeriesByTeamId={roundOneSeriesByTeamId}
           />
         ) : report.key === "model-gaps" ? (
           <ModelGapColumns
@@ -664,6 +819,7 @@ export default function TeamValueReportDetailView() {
             reportBody={reportBody}
             reportCue={voiceFrame.cue}
             summaryStats={summaryStats}
+            roundOneSeriesByTeamId={roundOneSeriesByTeamId}
           />
         ) : (
           <div className="nba-dashboard-list">

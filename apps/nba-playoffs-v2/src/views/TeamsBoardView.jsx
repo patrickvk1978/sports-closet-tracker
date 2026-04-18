@@ -10,7 +10,7 @@ import {
   getValueFromDisplayRank,
 } from "../lib/teamValueGame";
 import { buildTeamSelectionRows, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
-import { TEAM_VALUE_LOCK_AT, getTeamValuePhase } from "../lib/teamValueReports";
+import { TEAM_VALUE_LOCK_AT, buildTeamValueReports, getTeamValuePhase } from "../lib/teamValueReports";
 
 const SORT_OPTIONS = {
   team: {
@@ -77,13 +77,14 @@ export default function TeamsBoardView() {
   const { profile, session } = useAuth();
   const { memberList } = usePool();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { seriesByRound, teamsById } = usePlayoffData();
+  const { seriesByRound, teamsById, series } = usePlayoffData();
   const playoffTeams = useMemo(() => getRoundOneTeamsFromData(seriesByRound, teamsById), [seriesByRound, teamsById]);
   const { boardRows, allAssignmentsByUser, boardValidation, completionCount, saveAssignment, saveBoardOrder } = useTeamValueBoard(playoffTeams);
   const [sortKey, setSortKey] = useState("poolEv");
   const [sortDirection, setSortDirection] = useState("desc");
   const [draggingTeamId, setDraggingTeamId] = useState("");
   const [boardViewMode, setBoardViewMode] = useState("drag");
+  const [selectedReportKey, setSelectedReportKey] = useState("");
   const phase = getTeamValuePhase();
   const currentUserId = session?.user?.id ?? profile?.id ?? null;
   const requestedViewerId = searchParams.get("viewer") ?? "";
@@ -122,6 +123,30 @@ export default function TeamsBoardView() {
       })),
     [selectionRows, viewedAssignments]
   );
+  const reportState = useMemo(
+    () =>
+      buildTeamValueReports({
+        profileId: currentUserId,
+        memberList,
+        allAssignmentsByUser,
+        seriesByRound,
+        teamsById,
+        series,
+      }),
+    [allAssignmentsByUser, currentUserId, memberList, series, seriesByRound, teamsById]
+  );
+  const reportChoices = useMemo(() => {
+    const reportOrder =
+      reportState.phase === "pre_lock"
+        ? ["slot-fits", "strategic-moves", "model-gaps", "assets", "fragility"]
+        : ["overweight", "assets", "rooting", "slot-fits", "model-gaps"];
+
+    return reportOrder
+      .filter((key) => reportState.visibleReportKeys.includes(key))
+      .map((key) => reportState.reports[key])
+      .filter(Boolean);
+  }, [reportState]);
+  const activeReport = reportChoices.find((report) => report.key === selectedReportKey) ?? reportChoices[0] ?? null;
 
   const sortedRows = useMemo(() => {
     const comparator = SORT_OPTIONS[sortKey]?.compare ?? SORT_OPTIONS.poolEv.compare;
@@ -142,6 +167,17 @@ export default function TeamsBoardView() {
       ),
     [displayedRows]
   );
+
+  useEffect(() => {
+    if (!reportChoices.length) {
+      setSelectedReportKey("");
+      return;
+    }
+
+    if (!reportChoices.some((report) => report.key === selectedReportKey)) {
+      setSelectedReportKey(reportChoices[0].key);
+    }
+  }, [reportChoices, selectedReportKey]);
 
   function handleSort(nextKey) {
     if (sortKey === nextKey) {
@@ -392,10 +428,26 @@ export default function TeamsBoardView() {
             </article>
 
             <article className="detail-card inset-card nba-board-rail-card reports-card">
-              <span className="micro-label">Need more detail?</span>
-              <p>Open reports if you want sharper research before you settle the trickiest slots.</p>
-              <Link className="secondary-button full" to="/reports">
-                Open Reports
+              <span className="micro-label">Report options</span>
+              <label className="nba-board-rail-select-wrap">
+                <span className="micro-label">Choose report</span>
+                <select
+                  className="nba-board-rail-select"
+                  value={activeReport?.key ?? ""}
+                  onChange={(event) => setSelectedReportKey(event.target.value)}
+                >
+                  {reportChoices.map((report) => (
+                    <option key={report.key} value={report.key}>
+                      {report.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="nba-board-rail-description">
+                {activeReport?.description ?? "Choose a report to see what kind of decision help it gives you before lock."}
+              </p>
+              <Link className="secondary-button full" to={activeReport ? `/reports/${activeReport.key}` : "/reports"}>
+                Open Report
               </Link>
             </article>
 

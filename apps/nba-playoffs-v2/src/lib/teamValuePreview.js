@@ -18,6 +18,99 @@ export function formatAmericanOdds(american) {
   return normalized > 0 ? `+${normalized}` : `${normalized}`;
 }
 
+function combination(n, k) {
+  if (k < 0 || k > n) return 0;
+  if (k === 0 || k === n) return 1;
+  let result = 1;
+  for (let index = 1; index <= k; index += 1) {
+    result = (result * (n - (k - index))) / index;
+  }
+  return result;
+}
+
+export function buildExactResultProbabilities(homeWinPct, wins = { home: 0, away: 0 }) {
+  const p = Math.max(0.1, Math.min((homeWinPct ?? 50) / 100, 0.9));
+  const currentHomeWins = Number(wins?.home ?? 0);
+  const currentAwayWins = Number(wins?.away ?? 0);
+  const gamesPlayed = currentHomeWins + currentAwayWins;
+  const homeNeeded = Math.max(0, 4 - currentHomeWins);
+  const awayNeeded = Math.max(0, 4 - currentAwayWins);
+  const distribution = Object.fromEntries(
+    ["home", "away"].flatMap((side) => [4, 5, 6, 7].map((games) => [`${side}_${games}`, 0]))
+  );
+
+  if (homeNeeded === 0) {
+    distribution[`home_${gamesPlayed}`] = 100;
+    return distribution;
+  }
+  if (awayNeeded === 0) {
+    distribution[`away_${gamesPlayed}`] = 100;
+    return distribution;
+  }
+
+  const minRemainingGames = Math.min(homeNeeded, awayNeeded);
+  const maxRemainingGames = homeNeeded + awayNeeded - 1;
+
+  for (let remainingGames = minRemainingGames; remainingGames <= maxRemainingGames; remainingGames += 1) {
+    const finalGames = gamesPlayed + remainingGames;
+    if (finalGames < 4 || finalGames > 7) continue;
+
+    if (remainingGames >= homeNeeded) {
+      const probability =
+        combination(remainingGames - 1, homeNeeded - 1) *
+        p ** homeNeeded *
+        (1 - p) ** (remainingGames - homeNeeded);
+      distribution[`home_${finalGames}`] = Number((probability * 100).toFixed(4));
+    }
+
+    if (remainingGames >= awayNeeded) {
+      const probability =
+        combination(remainingGames - 1, awayNeeded - 1) *
+        (1 - p) ** awayNeeded *
+        p ** (remainingGames - awayNeeded);
+      distribution[`away_${finalGames}`] = Number((probability * 100).toFixed(4));
+    }
+  }
+
+  return distribution;
+}
+
+export function buildSeriesScoringPathMatrix(teamId, assignedValue, seriesItem) {
+  const normalizedTeamValue = Number(assignedValue ?? 0);
+  if (!seriesItem || !teamId || normalizedTeamValue <= 0) return [];
+
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId ?? null;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId ?? null;
+  const teamIsHome = teamId === homeId;
+  const teamIsAway = teamId === awayId;
+
+  if (!teamIsHome && !teamIsAway) return [];
+
+  const teamSideKey = teamIsHome ? "home" : "away";
+  const opponentSideKey = teamIsHome ? "away" : "home";
+  const wins = seriesItem.wins ?? { home: 0, away: 0 };
+  const marketResults = buildExactResultProbabilities(seriesItem.market?.homeWinPct ?? 50, wins);
+  const modelResults = buildExactResultProbabilities(seriesItem.model?.homeWinPct ?? 50, wins);
+
+  const losingRows = [4, 5, 6, 7].map((games) => ({
+    key: `lose-${games}`,
+    outcome: `Lose in ${games}`,
+    points: getTeamPointsForSeriesProgress(normalizedTeamValue, Math.max(0, games - 4), "round_1", null),
+    marketPct: Number(marketResults[`${opponentSideKey}_${games}`] ?? 0),
+    modelPct: Number(modelResults[`${opponentSideKey}_${games}`] ?? 0),
+  }));
+
+  const winningRows = [4, 5, 6, 7].map((games) => ({
+    key: `win-${games}`,
+    outcome: `Win in ${games}`,
+    points: getTeamPointsForSeriesProgress(normalizedTeamValue, 4, "round_1", games),
+    marketPct: Number(marketResults[`${teamSideKey}_${games}`] ?? 0),
+    modelPct: Number(modelResults[`${teamSideKey}_${games}`] ?? 0),
+  }));
+
+  return [...losingRows, ...winningRows];
+}
+
 export function getRoundOneTeamsFromData(seriesByRound, teamsById) {
   const roundOneSeries = seriesByRound.round_1 ?? [];
   const teamIds = Array.from(new Set(roundOneSeries.flatMap((seriesItem) => [seriesItem.homeTeamId, seriesItem.awayTeamId])));

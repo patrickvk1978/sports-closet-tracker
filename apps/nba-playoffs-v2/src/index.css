@@ -532,6 +532,27 @@ p { margin: 0; }
   color: rgba(52, 31, 18, 0.92);
 }
 
+.nba-board-rail-select-wrap {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 6px;
+}
+
+.nba-board-rail-select {
+  width: 100%;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(98, 63, 23, 0.28);
+  background: rgba(255, 248, 233, 0.96);
+  color: rgba(52, 31, 18, 0.96);
+  padding: 11px 13px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.nba-board-rail-description {
+  min-height: 66px;
+}
+
 .nba-board-rail-card .secondary-button {
   background: rgba(255, 248, 233, 0.96);
   border-color: rgba(91, 55, 43, 0.18);
@@ -2210,6 +2231,147 @@ select:focus {
   display: grid;
   align-content: start;
   height: 100%;
+}
+
+.nba-report-scoring-matrix-shell {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.nba-report-scoring-matrix-note {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(177, 142, 102, 0.5);
+  background: rgba(251, 244, 233, 0.88);
+}
+
+.nba-report-scoring-matrix-note p {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.nba-report-scoring-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nba-report-scoring-matrix-card {
+  display: grid;
+  gap: 12px;
+}
+
+.nba-report-scoring-matrix-card.market-card {
+  background: linear-gradient(180deg, rgba(196, 154, 58, 0.92), rgba(228, 187, 91, 0.82));
+  border-color: rgba(149, 110, 28, 0.54);
+}
+
+.nba-report-scoring-matrix-card.model-card {
+  background: linear-gradient(180deg, rgba(194, 90, 44, 0.92), rgba(221, 126, 74, 0.84));
+  border-color: rgba(146, 67, 32, 0.52);
+}
+
+.nba-report-scoring-matrix-header {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+
+.nba-report-scoring-matrix-title-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nba-report-scoring-matrix-header h4 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: rgba(52, 31, 18, 0.98);
+}
+
+.nba-report-scoring-table {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: rgba(255, 248, 233, 0.9);
+  border: 1px solid rgba(95, 61, 33, 0.16);
+}
+
+.nba-report-scoring-table-head,
+.nba-report-scoring-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 76px 72px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px;
+}
+
+.nba-report-scoring-table-head {
+  color: rgba(90, 62, 39, 0.88);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.nba-report-scoring-sort {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nba-report-scoring-table-head .nba-report-scoring-sort:nth-child(2),
+.nba-report-scoring-table-head .nba-report-scoring-sort:nth-child(3) {
+  text-align: right;
+}
+
+.nba-report-scoring-table-row {
+  padding-top: 6px;
+  border-top: 1px solid rgba(161, 129, 92, 0.22);
+}
+
+.nba-report-scoring-outcome {
+  font-size: 0.95rem;
+  color: rgba(52, 31, 18, 0.96);
+}
+
+.nba-report-scoring-points,
+.nba-report-scoring-odds {
+  justify-self: end;
+}
+
+.nba-report-scoring-points {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  background: rgba(39, 58, 96, 0.12);
+  color: rgba(28, 43, 70, 0.96);
+  font-weight: 800;
+}
+
+.nba-report-scoring-odds {
+  color: rgba(52, 31, 18, 0.92);
+  font-weight: 700;
+}
+
+.nba-report-scoring-odds.is-top-outcome {
+  color: rgba(28, 43, 70, 0.98);
+  font-weight: 900;
 }
 
 /* ─── Chips, Badges, Pills ───────────────────────────────────────────────── */
@@ -4039,6 +4201,10 @@ select:focus {
   .nba-report-metric-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .nba-report-scoring-matrix-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -4060,6 +4226,12 @@ select:focus {
 
   .nba-report-metric-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nba-report-scoring-table-head,
+  .nba-report-scoring-table-row {
+    grid-template-columns: minmax(0, 1.4fr) 68px 64px;
+    gap: 8px;
   }
 
   .nba-team-pick-grid {
