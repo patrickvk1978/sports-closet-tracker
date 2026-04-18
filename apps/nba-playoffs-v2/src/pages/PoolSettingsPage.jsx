@@ -117,12 +117,15 @@ export default function PoolSettingsPage() {
         <div className="settings-form-grid">
           <div className="detail-card">
             <span className="micro-label">Contest scoring</span>
-            <p>The team-value game locks a unique 16-to-1 ranking before the playoffs begin. Every series win scores team value plus a round bonus and a dominance bonus.</p>
+            <p>The team-value game locks a unique 16-to-1 ranking before the playoffs begin. Teams score progressively for each playoff win, with the fourth win carrying the biggest bump plus the round and dominance bonuses.</p>
           </div>
           <div className="settings-form-grid three-up">
             {scoringTable.map((row) => (
               <div className="detail-card" key={row.roundKey}>
                 <span className="micro-label">{row.label}</span>
+                <p>
+                  {row.perWin.map((entry) => `Win ${entry.winNumber}: ${entry.points}`).join(" · ")}
+                </p>
                 <p>
                   {row.byGames.map((entry) => `Win in ${entry.games}: ${entry.points}`).join(" · ")}
                 </p>
@@ -141,7 +144,7 @@ export default function PoolSettingsPage() {
           </label>
           <div className="detail-card">
             <span className="micro-label">Why shorter wins matter more</span>
-            <p>The format rewards dominance. A sweep gets the biggest bonus, then five, then six, then seven. Later rounds also carry bigger bonuses by default.</p>
+            <p>The format still rewards dominance. A sweep gets the biggest clinching bonus, then five, then six, then seven. Later rounds also carry bigger clinching bonuses by default.</p>
           </div>
           <div className="detail-card">
             <span className="micro-label">Board lock</span>

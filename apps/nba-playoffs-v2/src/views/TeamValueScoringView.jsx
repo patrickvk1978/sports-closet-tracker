@@ -21,7 +21,7 @@ export default function TeamValueScoringView() {
 
         <div className="detail-card inset-card">
           <p>
-            Rank 1 is worth the most and rank 16 the least. Use this page when you want the clean point map by round and series length without the rest of the board around it.
+            Rank 1 is worth the most and rank 16 the least. Teams now score along the way, with each playoff win paying a little more than the one before it and the fourth win carrying the biggest jump.
           </p>
         </div>
 
@@ -29,6 +29,9 @@ export default function TeamValueScoringView() {
           {scoringTable.map((round) => (
             <article className="detail-card inset-card" key={round.roundKey}>
               <span className="micro-label">{round.label}</span>
+              <p>
+                {round.perWin.map((entry) => `Win ${entry.winNumber}: ${entry.points}`).join(" · ")}
+              </p>
               <p>
                 {round.byGames.map((entry) => `Win in ${entry.games}: ${entry.points}`).join(" · ")}
               </p>

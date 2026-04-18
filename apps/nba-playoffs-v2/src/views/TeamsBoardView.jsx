@@ -53,9 +53,9 @@ const SORT_OPTIONS = {
 };
 
 const TERM_HELP = {
-  market: "Round 1 market is the outside expectation for who survives the first series. Higher usually means safer right away.",
-  expectedPoints: "Expected points is the first-pass estimate of how many points this team-slot pairing could return if the bracket plays out from here.",
-  poolEv: "Pool EV is the rough value score for this team at this rank after blending team strength, path, and how the slot pays out.",
+  market: "Round 1 market is the outside expectation for who advances from the first series. It still matters most, but teams can now bank points along the way too.",
+  expectedPoints: "Expected points is the first-pass estimate of how many points this team-slot pairing could return under the current progressive win scoring model.",
+  poolEv: "Pool EV is the rough value score for this team at this rank after blending expected points, path, and how well the slot captures both partial-win floor and clinching upside.",
   title: "Championship is the long-run ceiling view. It matters more in the top ranks than the bottom ones.",
   model: "Model is the internal forecast read for this team’s first-round path. It helps you compare our projection with the outside market.",
   value: "Rank is where you place the team on your board. Rank 1 is your strongest slot and rank 16 is your lowest.",
@@ -296,6 +296,7 @@ export default function TeamsBoardView() {
                         <td>
                           <div className="nba-team-board-team-cell">
                             <strong>{team.city} {team.name}</strong>
+                            <span className="nba-team-board-opponent">{team.roundOneOpponentLabel}</span>
                           </div>
                         </td>
                         <td><span className="muted-inline">{team.conference}</span></td>
@@ -353,7 +354,10 @@ export default function TeamsBoardView() {
                         <span className="chip subtle-chip board-meta-pill">Seed {team.seed}</span>
                         <span className="assign-tag board-meta-pill board-meta-pill-accent">{team.abbreviation}</span>
                       </div>
-                      <strong>{team.city} {team.name}</strong>
+                      <div className="board-player-text">
+                        <strong>{team.city} {team.name}</strong>
+                        <span className="board-player-opponent">{team.roundOneOpponentLabel}</span>
+                      </div>
                     </div>
                     <div className="board-row-metrics">
                       <span>

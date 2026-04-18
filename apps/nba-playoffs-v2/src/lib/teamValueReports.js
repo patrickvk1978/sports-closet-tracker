@@ -81,7 +81,7 @@ function buildSummary(currentStanding, slotFitRows, fragilityRows) {
     body: `${boothLine([
       `From ${ordinal(currentStanding.place)}, your board still has ${currentStanding.liveValueRemaining} live value. The biggest question is whether your highest slots are in the right teams and whether ${topFragility?.teamLabel ?? "your top exposures"} are sturdier than they look.`,
       `From ${ordinal(currentStanding.place)}, you still have ${currentStanding.liveValueRemaining} live value working for you. The interesting tension is whether your premium slots are on the right teams and whether ${topFragility?.teamLabel ?? "the thinner exposures"} can really hold up.`,
-      `There is still ${currentStanding.liveValueRemaining} live value on your side from ${ordinal(currentStanding.place)}. What matters now is whether the expensive teams are worth the price and whether ${topFragility?.teamLabel ?? "the shakier names"} can survive the scrutiny.`,
+      `There is still ${currentStanding.liveValueRemaining} live value on your side from ${ordinal(currentStanding.place)}. What matters now is whether the expensive teams are worth the price and whether ${topFragility?.teamLabel ?? "the shakier names"} can keep collecting wins long enough to justify the slot.`,
     ], topFit?.teamLabel, topFragility?.teamLabel, currentStanding.place, "summary-body")} ${colorLine([
       `This is where the board stops being a spreadsheet and starts becoming a mood.`,
       `Some boards feel sturdy. Some feel spicy. This one is still deciding which it wants to be.`,
@@ -244,9 +244,9 @@ function buildOverweightRows(exposures, selectionRows) {
               `This is the sort of exposure that can make you feel clever by Monday or defensive by Tuesday.`,
             ], row.abbreviation, row.leverage, "overweight-color")}`
           : `${boothLine([
-              `You assigned ${row.yourValue} while the room average is ${row.avgValue}. That means a ${row.abbreviation} run helps the room more than it helps you.`,
-              `${row.abbreviation} is carrying less weight on your board than it is across the room, so a deep run would do more collective damage than personal good.`,
-              `With ${row.yourValue} against a room average of ${row.avgValue}, ${row.abbreviation} is one of the clearer spots where the field is holding more of the upside than you are.`,
+              `You assigned ${row.yourValue} while the room average is ${row.avgValue}. That means a longer ${row.abbreviation} stay in the bracket helps the room more than it helps you.`,
+              `${row.abbreviation} is carrying less weight on your board than it is across the room, so every extra win is doing more collective good than personal good.`,
+              `With ${row.yourValue} against a room average of ${row.avgValue}, ${row.abbreviation} is one of the clearer spots where the field is holding more of the progressive scoring upside than you are.`,
             ], row.abbreviation, row.leverage, "underweight-body")} ${colorLine([
               `If they go cold, you will feel smart. If they get hot, you will hear about it.`,
               `This is one of those spots where the room can start celebrating before you are ready to join in.`,
@@ -367,7 +367,7 @@ function buildModelGapRows(selectionRows, currentAssignments) {
         body = `The model is buying ${team.abbreviation} more aggressively than the market is. At ${modelLean}% versus ${marketLean}%, this is the kind of team that asks whether the public price is being a little too cautious.`;
       } else if (modelHigher && toneSeed === 1) {
         headline = `${team.abbreviation} is getting a quieter vote of confidence from the model`;
-        body = `${team.abbreviation} is not being priced quite as warmly by the market, but the model still sees more runway here. If you already have real value tied up in them, that disagreement is worth respecting.`;
+        body = `${team.abbreviation} is not being priced quite as warmly by the market, but the model still sees more runway here. If you already have real value tied up in them, that disagreement is worth respecting because a longer stay now pays out more gradually along the way.`;
       } else if (modelHigher && toneSeed === 2) {
         headline = `${team.abbreviation} may have more under the hood than the market is giving it credit for`;
         body = `The market is sitting at ${marketLean}%, but the model pushes ${team.abbreviation} to ${modelLean}%. That does not automatically make them right, but it does make this one of the better cases for taking a closer second look.`;
@@ -579,7 +579,7 @@ export function buildTeamValueReports({
       key: "assets",
       label: "Biggest assets",
       title: "Which teams are really carrying your outcome?",
-      description: "These are the teams doing the most work on your current board, combining assigned value with expected scoring from here.",
+      description: "These are the teams doing the most work on your current board, combining assigned value with expected scoring from here under the progressive win model.",
       rows: biggestAssets,
       stage: "always",
     },
@@ -587,7 +587,7 @@ export function buildTeamValueReports({
       key: "rooting",
       label: "Rooting guide",
       title: "What outcomes cash your portfolio fastest?",
-      description: "This is the first-round leverage board: the series where the teams you valued most can start returning points quickly.",
+      description: "This is the first-round leverage board: the series where the teams you valued most can start returning wins and points quickly.",
       rows: rootingGuide,
       stage: "always",
     },
@@ -611,7 +611,7 @@ export function buildTeamValueReports({
       key: "strategic-moves",
       label: "Strategic moves",
       title: "Where are the board's best risk-reward decisions?",
-      description: "This highlights the slot-team decisions that feel most strategic right now: upside buys, rich slots, and risks that might still be worth it.",
+      description: "This highlights the slot-team decisions that feel most strategic right now: upside buys, rich slots, and risks that might still be worth it now that teams can score on the way to the clincher.",
       rows: strategicMoves,
       stage: "always",
     },

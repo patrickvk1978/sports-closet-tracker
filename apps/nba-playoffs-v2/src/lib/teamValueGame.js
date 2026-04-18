@@ -22,25 +22,66 @@ export const SERIES_LENGTH_BONUS = {
   7: 0,
 };
 
+const WIN_STEP_WEIGHTS = [1, 2, 3, 6];
+
 export function getSeriesLength(series) {
   if (!series?.wins) return null;
   const total = Number(series.wins.home ?? 0) + Number(series.wins.away ?? 0);
   return total >= 4 && total <= 7 ? total : null;
 }
 
-export function getSeriesWinPoints(teamValue, roundKey, games) {
-  const normalizedTeamValue = Number(teamValue);
-  if (!Number.isFinite(normalizedTeamValue) || normalizedTeamValue <= 0) return 0;
+export function buildWinStepPoints(teamValue) {
+  const normalizedTeamValue = Math.max(0, Math.round(Number(teamValue) || 0));
+  if (normalizedTeamValue <= 0) return [0, 0, 0, 0];
 
-  const roundBonus = ROUND_BONUS[roundKey] ?? 0;
-  const lengthBonus = SERIES_LENGTH_BONUS[games] ?? 0;
-  return normalizedTeamValue + roundBonus + lengthBonus;
+  const totalWeight = WIN_STEP_WEIGHTS.reduce((sum, weight) => sum + weight, 0);
+  const rawPoints = WIN_STEP_WEIGHTS.map((weight) => (normalizedTeamValue * weight) / totalWeight);
+  const points = rawPoints.map((value) => Math.floor(value));
+  let remainder = normalizedTeamValue - points.reduce((sum, value) => sum + value, 0);
+
+  const priorityOrder = rawPoints
+    .map((value, index) => ({ index, fraction: value - points[index] }))
+    .sort((a, b) => b.fraction - a.fraction || b.index - a.index);
+
+  for (let index = 0; index < priorityOrder.length && remainder > 0; index += 1) {
+    points[priorityOrder[index].index] += 1;
+    remainder -= 1;
+  }
+
+  return points;
+}
+
+export function getWinStepPoints(teamValue, winNumber) {
+  const progression = buildWinStepPoints(teamValue);
+  return progression[Math.max(0, Number(winNumber) - 1)] ?? 0;
+}
+
+export function getClinchingBonus(roundKey, games) {
+  return (ROUND_BONUS[roundKey] ?? 0) + (SERIES_LENGTH_BONUS[games] ?? 0);
+}
+
+export function getTeamPointsForSeriesProgress(teamValue, wins, roundKey, clinchedInGames = null) {
+  const normalizedWins = Math.max(0, Math.min(4, Math.round(Number(wins) || 0)));
+  if (normalizedWins <= 0) return 0;
+
+  const progression = buildWinStepPoints(teamValue);
+  const basePoints = progression.slice(0, normalizedWins).reduce((sum, value) => sum + value, 0);
+  const clinchingBonus = clinchedInGames ? getClinchingBonus(roundKey, clinchedInGames) : 0;
+  return basePoints + clinchingBonus;
+}
+
+export function getSeriesWinPoints(teamValue, roundKey, games) {
+  return getTeamPointsForSeriesProgress(teamValue, 4, roundKey, games);
 }
 
 export function buildScoringTable(sampleTeamValue = 16) {
   return Object.keys(ROUND_BONUS).map((roundKey) => ({
     roundKey,
     label: ROUND_LABELS[roundKey] ?? roundKey,
+    perWin: [1, 2, 3, 4].map((winNumber) => ({
+      winNumber,
+      points: getWinStepPoints(sampleTeamValue, winNumber),
+    })),
     byGames: [4, 5, 6, 7].map((games) => ({
       games,
       points: getSeriesWinPoints(sampleTeamValue, roundKey, games),
@@ -83,29 +124,56 @@ export function getPointsForDisplayRank(rank) {
 }
 
 export function scoreSeriesForAssignments(assignmentsByTeamId, series) {
-  if (series?.status !== "completed" || !series?.winnerTeamId) return null;
+  if (!series?.wins) return [];
 
   const games = getSeriesLength(series);
-  if (!games) return null;
+  const homeWins = Math.max(0, Math.min(4, Number(series.wins.home ?? 0)));
+  const awayWins = Math.max(0, Math.min(4, Number(series.wins.away ?? 0)));
+  const homeId = series.homeTeam?.id ?? series.homeTeamId ?? null;
+  const awayId = series.awayTeam?.id ?? series.awayTeamId ?? null;
+  const winnerId = series.status === "completed" ? series.winnerTeamId ?? null : null;
 
-  const winningValue = Number(assignmentsByTeamId?.[series.winnerTeamId] ?? 0);
-  return {
-    teamId: series.winnerTeamId,
-    roundKey: series.roundKey,
-    games,
-    points: getSeriesWinPoints(winningValue, series.roundKey, games),
-  };
+  return [
+    {
+      teamId: homeId,
+      roundKey: series.roundKey,
+      wins: homeWins,
+      games,
+      isWinner: winnerId === homeId,
+      points: getTeamPointsForSeriesProgress(
+        Number(assignmentsByTeamId?.[homeId] ?? 0),
+        homeWins,
+        series.roundKey,
+        winnerId === homeId ? games : null
+      ),
+    },
+    {
+      teamId: awayId,
+      roundKey: series.roundKey,
+      wins: awayWins,
+      games,
+      isWinner: winnerId === awayId,
+      points: getTeamPointsForSeriesProgress(
+        Number(assignmentsByTeamId?.[awayId] ?? 0),
+        awayWins,
+        series.roundKey,
+        winnerId === awayId ? games : null
+      ),
+    },
+  ].filter((entry) => entry.teamId && entry.points > 0);
 }
 
 export function summarizeBoardPoints(assignmentsByTeamId, series) {
   return series.reduce(
     (accumulator, seriesItem) => {
-      const result = scoreSeriesForAssignments(assignmentsByTeamId, seriesItem);
-      if (!result) return accumulator;
+      const results = scoreSeriesForAssignments(assignmentsByTeamId, seriesItem);
+      if (!results.length) return accumulator;
 
-      accumulator.totalPoints += result.points;
+      accumulator.totalPoints += results.reduce((sum, result) => sum + result.points, 0);
       accumulator.scoredSeries += 1;
-      accumulator.byRound[result.roundKey] = (accumulator.byRound[result.roundKey] ?? 0) + result.points;
+      results.forEach((result) => {
+        accumulator.byRound[result.roundKey] = (accumulator.byRound[result.roundKey] ?? 0) + result.points;
+      });
       return accumulator;
     },
     {

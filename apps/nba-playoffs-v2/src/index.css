@@ -556,6 +556,12 @@ p { margin: 0; }
   line-height: 1.12;
 }
 
+.nba-team-board-opponent {
+  color: var(--text-2);
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
 .nba-team-board-team-meta {
   display: flex;
   flex-wrap: nowrap;
@@ -581,6 +587,7 @@ p { margin: 0; }
 
 .nba-team-board-table-shell {
   overflow-x: auto;
+  overflow-y: visible;
 }
 
 .nba-team-board-table {
@@ -1682,6 +1689,17 @@ p { margin: 0; }
 .tooltip-wrap:focus-within .tooltip-bubble {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+.nba-team-board-table th:last-child .tooltip-bubble {
+  left: auto;
+  right: 0;
+  transform: translateX(0);
+}
+
+.nba-team-board-table th:last-child .tooltip-wrap:hover .tooltip-bubble,
+.nba-team-board-table th:last-child .tooltip-wrap:focus-within .tooltip-bubble {
+  transform: translateX(0) translateY(0);
 }
 
 .standings-board-link {
@@ -3478,6 +3496,20 @@ select:focus {
   font-size: 1.32rem;
   line-height: 1.08;
   justify-self: center;
+  text-align: center;
+}
+
+.board-player-text {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  min-width: 0;
+}
+
+.board-player-opponent {
+  color: var(--text-2);
+  font-size: 0.92rem;
+  line-height: 1.2;
   text-align: center;
 }
 

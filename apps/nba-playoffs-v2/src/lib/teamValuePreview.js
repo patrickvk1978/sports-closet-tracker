@@ -1,6 +1,6 @@
 import { TITLE_ODDS_INPUTS } from "../data/titleOdds";
 import { buildTeamValueStandings } from "./teamValueStandings";
-import { getSeriesWinPoints } from "./teamValueGame";
+import { getTeamPointsForSeriesProgress } from "./teamValueGame";
 
 const SAMPLE_SLOT_VALUE = 10;
 const SIMULATION_ITERATIONS = 2400;
@@ -21,6 +21,17 @@ export function formatAmericanOdds(american) {
 export function getRoundOneTeamsFromData(seriesByRound, teamsById) {
   const roundOneSeries = seriesByRound.round_1 ?? [];
   const teamIds = Array.from(new Set(roundOneSeries.flatMap((seriesItem) => [seriesItem.homeTeamId, seriesItem.awayTeamId])));
+
+  function buildRoundOneOpponentLabel(teamId, seriesItem) {
+    if (!seriesItem) return "Round 1 opponent TBD";
+    const opponent = seriesItem.homeTeamId === teamId ? teamsById[seriesItem.awayTeamId] : teamsById[seriesItem.homeTeamId];
+    if (!opponent) return "Round 1 opponent TBD";
+    if (opponent.abbreviation === "TBD") {
+      if (opponent.city?.includes("/")) return `Round 1 vs ${opponent.city} winner`;
+      return `Round 1 opponent TBD`;
+    }
+    return `Round 1 vs ${opponent.city} ${opponent.name}`;
+  }
 
   return teamIds
     .map((teamId) => {
@@ -45,6 +56,7 @@ export function getRoundOneTeamsFromData(seriesByRound, teamsById) {
         modelLean: modelLean ?? marketLean ?? 50,
         titleOdds,
         titlePct,
+        roundOneOpponentLabel: buildRoundOneOpponentLabel(teamId, sourceSeries),
       };
     })
     .filter(Boolean);
@@ -201,11 +213,23 @@ function simulateSeries(homeId, awayId, roundKey, strengthByTeam, rng, presetWin
   const homeWinPct = Math.min(Math.max(inferredHomeWin, 5), 95);
   const homeWon = rng() < homeWinPct / 100;
   const games = sampleSeriesGames(homeWinPct / 100, rng);
+  const losingWins = games - 4;
+  const homeWins = homeWon ? 4 : losingWins;
+  const awayWins = homeWon ? losingWins : 4;
 
   return {
     winnerId: homeWon ? homeId : awayId,
     games,
-    points: getSeriesWinPoints(SAMPLE_SLOT_VALUE, roundKey, games),
+    awardedPoints: [
+      {
+        teamId: homeId,
+        points: getTeamPointsForSeriesProgress(SAMPLE_SLOT_VALUE, homeWins, roundKey, homeWon ? games : null),
+      },
+      {
+        teamId: awayId,
+        points: getTeamPointsForSeriesProgress(SAMPLE_SLOT_VALUE, awayWins, roundKey, homeWon ? null : games),
+      },
+    ],
   };
 }
 
@@ -228,25 +252,33 @@ function simulateTeamValueTournament(teamEntries, roundOneSeries) {
         rng,
         presetWinPct
       );
-      totals[result.winnerId].points += result.points;
+      result.awardedPoints.forEach((entry) => {
+        totals[entry.teamId].points += entry.points;
+      });
       roundWinners[seriesItem.id] = result.winnerId;
     }
 
     bracket.eastSemis.forEach(([leftId, rightId], index) => {
       const result = simulateSeries(roundWinners[leftId], roundWinners[rightId], "semifinals", strengthByTeam, rng);
-      totals[result.winnerId].points += result.points;
+      result.awardedPoints.forEach((entry) => {
+        totals[entry.teamId].points += entry.points;
+      });
       roundWinners[`east-semi-${index + 1}`] = result.winnerId;
     });
 
     bracket.westSemis.forEach(([leftId, rightId], index) => {
       const result = simulateSeries(roundWinners[leftId], roundWinners[rightId], "semifinals", strengthByTeam, rng);
-      totals[result.winnerId].points += result.points;
+      result.awardedPoints.forEach((entry) => {
+        totals[entry.teamId].points += entry.points;
+      });
       roundWinners[`west-semi-${index + 1}`] = result.winnerId;
     });
 
     bracket.finals.forEach(([leftId, rightId], index) => {
       const result = simulateSeries(roundWinners[leftId], roundWinners[rightId], "finals", strengthByTeam, rng);
-      totals[result.winnerId].points += result.points;
+      result.awardedPoints.forEach((entry) => {
+        totals[entry.teamId].points += entry.points;
+      });
       roundWinners[index === 0 ? "east-finals" : "west-finals"] = result.winnerId;
     });
 
@@ -257,7 +289,9 @@ function simulateTeamValueTournament(teamEntries, roundOneSeries) {
       strengthByTeam,
       rng
     );
-    totals[finalsResult.winnerId].points += finalsResult.points;
+    finalsResult.awardedPoints.forEach((entry) => {
+      totals[entry.teamId].points += entry.points;
+    });
     totals[finalsResult.winnerId].titles += 1;
   }
 
@@ -291,10 +325,17 @@ export function buildTeamSelectionRows(teamEntries, seriesByRound, allAssignment
       const expectedPoints = simulationByTeam[team.id]?.expectedPoints ?? 0;
       const titlePct = team.titlePct ?? 0;
       const midTierBonus = titlePct >= 2 && titlePct <= 14 ? leverageScale * 0.65 : 0;
-      const chalkPenalty = titlePct >= 12 ? leverageScale * 0.45 : 0;
-      const survivabilityBonus = Math.max((team.marketLean ?? 50) - 50, 0) / 100 * 0.16;
+      const chalkPenalty = titlePct >= 12 ? leverageScale * 0.3 : 0;
+      const survivabilityBonus = Math.max((team.marketLean ?? 50) - 50, 0) / 100 * 0.12;
+      const roundOneTightness = Math.max(0, 1 - Math.min(Math.abs((team.marketLean ?? 50) - 50), 28) / 28);
+      const progressiveFloorBonus = roundOneTightness * 0.09;
       const slotBonus = Math.max(fairValue - 8, 0) * 0.01;
-      const poolEv = Number((expectedPoints * (1 + midTierBonus + survivabilityBonus + slotBonus - chalkPenalty)).toFixed(1));
+      const poolEv = Number(
+        (
+          expectedPoints *
+          (1 + midTierBonus + survivabilityBonus + progressiveFloorBonus + slotBonus - chalkPenalty)
+        ).toFixed(1)
+      );
 
       return {
         ...team,

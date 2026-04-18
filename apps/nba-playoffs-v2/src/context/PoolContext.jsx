@@ -303,7 +303,7 @@ export function PoolProvider({ children }) {
   const value = useMemo(() => ({
     pool,
     allPools,
-    members: effectiveMembers,
+    members,
     memberList,
     isLoading,
     settingsForPool,
@@ -313,7 +313,7 @@ export function PoolProvider({ children }) {
     updatePoolSettings,
     updatePoolMeta,
     loadPools,
-  }), [pool, allPools, effectiveMembers, memberList, isLoading])
+  }), [pool, allPools, members, memberList, isLoading])
 
   return <PoolContext.Provider value={value}>{children}</PoolContext.Provider>
 }

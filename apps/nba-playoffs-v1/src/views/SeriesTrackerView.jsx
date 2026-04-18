@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 import { useAuth } from "../hooks/useAuth";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
+import { useBackendSeriesSchedule } from "../hooks/useBackendSeriesSchedule";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import {
   getAvailableRoundKey,
@@ -12,6 +13,7 @@ import {
 } from "../lib/seriesPickem";
 import {
   formatProbabilityFreshness,
+  formatProbabilityMainLabel,
   formatProbabilityMainFreshness,
   formatProbabilitySourceLabel,
 } from "../lib/probabilityInputs";
@@ -91,6 +93,82 @@ function formatSeriesSlotLabel(seriesItem) {
   return `${conferenceLabel} ${seriesItem.homeTeam.seed} vs ${seriesItem.awayTeam.seed}`;
 }
 
+function formatEtDateTime(iso) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString([], {
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+  }) + " ET";
+}
+
+function getSeriesTimingLine(seriesItem, roundLocked) {
+  const schedule = seriesItem?.schedule;
+  if (!schedule) return seriesItem?.nextGame ?? "";
+
+  const hasPlaceholderMatchup =
+    Boolean(getSeriesPlaceholderCopy(seriesItem.homeTeam)) || Boolean(getSeriesPlaceholderCopy(seriesItem.awayTeam));
+  if (hasPlaceholderMatchup) {
+    return schedule.lockNote ?? seriesItem.nextGame ?? "Waiting on final play-in result";
+  }
+
+  const lockAt = schedule.lockAt ? new Date(schedule.lockAt) : null;
+  const isLockedByTime = lockAt ? Date.now() >= lockAt.getTime() : false;
+  if (schedule.nextGame && (roundLocked || isLockedByTime)) {
+    return `Next game: ${schedule.nextGame.label}, ${formatEtDateTime(schedule.nextGame.tipAt)}`;
+  }
+  if (schedule.lockAt) {
+    return `Locks ${formatEtDateTime(schedule.lockAt)}`;
+  }
+  if (schedule.lockNote) {
+    return schedule.lockNote;
+  }
+  return seriesItem?.nextGame ?? "";
+}
+
+function formatScheduleTeamShort(teamId, seriesItem) {
+  if (!teamId) return "TBD";
+  const homeDisplay = formatSeriesTeam(seriesItem.homeTeam);
+  const awayDisplay = formatSeriesTeam(seriesItem.awayTeam);
+  if (teamId === seriesItem.homeTeam.id) return homeDisplay.short;
+  if (teamId === seriesItem.awayTeam.id) return awayDisplay.short;
+  return "TBD";
+}
+
+function getDisplayTimingLine(seriesItem, roundLocked, backendSchedule) {
+  if (!backendSchedule) {
+    return getSeriesTimingLine(seriesItem, roundLocked);
+  }
+
+  const hasResolvedTeams =
+    !getSeriesPlaceholderCopy(seriesItem.homeTeam) &&
+    !getSeriesPlaceholderCopy(seriesItem.awayTeam) &&
+    seriesItem.homeTeam.abbreviation !== "TBD" &&
+    seriesItem.awayTeam.abbreviation !== "TBD";
+
+  if (!hasResolvedTeams) {
+    return "Locks once this matchup is set";
+  }
+
+  const lockAt = backendSchedule.lockAt ? new Date(backendSchedule.lockAt) : null;
+  const lockHasPassed = lockAt ? Date.now() >= lockAt.getTime() : false;
+  if (!roundLocked && lockAt && !lockHasPassed) {
+    return `Locks ${formatEtDateTime(backendSchedule.lockAt)}`;
+  }
+
+  if (backendSchedule.nextGameAt && backendSchedule.nextGameNumber) {
+    const away = formatScheduleTeamShort(backendSchedule.nextAwayTeamId, seriesItem);
+    const home = formatScheduleTeamShort(backendSchedule.nextHomeTeamId, seriesItem);
+    return `Next game: G${backendSchedule.nextGameNumber} ${away} at ${home}, ${formatEtDateTime(backendSchedule.nextGameAt)}`;
+  }
+
+  return getSeriesTimingLine(seriesItem, roundLocked);
+}
+
 function isSeriesReadyForPicks(seriesItem) {
   if (!seriesItem?.homeTeam || !seriesItem?.awayTeam) return false;
   if (seriesItem.homeTeam.abbreviation === "TBD" || seriesItem.awayTeam.abbreviation === "TBD") return false;
@@ -134,6 +212,7 @@ export default function SeriesTrackerView() {
   const { profile } = useAuth();
   const { pool, settingsForPool, memberList, updatePoolSettings } = usePool();
   const { series, seriesByRound, roundSummaries } = usePlayoffData();
+  const { scheduleBySeriesId } = useBackendSeriesSchedule(pool?.id);
   const settings = settingsForPool(pool);
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeRound, setActiveRound] = useState("round_1");
@@ -330,10 +409,11 @@ export default function SeriesTrackerView() {
             const awayDisplay = formatSeriesTeam(seriesItem.awayTeam);
             const matchupLabel = `${homeDisplay.primary} vs ${awayDisplay.primary}`;
             const isEditable = isViewingCurrentUser && !roundLocks[seriesItem.roundKey] && isSeriesReady;
-            const setupNote =
-              getSeriesPlaceholderCopy(seriesItem.homeTeam) || getSeriesPlaceholderCopy(seriesItem.awayTeam)
-                ? seriesItem.nextGame
-                : `${seriesItem.homeTeam.abbreviation} ${seriesItem.market.homeWinPct}% market · ${seriesItem.awayTeam.abbreviation} ${seriesItem.market.awayWinPct}%`;
+            const setupNote = getDisplayTimingLine(
+              seriesItem,
+              Boolean(roundLocks[seriesItem.roundKey]),
+              scheduleBySeriesId[seriesItem.id]
+            );
 
             return (
               <article className="nba-pick-card" key={seriesItem.id}>
