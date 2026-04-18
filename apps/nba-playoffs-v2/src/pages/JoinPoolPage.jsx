@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
+import { getTeamValuePhase } from "../lib/teamValueReports";
 
 function routeForPool(pool) {
-  return "/dashboard";
+  return getTeamValuePhase() === "post_lock" ? "/dashboard" : "/teams";
 }
 
 export default function JoinPoolPage() {

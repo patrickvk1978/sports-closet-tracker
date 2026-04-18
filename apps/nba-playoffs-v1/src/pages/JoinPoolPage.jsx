@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 
 function routeForPool(pool) {
-  return "/series";
+  return "/bracket";
 }
 
 export default function JoinPoolPage() {
