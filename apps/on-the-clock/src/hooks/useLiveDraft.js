@@ -140,6 +140,28 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
   }
 
   async function saveLivePrediction(pickNumber, prospectId) {
+    if (!prospectId) {
+      setLivePredictions(prev => {
+        const next = { ...prev }
+        delete next[pickNumber]
+        return next
+      })
+      setAllMemberPredictions(prev => {
+        const next = { ...prev }
+        delete next[`${userId}:${pickNumber}`]
+        return next
+      })
+
+      if (!poolId || !userId) return
+
+      await draftDb.from('queues')
+        .delete()
+        .eq('pool_id', poolId)
+        .eq('user_id', userId)
+        .eq('pick_number', pickNumber)
+      return
+    }
+
     // Find if this prospect is already assigned to another pick and clear it
     const existingPickNum = Object.entries(livePredictions).find(
       ([num, id]) => id === prospectId && Number(num) !== pickNumber

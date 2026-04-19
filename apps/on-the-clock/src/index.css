@@ -2589,6 +2589,7 @@ select:focus {
 }
 
 .suggest-card {
+  flex: 0 1 196px;
   min-width: 196px;
   border-radius: 14px;
   border-color: #343843;
@@ -2657,6 +2658,50 @@ select:focus {
   padding: 12px 8px;
   gap: 4px;
   box-shadow: var(--shadow-xs);
+}
+
+.pick-chip-wrap {
+  position: relative;
+}
+
+.pick-chip-wrap .pick-chip {
+  width: 100%;
+}
+
+.pick-chip-clear {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.08);
+  color: var(--text-3);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.pick-chip-clear:hover {
+  background: rgba(208, 18, 38, 0.12);
+  color: var(--brand);
+}
+
+.pick-chip-wrap.active .pick-chip-clear {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f3f4f6;
+}
+
+.pick-chip-wrap.active .pick-chip-clear:hover {
+  background: rgba(252, 165, 165, 0.18);
+  color: #fff;
 }
 
 .pick-chip.empty {
@@ -4701,6 +4746,8 @@ select:focus {
   justify-content: center;
   align-items: flex-start;
   gap: 4px;
+  flex: 0 0 170px;
+  min-width: 170px;
 }
 
 .suggest-card.browse-all .sc-name {

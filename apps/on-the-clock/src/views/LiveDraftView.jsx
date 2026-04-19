@@ -393,27 +393,48 @@ export default function LiveDraftView() {
                   const isActive = selectedPick === pick.number;
                   const playerAbbr = prediction ? formatChipPlayerName(prediction.name) : null;
                   return (
-                    <button
+                    <div
                       key={pick.number}
-                      className={`pick-chip ${isFilled ? "filled" : "empty"} ${isActive ? "active" : ""}`}
-                      type="button"
-                      title={isFilled ? `${prediction.name} → ${teamName}` : teamName}
-                      onClick={() => {
-                        setSelectedPick(pick.number);
-                      }}
+                      className={`pick-chip-wrap ${isFilled ? "filled" : "empty"} ${isActive ? "active" : ""}`}
                     >
-                      <span className="pc-num">{pick.number}</span>
                       {isFilled ? (
-                        <>
-                          <span className="pc-player">{playerAbbr}</span>
-                          <span className="pc-meta">{prediction.position}</span>
+                        <button
+                          className="pick-chip-clear"
+                          type="button"
+                          aria-label={`Clear pick ${pick.number}`}
+                          title={`Clear pick ${pick.number}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            saveLivePrediction(pick.number, null);
+                            if (selectedPick === pick.number) {
+                              setSelectedPick(pick.number);
+                            }
+                          }}
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                      <button
+                        className={`pick-chip ${isFilled ? "filled" : "empty"} ${isActive ? "active" : ""}`}
+                        type="button"
+                        title={isFilled ? `${prediction.name} → ${teamName}` : teamName}
+                        onClick={() => {
+                          setSelectedPick(pick.number);
+                        }}
+                      >
+                        <span className="pc-num">{pick.number}</span>
+                        {isFilled ? (
+                          <>
+                            <span className="pc-player">{playerAbbr}</span>
+                            <span className="pc-meta">{prediction.position}</span>
+                            <span className="pc-team">{teamAbbr}</span>
+                          </>
+                        ) : (
                           <span className="pc-team">{teamAbbr}</span>
-                        </>
-                      ) : (
-                        <span className="pc-team">{teamAbbr}</span>
-                      )}
-                      {isActive && <span className="pc-editing">editing</span>}
-                    </button>
+                        )}
+                        {isActive && <span className="pc-editing">editing</span>}
+                      </button>
+                    </div>
                   );
                 })}
               </div>
