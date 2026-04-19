@@ -4156,3 +4156,128 @@ select:focus {
 }
 
 .pd-board-ctx-back:hover { color: #111; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRE-DRAFT V2 — Header, progress card, grid label, chip editing state
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Page header */
+.pd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.pd-eyebrow {
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.pd-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #111;
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+
+.pd-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  max-width: 520px;
+  line-height: 1.5;
+}
+
+.pd-countdown-pill {
+  flex-shrink: 0;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+  margin-top: 4px;
+}
+
+/* Progress card */
+.pd-progress-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.pd-progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.pd-progress-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.pd-progress-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+/* Grid label */
+.pd-grid-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+/* Chip editing badge */
+.pc-editing {
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* Browse all suggestion card */
+.suggest-card.browse-all {
+  background: #1e1e1e;
+  border-color: #2a2a2a;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.suggest-card.browse-all .sc-name {
+  color: #e4e4e7;
+}
+
+.suggest-card.browse-all .sc-pos {
+  color: #52525b;
+}
+
+/* Suggestion card sc-rank (on your board label) */
+.suggest-card .sc-rank {
+  color: var(--brand);
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 2px;
+  letter-spacing: 0;
+}

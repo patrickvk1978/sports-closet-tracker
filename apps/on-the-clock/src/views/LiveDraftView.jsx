@@ -207,17 +207,33 @@ export default function LiveDraftView() {
       {isPreDraft && (
         <div className="predraft-v2">
 
-          {/* Progress bar */}
-          <div className="pd-progress-wrap">
-            <div className="pd-progress-fill" style={{ width: `${filledPct}%` }} />
-          </div>
-          <div className="pd-progress-label">
-            <span>{filledCount} of {totalPicks} picks set</span>
-            {filledCount === totalPicks ? (
-              <span className="pd-progress-complete">All picks queued ✓</span>
-            ) : (
-              <span>{totalPicks - filledCount} remaining</span>
+          {/* Page header */}
+          <div className="pd-header">
+            <div>
+              <div className="pd-eyebrow">Pre-Draft Setup</div>
+              <h2 className="pd-title">Set your picks before draft night</h2>
+              <p className="pd-subtitle">
+                Your Big Board powers auto-submits if you step away. The queue sets specific slot predictions.
+              </p>
+            </div>
+            {!countdown.expired && (
+              <div className="pd-countdown-pill">
+                ⏱ Draft in {countdown.label}
+              </div>
             )}
+          </div>
+
+          {/* Progress card */}
+          <div className="pd-progress-card">
+            <div className="pd-progress-row">
+              <span className="pd-progress-title">Setup progress</span>
+              <span className="pd-progress-count">
+                {filledCount === totalPicks ? "All picks queued ✓" : `${filledCount} of ${totalPicks} picks set`}
+              </span>
+            </div>
+            <div className="pd-progress-wrap">
+              <div className="pd-progress-fill" style={{ width: `${filledPct}%` }} />
+            </div>
           </div>
 
           {/* Tabs: My Picks / Big Board */}
@@ -247,7 +263,7 @@ export default function LiveDraftView() {
                   <div className="npf-num">{nextUnsetPick.number}</div>
 
                   <div className="npf-team-block">
-                    <div className="npf-sub">Next pick to set</div>
+                    <div className="npf-sub">Next unset pick</div>
                     <div className="npf-team">{nextUnsetTeam?.name ?? "—"}</div>
                     {nextUnsetTeam?.needs?.length ? (
                       <div className="npf-needs">
@@ -256,37 +272,47 @@ export default function LiveDraftView() {
                     ) : null}
                   </div>
 
-                  {nextUnsetSuggestions.length > 0 && (
-                    <div className="npf-right">
-                      <div className="npf-label">Board suggestions</div>
-                      <div className="npf-suggest">
-                        {nextUnsetSuggestions.map((p) => (
+                  <div className="npf-right">
+                    <div className="npf-label">Suggestions from your board</div>
+                    <div className="npf-suggest">
+                      {nextUnsetSuggestions.map((p) => (
+                        <div key={p.id} className="suggest-card featured">
+                          <div className="sc-name">{p.name}</div>
+                          <div className="sc-pos">{p.position} · {p.school}</div>
+                          <div className="sc-rank">#{bigBoardIds.indexOf(p.id) + 1} on your board</div>
                           <button
-                            key={p.id}
-                            className="suggest-card"
+                            className="suggest-use-btn"
                             type="button"
-                            onClick={() => {
-                              saveLivePrediction(nextUnsetPick.number, p.id);
-                            }}
+                            onClick={() => saveLivePrediction(nextUnsetPick.number, p.id)}
                           >
-                            <div className="sc-rank">#{bigBoardIds.indexOf(p.id) + 1}</div>
-                            <div className="sc-name">{p.name}</div>
-                            <div className="sc-pos">{p.position}</div>
+                            Use for Pick {nextUnsetPick.number}
                           </button>
-                        ))}
+                        </div>
+                      ))}
+                      <div className="suggest-card browse-all" onClick={() => setPdTab("board")} style={{ cursor: "pointer" }}>
+                        <div className="sc-name">Browse all</div>
+                        <div className="sc-pos">Search the full prospect list →</div>
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
               {/* 32-pick chip grid */}
+              <div className="pd-grid-label">All 32 picks — click any to set or change</div>
               <div className="picks-grid">
                 {picks.map((pick) => {
                   const prediction = getProspectById(livePredictions[pick.number]);
-                  const teamName = teams[teamForPick(pick)]?.name ?? `Pick ${pick.number}`;
+                  const team = teams[teamForPick(pick)];
+                  const teamName = team?.name ?? `Pick ${pick.number}`;
+                  // Abbreviate team name to first word (Raiders, Jets, Browns…)
+                  const teamAbbr = teamName.split(" ").slice(-1)[0];
                   const isFilled = Boolean(prediction);
-                  const isActive = selectedPick === pick.number;
+                  const isActive = selectedPick === pick.number && pdTab === "board";
+                  // Abbreviated player name: F.Lastname
+                  const playerAbbr = prediction
+                    ? `${prediction.name.split(" ")[0][0]}.${prediction.name.split(" ").slice(-1)[0]}`
+                    : null;
                   return (
                     <button
                       key={pick.number}
@@ -301,12 +327,13 @@ export default function LiveDraftView() {
                       <span className="pc-num">{pick.number}</span>
                       {isFilled ? (
                         <>
-                          <span className="pc-player">{prediction.name.split(" ").slice(-1)[0]}</span>
-                          <span className="pc-team">{prediction.position.split("/")[0]}</span>
+                          <span className="pc-player">{playerAbbr}</span>
+                          <span className="pc-team">{teamAbbr}</span>
                         </>
                       ) : (
-                        <span className="pc-team">{teamName.split(" ").slice(-1)[0]}</span>
+                        <span className="pc-team">{teamAbbr}</span>
                       )}
+                      {isActive && <span className="pc-editing">editing</span>}
                     </button>
                   );
                 })}
