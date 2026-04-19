@@ -182,13 +182,27 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     setLiveSelections(prev => ({ ...prev, [pickNumber]: prospectId }))
   }
 
-  async function submitLiveCard(pickNumber) {
+  async function resetLiveCard(pickNumber) {
+    setLiveCards(prev => { const next = { ...prev }; delete next[pickNumber]; return next })
+    setAllMemberCards(prev => { const next = { ...prev }; delete next[`${userId}:${pickNumber}`]; return next })
+    setLiveSelections(prev => { const next = { ...prev }; delete next[pickNumber]; return next })
+    if (!poolId || !userId) return
+    await draftDb.from('live_cards').delete()
+      .eq('pool_id', poolId)
+      .eq('user_id', userId)
+      .eq('pick_number', pickNumber)
+  }
+
+  // prospectIdOverride lets the caller lock in a specific prospect (e.g. from
+  // inline search) without a separate setLiveCurrentSelection call.
+  async function submitLiveCard(pickNumber, prospectIdOverride = null) {
     if (!poolId || !userId) return null
     const pick = picks.find(p => p.number === pickNumber)
     if (!pick) return null
 
     const draftedIds = new Set(Object.values(draftFeed?.actual_picks ?? {}))
     const selectedProspectId =
+      prospectIdOverride ??
       liveSelections[pickNumber] ??
       livePredictions[pickNumber] ??
       buildFallback({
@@ -269,6 +283,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     saveLivePrediction,
     setLiveCurrentSelection,
     submitLiveCard,
+    resetLiveCard,
     resolveLivePickForUser,
     liveResultForPick,
   }

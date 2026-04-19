@@ -28,7 +28,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Email confirmation flow
       if (tab === "signup" && result?.data?.user && !result.data.session) {
         setInfo("Check your email for a confirmation link, then sign in.");
         setTab("signin");
@@ -42,10 +41,7 @@ export default function LoginPage() {
   }
 
   async function handleResetPassword() {
-    if (!email) {
-      setError("Enter your email above first.");
-      return;
-    }
+    if (!email) { setError("Enter your email above first."); return; }
     setError("");
     setLoading(true);
     const { error: resetError } = await resetPassword(email);
@@ -64,111 +60,123 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-shell">
-      <div className="auth-card fade-in">
-        <div className="auth-brand">
-          <div className="brand-mark large">OTC</div>
-          <h1>On the Clock</h1>
-          <p>NFL Draft pool — predict every pick, track every round, compete with friends.</p>
+    <div className="login-split">
+      {/* ── Left: brand panel ── */}
+      <div className="login-brand">
+        <div className="login-brand-bg" />
+        <div className="login-brand-content">
+          <div>
+            <div className="login-eyebrow">NFL Draft Pool</div>
+            <h1 className="login-headline">On the<br />Clock.</h1>
+            <p className="login-sub">
+              Predict every pick. Compete with your crew.<br />
+              Stay in the game even when you step away.
+            </p>
+          </div>
         </div>
+      </div>
 
-        <div className="auth-tabs" role="tablist">
+      {/* ── Right: form panel ── */}
+      <div className="login-form-panel">
+        {tab === "signin" ? (
+          <>
+            <div className="login-form-title">Welcome back</div>
+            <div className="login-form-sub">Sign in to your pool</div>
+          </>
+        ) : (
+          <>
+            <div className="login-form-title">Create account</div>
+            <div className="login-form-sub">Join a pool and start predicting</div>
+          </>
+        )}
+
+        <div className="login-tabs">
           <button
-            className={tab === "signin" ? "auth-tab active" : "auth-tab"}
-            role="tab"
-            aria-selected={tab === "signin"}
+            className={tab === "signin" ? "login-tab active" : "login-tab"}
+            type="button"
             onClick={() => switchTab("signin")}
           >
             Sign In
           </button>
           <button
-            className={tab === "signup" ? "auth-tab active" : "auth-tab"}
-            role="tab"
-            aria-selected={tab === "signup"}
+            className={tab === "signup" ? "login-tab active" : "login-tab"}
+            type="button"
             onClick={() => switchTab("signup")}
           >
             Sign Up
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="form-stack">
+        <form onSubmit={handleSubmit}>
           {tab === "signup" ? (
-            <label className="field">
-              <span>Username</span>
+            <>
+              <label className="login-field-label">Username</label>
               <input
+                className="login-field-input"
                 value={username}
-                onChange={(event) => setUsername(event.target.value)}
+                onChange={(e) => setUsername(e.target.value)}
                 placeholder="How you'll appear in standings"
                 autoComplete="username"
                 required
               />
-            </label>
+            </>
           ) : null}
-          <label className="field">
-            <span>Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
-            />
-          </label>
-          <label className="field">
-            <span>Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder={tab === "signup" ? "At least 8 characters" : ""}
-              autoComplete={tab === "signin" ? "current-password" : "new-password"}
-              required
-            />
-          </label>
+
+          <label className="login-field-label">Email</label>
+          <input
+            className="login-field-input"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            autoComplete="email"
+            required
+          />
+
+          <label className="login-field-label">Password</label>
+          <input
+            className="login-field-input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={tab === "signup" ? "At least 8 characters" : "••••••••"}
+            autoComplete={tab === "signin" ? "current-password" : "new-password"}
+            required
+          />
 
           {tab === "signin" ? (
-            <div style={{ textAlign: "right", marginTop: "-8px" }}>
-              <button
-                type="button"
-                style={{ background: "none", border: "none", padding: 0, color: "var(--text-muted)", fontSize: "0.8rem", cursor: "pointer" }}
-                onClick={handleResetPassword}
-              >
-                Forgot password?
-              </button>
-            </div>
+            <button type="button" className="login-forgot" onClick={handleResetPassword}>
+              Forgot password?
+            </button>
           ) : null}
 
-          {info ? (
-            <div
-              className="error-box"
-              style={{ background: "#f0fdf4", borderColor: "#86efac", color: "#15803d" }}
-            >
-              {info}
-            </div>
-          ) : null}
+          {info ? <div className="login-info-box">{info}</div> : null}
+          {error ? <div className="error-box" style={{ marginBottom: 14 }}>{error}</div> : null}
 
-          {error ? <div className="error-box">{error}</div> : null}
-
-          <button className="primary-button full" type="submit" disabled={loading}>
+          <button className="login-btn-primary" type="submit" disabled={loading}>
             {loading
-              ? tab === "signin" ? "Signing in…" : "Creating account…"
-              : tab === "signin" ? "Sign In" : "Create Account"}
+              ? (tab === "signin" ? "Signing in…" : "Creating account…")
+              : (tab === "signin" ? "Sign In" : "Create Account")}
           </button>
         </form>
 
-        {tab === "signin" ? (
-          <p className="subtle" style={{ textAlign: "center" }}>
-            New here?{" "}
-            <button
-              type="button"
-              style={{ background: "none", border: "none", padding: 0, color: "var(--brand)", fontWeight: 700, cursor: "pointer" }}
-              onClick={() => switchTab("signup")}
-            >
-              Create an account
-            </button>
-          </p>
-        ) : null}
+        <div className="login-footer">
+          {tab === "signin" ? (
+            <>
+              New here?{" "}
+              <button type="button" className="login-footer-link" onClick={() => switchTab("signup")}>
+                Create an account
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{" "}
+              <button type="button" className="login-footer-link" onClick={() => switchTab("signin")}>
+                Sign in
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BigBoardTable from "../components/BigBoardTable";
 import LiveStage from "../components/LiveStage";
-import { SkeletonPickList, SkeletonPanel } from "../components/Skeleton";
+import { SkeletonPanel } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { useCountdown } from "../hooks/useCountdown";
@@ -10,22 +10,6 @@ import { useDraftFeed } from "../hooks/useDraftFeed";
 import { useBigBoard } from "../hooks/useBigBoard";
 import { useLiveDraft } from "../hooks/useLiveDraft";
 import { useReferenceData } from "../hooks/useReferenceData";
-
-function ProspectPill({ prospect }) {
-  if (!prospect) return <span className="pill neutral">Open slot</span>;
-  return (
-    <span className="prospect-pill">
-      <span>{prospect.name}</span>
-      <span className="pill-meta">{prospect.position}</span>
-    </span>
-  );
-}
-
-function statusCopy(status) {
-  if (status === "on_clock") return "On the Clock";
-  if (status === "pick_is_in") return "Pick is in";
-  return "Revealed";
-}
 
 function countdownCopy(status) {
   if (status === "on_clock") return "04:18";
@@ -40,81 +24,114 @@ export default function LiveDraftView() {
   const { pool, members } = usePool();
   const { draftFeed, teamCodeForPick } = useDraftFeed();
   const { bigBoardIds, moveBigBoardItem } = useBigBoard();
-  const { picks, teams, getPickLabel, getProspectById, loading: refLoading } = useReferenceData();
+  const { picks, teams, prospects, getPickLabel, getProspectById, loading: refLoading } = useReferenceData();
   const {
     livePredictions,
-    liveSelections,
     liveCards,
     liveStandings,
     currentLivePoolState,
     saveLivePrediction,
-    setLiveCurrentSelection,
     submitLiveCard,
+    resetLiveCard,
+    liveResultForPick,
+    resolveLivePickForUser,
   } = useLiveDraft({ draftFeed, teamCodeForPick });
   const countdown = useCountdown();
+
   const [selectedPick, setSelectedPick] = useState(1);
   const [liveTab, setLiveTab] = useState("draft");
+  const [pdTab, setPdTab] = useState("picks");
   const [devPhase, setDevPhase] = useState(null); // admin override
-  const [showInstructions, setShowInstructions] = useState(
-    () => localStorage.getItem("otc_live_instructions_dismissed") !== "true"
-  );
 
-  // When the live draft advances to a new current pick, reset the left-column
-  // focus (the selected pick slot) to the new on-the-clock pick. This is the
-  // automatic reveal → left-column handoff.
+  const effectivePhase = isAdmin && devPhase ? devPhase : draftFeed.phase;
+  const isPreDraft = effectivePhase === "pre_draft" || !isAdmin;
+
+  const currentPickNumber = draftFeed.current_pick_number;
+
+  // When the live draft advances to a new pick, snap the left column focus
   useEffect(() => {
     if (draftFeed.phase === "live" && draftFeed.current_pick_number) {
       setSelectedPick(draftFeed.current_pick_number);
-      // Also clear any stale in-progress selection for the old pick — the
-      // stage should enter the "empty" state for the new pick until the user
-      // chooses a player.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftFeed.current_pick_number, draftFeed.phase]);
-
-  function dismissInstructions() {
-    localStorage.setItem("otc_live_instructions_dismissed", "true");
-    setShowInstructions(false);
-  }
 
   function teamForPick(pick) {
     return draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
   }
 
-  const currentPickNumber = draftFeed.current_pick_number;
+  // ── Derived data ──────────────────────────────────────────────────────────
+
   const draftedIds = useMemo(() => {
     const blocked = new Set(Object.values(draftFeed.actual_picks ?? {}));
-    // Also block players already submitted in past picks — can't reuse a card
     Object.entries(liveCards).forEach(([pickNum, prospectId]) => {
       if (Number(pickNum) < currentPickNumber) blocked.add(prospectId);
     });
     return blocked;
   }, [draftFeed.actual_picks, liveCards, currentPickNumber]);
-  const currentPick = picks.find((pick) => pick.number === currentPickNumber) ?? picks[0] ?? { number: 1, currentTeam: "" };
-  const selectedPickData = picks.find((pick) => pick.number === selectedPick) ?? currentPick;
+
+  const currentPick = picks.find((p) => p.number === currentPickNumber) ?? picks[0] ?? { number: 1, currentTeam: "" };
   const currentTeam = teams[teamForPick(currentPick)] ?? {};
-  const currentSelectionId =
-    liveSelections[currentPickNumber] ??
-    liveCards[currentPickNumber] ??
-    livePredictions[currentPickNumber] ??
-    null;
+  const currentLocked = Boolean(liveCards[currentPickNumber]);
+
+  const currentSelectionId = liveCards[currentPickNumber] ?? livePredictions[currentPickNumber] ?? null;
   const currentSelection = getProspectById(currentSelectionId);
   const actualCurrentPick = getProspectById(draftFeed.actual_picks?.[currentPickNumber]);
 
-  const mappedPickByProspectId = Object.entries(livePredictions).reduce((accumulator, [pickNumber, prospectId]) => {
-    if (prospectId) accumulator[prospectId] = getPickLabel(Number(pickNumber));
-    return accumulator;
-  }, {});
+  // Next pick label for the advance button after reveal
+  const nextPick = picks.find((p) => p.number === currentPickNumber + 1);
+  const nextTeam = nextPick ? teams[teamForPick(nextPick)] : null;
+  const nextPickLabel = nextTeam ? `${nextTeam.name} — Pick ${currentPickNumber + 1}` : null;
 
-  const effectivePhase = isAdmin && devPhase ? devPhase : draftFeed.phase;
-  const isPreDraft = effectivePhase === "pre_draft" || !isAdmin;
-  const currentLocked = Boolean(liveCards[currentPickNumber]);
-  const selectedFuturePrediction = getProspectById(livePredictions[selectedPickData.number]);
-  const preRevealPoolState = currentLivePoolState.map((member) => ({
-    ...member,
-    className: member.locked ? "locked" : "waiting",
-    status: member.locked ? "Submitted" : "Choosing",
-  }));
+  // ── Pre-draft: progress + suggestions ─────────────────────────────────────
+
+  const filledCount = Object.keys(livePredictions).length;
+  const totalPicks = picks.length || 32;
+  const filledPct = Math.round((filledCount / totalPicks) * 100);
+
+  const nextUnsetPick = picks.find((p) => !livePredictions[p.number]);
+  const nextUnsetTeam = nextUnsetPick ? teams[teamForPick(nextUnsetPick)] : null;
+
+  const nextUnsetSuggestions = useMemo(() => {
+    if (!nextUnsetPick || !nextUnsetTeam) return [];
+    const teamNeeds = new Set(nextUnsetTeam.needs ?? []);
+    const usedIds = new Set(Object.values(livePredictions));
+    return bigBoardIds
+      .filter((id) => !draftedIds.has(id) && !usedIds.has(id))
+      .map((id) => getProspectById(id))
+      .filter(Boolean)
+      .sort((a, b) => {
+        const aMatch = a.position.split("/").some((pos) => teamNeeds.has(pos));
+        const bMatch = b.position.split("/").some((pos) => teamNeeds.has(pos));
+        return bMatch - aMatch;
+      })
+      .slice(0, 3);
+  }, [nextUnsetPick, nextUnsetTeam, bigBoardIds, draftedIds, livePredictions, getProspectById]);
+
+  // ── Pool state for LiveStage ───────────────────────────────────────────────
+
+  const meId = profile?.id;
+  const livePoolState = useMemo(() => {
+    return currentLivePoolState.map((m) => ({
+      ...m,
+      isCurrentUser: m.id === meId || m.isCurrentUser,
+    }));
+  }, [currentLivePoolState, meId]);
+
+  // ── Left column: CSS class for each pick row ──────────────────────────────
+
+  function pickRowClass(pick) {
+    if (pick.number === currentPickNumber) return "current";
+    const actualId = draftFeed.actual_picks?.[pick.number];
+    if (!actualId) return "";
+    const me = livePoolState.find((m) => m.isCurrentUser);
+    if (!me || !resolveLivePickForUser) return "done-miss";
+    const myProspectId = resolveLivePickForUser(me.id, pick.number);
+    const result = liveResultForPick(myProspectId, actualId);
+    return result === "exact" || result === "position" ? "done-hit" : "done-miss";
+  }
+
+  // ── Loading state ──────────────────────────────────────────────────────────
 
   if (refLoading) {
     return (
@@ -133,16 +150,42 @@ export default function LiveDraftView() {
     );
   }
 
+  // ── mappedPickByProspectId helper ──────────────────────────────────────────
+  const mappedPickByProspectId = Object.entries(livePredictions).reduce((acc, [num, id]) => {
+    if (id) acc[id] = getPickLabel(Number(num));
+    return acc;
+  }, {});
+
+  // ══════════════════════════════════════════════════════════════════════════
   return (
     <>
+      {/* ── Top nav bar ── */}
       <div className="workspace-nav live-nav">
         <div className="tab-set">
           {isAdmin ? (
             <>
-              <button className={isPreDraft ? "tab active" : "tab"} type="button" onClick={() => { setDevPhase("pre_draft"); setLiveTab("draft"); }}>Pre-draft</button>
-              <button className={!isPreDraft && liveTab === "draft" ? "tab active" : "tab"} type="button" onClick={() => { setDevPhase("live"); setLiveTab("draft"); }}>Live Draft</button>
+              <button
+                className={isPreDraft ? "tab active" : "tab"}
+                type="button"
+                onClick={() => { setDevPhase("pre_draft"); setLiveTab("draft"); }}
+              >
+                Pre-draft
+              </button>
+              <button
+                className={!isPreDraft && liveTab === "draft" ? "tab active" : "tab"}
+                type="button"
+                onClick={() => { setDevPhase("live"); setLiveTab("draft"); }}
+              >
+                Live Draft
+              </button>
               {!isPreDraft ? (
-                <button className={liveTab === "board" ? "tab active" : "tab"} type="button" onClick={() => setLiveTab("board")}>Big Board</button>
+                <button
+                  className={liveTab === "board" ? "tab active" : "tab"}
+                  type="button"
+                  onClick={() => setLiveTab("board")}
+                >
+                  Big Board
+                </button>
               ) : null}
             </>
           ) : !isPreDraft ? (
@@ -160,110 +203,157 @@ export default function LiveDraftView() {
         </div>
       </div>
 
-      {isPreDraft ? (
-        <div className="mode-prep-layout">
-          <section className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="label">Pre-draft</span>
-                <h2>Set up your team-based picks</h2>
-              </div>
-              <span className="subtle">When the commissioner starts the draft, this page becomes your live command center.</span>
-            </div>
+      {/* ══ PRE-DRAFT ══════════════════════════════════════════════════════ */}
+      {isPreDraft && (
+        <div className="predraft-v2">
 
-            {showInstructions ? (
-              <div className="flow-helper-card dismissible">
-                <div className="flow-steps-grid">
-                  <div className="flow-step">
-                    <span className="micro-label">Step 1</span>
-                    <strong>Select a team slot</strong>
-                    <span>Use the left column to choose the pick you want to set up.</span>
-                  </div>
-                  <div className="flow-step">
-                    <span className="micro-label">Step 2</span>
-                    <strong>Use Big Board to pick a player</strong>
-                    <span>The Big Board on the right powers your setup now and your fallback logic later.</span>
-                  </div>
-                  <div className="flow-step">
-                    <span className="micro-label">Step 3</span>
-                    <strong>Come back on draft night</strong>
-                    <span>You can still auto-submit from your board if you step away.</span>
-                  </div>
-                </div>
-                <button className="dismiss-instructions" type="button" onClick={dismissInstructions} aria-label="Dismiss instructions">
-                  Got it ✕
-                </button>
-              </div>
+          {/* Progress bar */}
+          <div className="pd-progress-wrap">
+            <div className="pd-progress-fill" style={{ width: `${filledPct}%` }} />
+          </div>
+          <div className="pd-progress-label">
+            <span>{filledCount} of {totalPicks} picks set</span>
+            {filledCount === totalPicks ? (
+              <span className="pd-progress-complete">All picks queued ✓</span>
             ) : (
-              <button className="show-instructions-link" type="button" onClick={() => setShowInstructions(true)}>
-                How does this work?
-              </button>
+              <span>{totalPicks - filledCount} remaining</span>
             )}
+          </div>
 
-            <div className="pick-list">
-              {picks.map((pick) => {
-                const prediction = getProspectById(livePredictions[pick.number]);
-                const isEmpty = !prediction;
-                const teamName = teams[teamForPick(pick)]?.name;
-                const teamNeeds = teams[teamForPick(pick)]?.needs;
-                const classes = ["pick-row"];
-                if (selectedPick === pick.number) classes.push("active");
-                if (isEmpty) classes.push("empty");
-                return (
-                  <button
-                    key={pick.number}
-                    className={classes.join(" ")}
-                    data-pick-watermark={pick.number}
-                    onClick={() => setSelectedPick(pick.number)}
-                  >
-                    <div className="pick-num">{pick.number}</div>
-                    <div className="pick-main">
-                      {prediction ? (
+          {/* Tabs: My Picks / Big Board */}
+          <div className="pd-tabs">
+            <button
+              className={`pd-tab ${pdTab === "picks" ? "active" : ""}`}
+              type="button"
+              onClick={() => setPdTab("picks")}
+            >
+              My Picks
+            </button>
+            <button
+              className={`pd-tab ${pdTab === "board" ? "active" : ""}`}
+              type="button"
+              onClick={() => setPdTab("board")}
+            >
+              Big Board
+            </button>
+          </div>
+
+          {/* ── My Picks tab ── */}
+          {pdTab === "picks" && (
+            <>
+              {/* Next Unset Pick feature card */}
+              {nextUnsetPick && (
+                <div className="next-pick-featured">
+                  <div className="npf-num">{nextUnsetPick.number}</div>
+
+                  <div className="npf-team-block">
+                    <div className="npf-sub">Next pick to set</div>
+                    <div className="npf-team">{nextUnsetTeam?.name ?? "—"}</div>
+                    {nextUnsetTeam?.needs?.length ? (
+                      <div className="npf-needs">
+                        Needs {nextUnsetTeam.needs.join(" · ")}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {nextUnsetSuggestions.length > 0 && (
+                    <div className="npf-right">
+                      <div className="npf-label">Board suggestions</div>
+                      <div className="npf-suggest">
+                        {nextUnsetSuggestions.map((p) => (
+                          <button
+                            key={p.id}
+                            className="suggest-card"
+                            type="button"
+                            onClick={() => {
+                              saveLivePrediction(nextUnsetPick.number, p.id);
+                            }}
+                          >
+                            <div className="sc-rank">#{bigBoardIds.indexOf(p.id) + 1}</div>
+                            <div className="sc-name">{p.name}</div>
+                            <div className="sc-pos">{p.position}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 32-pick chip grid */}
+              <div className="picks-grid">
+                {picks.map((pick) => {
+                  const prediction = getProspectById(livePredictions[pick.number]);
+                  const teamName = teams[teamForPick(pick)]?.name ?? `Pick ${pick.number}`;
+                  const isFilled = Boolean(prediction);
+                  const isActive = selectedPick === pick.number;
+                  return (
+                    <button
+                      key={pick.number}
+                      className={`pick-chip ${isFilled ? "filled" : "empty"} ${isActive ? "active" : ""}`}
+                      type="button"
+                      title={isFilled ? `${prediction.name} → ${teamName}` : teamName}
+                      onClick={() => {
+                        setSelectedPick(pick.number);
+                        setPdTab("board");
+                      }}
+                    >
+                      <span className="pc-num">{pick.number}</span>
+                      {isFilled ? (
                         <>
-                          <strong className="pick-player-name">{prediction.name}</strong>
-                          <span className="pick-player-meta">
-                            {prediction.position} · {prediction.school}
-                            <span className="pick-to-team"> → {teamName}</span>
-                          </span>
+                          <span className="pc-player">{prediction.name.split(" ").slice(-1)[0]}</span>
+                          <span className="pc-team">{prediction.position.split("/")[0]}</span>
                         </>
                       ) : (
-                        <>
-                          <span className="pick-empty-team">{teamName}</span>
-                          {teamNeeds?.length ? <span className="pick-player-meta">Needs {teamNeeds.join(" · ")}</span> : null}
-                        </>
+                        <span className="pc-team">{teamName.split(" ").slice(-1)[0]}</span>
                       )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
-            <div className="detail-card inset-card">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                <div>
-                  <span className="micro-label">Pool</span>
-                  <p style={{ margin: 0 }}>{members.length} members ready for a live draft format. Draft-night picks can still auto-submit from your Big Board if you step away.</p>
-                </div>
-                <button className="secondary-button" style={{ flexShrink: 0, fontSize: "0.8rem", padding: "6px 12px" }} type="button" onClick={() => navigate("/pool-members")}>
-                  View members
+          {/* ── Big Board tab ── */}
+          {pdTab === "board" && (
+            <>
+              <div className="pd-board-ctx">
+                <span className="pd-board-ctx-label">Assigning for</span>
+                <strong>{getPickLabel(selectedPick)}</strong>
+                {(() => {
+                  const selPick = picks.find((p) => p.number === selectedPick);
+                  const selTeam = selPick ? teams[teamForPick(selPick)]?.name : null;
+                  return selTeam ? <span className="pd-board-ctx-team">· {selTeam}</span> : null;
+                })()}
+                <button
+                  className="pd-board-ctx-back"
+                  type="button"
+                  onClick={() => setPdTab("picks")}
+                >
+                  ← All picks
                 </button>
               </div>
-            </div>
-          </section>
-
-          <BigBoardTable
-            title="Big Board"
-            subtitle="Your ranking engine — maps players to picks and powers auto-submit"
-            boardIds={bigBoardIds}
-            onMove={moveBigBoardItem}
-            draftedIds={draftedIds}
-            mappedPickByProspectId={mappedPickByProspectId}
-            selectedPickLabel={getPickLabel(selectedPickData.number)}
-            assignLabel={`Use for ${getPickLabel(selectedPickData.number)}`}
-            onAssignSelectedProspect={(prospectId) => saveLivePrediction(selectedPickData.number, prospectId)}
-          />
+              <BigBoardTable
+                title="Big Board"
+                subtitle="Your ranking engine — maps players to picks and powers auto-submit"
+                boardIds={bigBoardIds}
+                onMove={moveBigBoardItem}
+                draftedIds={draftedIds}
+                mappedPickByProspectId={mappedPickByProspectId}
+                selectedPickLabel={getPickLabel(selectedPick)}
+                assignLabel={`Use for ${getPickLabel(selectedPick)}`}
+                onAssignSelectedProspect={(prospectId) => {
+                  saveLivePrediction(selectedPick, prospectId);
+                  setPdTab("picks");
+                }}
+              />
+            </>
+          )}
         </div>
-      ) : liveTab === "board" ? (
+      )}
+
+      {/* ══ LIVE DRAFT — Big Board tab ══════════════════════════════════════ */}
+      {!isPreDraft && liveTab === "board" && (
         <BigBoardTable
           title="Big Board"
           subtitle="Your ranking engine — search and assign on the fly"
@@ -271,124 +361,130 @@ export default function LiveDraftView() {
           onMove={moveBigBoardItem}
           draftedIds={draftedIds}
           mappedPickByProspectId={mappedPickByProspectId}
-          selectedPickLabel={getPickLabel(selectedPickData.number)}
-          assignLabel={`Use for ${getPickLabel(selectedPickData.number)}`}
-          onAssignSelectedProspect={(prospectId) =>
-            selectedPickData.number === currentPickNumber
-              ? setLiveCurrentSelection(currentPickNumber, prospectId)
-              : saveLivePrediction(selectedPickData.number, prospectId)
-          }
+          selectedPickLabel={getPickLabel(currentPickNumber)}
+          assignLabel={`Use for Pick ${currentPickNumber}`}
+          onAssignSelectedProspect={(prospectId) => saveLivePrediction(currentPickNumber, prospectId)}
         />
-      ) : (
-        <>
-          <LiveStage
-            currentPick={currentPick}
-            currentTeam={currentTeam}
-            currentSelection={currentSelection}
-            currentLocked={currentLocked}
-            currentStatus={draftFeed.current_status}
-            countdownLabel={countdownCopy(draftFeed.current_status)}
-            actualPick={actualCurrentPick}
-            suggestedProspect={getProspectById(livePredictions[currentPickNumber])}
-            poolState={preRevealPoolState.map((m) => ({
-              ...m,
-              // merge in result/prospect from currentLivePoolState for reveal
-              ...(currentLivePoolState.find((x) => x.id === m.id) ?? {}),
-            }))}
-            onSubmit={() => submitLiveCard(currentPickNumber)}
-            onUseSuggestion={() => setLiveCurrentSelection(currentPickNumber, livePredictions[currentPickNumber])}
-            onClearSelection={() => setLiveCurrentSelection(currentPickNumber, null)}
-          />
+      )}
 
-          <div className="bottom-modules">
-            <div className="detail-card">
-              <div className="module-header">
-                <div>
-                  <span className="label">Round 1 Flow</span>
-                  <h2>Current pick into upcoming setup</h2>
-                </div>
-              </div>
-              <div className="future-pick-helper">
-                <div>
-                  <span className="micro-label">Editing slot</span>
-                  <strong>{getPickLabel(selectedPickData.number)}</strong>
-                </div>
-                <div>
-                  <span className="micro-label">Current prediction</span>
-                  <ProspectPill prospect={selectedFuturePrediction} />
-                </div>
-                <button className="secondary-button" type="button" onClick={() => setLiveCurrentSelection(currentPickNumber, livePredictions[selectedPickData.number])}>
-                  Copy to Current Pick
-                </button>
-              </div>
-              <div className="pick-list">
-                {picks.map((pick) => {
-                  const prediction = getProspectById(livePredictions[pick.number]);
-                  const lockedCard = getProspectById(liveCards[pick.number]);
-                  const actualPick = getProspectById(draftFeed.actual_picks?.[pick.number]);
-                  const isEmpty = !prediction && !lockedCard && !actualPick;
-                  const classes = ["pick-row"];
-                  if (selectedPick === pick.number) classes.push("active");
-                  if (isEmpty) classes.push("empty");
+      {/* ══ LIVE DRAFT — Command center ══════════════════════════════════════ */}
+      {!isPreDraft && liveTab === "draft" && (
+        <div className="dn-shell">
 
+          {/* Subbar */}
+          <div className="dn-subbar">
+            <span className="dn-live-badge">● LIVE</span>
+            <span className="dn-pick-indicator">
+              Pick <strong>{currentPickNumber}</strong> · {currentTeam?.name ?? "—"}
+            </span>
+            <div style={{ flex: 1 }} />
+            <span style={{ fontSize: 12, color: "var(--dn-muted)" }}>
+              {livePoolState.filter((m) => m.locked).length}/{livePoolState.length} locked
+            </span>
+          </div>
+
+          <div className="dn-body">
+
+            {/* ── Left: pick timeline ── */}
+            <div className="dn-left">
+              <div className="dn-panel-label">Picks</div>
+              {picks.map((pick) => {
+                const rowClass = pickRowClass(pick);
+                const actualId = draftFeed.actual_picks?.[pick.number];
+                const actualProspect = getProspectById(actualId);
+                const teamName = teams[teamForPick(pick)]?.name ?? "";
+                const isCurrent = pick.number === currentPickNumber;
+                return (
+                  <div
+                    key={pick.number}
+                    className={`dn-pick-row ${rowClass}`}
+                    onClick={() => !isCurrent && setSelectedPick(pick.number)}
+                    style={{ cursor: isCurrent ? "default" : "pointer" }}
+                  >
+                    <span className="dn-pr-num">{pick.number}</span>
+                    <div className="dn-pr-body">
+                      <span className="dn-pr-team">{teamName}</span>
+                      {actualProspect ? (
+                        <span className="dn-pr-pick">{actualProspect.name}</span>
+                      ) : isCurrent ? (
+                        <span className="dn-pr-pick" style={{ color: "var(--dn-red)", opacity: 0.7 }}>on the clock</span>
+                      ) : null}
+                    </div>
+                    {rowClass === "done-hit" && <span className="dn-pr-result hit">✓</span>}
+                    {rowClass === "done-miss" && <span className="dn-pr-result miss">✗</span>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Center: live stage ── */}
+            <div className="dn-center">
+              <LiveStage
+                currentPick={currentPick}
+                currentTeam={currentTeam}
+                currentStatus={draftFeed.current_status}
+                currentLocked={currentLocked}
+                currentSelection={currentSelection}
+                suggestedProspect={getProspectById(livePredictions[currentPickNumber])}
+                countdownLabel={countdownCopy(draftFeed.current_status)}
+                actualPick={actualCurrentPick}
+                poolState={livePoolState}
+                boardIds={bigBoardIds}
+                prospects={prospects}
+                draftedIds={draftedIds}
+                onLockIn={(prospectId) => submitLiveCard(currentPickNumber, prospectId)}
+                onChangePick={() => resetLiveCard(currentPickNumber)}
+                nextPickLabel={nextPickLabel}
+                onNextPick={() => {}}
+              />
+            </div>
+
+            {/* ── Right: standings + pool activity ── */}
+            <div className="dn-right">
+
+              <div className="dn-right-section">
+                <div className="dn-rs-label">Standings</div>
+                {liveStandings.map((player, idx) => {
+                  const isMe = livePoolState.find((m) => m.isCurrentUser && m.name === player.name);
                   return (
-                    <button
-                      key={pick.number}
-                      className={classes.join(" ")}
-                      data-pick-watermark={pick.number}
-                      onClick={() => setSelectedPick(pick.number)}
-                    >
-                      <div className="pick-num">{pick.number}</div>
-                      <div className="pick-main">
-                        <div className="pick-topline">
-                          <strong>{teams[teamForPick(pick)]?.name}</strong>
-                          <span className="team-needs-inline">Needs {teams[teamForPick(pick)]?.needs?.join(" · ")}</span>
-                        </div>
-                        <div className="pick-columns">
-                          <div>
-                            <span className="micro-label">Prediction</span>
-                            <ProspectPill prospect={prediction} />
-                          </div>
-                          <div>
-                            <span className="micro-label">Submitted</span>
-                            <ProspectPill prospect={lockedCard ?? prediction} />
-                          </div>
-                          {actualPick ? (
-                            <div>
-                              <span className="micro-label">Actual</span>
-                              <ProspectPill prospect={actualPick} />
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    </button>
+                    <div key={player.id ?? player.name} className="dn-standings-row">
+                      <span className={`dn-st-rank ${idx === 0 ? "top" : ""}`}>{idx + 1}</span>
+                      <span className={`dn-st-name ${isMe ? "me" : ""}`}>{player.name}</span>
+                      <span className={`dn-st-pts ${isMe ? "me" : ""}`}>{player.points}pt</span>
+                    </div>
                   );
                 })}
               </div>
-            </div>
 
-            <div className="detail-card">
-              <div className="module-header">
-                <div>
-                  <span className="label">Standings</span>
-                  <h2>Competition</h2>
-                </div>
-              </div>
-              <div className="leaderboard-table">
-                <div className="leaderboard-head"><span>Pool</span><span>Exact</span><span>Pos</span><span>Pts</span></div>
-                {liveStandings.map((player, index) => (
-                  <div key={player.name} className={index === 0 ? "leaderboard-row top" : "leaderboard-row"}>
-                    <span className="leaderboard-player"><strong>{index + 1}</strong><span>{player.name}</span></span>
-                    <span>{player.exact}</span>
-                    <span>{player.position}</span>
-                    <span className="points-strong">{player.points}</span>
+              <div className="dn-right-section">
+                <div className="dn-rs-label">Pick {currentPickNumber} · Pool</div>
+                {livePoolState.map((m) => (
+                  <div key={m.id ?? m.name} className="dn-activity-item">
+                    <div className="dn-ai-event">
+                      <em>{m.isCurrentUser ? "you" : m.name}</em>
+                      {" — "}
+                      {m.locked ? "locked ✓" : "deciding…"}
+                    </div>
                   </div>
                 ))}
               </div>
+
+              <div style={{ padding: "0 14px" }}>
+                <div className="dn-rs-label">Pool</div>
+                <div style={{ fontSize: 12, color: "var(--dn-muted)" }}>
+                  {members.length} member{members.length !== 1 ? "s" : ""}
+                </div>
+                <button
+                  type="button"
+                  style={{ marginTop: 8, fontSize: 11, color: "var(--dn-muted)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                  onClick={() => navigate("/pool-members")}
+                >
+                  View all →
+                </button>
+              </div>
             </div>
           </div>
-
-        </>
+        </div>
       )}
     </>
   );
