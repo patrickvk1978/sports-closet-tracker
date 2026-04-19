@@ -17,6 +17,22 @@ function countdownCopy(status) {
   return "SCORED";
 }
 
+const NAME_SUFFIXES = new Set(["JR", "JR.", "SR", "SR.", "II", "III", "IV", "V"]);
+
+function formatChipPlayerName(name) {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  if (!parts.length) return "";
+
+  const firstInitial = parts[0]?.[0] ? `${parts[0][0]}.` : "";
+  const lastToken = parts[parts.length - 1];
+  const hasSuffix = NAME_SUFFIXES.has(lastToken.toUpperCase());
+  const lastName = hasSuffix ? parts[parts.length - 2] : lastToken;
+  const suffix = hasSuffix ? ` ${lastToken}` : "";
+
+  return lastName ? `${firstInitial} ${lastName}${suffix}`.trim() : name;
+}
+
 export default function LiveDraftView() {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -309,10 +325,7 @@ export default function LiveDraftView() {
                   const teamAbbr = teamName.split(" ").slice(-1)[0];
                   const isFilled = Boolean(prediction);
                   const isActive = selectedPick === pick.number && pdTab === "board";
-                  // Abbreviated player name: F.Lastname
-                  const playerAbbr = prediction
-                    ? `${prediction.name.split(" ")[0][0]}.${prediction.name.split(" ").slice(-1)[0]}`
-                    : null;
+                  const playerAbbr = prediction ? formatChipPlayerName(prediction.name) : null;
                   return (
                     <button
                       key={pick.number}
@@ -328,6 +341,7 @@ export default function LiveDraftView() {
                       {isFilled ? (
                         <>
                           <span className="pc-player">{playerAbbr}</span>
+                          <span className="pc-meta">{prediction.position}</span>
                           <span className="pc-team">{teamAbbr}</span>
                         </>
                       ) : (
