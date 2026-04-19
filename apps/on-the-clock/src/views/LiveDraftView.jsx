@@ -107,11 +107,24 @@ export default function LiveDraftView() {
 
   const nextUnsetPick = picks.find((p) => !livePredictions[p.number]);
   const nextUnsetTeam = nextUnsetPick ? teams[teamForPick(nextUnsetPick)] : null;
+  const focusedPreDraftPick =
+    picks.find((p) => p.number === selectedPick) ??
+    nextUnsetPick ??
+    picks[0] ??
+    null;
+  const focusedPreDraftTeam = focusedPreDraftPick ? teams[teamForPick(focusedPreDraftPick)] : null;
+  const focusedPreDraftPrediction = focusedPreDraftPick
+    ? getProspectById(livePredictions[focusedPreDraftPick.number])
+    : null;
+  const isFocusedPickUnset = Boolean(focusedPreDraftPick && !livePredictions[focusedPreDraftPick.number]);
 
   const nextUnsetSuggestions = useMemo(() => {
-    if (!nextUnsetPick || !nextUnsetTeam) return [];
-    const teamNeeds = new Set(nextUnsetTeam.needs ?? []);
+    if (!focusedPreDraftPick || !focusedPreDraftTeam) return [];
+    const teamNeeds = new Set(focusedPreDraftTeam.needs ?? []);
     const usedIds = new Set(Object.values(livePredictions));
+    if (focusedPreDraftPrediction?.id) {
+      usedIds.delete(focusedPreDraftPrediction.id);
+    }
     return bigBoardIds
       .filter((id) => !draftedIds.has(id) && !usedIds.has(id))
       .map((id) => getProspectById(id))
@@ -122,7 +135,7 @@ export default function LiveDraftView() {
         return bMatch - aMatch;
       })
       .slice(0, 3);
-  }, [nextUnsetPick, nextUnsetTeam, bigBoardIds, draftedIds, livePredictions, getProspectById]);
+  }, [focusedPreDraftPick, focusedPreDraftTeam, focusedPreDraftPrediction, bigBoardIds, draftedIds, livePredictions, getProspectById]);
 
   // ── Pool state for LiveStage ───────────────────────────────────────────────
 
@@ -274,16 +287,21 @@ export default function LiveDraftView() {
           {pdTab === "picks" && (
             <>
               {/* Next Unset Pick feature card */}
-              {nextUnsetPick && (
+              {focusedPreDraftPick && (
                 <div className="next-pick-featured">
-                  <div className="npf-num">{nextUnsetPick.number}</div>
+                  <div className="npf-num">{focusedPreDraftPick.number}</div>
 
                   <div className="npf-team-block">
-                    <div className="npf-sub">Next unset pick</div>
-                    <div className="npf-team">{nextUnsetTeam?.name ?? "—"}</div>
-                    {nextUnsetTeam?.needs?.length ? (
+                    <div className="npf-sub">{isFocusedPickUnset ? "Next unset pick" : "Selected pick"}</div>
+                    <div className="npf-team">{focusedPreDraftTeam?.name ?? "—"}</div>
+                    {focusedPreDraftTeam?.needs?.length ? (
                       <div className="npf-needs">
-                        Needs {nextUnsetTeam.needs.join(" · ")}
+                        Needs {focusedPreDraftTeam.needs.join(" · ")}
+                      </div>
+                    ) : null}
+                    {focusedPreDraftPrediction ? (
+                      <div className="npf-current-pick">
+                        Current pick: <strong>{focusedPreDraftPrediction.name}</strong>
                       </div>
                     ) : null}
                   </div>
@@ -299,9 +317,9 @@ export default function LiveDraftView() {
                           <button
                             className="suggest-use-btn"
                             type="button"
-                            onClick={() => saveLivePrediction(nextUnsetPick.number, p.id)}
+                            onClick={() => saveLivePrediction(focusedPreDraftPick.number, p.id)}
                           >
-                            Use for Pick {nextUnsetPick.number}
+                            Use for Pick {focusedPreDraftPick.number}
                           </button>
                         </div>
                       ))}
@@ -324,7 +342,7 @@ export default function LiveDraftView() {
                   // Abbreviate team name to first word (Raiders, Jets, Browns…)
                   const teamAbbr = teamName.split(" ").slice(-1)[0];
                   const isFilled = Boolean(prediction);
-                  const isActive = selectedPick === pick.number && pdTab === "board";
+                  const isActive = selectedPick === pick.number;
                   const playerAbbr = prediction ? formatChipPlayerName(prediction.name) : null;
                   return (
                     <button
@@ -334,7 +352,6 @@ export default function LiveDraftView() {
                       title={isFilled ? `${prediction.name} → ${teamName}` : teamName}
                       onClick={() => {
                         setSelectedPick(pick.number);
-                        setPdTab("board");
                       }}
                     >
                       <span className="pc-num">{pick.number}</span>

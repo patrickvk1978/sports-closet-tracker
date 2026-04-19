@@ -2568,6 +2568,18 @@ select:focus {
   font-weight: 500;
 }
 
+.npf-current-pick {
+  margin-top: 12px;
+  color: #f3f4f6;
+  font-size: 0.96rem;
+  font-weight: 500;
+}
+
+.npf-current-pick strong {
+  color: #fff;
+  font-weight: 700;
+}
+
 .npf-right {
   flex: 1 1 520px;
 }
