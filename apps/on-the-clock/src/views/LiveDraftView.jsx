@@ -18,6 +18,11 @@ function countdownCopy(status) {
 }
 
 const NAME_SUFFIXES = new Set(["JR", "JR.", "SR", "SR.", "II", "III", "IV", "V"]);
+const EXTERNAL_MOCK_SOURCES = [
+  { key: "pff_mock_pick", label: "PFF mock" },
+  { key: "athletic_mock_pick", label: "Athletic mock" },
+  { key: "ringer_mock_pick", label: "Ringer mock" },
+];
 
 function formatChipPlayerName(name) {
   if (!name) return "";
@@ -125,17 +130,55 @@ export default function LiveDraftView() {
     if (focusedPreDraftPrediction?.id) {
       usedIds.delete(focusedPreDraftPrediction.id);
     }
-    return bigBoardIds
+    const availableBoardProspects = bigBoardIds
       .filter((id) => !draftedIds.has(id) && !usedIds.has(id))
       .map((id) => getProspectById(id))
-      .filter(Boolean)
-      .sort((a, b) => {
+      .filter(Boolean);
+
+    const bestBoardProspect =
+      [...availableBoardProspects].sort((a, b) => {
         const aMatch = a.position.split("/").some((pos) => teamNeeds.has(pos));
         const bMatch = b.position.split("/").some((pos) => teamNeeds.has(pos));
         return bMatch - aMatch;
-      })
-      .slice(0, 3);
-  }, [focusedPreDraftPick, focusedPreDraftTeam, focusedPreDraftPrediction, bigBoardIds, draftedIds, livePredictions, getProspectById]);
+      })[0] ?? null;
+
+    const externalSuggestions = [];
+    const seenIds = new Set(bestBoardProspect ? [bestBoardProspect.id] : []);
+
+    for (const source of EXTERNAL_MOCK_SOURCES) {
+      const mockProspect = prospects.find(
+        (prospect) =>
+          prospect[source.key] === focusedPreDraftPick.number &&
+          !draftedIds.has(prospect.id) &&
+          !usedIds.has(prospect.id) &&
+          !seenIds.has(prospect.id)
+      );
+
+      if (mockProspect) {
+        externalSuggestions.push({
+          prospect: mockProspect,
+          sourceLabel: source.label,
+        });
+        seenIds.add(mockProspect.id);
+      }
+
+      if (externalSuggestions.length === 2) break;
+    }
+
+    return [
+      ...(bestBoardProspect
+        ? [{
+            prospect: bestBoardProspect,
+            sourceLabel: bestBoardProspect.position
+              .split("/")
+              .some((pos) => teamNeeds.has(pos))
+              ? "Best fit from your board"
+              : "Best available from your board",
+          }]
+        : []),
+      ...externalSuggestions,
+    ];
+  }, [focusedPreDraftPick, focusedPreDraftTeam, focusedPreDraftPrediction, bigBoardIds, draftedIds, livePredictions, getProspectById, prospects]);
 
   // ── Pool state for LiveStage ───────────────────────────────────────────────
 
@@ -307,17 +350,22 @@ export default function LiveDraftView() {
                   </div>
 
                   <div className="npf-right">
-                    <div className="npf-label">Suggestions from your board</div>
+                    <div className="npf-label">Suggested options</div>
                     <div className="npf-suggest">
-                      {nextUnsetSuggestions.map((p) => (
-                        <div key={p.id} className="suggest-card featured">
-                          <div className="sc-name">{p.name}</div>
-                          <div className="sc-pos">{p.position} · {p.school}</div>
-                          <div className="sc-rank">#{bigBoardIds.indexOf(p.id) + 1} on your board</div>
+                      {nextUnsetSuggestions.map(({ prospect, sourceLabel }, index) => (
+                        <div key={`${sourceLabel}-${prospect.id}`} className={`suggest-card featured ${index > 0 ? "mocked" : "board"}`}>
+                          <div className="sc-source">{sourceLabel}</div>
+                          <div className="sc-name">{prospect.name}</div>
+                          <div className="sc-pos">{prospect.position} · {prospect.school}</div>
+                          {index === 0 ? (
+                            <div className="sc-rank">#{bigBoardIds.indexOf(prospect.id) + 1} on your board</div>
+                          ) : (
+                            <div className="sc-rank">Mocked to Pick {focusedPreDraftPick.number}</div>
+                          )}
                           <button
                             className="suggest-use-btn"
                             type="button"
-                            onClick={() => saveLivePrediction(focusedPreDraftPick.number, p.id)}
+                            onClick={() => saveLivePrediction(focusedPreDraftPick.number, prospect.id)}
                           >
                             Use for Pick {focusedPreDraftPick.number}
                           </button>

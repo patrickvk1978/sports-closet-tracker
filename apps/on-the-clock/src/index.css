@@ -2606,6 +2606,15 @@ select:focus {
   line-height: 1.2;
 }
 
+.suggest-card .sc-source {
+  color: #fca5a5;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
 .suggest-card .sc-pos {
   color: #cbd5e1;
   font-size: 0.95rem;
