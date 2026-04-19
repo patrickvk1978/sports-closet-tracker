@@ -143,15 +143,13 @@ export default function LiveDraftView() {
       })[0] ?? null;
 
     const externalSuggestions = [];
-    const seenIds = new Set(bestBoardProspect ? [bestBoardProspect.id] : []);
 
     for (const source of EXTERNAL_MOCK_SOURCES) {
       const mockProspect = prospects.find(
         (prospect) =>
           prospect[source.key] === focusedPreDraftPick.number &&
           !draftedIds.has(prospect.id) &&
-          !usedIds.has(prospect.id) &&
-          !seenIds.has(prospect.id)
+          !usedIds.has(prospect.id)
       );
 
       if (mockProspect) {
@@ -159,7 +157,6 @@ export default function LiveDraftView() {
           prospect: mockProspect,
           sourceLabel: source.label,
         });
-        seenIds.add(mockProspect.id);
       }
 
       if (externalSuggestions.length === 2) break;
