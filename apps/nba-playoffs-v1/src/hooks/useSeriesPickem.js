@@ -14,6 +14,10 @@ function storageKey(poolId) {
   return `nba_series_pickem_${poolId ?? "default"}`;
 }
 
+function allPicksStorageKey(poolId) {
+  return `nba_series_pickem_all_${poolId ?? "default"}`;
+}
+
 function isSeriesResolvedForPicking(seriesItem) {
   if (!seriesItem?.homeTeam || !seriesItem?.awayTeam) return false;
   return seriesItem.homeTeam.abbreviation !== "TBD" && seriesItem.awayTeam.abbreviation !== "TBD";
@@ -24,12 +28,32 @@ function writeLocalPicks(poolId, picks) {
   window.localStorage.setItem(storageKey(poolId), JSON.stringify(picks));
 }
 
+function writeLocalAllPicks(poolId, allPicksByUser) {
+  if (typeof window === "undefined" || !poolId) return;
+  window.localStorage.setItem(allPicksStorageKey(poolId), JSON.stringify(allPicksByUser));
+}
+
 function readLocalPicks(poolId, series) {
   if (typeof window === "undefined" || !poolId) return {};
   const raw = window.localStorage.getItem(storageKey(poolId));
   if (!raw) return {};
   try {
     return sanitizePicksForSeries(JSON.parse(raw), series);
+  } catch {
+    return {};
+  }
+}
+
+function readLocalAllPicks(poolId, series) {
+  if (typeof window === "undefined" || !poolId) return {};
+  const raw = window.localStorage.getItem(allPicksStorageKey(poolId));
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    return Object.fromEntries(
+      Object.entries(parsed).map(([userId, picks]) => [userId, sanitizePicksForSeries(picks, series)])
+    );
   } catch {
     return {};
   }
@@ -102,9 +126,21 @@ export function useSeriesPickem(series) {
     () => readLocalPicks(pool?.id, series),
     [pool?.id, series]
   );
+  const initialCachedAllPicks = useMemo(
+    () => readLocalAllPicks(pool?.id, series),
+    [pool?.id, series]
+  );
   const initialAllPicks = useMemo(
-    () => addPreviewPicks(currentUserId ? { [currentUserId]: initialCachedPicks } : {}, memberList, series, currentUserId),
-    [currentUserId, initialCachedPicks, memberList, series]
+    () => addPreviewPicks(
+      {
+        ...initialCachedAllPicks,
+        ...(currentUserId ? { [currentUserId]: initialCachedPicks } : {}),
+      },
+      memberList,
+      series,
+      currentUserId
+    ),
+    [currentUserId, initialCachedAllPicks, initialCachedPicks, memberList, series]
   );
   const [picksBySeriesId, setPicksBySeriesId] = useState(initialCachedPicks);
   const [allPicksByUser, setAllPicksByUser] = useState(initialAllPicks);
@@ -130,10 +166,17 @@ export function useSeriesPickem(series) {
     async function loadPicks() {
       setLoading(true);
       const cached = readLocalPicks(pool.id, series);
+      const cachedAll = readLocalAllPicks(pool.id, series);
       if (Object.keys(cached).length > 0) {
         setPicksBySeriesId(cached);
-        const nextAll = addPreviewPicks(session.user.id ? { [session.user.id]: cached } : {}, memberList, series, session.user.id);
-        setAllPicksByUser(nextAll);
+        setAllPicksByUser((current) => {
+          const merged = {
+            ...cachedAll,
+            ...current,
+            ...(session.user.id ? { [session.user.id]: cached } : {}),
+          };
+          return addPreviewPicks(merged, memberList, series, session.user.id);
+        });
       }
       const { data, error } = await supabase
         .from("nba_series_picks")
@@ -149,8 +192,14 @@ export function useSeriesPickem(series) {
           return !latest || pick.updatedAt > latest ? pick.updatedAt : latest;
         }, null);
         setPicksBySeriesId(fallback);
-        const nextAll = addPreviewPicks(session.user.id ? { [session.user.id]: fallback } : {}, memberList, series, session.user.id);
-        setAllPicksByUser(nextAll);
+        setAllPicksByUser((current) => {
+          const merged = {
+            ...cachedAll,
+            ...current,
+            ...(session.user.id ? { [session.user.id]: fallback } : {}),
+          };
+          return addPreviewPicks(merged, memberList, series, session.user.id);
+        });
         setPersistenceMode("local");
         setSaveState("idle");
         setLastSavedAt(latestSavedAt);
@@ -176,6 +225,7 @@ export function useSeriesPickem(series) {
       setAllPicksByUser(nextAllWithPreview);
       setPicksBySeriesId(nextAllWithPreview[session.user.id] ?? {});
       writeLocalPicks(pool.id, nextAllWithPreview[session.user.id] ?? {});
+      writeLocalAllPicks(pool.id, nextAllWithPreview);
       setPersistenceMode("supabase");
       setSaveState("idle");
       setLoading(false);
@@ -235,13 +285,19 @@ export function useSeriesPickem(series) {
       });
     }
 
-    setAllPicksByUser((current) => ({
-      ...current,
-      [targetUserId]: {
-        ...(current[targetUserId] ?? {}),
-        [seriesId]: nextPick,
-      },
-    }));
+    setAllPicksByUser((current) => {
+      const next = {
+        ...current,
+        [targetUserId]: {
+          ...(current[targetUserId] ?? {}),
+          [seriesId]: nextPick,
+        },
+      };
+      if (pool?.id) {
+        writeLocalAllPicks(pool.id, next);
+      }
+      return next;
+    });
 
     if (persistenceMode !== "supabase" || !pool?.id || !targetUserId) {
       setLastSavedAt(nextPick.updatedAt);
@@ -289,6 +345,9 @@ export function useSeriesPickem(series) {
       const userPicks = { ...(next[targetUserId] ?? {}) };
       delete userPicks[seriesId];
       next[targetUserId] = userPicks;
+      if (pool?.id) {
+        writeLocalAllPicks(pool.id, next);
+      }
       return next;
     });
 

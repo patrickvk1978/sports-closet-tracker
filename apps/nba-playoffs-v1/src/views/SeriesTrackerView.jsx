@@ -18,6 +18,7 @@ import {
   formatProbabilitySourceLabel,
 } from "../lib/probabilityInputs";
 import { areRoundPicksPublic } from "../lib/pickVisibility";
+import { getTeamPalette } from "../../../../packages/shared/src/themes/teamColorBanks.js";
 
 const GAME_OPTIONS = [4, 5, 6, 7];
 const EXACT_RESULT_ORDER = ["home_4", "home_5", "home_6", "home_7", "away_7", "away_6", "away_5", "away_4"];
@@ -94,6 +95,13 @@ function formatSeriesTeam(team) {
 function formatSeriesSlotLabel(seriesItem) {
   const conferenceLabel = seriesItem.conference === "East" ? "East" : seriesItem.conference === "West" ? "West" : "League";
   return `${conferenceLabel} ${seriesItem.homeTeam.seed} vs ${seriesItem.awayTeam.seed}`;
+}
+
+function getPaletteForSeriesSelection(seriesItem, winnerTeamId) {
+  if (!winnerTeamId || !seriesItem) return null;
+  if (winnerTeamId === seriesItem.homeTeam.id) return getTeamPalette("nba", seriesItem.homeTeam);
+  if (winnerTeamId === seriesItem.awayTeam.id) return getTeamPalette("nba", seriesItem.awayTeam);
+  return getTeamPalette("nba", winnerTeamId);
 }
 
 function formatEtDateTime(iso) {
@@ -468,6 +476,7 @@ export default function SeriesTrackerView() {
               lockedByRound,
               scheduleBySeriesId[seriesItem.id]
             );
+            const selectedPalette = getPaletteForSeriesSelection(seriesItem, pick?.winnerTeamId);
 
             return (
               <article className="nba-pick-card" key={seriesItem.id}>
@@ -505,16 +514,26 @@ export default function SeriesTrackerView() {
                     const selected = pick?.winnerTeamId === team.id;
                     const isLocked = Boolean(roundLocks[seriesItem.roundKey]);
                     const teamDisplay = formatSeriesTeam(team);
+                    const teamPalette = getTeamPalette("nba", team);
                     return (
                       <button
                         key={team.id}
                         type="button"
-                        className={selected ? "nba-team-pick active" : "nba-team-pick"}
+                        className={selected ? "nba-team-pick active has-team-palette" : "nba-team-pick has-team-palette"}
+                        style={teamPalette ? {
+                          "--slot-primary": teamPalette.primary,
+                          "--slot-primary-dark": teamPalette.primaryDark,
+                          "--slot-secondary": teamPalette.secondary,
+                          "--slot-text": teamPalette.text,
+                          "--slot-border": teamPalette.border,
+                        } : undefined}
                         disabled={!isEditable}
                         onClick={() =>
-                          saveSeriesPick(seriesItem.id, team.id, pick?.games ?? 6, seriesItem.roundKey, {
-                            targetUserId: selectedViewer?.id ?? profile?.id,
-                          })}
+                          isEditable
+                            ? saveSeriesPick(seriesItem.id, team.id, pick?.games ?? 6, seriesItem.roundKey, {
+                                targetUserId: selectedViewer?.id ?? profile?.id,
+                              })
+                            : undefined}
                       >
                         <span className="micro-label">Seed {team.seed}</span>
                         <strong>{teamDisplay.primary}</strong>
@@ -532,12 +551,21 @@ export default function SeriesTrackerView() {
                         <button
                           key={games}
                           type="button"
-                          className={pick?.games === games ? "nba-games-option active" : "nba-games-option"}
+                          className={`${pick?.games === games ? "nba-games-option active" : "nba-games-option"} ${pick?.games === games && selectedPalette ? "has-team-palette" : ""}`}
+                          style={pick?.games === games && selectedPalette ? {
+                            "--slot-primary": selectedPalette.primary,
+                            "--slot-primary-dark": selectedPalette.primaryDark,
+                            "--slot-secondary": selectedPalette.secondary,
+                            "--slot-text": selectedPalette.text,
+                            "--slot-border": selectedPalette.border,
+                          } : undefined}
                           disabled={!isEditable || !pick?.winnerTeamId}
                           onClick={() =>
-                            saveSeriesPick(seriesItem.id, pick?.winnerTeamId ?? seriesItem.homeTeam.id, games, seriesItem.roundKey, {
-                              targetUserId: selectedViewer?.id ?? profile?.id,
-                            })}
+                            isEditable
+                              ? saveSeriesPick(seriesItem.id, pick?.winnerTeamId ?? seriesItem.homeTeam.id, games, seriesItem.roundKey, {
+                                  targetUserId: selectedViewer?.id ?? profile?.id,
+                                })
+                              : undefined}
                         >
                           {games}
                         </button>
@@ -550,14 +578,23 @@ export default function SeriesTrackerView() {
                       type="button"
                       className="secondary-button"
                       disabled={!isEditable}
-                      onClick={() => clearSeriesPick(seriesItem.id, { targetUserId: selectedViewer?.id ?? profile?.id })}
+                      onClick={() => (isEditable ? clearSeriesPick(seriesItem.id, { targetUserId: selectedViewer?.id ?? profile?.id }) : undefined)}
                     >
                       Clear pick
                     </button>
                   </div>
                 </div>
 
-                <div className={`nba-pick-footer ${pick ? "has-pick" : "is-empty"}`}>
+                <div
+                  className={`nba-pick-footer ${pick ? "has-pick" : "is-empty"} ${selectedPalette ? "has-team-palette" : ""}`}
+                  style={selectedPalette ? {
+                    "--slot-primary": selectedPalette.primary,
+                    "--slot-primary-dark": selectedPalette.primaryDark,
+                    "--slot-secondary": selectedPalette.secondary,
+                    "--slot-text": selectedPalette.text,
+                    "--slot-border": selectedPalette.border,
+                  } : undefined}
+                >
                   <div>
                     <span className="micro-label">{isViewingCurrentUser ? "Your pick" : `${selectedViewer?.name ?? "Their"} pick`}</span>
                     <p>

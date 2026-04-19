@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
+import { useBackendSeriesSchedule } from "../hooks/useBackendSeriesSchedule";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { formatProbabilityMainFreshness, formatProbabilityMainLabel } from "../lib/probabilityInputs";
 import { areRoundPicksPublic, isSeriesPickPublic } from "../lib/pickVisibility";
+import { summarizeSeriesMarket } from "../lib/seriesPickem";
+import { getTeamPalette } from "../../../../packages/shared/src/themes/teamColorBanks.js";
 
 const EAST_SEMIS = [
   { id: "east-sf-1", sources: ["east-r1-1", "east-r1-4"] },
@@ -21,10 +24,10 @@ const WEST_FINALS = [{ id: "west-finals", sources: ["west-sf-1", "west-sf-2"] }]
 const NBA_FINALS = [{ id: "nba-finals", sources: ["east-finals", "west-finals"] }];
 const ROUND_ONE_ORDER = ["1-8", "4-5", "3-6", "2-7"];
 
-function getPickedTeam(seriesItem, pick, slot) {
-  if (!seriesItem || !pick?.winnerTeamId) return null;
+function getWinningTeamSlot(seriesItem, slot) {
+  if (!seriesItem || !seriesItem.winnerTeamId) return null;
   if (seriesItem.homeTeam?.abbreviation === "TBD" || seriesItem.awayTeam?.abbreviation === "TBD") return null;
-  const pickedTeam = pick.winnerTeamId === seriesItem.homeTeam.id ? seriesItem.homeTeam : seriesItem.awayTeam;
+  const pickedTeam = seriesItem.winnerTeamId === seriesItem.homeTeam.id ? seriesItem.homeTeam : seriesItem.awayTeam;
   if (!pickedTeam || pickedTeam.abbreviation === "TBD") return null;
   return {
     id: pickedTeam.id,
@@ -32,6 +35,7 @@ function getPickedTeam(seriesItem, pick, slot) {
     detail: "",
     active: false,
     slot,
+    palette: getTeamPalette("nba", pickedTeam),
   };
 }
 
@@ -47,6 +51,7 @@ function getRoundOneSlot(seriesItem, pick, side, masked = false) {
     active: isSelected,
     masked,
     slot: side,
+    palette: getTeamPalette("nba", team),
   };
 }
 
@@ -58,6 +63,26 @@ function formatPickLabel(seriesItem, pick) {
   return `${pickedTeam.abbreviation} in ${pick.games}`;
 }
 
+function buildSelectedPickBody(seriesItem, pick, allPicksByUser, memberList) {
+  if (!pick?.winnerTeamId || !pick?.games) {
+    return "Choose a team, then choose the number of games it takes them to win the series.";
+  }
+  const pickedTeam = pick.winnerTeamId === seriesItem.homeTeam.id ? seriesItem.homeTeam : seriesItem.awayTeam;
+  const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
+  const sameWinnerCount =
+    pick.winnerTeamId === seriesItem.homeTeam.id ? marketSummary.homeBackers : marketSummary.awayBackers;
+  const total = marketSummary.total;
+  const fieldRead = total
+    ? sameWinnerCount === total
+      ? `Room lean: all visible picks are on ${pickedTeam.abbreviation}.`
+      : `Room lean: ${sameWinnerCount} of ${total} visible picks are on ${pickedTeam.abbreviation}.`
+    : "No public room lean yet.";
+  const gamesRead = marketSummary.leadingGames
+    ? `Most common series length is ${marketSummary.leadingGames}.`
+    : "";
+  return [`You chose ${pickedTeam.abbreviation} in ${pick.games}.`, fieldRead, gamesRead].filter(Boolean).join(" ");
+}
+
 function formatLean(seriesItem, source) {
   if (!seriesItem || !source) return "Waiting on matchup";
   if ((source.homeWinPct ?? 0) === (source.awayWinPct ?? 0)) return "Even";
@@ -67,8 +92,8 @@ function formatLean(seriesItem, source) {
 }
 
 function buildDisplayName(entry, seriesItem) {
-  const top = entry.top.abbreviation || seriesItem?.homeTeam?.abbreviation || "";
-  const bottom = entry.bottom.abbreviation || seriesItem?.awayTeam?.abbreviation || "";
+  const top = entry.top.abbreviation || "";
+  const bottom = entry.bottom.abbreviation || "";
   return [top, bottom].filter(Boolean).join(" vs ");
 }
 
@@ -79,6 +104,30 @@ function canPickSeries(seriesItem, currentRoundKey, isViewingCurrentUser) {
   if (!seriesItem.homeTeam || !seriesItem.awayTeam) return false;
   if (seriesItem.homeTeam.abbreviation === "TBD" || seriesItem.awayTeam.abbreviation === "TBD") return false;
   return true;
+}
+
+function hasSeriesTipoffPassed(seriesItem, backendSchedule) {
+  const lockAt = backendSchedule?.lockAt ?? seriesItem?.schedule?.lockAt ?? null;
+  if (!lockAt) return false;
+  const date = new Date(lockAt);
+  if (Number.isNaN(date.getTime())) return false;
+  return Date.now() >= date.getTime();
+}
+
+function hasSeriesTipoffLocked(seriesItem, settings, backendSchedule) {
+  if (settings?.allow_edits_until_tipoff === false) return false;
+  return hasSeriesTipoffPassed(seriesItem, backendSchedule);
+}
+
+function isSeriesPublic(seriesItem, settings, backendSchedule) {
+  if (!seriesItem) return false;
+  const roundLocks = settings?.round_locks ?? {};
+  if (roundLocks[seriesItem.roundKey]) return true;
+  const explicitLockState = hasSeriesTipoffPassed(seriesItem, backendSchedule);
+  if (explicitLockState) return true;
+  const lockAt = backendSchedule?.lockAt ?? seriesItem?.schedule?.lockAt ?? null;
+  if (lockAt) return false;
+  return isSeriesPickPublic(seriesItem, settings);
 }
 
 function getSeedOrderValue(seriesItem) {
@@ -101,6 +150,13 @@ function BracketPopover({ detail, placement, onClose, onPickGames, onClearSelect
               key={games}
               type="button"
               className={`nba-bracket-games-pill ${detail.currentGames === games ? "active" : ""}`}
+              style={detail.teamPalette ? {
+                "--slot-primary": detail.teamPalette.primary,
+                "--slot-primary-dark": detail.teamPalette.primaryDark,
+                "--slot-secondary": detail.teamPalette.secondary,
+                "--slot-text": detail.teamPalette.text,
+                "--slot-border": detail.teamPalette.border,
+              } : undefined}
               onClick={(event) => {
                 event.stopPropagation();
                 onPickGames(games);
@@ -189,6 +245,7 @@ function BracketSeries({
         body: "Pick the number of games it takes this team to win the series.",
         currentGames: selectionState.currentGames,
         canClear: true,
+        teamPalette: selectionState.teamPalette,
       }
     : null;
   const activeDetail = selectorDetail ?? detail;
@@ -202,8 +259,6 @@ function BracketSeries({
       style={style}
       onMouseEnter={() => onFocus(entry.id)}
       onMouseLeave={onBlurSeries}
-      onFocus={() => onFocus(entry.id)}
-      tabIndex={0}
     >
       {isFocused ? (
         <BracketPopover
@@ -216,7 +271,14 @@ function BracketSeries({
       ) : null}
       <button
         type="button"
-        className={`${top.active ? "nba-bracket-line active" : "nba-bracket-line"} ${interactive ? "is-pickable" : "is-static"} ${isMasked ? "is-masked" : ""}`}
+        className={`${top.active ? "nba-bracket-line active" : "nba-bracket-line"} ${interactive ? "is-pickable" : "is-static"} ${isMasked ? "is-masked" : ""} ${top.palette && !isMasked ? "has-team-palette" : ""}`}
+        style={top.palette && !isMasked ? {
+          "--slot-primary": top.palette.primary,
+          "--slot-primary-dark": top.palette.primaryDark,
+          "--slot-secondary": top.palette.secondary,
+          "--slot-text": top.palette.text,
+          "--slot-border": top.palette.border,
+        } : undefined}
         onClick={(event) => {
           event.stopPropagation();
           if (!interactive) {
@@ -232,7 +294,14 @@ function BracketSeries({
       </button>
       <button
         type="button"
-        className={`${bottom.active ? "nba-bracket-line active" : "nba-bracket-line"} ${interactive ? "is-pickable" : "is-static"} ${isMasked ? "is-masked" : ""}`}
+        className={`${bottom.active ? "nba-bracket-line active" : "nba-bracket-line"} ${interactive ? "is-pickable" : "is-static"} ${isMasked ? "is-masked" : ""} ${bottom.palette && !isMasked ? "has-team-palette" : ""}`}
+        style={bottom.palette && !isMasked ? {
+          "--slot-primary": bottom.palette.primary,
+          "--slot-primary-dark": bottom.palette.primaryDark,
+          "--slot-secondary": bottom.palette.secondary,
+          "--slot-text": bottom.palette.text,
+          "--slot-border": bottom.palette.border,
+        } : undefined}
         onClick={(event) => {
           event.stopPropagation();
           if (!interactive) {
@@ -300,6 +369,7 @@ export default function BracketWorkspaceView() {
   const { series, seriesByConference, currentRound, seriesByRound } = usePlayoffData();
   const { memberList, pool, settingsForPool } = usePool();
   const settings = settingsForPool(pool);
+  const { scheduleBySeriesId } = useBackendSeriesSchedule(pool?.id);
   const { picksBySeriesId, allPicksByUser, saveSeriesPick, clearSeriesPick } = useSeriesPickem(series);
   const currentMember = memberList.find((member) => member.isCurrentUser) ?? memberList[0] ?? null;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -307,13 +377,20 @@ export default function BracketWorkspaceView() {
   const [selectionState, setSelectionState] = useState(null);
   const activeSeries = seriesByRound[currentRound.key] ?? [];
   const canViewMatrix = areRoundPicksPublic(activeSeries, currentRound.key, settings);
+  const roundLocks = settings.round_locks ?? {};
+  const seriesUnlockOverrides = settings.series_unlock_overrides ?? {};
   const requestedViewerId = searchParams.get("viewer") ?? "";
   const availableViewers = memberList.filter((member) => member.id !== currentMember?.id);
   const selectedViewer = availableViewers.find((member) => member.id === requestedViewerId) ?? null;
   const isViewingCurrentUser = !selectedViewer;
   const publicSeriesIds = useMemo(
-    () => new Set(series.filter((seriesItem) => isSeriesPickPublic(seriesItem, settings)).map((seriesItem) => seriesItem.id)),
-    [series, settings]
+    () =>
+      new Set(
+        series
+          .filter((seriesItem) => isSeriesPublic(seriesItem, settings, scheduleBySeriesId[seriesItem.id]))
+          .map((seriesItem) => seriesItem.id)
+      ),
+    [scheduleBySeriesId, series, settings]
   );
 
   const effectiveSelectedMemberId = selectedViewer?.id ?? currentMember?.id ?? memberList[0]?.id ?? "";
@@ -343,48 +420,48 @@ export default function BracketWorkspaceView() {
 
   const eastRoundOneDisplay = eastRoundOne.map((seriesItem) => ({
     id: seriesItem.id,
-    masked: !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id),
+    masked: false,
     top: getRoundOneSlot(
       seriesItem,
       selectedPicksBySeriesId[seriesItem.id],
       "top",
-      !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id)
+      false
     ),
     bottom: getRoundOneSlot(
       seriesItem,
       selectedPicksBySeriesId[seriesItem.id],
       "bottom",
-      !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id)
+      false
     ),
   }));
 
   const westRoundOneDisplay = westRoundOne.map((seriesItem) => ({
     id: seriesItem.id,
-    masked: !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id),
+    masked: false,
     top: getRoundOneSlot(
       seriesItem,
       selectedPicksBySeriesId[seriesItem.id],
       "top",
-      !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id)
+      false
     ),
     bottom: getRoundOneSlot(
       seriesItem,
       selectedPicksBySeriesId[seriesItem.id],
       "bottom",
-      !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id)
+      false
     ),
   }));
 
   const buildProjectedRound = (definition) =>
     definition.map((entry) => ({
       id: entry.id,
-      top: getPickedTeam(seriesById[entry.sources[0]], selectedPicksBySeriesId[entry.sources[0]], "top") ?? {
+      top: getWinningTeamSlot(seriesById[entry.sources[0]], "top") ?? {
         id: `${entry.id}-top`,
         abbreviation: "",
         active: false,
         slot: "top",
       },
-      bottom: getPickedTeam(seriesById[entry.sources[1]], selectedPicksBySeriesId[entry.sources[1]], "bottom") ?? {
+      bottom: getWinningTeamSlot(seriesById[entry.sources[1]], "bottom") ?? {
         id: `${entry.id}-bottom`,
         abbreviation: "",
         active: false,
@@ -410,7 +487,13 @@ export default function BracketWorkspaceView() {
   const activeFocusedSeriesId = displayEntryById[focusedSeriesId] ? focusedSeriesId : selectionState?.seriesId ?? null;
   const interactiveSeriesIds = new Set(
     series
-      .filter((seriesItem) => canPickSeries(seriesItem, currentRound.key, isViewingCurrentUser))
+      .filter((seriesItem) => {
+        if (!canPickSeries(seriesItem, currentRound.key, isViewingCurrentUser)) return false;
+        const lockedByRound = Boolean(roundLocks[seriesItem.roundKey]);
+        const lockedByTipoff = hasSeriesTipoffLocked(seriesItem, settings, scheduleBySeriesId[seriesItem.id]);
+        const unlockedForEveryone = Boolean(seriesUnlockOverrides[seriesItem.id]);
+        return !lockedByRound && (!lockedByTipoff || unlockedForEveryone);
+      })
       .map((seriesItem) => seriesItem.id)
   );
   const detailById = Object.fromEntries(
@@ -418,8 +501,11 @@ export default function BracketWorkspaceView() {
       const seriesItem = seriesById[entry.id] ?? null;
       const pick = selectedPicksBySeriesId[entry.id] ?? null;
       const isInteractive = interactiveSeriesIds.has(entry.id);
-      const isPublicSeries = !selectedViewer || publicSeriesIds.has(entry.id);
-      const isFutureSeries = !seriesItem || !isInteractive;
+      const actualSeriesPublic = Boolean(seriesItem && isSeriesPublic(seriesItem, settings, scheduleBySeriesId[seriesItem.id]));
+      const isPublicSeries = !selectedViewer ? actualSeriesPublic : actualSeriesPublic;
+      const isCurrentRoundSeries = Boolean(seriesItem && seriesItem.roundKey === currentRound.key);
+      const isLockedCurrentSeries = Boolean(seriesItem && isCurrentRoundSeries && !isInteractive);
+      const isFutureSeries = !seriesItem || !isCurrentRoundSeries;
       return [
         entry.id,
         !isViewingCurrentUser && seriesItem && !isPublicSeries
@@ -428,13 +514,60 @@ export default function BracketWorkspaceView() {
               body: "This pick becomes visible once that series locks or Game 1 begins.",
               showGrid: false,
             }
+          : !isViewingCurrentUser && seriesItem && isPublicSeries
+            ? {
+                title: buildDisplayName(entry, seriesItem),
+                pickLabel: formatPickLabel(seriesItem, pick),
+                marketLean: formatLean(seriesItem, seriesItem?.market),
+                modelLean: formatLean(seriesItem, seriesItem?.model),
+                marketMeta: [formatProbabilityMainLabel(seriesItem?.market), formatProbabilityMainFreshness(seriesItem?.market)].filter(Boolean).join(" · "),
+                modelMeta: [formatProbabilityMainLabel(seriesItem?.model), formatProbabilityMainFreshness(seriesItem?.model)].filter(Boolean).join(" · "),
+                showGrid: true,
+              }
+          : isViewingCurrentUser && seriesItem && pick?.winnerTeamId && actualSeriesPublic
+            ? {
+                title: buildDisplayName(entry, seriesItem),
+                body: buildSelectedPickBody(seriesItem, pick, allPicksByUser, memberList),
+                pickLabel: formatPickLabel(seriesItem, pick),
+                marketLean: formatLean(seriesItem, seriesItem?.market),
+                modelLean: formatLean(seriesItem, seriesItem?.model),
+                marketMeta: [formatProbabilityMainLabel(seriesItem?.market), formatProbabilityMainFreshness(seriesItem?.market)].filter(Boolean).join(" · "),
+                modelMeta: [formatProbabilityMainLabel(seriesItem?.model), formatProbabilityMainFreshness(seriesItem?.model)].filter(Boolean).join(" · "),
+                showGrid: true,
+              }
+          : isViewingCurrentUser && seriesItem && pick?.winnerTeamId
+            ? {
+                title: buildDisplayName(entry, seriesItem),
+                body: "",
+                pickLabel: formatPickLabel(seriesItem, pick),
+                marketLean: formatLean(seriesItem, seriesItem?.market),
+                modelLean: formatLean(seriesItem, seriesItem?.model),
+                marketMeta: [formatProbabilityMainLabel(seriesItem?.market), formatProbabilityMainFreshness(seriesItem?.market)].filter(Boolean).join(" · "),
+                modelMeta: [formatProbabilityMainLabel(seriesItem?.model), formatProbabilityMainFreshness(seriesItem?.model)].filter(Boolean).join(" · "),
+                showGrid: true,
+              }
+          : isViewingCurrentUser && isLockedCurrentSeries
+            ? {
+                title: buildDisplayName(entry, seriesItem),
+                body: "This series is locked. Hover here to follow the market and model read while the result plays out.",
+                pickLabel: formatPickLabel(seriesItem, pick),
+                marketLean: formatLean(seriesItem, seriesItem?.market),
+                modelLean: formatLean(seriesItem, seriesItem?.model),
+                marketMeta: [formatProbabilityMainLabel(seriesItem?.market), formatProbabilityMainFreshness(seriesItem?.market)].filter(Boolean).join(" · "),
+                modelMeta: [formatProbabilityMainLabel(seriesItem?.model), formatProbabilityMainFreshness(seriesItem?.model)].filter(Boolean).join(" · "),
+                showGrid: true,
+              }
           :
         isFutureSeries
           ? {
               title: buildDisplayName(entry, seriesItem) || "Series TBD",
               body: seriesItem
-                ? "This matchup becomes pickable once the current round is set."
-                : "This series is still TBD until the current round settles.",
+                ? isViewingCurrentUser
+                  ? "This matchup becomes pickable once the current round is set."
+                  : "This matchup fills in once the current round is decided."
+                : isViewingCurrentUser
+                  ? "This series is still TBD until the current round settles."
+                  : "This series stays unresolved until the current round settles.",
               showGrid: false,
             }
           : {
@@ -464,6 +597,7 @@ export default function BracketWorkspaceView() {
 
   function handleViewerChange(event) {
     const nextViewerId = event.target.value;
+    event.target.blur();
     setSelectionState(null);
     setFocusedSeriesId(null);
     if (!nextViewerId) {
@@ -480,6 +614,7 @@ export default function BracketWorkspaceView() {
       seriesId,
       teamId,
       teamAbbreviation,
+      teamPalette: getTeamPalette("nba", seriesById[seriesId]?.homeTeam?.id === teamId ? seriesById[seriesId]?.homeTeam : seriesById[seriesId]?.awayTeam ?? teamId),
       currentGames: currentPick?.winnerTeamId === teamId ? currentPick.games : null,
       hasExistingPick: Boolean(currentPick?.winnerTeamId),
     });
@@ -524,48 +659,51 @@ export default function BracketWorkspaceView() {
             <p className="nba-bracket-hero-body">
               {isViewingCurrentUser
                 ? <>Choose winners for the current round directly in the bracket.<br />Hover for context, then click a team and choose 4-7 games to save the series.<br />Future rounds stay locked until this round is set.</>
-                : "Locked series are visible here as they tip. Unlocked series stay muted until their own Game 1 begins."}
+                : <>Locked series are visible here as they tip.<br />Unlocked series stay muted until their own Game 1 begins.</>}
             </p>
           </div>
-          <div className="nba-report-actions">
-            <label className="nba-bracket-viewer">
-              <span className="micro-label">Viewing bracket as</span>
-              <select
-                className="nav-select"
-                value={isViewingCurrentUser ? "" : effectiveSelectedMemberId}
-                onChange={handleViewerChange}
-              >
-                <option value="">Viewing: My bracket</option>
-                {availableViewers.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    View {member.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <span className="tooltip-wrap tooltip-wrap-inline">
+          <div className="nba-bracket-tool-grid">
+            <span className="tooltip-wrap tooltip-wrap-inline nba-bracket-tool-slot nba-bracket-tool-slot-series">
               <Link className="secondary-button bracket-tool-button bracket-tool-button-series" to="/series">
                 Series View
               </Link>
               <span className="tooltip-bubble">Use the more detailed series-by-series picker if you want a slower, guided selection flow.</span>
             </span>
-            <span className="tooltip-wrap tooltip-wrap-inline">
+            <span className="tooltip-wrap tooltip-wrap-inline nba-bracket-tool-slot nba-bracket-tool-slot-reports">
               <Link className="secondary-button bracket-tool-button bracket-tool-button-reports" to="/reports">
                 Reports Page
               </Link>
               <span className="tooltip-bubble">Open the deeper probability, leverage, and pool-reading tools without leaving your picks behind.</span>
             </span>
-            {canViewMatrix ? (
-              <span className="tooltip-wrap tooltip-wrap-inline">
-                <Link className="secondary-button" to="/matrix">
-                  Open matrix
-                </Link>
-                <span className="tooltip-bubble">Compare the full room once picks are public and the round is live or locked.</span>
-              </span>
-            ) : null}
+            <span className="tooltip-wrap tooltip-wrap-inline nba-bracket-tool-slot nba-bracket-tool-slot-matrix">
+              <Link className="secondary-button bracket-tool-button bracket-tool-button-matrix" to="/matrix">
+                Picks Matrix
+              </Link>
+              <span className="tooltip-bubble">See the room at once. Locked or tipped series show live; untouched series stay hidden.</span>
+            </span>
           </div>
         </div>
         <div className="nba-bracket-hero-divider" aria-hidden="true" />
+        <div className="nba-bracket-toolbar-row">
+          <span className="tooltip-wrap tooltip-wrap-inline nba-bracket-viewer-pill-wrap">
+            <label className="nba-bracket-viewer-pill">
+              <select
+                className="nba-bracket-pill-select"
+                aria-label="Choose bracket view"
+                value={isViewingCurrentUser ? "" : effectiveSelectedMemberId}
+                onChange={handleViewerChange}
+              >
+                <option value="">My Bracket</option>
+                {availableViewers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="tooltip-bubble">Switch between your bracket and any pool entry. Locked series reveal one by one as they go live.</span>
+          </span>
+        </div>
 
         <div className="nba-bracket-simple-shell">
         <div className="nba-bracket-simple">

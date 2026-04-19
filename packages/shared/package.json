@@ -8,7 +8,8 @@
     "./auth": "./src/auth/index.js",
     "./pools": "./src/pools/index.js",
     "./types": "./src/types/index.js",
-    "./utils": "./src/utils/index.js"
+    "./utils": "./src/utils/index.js",
+    "./themes": "./src/themes/index.js"
   },
   "peerDependencies": {
     "react": ">=18"

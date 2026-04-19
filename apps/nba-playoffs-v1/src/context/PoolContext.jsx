@@ -26,6 +26,30 @@ const SERIES_SETTINGS_DEFAULTS = {
   allow_edits_until_tipoff: true,
 }
 
+function normalizeBooleanMap(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      entry === true || entry === 'true',
+    ])
+  )
+}
+
+function normalizeNbaSettings(settings) {
+  const raw = settings && typeof settings === 'object' ? settings : {}
+  return {
+    ...SERIES_SETTINGS_DEFAULTS,
+    ...raw,
+    round_locks: normalizeBooleanMap(raw.round_locks),
+    series_unlock_overrides: normalizeBooleanMap(raw.series_unlock_overrides),
+    allow_edits_until_tipoff:
+      raw.allow_edits_until_tipoff === false || raw.allow_edits_until_tipoff === 'false'
+        ? false
+        : true,
+  }
+}
+
 function normalizeNbaPool(pool) {
   if (!pool) return pool
   const persistedSettings = pool.scoring_config ?? pool.settings ?? {}
@@ -33,8 +57,7 @@ function normalizeNbaPool(pool) {
     ...pool,
     game_mode: 'series_pickem',
     settings: {
-      ...SERIES_SETTINGS_DEFAULTS,
-      ...persistedSettings,
+      ...normalizeNbaSettings(persistedSettings),
       product_key: NBA_PRODUCT_KEY,
     },
   }
@@ -164,14 +187,13 @@ export function PoolProvider({ children }) {
 
   function settingsForPool(targetPool = pool) {
     if (!targetPool) return SERIES_SETTINGS_DEFAULTS
-    return { ...SERIES_SETTINGS_DEFAULTS, ...(targetPool.settings ?? {}) }
+    return normalizeNbaSettings(targetPool.settings ?? {})
   }
 
   async function createPool({ name, gameMode, settings }) {
     const inviteCode = generateInviteCode()
     const productSettings = {
-      ...SERIES_SETTINGS_DEFAULTS,
-      ...(settings ?? {}),
+      ...normalizeNbaSettings(settings ?? {}),
       product_key: NBA_PRODUCT_KEY,
     }
 
@@ -251,7 +273,7 @@ export function PoolProvider({ children }) {
 
   async function updatePoolSettings(settingsPatch) {
     if (!pool) return
-    const nextSettings = { ...(pool.settings ?? {}), ...settingsPatch }
+    const nextSettings = normalizeNbaSettings({ ...(pool.settings ?? {}), ...settingsPatch })
     await supabase.from('pools').update({ settings: nextSettings }).eq('id', pool.id)
     setPool(prev => prev ? normalizeNbaPool({ ...prev, settings: nextSettings }) : prev)
     setAllPools(prev => prev.map(p => p.id === pool.id ? normalizeNbaPool({ ...p, settings: nextSettings }) : p))
