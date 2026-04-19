@@ -4767,3 +4767,38 @@ select:focus {
   border-radius: inherit;
   transition: width 0.4s ease;
 }
+
+/* Final pick-chip text hierarchy override */
+.pick-chip .pc-player {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.05;
+}
+
+.pick-chip .pc-team {
+  font-size: 0.96rem;
+  color: var(--text-2);
+  font-weight: 700;
+  line-height: 1.08;
+}
+
+.pick-chip .pc-meta {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #b42336;
+  opacity: 0.9;
+}
+
+.pick-chip.active .pc-player {
+  color: #ffffff;
+}
+
+.pick-chip.active .pc-team {
+  color: #d1d5db;
+}
+
+.pick-chip.active .pc-meta {
+  color: #fca5a5;
+}
