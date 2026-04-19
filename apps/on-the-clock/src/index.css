@@ -2726,7 +2726,7 @@ select:focus {
 .login-brand {
   flex: 1;
   background: #0a0a0a;
-  padding: 48px;
+  padding: 48px 56px 72px; /* more breathing room at the bottom */
   display: flex;
   flex-direction: column;
   position: relative;
@@ -2785,25 +2785,26 @@ select:focus {
 
 .login-eyebrow {
   color: #dc2626;
-  font-size: 11px;
+  font-size: clamp(11px, 1vw, 14px);
   font-weight: 700;
   letter-spacing: 3px;
   text-transform: uppercase;
+  margin-bottom: 8px;
 }
 
 .login-headline {
   color: #ffffff;
-  font-size: clamp(36px, 5.5vw, 54px);
+  font-size: clamp(44px, 6.5vw, 96px); /* scales with panel width, goes big */
   font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -1.5px;
+  line-height: 1.0;
+  letter-spacing: -2px;
   margin: 0;
   text-shadow: 0 2px 20px rgba(0,0,0,0.8), 0 1px 4px rgba(0,0,0,0.9);
 }
 
 .login-sub {
   color: #d4d4d8;
-  font-size: 15px;
+  font-size: clamp(14px, 1.2vw, 18px);
   line-height: 1.6;
   margin: 0;
   text-shadow: 0 1px 8px rgba(0,0,0,0.8);
