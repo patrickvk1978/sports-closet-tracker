@@ -4685,3 +4685,51 @@ select:focus {
   margin-top: 2px;
   letter-spacing: 0;
 }
+
+/* ─── Terminal override: progress bar must come after every legacy pre-draft block ─── */
+.pd-progress-card {
+  background: #fff;
+  border: 1px solid #dce3ec;
+  border-radius: 18px;
+  padding: 24px 28px;
+  margin-bottom: 28px;
+  box-shadow: var(--shadow-sm);
+}
+
+.pd-progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.pd-progress-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pd-progress-count {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.pd-progress-wrap {
+  width: 100%;
+  height: 12px;
+  background: #e9edf4;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.pd-progress-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand) 0%, #f34d5d 100%);
+  border-radius: inherit;
+  transition: width 0.4s ease;
+}
