@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from './useAuth'
 import { usePool } from './usePool'
-import { supabase } from '../lib/supabase'
+import { draftDb } from '../lib/supabase'
 import { useReferenceData } from './useReferenceData'
 
 const MOCK_SETTINGS_DEFAULTS = {
@@ -33,10 +33,10 @@ export function useMockChallenge({ draftFeed }) {
     setLoading(true)
 
     const [predRes, subRes, allPredsRes, allSubsRes] = await Promise.all([
-      supabase.from('user_predictions').select('pick_number, prospect_id').eq('pool_id', poolId).eq('user_id', userId),
-      supabase.from('mock_submissions').select('user_id').eq('pool_id', poolId).eq('user_id', userId).maybeSingle(),
-      supabase.from('user_predictions').select('user_id, pick_number, prospect_id').eq('pool_id', poolId),
-      supabase.from('mock_submissions').select('user_id').eq('pool_id', poolId),
+      draftDb.from('queues').select('pick_number, prospect_id').eq('pool_id', poolId).eq('user_id', userId),
+      draftDb.from('mock_submissions').select('user_id').eq('pool_id', poolId).eq('user_id', userId).maybeSingle(),
+      draftDb.from('queues').select('user_id, pick_number, prospect_id').eq('pool_id', poolId),
+      draftDb.from('mock_submissions').select('user_id').eq('pool_id', poolId),
     ])
 
     if (predRes.data) {
@@ -85,14 +85,14 @@ export function useMockChallenge({ draftFeed }) {
 
     // Clear old slot in DB if needed
     if (existingPickNum) {
-      await supabase.from('user_predictions')
+      await draftDb.from('queues')
         .delete()
         .eq('pool_id', poolId)
         .eq('user_id', userId)
         .eq('pick_number', Number(existingPickNum))
     }
 
-    await supabase.from('user_predictions').upsert({
+    await draftDb.from('queues').upsert({
       pool_id: poolId,
       user_id: userId,
       pick_number: pickNumber,
@@ -105,7 +105,7 @@ export function useMockChallenge({ draftFeed }) {
     if (!poolId || !userId) return
     setHasSubmittedMock(true)
     setSubmittedUserIds(prev => new Set(prev).add(userId))
-    await supabase.from('mock_submissions').upsert({
+    await draftDb.from('mock_submissions').upsert({
       pool_id: poolId,
       user_id: userId,
     })
@@ -114,7 +114,7 @@ export function useMockChallenge({ draftFeed }) {
   async function resetMockPredictions() {
     if (!poolId || !userId) return
     setHasSubmittedMock(false)
-    await supabase.from('mock_submissions').delete().eq('pool_id', poolId).eq('user_id', userId)
+    await draftDb.from('mock_submissions').delete().eq('pool_id', poolId).eq('user_id', userId)
   }
 
   function getMemberMockPredictions(targetUserId) {

@@ -2,30 +2,36 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePool } from "../hooks/usePool";
 
-const GAME_MODES = [
-  {
-    key: "live_draft",
-    title: "Live Draft",
-    description: "Make picks during the draft, react to trades, and compete in real time.",
-    bullets: [
-      "Edit picks live as teams come on the clock",
-      "Use your Big Board and team-need suggestions",
-      "Can auto-submit from your board if you step away",
-      "Best for highly engaged draft-night groups",
-    ],
-  },
-  {
-    key: "mock_challenge",
-    title: "Mock Challenge",
-    description: "Submit your Round 1 predictions before the draft and watch results unfold live.",
-    bullets: [
-      "Fill out your picks once before the deadline",
-      "No need to be online during the draft",
-      "Closest to a bracket-pool experience",
-      "Best for larger or more casual groups",
-    ],
-  },
-];
+// Mock Challenge is archived for the 2026 season. Schema and code remain in
+// the repo (`useMockChallenge.js`, `MockChallengeView.jsx`) so it can be
+// revived next year by flipping VITE_ENABLE_MOCK_CHALLENGE=true.
+const ENABLE_MOCK = import.meta.env.VITE_ENABLE_MOCK_CHALLENGE === "true";
+
+const LIVE_DRAFT_MODE = {
+  key: "live_draft",
+  title: "Live Draft",
+  description: "Make picks during the draft, react to trades, and compete in real time.",
+  bullets: [
+    "Edit picks live as teams come on the clock",
+    "Use your Queue and Big Board for fallbacks",
+    "Auto-submits if you step away",
+    "Best for highly engaged draft-night groups",
+  ],
+};
+
+const MOCK_CHALLENGE_MODE = {
+  key: "mock_challenge",
+  title: "Mock Challenge",
+  description: "Submit your Round 1 predictions before the draft and watch results unfold live.",
+  bullets: [
+    "Fill out your picks once before the deadline",
+    "No need to be online during the draft",
+    "Closest to a bracket-pool experience",
+    "Best for larger or more casual groups",
+  ],
+};
+
+const GAME_MODES = ENABLE_MOCK ? [LIVE_DRAFT_MODE, MOCK_CHALLENGE_MODE] : [LIVE_DRAFT_MODE];
 
 function routeForPool(pool) {
   return pool?.game_mode === "mock_challenge" ? "/mock" : "/draft";

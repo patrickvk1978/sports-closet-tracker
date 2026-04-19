@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from './useAuth'
 import { usePool } from './usePool'
-import { supabase } from '../lib/supabase'
+import { draftDb } from '../lib/supabase'
 import { useReferenceData } from './useReferenceData'
 
 export function useBigBoard() {
@@ -22,8 +22,8 @@ export function useBigBoard() {
     }
 
     setLoading(true)
-    const { data } = await supabase
-      .from('user_big_boards')
+    const { data } = await draftDb
+      .from('big_boards')
       .select('board_order')
       .eq('pool_id', poolId)
       .eq('user_id', userId)
@@ -34,7 +34,7 @@ export function useBigBoard() {
     } else {
       // Seed default board on first load
       const defaultOrder = [...defaultBigBoardIds]
-      await supabase.from('user_big_boards').upsert({
+      await draftDb.from('big_boards').upsert({
         pool_id: poolId,
         user_id: userId,
         board_order: defaultOrder,
@@ -49,7 +49,7 @@ export function useBigBoard() {
   async function saveBigBoard(nextBoardIds) {
     setBigBoardIds(nextBoardIds) // optimistic
     if (!poolId || !userId) return
-    await supabase.from('user_big_boards').upsert({
+    await draftDb.from('big_boards').upsert({
       pool_id: poolId,
       user_id: userId,
       board_order: nextBoardIds,
@@ -68,8 +68,8 @@ export function useBigBoard() {
 
   // Fetch another member's board (for scoring/resolution)
   async function getMemberBigBoard(targetPoolId, targetUserId) {
-    const { data } = await supabase
-      .from('user_big_boards')
+    const { data } = await draftDb
+      .from('big_boards')
       .select('board_order')
       .eq('pool_id', targetPoolId)
       .eq('user_id', targetUserId)

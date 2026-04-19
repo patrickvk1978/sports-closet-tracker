@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from './useAuth'
 import { usePool } from './usePool'
-import { supabase } from '../lib/supabase'
+import { supabase, draftDb } from '../lib/supabase'
 import { useReferenceData } from './useReferenceData'
 
 export function useLiveDraft({ draftFeed, teamCodeForPick }) {
@@ -32,11 +32,11 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     setLoading(true)
 
     const [predRes, cardsRes, allCardsRes, allPredsRes, allBoardsRes] = await Promise.all([
-      supabase.from('user_predictions').select('pick_number, prospect_id').eq('pool_id', poolId).eq('user_id', userId),
-      supabase.from('user_live_cards').select('pick_number, prospect_id').eq('pool_id', poolId).eq('user_id', userId),
-      supabase.from('user_live_cards').select('user_id, pick_number, prospect_id').eq('pool_id', poolId),
-      supabase.from('user_predictions').select('user_id, pick_number, prospect_id').eq('pool_id', poolId),
-      supabase.from('user_big_boards').select('user_id, board_order').eq('pool_id', poolId),
+      draftDb.from('queues').select('pick_number, prospect_id').eq('pool_id', poolId).eq('user_id', userId),
+      draftDb.from('live_cards').select('pick_number, prospect_id').eq('pool_id', poolId).eq('user_id', userId),
+      draftDb.from('live_cards').select('user_id, pick_number, prospect_id').eq('pool_id', poolId),
+      draftDb.from('queues').select('user_id, pick_number, prospect_id').eq('pool_id', poolId),
+      draftDb.from('big_boards').select('user_id, board_order').eq('pool_id', poolId),
     ])
 
     if (predRes.data) {
@@ -81,8 +81,8 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
       .channel(`live-cards-${poolId}`)
       .on('postgres_changes', {
         event: 'INSERT',
-        schema: 'public',
-        table: 'user_live_cards',
+        schema: 'draft',
+        table: 'live_cards',
         filter: `pool_id=eq.${poolId}`,
       }, (payload) => {
         const r = payload.new
@@ -162,14 +162,14 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
 
     // Clear old slot in DB if needed
     if (existingPickNum) {
-      await supabase.from('user_predictions')
+      await draftDb.from('queues')
         .delete()
         .eq('pool_id', poolId)
         .eq('user_id', userId)
         .eq('pick_number', Number(existingPickNum))
     }
 
-    await supabase.from('user_predictions').upsert({
+    await draftDb.from('queues').upsert({
       pool_id: poolId,
       user_id: userId,
       pick_number: pickNumber,
@@ -206,7 +206,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     setAllMemberCards(prev => ({ ...prev, [`${userId}:${pickNumber}`]: selectedProspectId }))
     setLiveSelections(prev => ({ ...prev, [pickNumber]: selectedProspectId }))
 
-    await supabase.from('user_live_cards').upsert({
+    await draftDb.from('live_cards').upsert({
       pool_id: poolId,
       user_id: userId,
       pick_number: pickNumber,
