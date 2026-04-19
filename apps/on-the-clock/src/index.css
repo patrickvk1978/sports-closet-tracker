@@ -3642,13 +3642,37 @@ select:focus {
   margin-left: auto;
 }
 
+.npf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
 .npf-label {
   font-size: 11px;
   color: #52525b;
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-bottom: 8px;
   font-weight: 600;
+}
+
+.npf-browse-link {
+  border: none;
+  background: transparent;
+  color: #a1a1aa;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.14s ease;
+  white-space: nowrap;
+}
+
+.npf-browse-link:hover {
+  color: #f4f4f5;
 }
 
 .npf-suggest {
@@ -4735,27 +4759,6 @@ select:focus {
   letter-spacing: 0.5px;
   text-transform: uppercase;
   line-height: 1;
-}
-
-/* Browse all suggestion card */
-.suggest-card.browse-all {
-  background: #1e1e1e;
-  border-color: #2a2a2a;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 4px;
-  flex: 0 0 170px;
-  min-width: 170px;
-}
-
-.suggest-card.browse-all .sc-name {
-  color: #e4e4e7;
-}
-
-.suggest-card.browse-all .sc-pos {
-  color: #52525b;
 }
 
 /* Suggestion card sc-rank (on your board label) */

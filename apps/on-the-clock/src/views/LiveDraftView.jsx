@@ -350,7 +350,16 @@ export default function LiveDraftView() {
                   </div>
 
                   <div className="npf-right">
-                    <div className="npf-label">Suggested options</div>
+                    <div className="npf-head">
+                      <div className="npf-label">Suggested options</div>
+                      <button
+                        className="npf-browse-link"
+                        type="button"
+                        onClick={() => setPdTab("board")}
+                      >
+                        Browse all →
+                      </button>
+                    </div>
                     <div className="npf-suggest">
                       {nextUnsetSuggestions.map(({ prospect, sourceLabel }, index) => (
                         <div key={`${sourceLabel}-${prospect.id}`} className={`suggest-card featured ${index > 0 ? "mocked" : "board"}`}>
@@ -371,10 +380,6 @@ export default function LiveDraftView() {
                           </button>
                         </div>
                       ))}
-                      <div className="suggest-card browse-all" onClick={() => setPdTab("board")} style={{ cursor: "pointer" }}>
-                        <div className="sc-name">Browse all</div>
-                        <div className="sc-pos">Search the full prospect list →</div>
-                      </div>
                     </div>
                   </div>
                 </div>
