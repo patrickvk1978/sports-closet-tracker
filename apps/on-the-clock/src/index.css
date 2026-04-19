@@ -4881,3 +4881,48 @@ select:focus {
   color: #7c889a;
   opacity: 1;
 }
+
+.pick-chip-wrap.filled .pick-chip-clear {
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  background: rgba(15, 23, 42, 0.08);
+  color: rgba(51, 65, 85, 0.78);
+  font-size: 0.88rem;
+}
+
+.pick-chip-wrap.filled .pick-chip-clear:hover {
+  background: rgba(180, 35, 54, 0.12);
+  color: rgba(180, 35, 54, 0.92);
+}
+
+/* Final stronger committed-chip emphasis */
+.pick-chip.filled {
+  background: linear-gradient(180deg, #fff7f8 0%, #fffdfd 100%);
+  border-color: #e29aa5;
+  box-shadow:
+    inset 0 0 0 1px rgba(180, 35, 54, 0.08),
+    0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.pick-chip.filled:hover {
+  border-color: #cc7f8c;
+  background: linear-gradient(180deg, #fff8f9 0%, #ffffff 100%);
+}
+
+.pick-chip.filled .pc-num {
+  color: #cf1731;
+}
+
+.pick-chip.filled .pc-player {
+  color: #243041;
+}
+
+.pick-chip.filled .pc-team {
+  color: #334155;
+}
+
+.pick-chip.filled .pc-meta {
+  color: #b42336;
+}
