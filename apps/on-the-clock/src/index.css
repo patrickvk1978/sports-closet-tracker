@@ -2670,17 +2670,17 @@ select:focus {
 
 .pick-chip-clear {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 6px;
+  right: 6px;
   z-index: 2;
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   border: 0;
   border-radius: 999px;
-  background: rgba(17, 24, 39, 0.08);
-  color: var(--text-3);
-  font-size: 1rem;
-  font-weight: 800;
+  background: transparent;
+  color: rgba(75, 85, 99, 0.55);
+  font-size: 0.8rem;
+  font-weight: 700;
   line-height: 1;
   cursor: pointer;
   display: inline-flex;
@@ -2690,17 +2690,17 @@ select:focus {
 }
 
 .pick-chip-clear:hover {
-  background: rgba(208, 18, 38, 0.12);
-  color: var(--brand);
+  background: rgba(17, 24, 39, 0.05);
+  color: rgba(208, 18, 38, 0.8);
 }
 
 .pick-chip-wrap.active .pick-chip-clear {
-  background: rgba(255, 255, 255, 0.12);
-  color: #f3f4f6;
+  background: transparent;
+  color: rgba(243, 244, 246, 0.62);
 }
 
 .pick-chip-wrap.active .pick-chip-clear:hover {
-  background: rgba(252, 165, 165, 0.18);
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
 
@@ -4817,25 +4817,25 @@ select:focus {
 
 /* Final pick-chip text hierarchy override */
 .pick-chip .pc-player {
-  font-size: 0.98rem;
-  font-weight: 800;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: var(--text);
-  line-height: 1.05;
+  line-height: 1.08;
 }
 
 .pick-chip .pc-team {
-  font-size: 0.96rem;
+  font-size: 0.8rem;
   color: var(--text-2);
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.08;
 }
 
 .pick-chip .pc-meta {
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: #b42336;
-  opacity: 0.9;
+  opacity: 0.78;
 }
 
 .pick-chip.active .pc-player {
