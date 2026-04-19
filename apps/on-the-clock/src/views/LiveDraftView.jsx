@@ -177,6 +177,54 @@ export default function LiveDraftView() {
     ];
   }, [focusedPreDraftPick, focusedPreDraftTeam, focusedPreDraftPrediction, bigBoardIds, draftedIds, livePredictions, getProspectById, prospects]);
 
+  // ── Expert suggestions for LiveStage on_clock ────────────────────────────
+
+  const suggestedProspectForCurrent = getProspectById(livePredictions[currentPickNumber]);
+
+  const EXPERT_SOURCES = [
+    { key: "pff_mock_pick",      mockLabel: "PFF Mock Draft",     boardLabel: "PFF Big Board" },
+    { key: "athletic_mock_pick", mockLabel: "Athletic Mock Draft", boardLabel: "Athletic Big Board" },
+    { key: "ringer_mock_pick",   mockLabel: "Ringer Mock Draft",   boardLabel: "Ringer Big Board" },
+  ];
+
+  const expertSuggestions = useMemo(() => {
+    if (!currentPick || !currentTeam) return [];
+    const hasTradeOverride = Boolean(draftFeed.team_overrides?.[currentPickNumber]);
+    const teamNeeds = new Set(currentTeam.needs ?? []);
+    const results = [];
+    const seenIds = new Set(suggestedProspectForCurrent ? [suggestedProspectForCurrent.id] : []);
+
+    for (const source of EXPERT_SOURCES) {
+      let prospect = null;
+      let label = null;
+
+      if (!hasTradeOverride) {
+        const mockProspect = prospects.find(
+          (p) => p[source.key] === currentPickNumber && !draftedIds.has(p.id) && !seenIds.has(p.id)
+        );
+        if (mockProspect) { prospect = mockProspect; label = source.mockLabel; }
+      }
+
+      if (!prospect) {
+        const boardProspect = bigBoardIds
+          .map((id) => getProspectById(id))
+          .filter((p) => p && !draftedIds.has(p.id) && !seenIds.has(p.id))
+          .find((p) =>
+            teamNeeds.size === 0 || p.position.split("/").some((pos) => teamNeeds.has(pos))
+          );
+        if (boardProspect) { prospect = boardProspect; label = source.boardLabel; }
+      }
+
+      if (prospect) {
+        seenIds.add(prospect.id);
+        results.push({ label, prospect });
+      }
+    }
+    return results;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPick, currentPickNumber, currentTeam, draftFeed.team_overrides, prospects,
+      draftedIds, bigBoardIds, getProspectById, suggestedProspectForCurrent]);
+
   // ── Pool state for LiveStage ───────────────────────────────────────────────
 
   const meId = profile?.id;
@@ -554,7 +602,8 @@ export default function LiveDraftView() {
                 currentStatus={draftFeed.current_status}
                 currentLocked={currentLocked}
                 currentSelection={currentSelection}
-                suggestedProspect={getProspectById(livePredictions[currentPickNumber])}
+                suggestedProspect={suggestedProspectForCurrent}
+                expertSuggestions={expertSuggestions}
                 countdownLabel={countdownCopy(draftFeed.current_status)}
                 actualPick={actualCurrentPick}
                 poolState={livePoolState}
@@ -586,16 +635,30 @@ export default function LiveDraftView() {
               </div>
 
               <div className="dn-right-section">
-                <div className="dn-rs-label">Pick {currentPickNumber} · Pool</div>
-                {livePoolState.map((m) => (
-                  <div key={m.id ?? m.name} className="dn-activity-item">
-                    <div className="dn-ai-event">
-                      <em>{m.isCurrentUser ? "you" : m.name}</em>
-                      {" — "}
-                      {m.locked ? "locked ✓" : "deciding…"}
+                <div className="dn-rs-label">
+                  Pick {currentPickNumber} · Pool
+                  <span className="dn-pool-count-badge">
+                    {livePoolState.filter((m) => m.isCurrentUser ? currentLocked : m.locked).length}/{livePoolState.length} locked
+                  </span>
+                </div>
+                {livePoolState.map((m) => {
+                  const isLocked = m.isCurrentUser ? currentLocked : m.locked;
+                  const avatarCls = m.isCurrentUser ? "me" : isLocked ? "submitted" : "pending";
+                  const initials = m.name.slice(0, 2).toUpperCase();
+                  return (
+                    <div key={m.id ?? m.name} className="dn-pool-member-row">
+                      <div className={`dn-pool-avatar ${avatarCls}${!isLocked ? " pulsing" : ""}`}>
+                        {initials}
+                      </div>
+                      <div className="dn-pool-member-info">
+                        <span className="dn-pool-member-name">{m.isCurrentUser ? "you" : m.name}</span>
+                        <span className={`dn-pool-member-status ${isLocked ? "locked" : "deciding"}`}>
+                          {isLocked ? "locked ✓" : "deciding…"}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div style={{ padding: "0 14px" }}>

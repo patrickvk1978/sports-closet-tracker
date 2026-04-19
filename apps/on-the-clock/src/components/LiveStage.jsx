@@ -2,8 +2,7 @@
  * LiveStage — dark command-center stage for a single live pick.
  *
  * Three states derived from props:
- *   1. on_clock  → queue suggestion + "Lock it in →" (immediate submit)
- *                  OR search mode (inline, toggled locally)
+ *   1. on_clock  → suggestions bar (queue + expert picks) + search/filter list
  *   2. locked    → green confirmation card, quiet "change pick" link
  *   3. reveal    → compact announcement + 2×2 pool comparison grid
  */
@@ -12,24 +11,24 @@ import { useMemo, useState } from "react";
 const POSITIONS = ["All", "QB", "WR", "OT", "EDGE", "CB", "DT", "RB", "LB", "S", "TE"];
 
 export default function LiveStage({
-  currentPick,        // { number }
-  currentTeam,        // { name, needs: string[] }
-  currentStatus,      // "on_clock" | "pick_is_in" | "revealed"
-  currentLocked,      // bool — true when a live_card row exists
-  currentSelection,   // prospect | null — what was locked (or queue pick)
-  suggestedProspect,  // prospect | null — from user's pre-draft prediction
-  countdownLabel,     // string, e.g. "04:18"
-  actualPick,         // prospect | null — official pick once revealed
-  poolState,          // [{ id, name, locked, result, prospect, isCurrentUser }]
-  boardIds,           // string[] — board order for search ranking
-  prospects,          // Prospect[] — full list
-  draftedIds,         // Set<string> — already taken prospect IDs
-  onLockIn,           // (prospectId) => void — immediate submit
-  onChangePick,       // () => void — reset locked card
-  nextPickLabel,      // string, e.g. "Jets on the clock — Pick 2 →"
-  onNextPick,         // () => void — optional next-pick action
+  currentPick,          // { number }
+  currentTeam,          // { name, needs: string[] }
+  currentStatus,        // "on_clock" | "pick_is_in" | "revealed"
+  currentLocked,        // bool — true when a live_card row exists
+  currentSelection,     // prospect | null — what was locked
+  suggestedProspect,    // prospect | null — from user's pre-draft prediction
+  expertSuggestions,    // [{ label, prospect }] — PFF/Athletic/Ringer picks
+  countdownLabel,       // string, e.g. "04:18"
+  actualPick,           // prospect | null — official pick once revealed
+  poolState,            // [{ id, name, locked, result, prospect, isCurrentUser }]
+  boardIds,             // string[] — board order for search ranking
+  prospects,            // Prospect[] — full list
+  draftedIds,           // Set<string> — already taken prospect IDs
+  onLockIn,             // (prospectId) => void — immediate submit
+  onChangePick,         // () => void — reset locked card
+  nextPickLabel,        // string, e.g. "Jets on the clock — Pick 2 →"
+  onNextPick,           // () => void — optional next-pick action
 }) {
-  const [isSearching, setIsSearching] = useState(false);
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState("All");
 
@@ -39,9 +38,8 @@ export default function LiveStage({
   const submittedCount = poolState.filter((m) => m.locked).length;
   const totalCount = poolState.length;
 
-  // Search results sorted by board order
+  // Search results sorted by board order — shown even with empty query (top 8)
   const searchResults = useMemo(() => {
-    if (!isSearching) return [];
     const boardIndex = (id) => { const i = boardIds.indexOf(id); return i === -1 ? 9999 : i; };
     return prospects
       .filter((p) => !draftedIds.has(p.id))
@@ -49,23 +47,12 @@ export default function LiveStage({
       .filter((p) => posFilter === "All" || p.position.includes(posFilter))
       .sort((a, b) => boardIndex(a.id) - boardIndex(b.id))
       .slice(0, 8);
-  }, [prospects, draftedIds, boardIds, isSearching, search, posFilter]);
+  }, [prospects, draftedIds, boardIds, search, posFilter]);
 
   function handleLockIn(prospectId) {
     onLockIn(prospectId);
-    setIsSearching(false);
     setSearch("");
     setPosFilter("All");
-  }
-
-  function handleSearchForOther() {
-    setIsSearching(true);
-    setSearch("");
-    setPosFilter("All");
-  }
-
-  function handleUseQueuePick() {
-    if (suggestedProspect) handleLockIn(suggestedProspect.id);
   }
 
   // Derive my result for the reveal badge
@@ -77,10 +64,13 @@ export default function LiveStage({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
       {/* ── Header: always visible ── */}
       <div className="ls-header">
         <div className="ls-team-block">
-          <div className="ls-pick-label">Pick {currentPick?.number} · {stage === "locked" ? "Card submitted — waiting on announcement" : "Now Selecting"}</div>
+          <div className="ls-pick-label">
+            Pick {currentPick?.number} · {stage === "locked" ? "Card submitted — waiting on announcement" : "Now Selecting"}
+          </div>
           <div className="ls-team-name">{currentTeam?.name ?? "—"}</div>
           {stage !== "locked" && currentTeam?.needs?.length ? (
             <div className="ls-needs">
@@ -105,93 +95,51 @@ export default function LiveStage({
 
       <div className="ls-divider" />
 
-      {/* ══ STATE: on_clock ══ */}
-      {stage === "on_clock" && !isSearching && (
+      {/* ══ STATE: on_clock — always show suggestions + search ══ */}
+      {stage === "on_clock" && (
         <>
-          {suggestedProspect ? (
-            <div className="ls-queue">
-              <div className="ls-queue-label">Your Queue Pick</div>
-              <div className="ls-queue-player">
-                <div className="ls-queue-info">
-                  <div className="ls-queue-name">{suggestedProspect.name}</div>
-                  <div className="ls-queue-meta">
-                    {suggestedProspect.position} · {suggestedProspect.school}
-                    {suggestedProspect.consensus_rank ? ` · #${suggestedProspect.consensus_rank} consensus` : ""}
+          {/* Suggestions bar: queue pick + expert picks */}
+          {(suggestedProspect || (expertSuggestions && expertSuggestions.length > 0)) && (
+            <div className="ls-suggestions-bar">
+              {suggestedProspect && (
+                <div className="ls-suggestion-row queue">
+                  <div className="ls-sug-label">Your Queue Pick</div>
+                  <div className="ls-sug-info">
+                    <span className="ls-sug-name">{suggestedProspect.name}</span>
+                    <span className="ls-sug-meta">
+                      {suggestedProspect.position} · {suggestedProspect.school}
+                      {boardIds.indexOf(suggestedProspect.id) !== -1
+                        ? ` · #${boardIds.indexOf(suggestedProspect.id) + 1} on board`
+                        : ""}
+                    </span>
                   </div>
+                  <button
+                    className="ls-sug-lock"
+                    type="button"
+                    onClick={() => handleLockIn(suggestedProspect.id)}
+                  >
+                    Lock in →
+                  </button>
                 </div>
-                {boardIds.indexOf(suggestedProspect.id) !== -1 ? (
-                  <div className="ls-queue-rank">
-                    <span className="ls-queue-rank-num">#{boardIds.indexOf(suggestedProspect.id) + 1}</span>
-                    <span className="ls-queue-rank-label">YOUR BOARD</span>
+              )}
+              {(expertSuggestions ?? []).map(({ label, prospect }) => (
+                <div key={prospect.id} className="ls-suggestion-row expert">
+                  <div className="ls-sug-label">{label}</div>
+                  <div className="ls-sug-info">
+                    <span className="ls-sug-name">{prospect.name}</span>
+                    <span className="ls-sug-meta">{prospect.position} · {prospect.school}</span>
                   </div>
-                ) : null}
-              </div>
-              <div className="ls-queue-actions">
-                <button className="ls-lock-btn" type="button" onClick={handleUseQueuePick}>
-                  Lock it in →
-                </button>
-                <button className="ls-ghost-btn" type="button" onClick={handleSearchForOther}>
-                  Search for someone else
-                </button>
-              </div>
-              <div className="ls-hint">Tapping "Lock it in" immediately submits your card. No second step.</div>
-            </div>
-          ) : (
-            <div className="ls-empty-state">
-              <div className="ls-empty-icon">?</div>
-              <p className="ls-empty-title">No queue pick set for Pick {currentPick?.number}</p>
-              <p className="ls-empty-sub">Search the prospect list to lock in your pick, or set up your queue from the Big Board.</p>
-              <button className="ls-lock-btn" type="button" style={{ marginTop: 8 }} onClick={handleSearchForOther}>
-                Search prospects →
-              </button>
+                  <button
+                    className="ls-sug-lock"
+                    type="button"
+                    onClick={() => handleLockIn(prospect.id)}
+                  >
+                    Lock in →
+                  </button>
+                </div>
+              ))}
             </div>
           )}
-
-          {/* Pool pulse */}
-          <div className="ls-pool-pulse">
-            <div className="ls-pp-label">Pool Status · Pick {currentPick?.number} · {submittedCount} of {totalCount} in</div>
-            <div className="ls-pp-members">
-              {poolState.map((m) => {
-                const initials = m.name.slice(0, 2).toUpperCase();
-                const cls = m.isCurrentUser ? "me" : m.locked ? "submitted" : "pending";
-                const statusText = m.isCurrentUser
-                  ? (currentLocked ? "locked ✓" : "deciding")
-                  : m.locked ? "locked ✓" : "thinking…";
-                const statusClass = (m.isCurrentUser ? currentLocked : m.locked) ? "in" : "wait";
-                return (
-                  <div key={m.id ?? m.name} className="ls-pp-member">
-                    <div className={`ls-pp-avatar ${cls}`}>{initials}</div>
-                    <div className="ls-pp-name">{m.isCurrentUser ? "you" : m.name}</div>
-                    <div className={`ls-pp-status ${statusClass}`}>{statusText}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ══ STATE: searching ══ */}
-      {stage === "on_clock" && isSearching && (
-        <>
-          {/* Compact queue fallback bar */}
-          <div className="ls-compact-queue-bar">
-            <div className="ls-compact-queue-text">
-              {suggestedProspect ? (
-                <>Queue: <strong>{suggestedProspect.name}, {suggestedProspect.position}</strong></>
-              ) : (
-                <span>No queue pick set</span>
-              )}
-            </div>
-            <div className="ls-compact-queue-actions">
-              <span className="ls-compact-locked-count">{submittedCount}/{totalCount} locked</span>
-              {suggestedProspect ? (
-                <button className="ls-ghost-btn" type="button" style={{ padding: "4px 10px", fontSize: 11 }} onClick={handleUseQueuePick}>
-                  Use queue pick
-                </button>
-              ) : null}
-            </div>
-          </div>
 
           {/* Search field */}
           <div className="ls-search-wrap">
@@ -201,7 +149,6 @@ export default function LiveStage({
               placeholder="Name or position (e.g. 'Travis' or 'WR')"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              autoFocus
             />
           </div>
 
@@ -238,10 +185,11 @@ export default function LiveStage({
             </div>
           ) : (
             <div className="ls-search-hint">
-              {search || posFilter !== "All" ? "No available prospects match — try a different filter." : "Start typing to search…"}
+              {search || posFilter !== "All"
+                ? "No available prospects match — try a different filter."
+                : "All prospects drafted."}
             </div>
           )}
-          <div className="ls-search-hint">Sorted by your board · only available players shown</div>
         </>
       )}
 
@@ -263,7 +211,7 @@ export default function LiveStage({
           </div>
           <div className="ls-change-hint">Changing will re-open pick selection. Timer still runs.</div>
 
-          {/* Pool — everyone submitted */}
+          {/* Pool status */}
           <div className="ls-pool-pulse">
             <div className="ls-pp-label">
               {submittedCount === totalCount
@@ -294,7 +242,6 @@ export default function LiveStage({
       {/* ══ STATE: reveal ══ */}
       {stage === "reveal" && (
         <>
-          {/* Compact announcement + my result badge */}
           <div className="ls-reveal-announce">
             <div>
               <div className="ls-reveal-team-label">{currentTeam?.name} select · Pick {currentPick?.number}</div>
@@ -312,7 +259,6 @@ export default function LiveStage({
 
           <div className="ls-divider" />
 
-          {/* Hero: pool comparison grid */}
           <div className="ls-pool-how-label">How the pool did</div>
           <div className="ls-reveal-pool-grid">
             {poolState.map((m) => {
