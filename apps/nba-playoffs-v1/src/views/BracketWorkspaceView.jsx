@@ -4,7 +4,7 @@ import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { formatProbabilityMainFreshness, formatProbabilityMainLabel } from "../lib/probabilityInputs";
-import { areRoundPicksPublic } from "../lib/pickVisibility";
+import { areRoundPicksPublic, isSeriesPickPublic } from "../lib/pickVisibility";
 
 const EAST_SEMIS = [
   { id: "east-sf-1", sources: ["east-r1-1", "east-r1-4"] },
@@ -35,7 +35,7 @@ function getPickedTeam(seriesItem, pick, slot) {
   };
 }
 
-function getRoundOneSlot(seriesItem, pick, side) {
+function getRoundOneSlot(seriesItem, pick, side, masked = false) {
   if (!seriesItem) return { id: `${side}-empty`, abbreviation: "", active: false, slot: side };
   const team = side === "top" ? seriesItem.homeTeam : seriesItem.awayTeam;
   const canShowSelection = seriesItem.homeTeam?.abbreviation !== "TBD" && seriesItem.awayTeam?.abbreviation !== "TBD";
@@ -45,6 +45,7 @@ function getRoundOneSlot(seriesItem, pick, side) {
     abbreviation: team.abbreviation === "TBD" ? "" : team.abbreviation,
     detail: isSelected && pick?.games ? `IN ${pick.games}` : "",
     active: isSelected,
+    masked,
     slot: side,
   };
 }
@@ -180,6 +181,7 @@ function BracketSeries({
   onClearSelection,
 }) {
   const { top, bottom } = entry;
+  const isMasked = Boolean(entry.masked);
   const selectorDetail = selectionState
     ? {
         mode: "selector",
@@ -214,7 +216,7 @@ function BracketSeries({
       ) : null}
       <button
         type="button"
-        className={`${top.active ? "nba-bracket-line active" : "nba-bracket-line"} ${interactive ? "is-pickable" : "is-static"}`}
+        className={`${top.active ? "nba-bracket-line active" : "nba-bracket-line"} ${interactive ? "is-pickable" : "is-static"} ${isMasked ? "is-masked" : ""}`}
         onClick={(event) => {
           event.stopPropagation();
           if (!interactive) {
@@ -230,7 +232,7 @@ function BracketSeries({
       </button>
       <button
         type="button"
-        className={`${bottom.active ? "nba-bracket-line active" : "nba-bracket-line"} ${interactive ? "is-pickable" : "is-static"}`}
+        className={`${bottom.active ? "nba-bracket-line active" : "nba-bracket-line"} ${interactive ? "is-pickable" : "is-static"} ${isMasked ? "is-masked" : ""}`}
         onClick={(event) => {
           event.stopPropagation();
           if (!interactive) {
@@ -304,19 +306,28 @@ export default function BracketWorkspaceView() {
   const [focusedSeriesId, setFocusedSeriesId] = useState(null);
   const [selectionState, setSelectionState] = useState(null);
   const activeSeries = seriesByRound[currentRound.key] ?? [];
-  const canViewOtherBrackets = areRoundPicksPublic(activeSeries, currentRound.key, settings);
+  const canViewMatrix = areRoundPicksPublic(activeSeries, currentRound.key, settings);
   const requestedViewerId = searchParams.get("viewer") ?? "";
   const availableViewers = memberList.filter((member) => member.id !== currentMember?.id);
-  const selectedViewer = canViewOtherBrackets
-    ? availableViewers.find((member) => member.id === requestedViewerId) ?? null
-    : null;
+  const selectedViewer = availableViewers.find((member) => member.id === requestedViewerId) ?? null;
   const isViewingCurrentUser = !selectedViewer;
+  const publicSeriesIds = useMemo(
+    () => new Set(series.filter((seriesItem) => isSeriesPickPublic(seriesItem, settings)).map((seriesItem) => seriesItem.id)),
+    [series, settings]
+  );
 
   const effectiveSelectedMemberId = selectedViewer?.id ?? currentMember?.id ?? memberList[0]?.id ?? "";
-
-  const selectedPicksBySeriesId = effectiveSelectedMemberId
-    ? allPicksByUser[effectiveSelectedMemberId] ?? (effectiveSelectedMemberId === currentMember?.id ? picksBySeriesId : {})
-    : picksBySeriesId;
+  const selectedPicksBySeriesId = useMemo(() => {
+    if (!effectiveSelectedMemberId) return picksBySeriesId;
+    const sourcePicks =
+      effectiveSelectedMemberId === currentMember?.id
+        ? picksBySeriesId
+        : allPicksByUser[effectiveSelectedMemberId] ?? {};
+    if (isViewingCurrentUser) return sourcePicks;
+    return Object.fromEntries(
+      Object.entries(sourcePicks).filter(([seriesId]) => publicSeriesIds.has(seriesId))
+    );
+  }, [allPicksByUser, currentMember?.id, effectiveSelectedMemberId, isViewingCurrentUser, picksBySeriesId, publicSeriesIds]);
 
   const seriesById = useMemo(
     () => Object.fromEntries(series.map((seriesItem) => [seriesItem.id, seriesItem])),
@@ -332,14 +343,36 @@ export default function BracketWorkspaceView() {
 
   const eastRoundOneDisplay = eastRoundOne.map((seriesItem) => ({
     id: seriesItem.id,
-    top: getRoundOneSlot(seriesItem, selectedPicksBySeriesId[seriesItem.id], "top"),
-    bottom: getRoundOneSlot(seriesItem, selectedPicksBySeriesId[seriesItem.id], "bottom"),
+    masked: !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id),
+    top: getRoundOneSlot(
+      seriesItem,
+      selectedPicksBySeriesId[seriesItem.id],
+      "top",
+      !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id)
+    ),
+    bottom: getRoundOneSlot(
+      seriesItem,
+      selectedPicksBySeriesId[seriesItem.id],
+      "bottom",
+      !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id)
+    ),
   }));
 
   const westRoundOneDisplay = westRoundOne.map((seriesItem) => ({
     id: seriesItem.id,
-    top: getRoundOneSlot(seriesItem, selectedPicksBySeriesId[seriesItem.id], "top"),
-    bottom: getRoundOneSlot(seriesItem, selectedPicksBySeriesId[seriesItem.id], "bottom"),
+    masked: !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id),
+    top: getRoundOneSlot(
+      seriesItem,
+      selectedPicksBySeriesId[seriesItem.id],
+      "top",
+      !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id)
+    ),
+    bottom: getRoundOneSlot(
+      seriesItem,
+      selectedPicksBySeriesId[seriesItem.id],
+      "bottom",
+      !isViewingCurrentUser && !publicSeriesIds.has(seriesItem.id)
+    ),
   }));
 
   const buildProjectedRound = (definition) =>
@@ -385,9 +418,17 @@ export default function BracketWorkspaceView() {
       const seriesItem = seriesById[entry.id] ?? null;
       const pick = selectedPicksBySeriesId[entry.id] ?? null;
       const isInteractive = interactiveSeriesIds.has(entry.id);
+      const isPublicSeries = !selectedViewer || publicSeriesIds.has(entry.id);
       const isFutureSeries = !seriesItem || !isInteractive;
       return [
         entry.id,
+        !isViewingCurrentUser && seriesItem && !isPublicSeries
+          ? {
+              title: buildDisplayName(entry, seriesItem),
+              body: "This pick becomes visible once that series locks or Game 1 begins.",
+              showGrid: false,
+            }
+          :
         isFutureSeries
           ? {
               title: buildDisplayName(entry, seriesItem) || "Series TBD",
@@ -483,27 +524,25 @@ export default function BracketWorkspaceView() {
             <p className="nba-bracket-hero-body">
               {isViewingCurrentUser
                 ? <>Choose winners for the current round directly in the bracket.<br />Hover for context, then click a team and choose 4-7 games to save the series.<br />Future rounds stay locked until this round is set.</>
-                : "Hover or tap a series to see the pick view plus market and model context."}
+                : "Locked series are visible here as they tip. Unlocked series stay muted until their own Game 1 begins."}
             </p>
           </div>
           <div className="nba-report-actions">
-            {canViewOtherBrackets ? (
-              <label className="nba-bracket-viewer">
-                <span className="micro-label">Viewing bracket as</span>
-                <select
-                  className="nav-select"
-                  value={isViewingCurrentUser ? "" : effectiveSelectedMemberId}
-                  onChange={handleViewerChange}
-                >
-                  <option value="">Viewing: My bracket</option>
-                  {availableViewers.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      View {member.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
+            <label className="nba-bracket-viewer">
+              <span className="micro-label">Viewing bracket as</span>
+              <select
+                className="nav-select"
+                value={isViewingCurrentUser ? "" : effectiveSelectedMemberId}
+                onChange={handleViewerChange}
+              >
+                <option value="">Viewing: My bracket</option>
+                {availableViewers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    View {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <span className="tooltip-wrap tooltip-wrap-inline">
               <Link className="secondary-button bracket-tool-button bracket-tool-button-series" to="/series">
                 Series View
@@ -516,7 +555,7 @@ export default function BracketWorkspaceView() {
               </Link>
               <span className="tooltip-bubble">Open the deeper probability, leverage, and pool-reading tools without leaving your picks behind.</span>
             </span>
-            {canViewOtherBrackets ? (
+            {canViewMatrix ? (
               <span className="tooltip-wrap tooltip-wrap-inline">
                 <Link className="secondary-button" to="/matrix">
                   Open matrix

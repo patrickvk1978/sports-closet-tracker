@@ -505,6 +505,17 @@ p { margin: 0; }
   cursor: default;
 }
 
+.nba-bracket-line.is-masked {
+  border-color: color-mix(in srgb, #d2bda2 68%, var(--border));
+  background: linear-gradient(135deg, rgba(234, 223, 204, 0.92) 0%, rgba(225, 212, 191, 0.92) 100%);
+  color: rgba(87, 65, 47, 0.56);
+}
+
+.nba-bracket-line.is-masked em,
+.nba-bracket-line.is-masked span {
+  opacity: 0.72;
+}
+
 .nba-bracket-line span {
   min-width: 3ch;
   line-height: 1;

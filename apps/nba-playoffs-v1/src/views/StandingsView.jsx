@@ -47,7 +47,7 @@ export default function StandingsView() {
   const { currentRound, seriesByRound } = usePlayoffData();
   const settings = settingsForPool(pool);
   const activeSeries = seriesByRound[currentRound.key] ?? [];
-  const canViewOtherBoards = areRoundPicksPublic(activeSeries, currentRound.key, settings);
+  const canViewMatrix = areRoundPicksPublic(activeSeries, currentRound.key, settings);
   const [sortKey, setSortKey] = useState("points");
   const [sortDirection, setSortDirection] = useState("desc");
   const { standings: standingsWithOdds, currentStanding, leader } = usePoolOdds(currentRound.key);
@@ -100,7 +100,7 @@ export default function StandingsView() {
             <Link className="secondary-button" to="/reports">
               Open Reports
             </Link>
-            {canViewOtherBoards ? (
+            {canViewMatrix ? (
               <Link className="secondary-button" to="/matrix">
                 Open Matrix
               </Link>
@@ -158,17 +158,10 @@ export default function StandingsView() {
                           <Link className="standings-board-link" to="/bracket">
                             <strong>{member.name}</strong>
                           </Link>
-                        ) : canViewOtherBoards ? (
+                        ) : (
                           <Link className="standings-board-link" to={`/bracket?viewer=${member.id}`}>
                             <strong>{member.name}</strong>
                           </Link>
-                        ) : (
-                          <span className="tooltip-wrap standings-tooltip-wrap">
-                            <strong className="standings-board-link disabled-link">{member.name}</strong>
-                            <span className="tooltip-bubble">
-                              Other brackets unlock after the round locks or games begin.
-                            </span>
-                          </span>
                         )}
                         <span>{member.isCurrentUser ? "You" : "Pool entry"}</span>
                       </div>
