@@ -15,7 +15,8 @@ import { supabase } from "../lib/supabase";
 const BSKY_BASE = "https://public.api.bsky.app/xrpc";
 const POSTS_PER_HANDLE = 5;
 const MAX_POSTS = 20;
-const POLL_MS = 30_000;
+const POLL_MS_LIVE    = 30_000;   // 30 s during live draft
+const POLL_MS_PREDRAFT = 300_000;  // 5 min pre-draft
 
 async function fetchAuthorFeed(handle) {
   try {
@@ -78,14 +79,14 @@ export function useBlueskyFeed({ isLive = false } = {}) {
     setLoading(false);
   }, [handles]);
 
-  // Initial fetch + poll during live draft
+  // Initial fetch + continuous poll (30 s live, 5 min pre-draft)
   useEffect(() => {
     if (!handles.length) return;
     fetchPosts();
 
-    if (isLive) {
-      pollRef.current = setInterval(fetchPosts, POLL_MS);
-    }
+    const interval = isLive ? POLL_MS_LIVE : POLL_MS_PREDRAFT;
+    pollRef.current = setInterval(fetchPosts, interval);
+
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
