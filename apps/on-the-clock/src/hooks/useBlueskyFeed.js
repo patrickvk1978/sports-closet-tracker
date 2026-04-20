@@ -47,21 +47,46 @@ export function useBlueskyFeed({ isLive = false } = {}) {
   const [handles, setHandles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState(null);
+  const [error, setError] = useState("");
   const pollRef = useRef(null);
 
   // Load active handles from Supabase
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
     supabase
       .from("bluesky_allowlist")
       .select("handle, display_name")
       .eq("active", true)
-      .then(({ data }) => {
-        if (data) setHandles(data.map((r) => r.handle));
+      .then(({ data, error: allowlistError }) => {
+        if (cancelled) return;
+        if (allowlistError) {
+          setError(allowlistError.message);
+          setHandles([]);
+          setLoading(false);
+          return;
+        }
+        setHandles((data ?? []).map((r) => r.handle));
+        setLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const fetchPosts = useCallback(async () => {
-    if (!handles.length) return;
+    if (!handles.length) {
+      setPosts([]);
+      setLastFetched(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
     const results = await Promise.all(handles.map(fetchAuthorFeed));
     const seen = new Set();
     const merged = results
@@ -81,7 +106,12 @@ export function useBlueskyFeed({ isLive = false } = {}) {
 
   // Initial fetch + continuous poll (30 s live, 5 min pre-draft)
   useEffect(() => {
-    if (!handles.length) return;
+    if (!handles.length) {
+      if (pollRef.current) clearInterval(pollRef.current);
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
     fetchPosts();
 
     const interval = isLive ? POLL_MS_LIVE : POLL_MS_PREDRAFT;
@@ -92,5 +122,5 @@ export function useBlueskyFeed({ isLive = false } = {}) {
     };
   }, [handles, isLive, fetchPosts]);
 
-  return { posts, loading, lastFetched, refresh: fetchPosts };
+  return { posts, loading, lastFetched, refresh: fetchPosts, handles, error };
 }

@@ -5147,6 +5147,12 @@ select:focus {
 }
 .cf-empty-icon { font-size: 28px; opacity: 0.4; }
 .cf-empty-msg { font-size: 12px; color: var(--dn-muted); line-height: 1.5; }
+.cf-empty-subtle {
+  max-width: 260px;
+  font-size: 11px;
+  color: rgba(148, 163, 184, 0.78);
+  line-height: 1.45;
+}
 
 .cf-footer {
   padding: 6px 14px;

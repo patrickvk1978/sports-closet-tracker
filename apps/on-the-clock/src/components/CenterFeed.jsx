@@ -7,7 +7,8 @@ import BlueskyPost from "./BlueskyPost";
 import { useBlueskyFeed } from "../hooks/useBlueskyFeed";
 
 export default function CenterFeed({ isLive = false }) {
-  const { posts, loading, lastFetched, refresh } = useBlueskyFeed({ isLive });
+  const { posts, loading, lastFetched, refresh, handles, error } = useBlueskyFeed({ isLive });
+  const hasAllowlist = handles.length > 0;
 
   return (
     <div className="cf-wrap">
@@ -40,10 +41,23 @@ export default function CenterFeed({ isLive = false }) {
               </div>
             </div>
           ))
+        ) : error ? (
+          <div className="cf-empty">
+            <div className="cf-empty-icon">⚠️</div>
+            <div className="cf-empty-msg">Couldn’t load the Bluesky feed.</div>
+            <div className="cf-empty-subtle">{error}</div>
+          </div>
+        ) : !hasAllowlist ? (
+          <div className="cf-empty">
+            <div className="cf-empty-icon">🦋</div>
+            <div className="cf-empty-msg">No Bluesky accounts added yet.</div>
+            <div className="cf-empty-subtle">Add handles in Admin → Bluesky Allowlist to turn the feed on.</div>
+          </div>
         ) : posts.length === 0 ? (
           <div className="cf-empty">
             <div className="cf-empty-icon">🦋</div>
-            <div className="cf-empty-msg">No posts yet — check back once the draft kicks off.</div>
+            <div className="cf-empty-msg">No recent posts from the allowed accounts.</div>
+            <div className="cf-empty-subtle">This can mean the handles are quiet right now, or only posting replies/reposts.</div>
           </div>
         ) : (
           posts.map((post) => <BlueskyPost key={post.uri} post={post} />)
