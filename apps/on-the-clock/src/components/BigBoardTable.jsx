@@ -274,6 +274,7 @@ export default function BigBoardTable({
                       <button
                         className="small-button"
                         type="button"
+                        style={{ width: "auto", padding: "0 10px" }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setAssignAnchorEl(e.currentTarget);
