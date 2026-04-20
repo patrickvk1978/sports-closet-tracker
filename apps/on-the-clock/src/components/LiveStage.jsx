@@ -283,7 +283,7 @@ export default function LiveStage({
                   const ia = boardIds.indexOf(a.id); const ib = boardIds.indexOf(b.id);
                   return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
                 })
-                .slice(0, 8);
+                .slice(0, 4);
               return (
                 <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
                   <span style={{ fontSize: 10, letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", textTransform: "uppercase" }}>
@@ -325,11 +325,8 @@ export default function LiveStage({
                         borderRadius: 8, padding: 6, minWidth: 260, boxShadow: "0 12px 28px rgba(0,0,0,0.45)",
                       }}
                     >
-                      <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", padding: "4px 6px 2px" }}>
+                      <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", padding: "4px 6px 6px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                         Add to watchlist
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--dn-muted, #8b95a6)", padding: "0 6px 6px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                        Top of your board · available only
                       </div>
                       {pickerCandidates.map((p) => (
                         <div
