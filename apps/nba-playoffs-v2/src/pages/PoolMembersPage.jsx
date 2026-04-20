@@ -8,7 +8,7 @@ export default function PoolMembersPage() {
   const { profile } = useAuth();
   const { pool, members, memberList } = usePool();
   const [copied, setCopied] = useState(false);
-  const isCommissioner = pool?.admin_id === profile?.id;
+  const isCommissioner = pool?.admin_id === profile?.id || Boolean(profile?.is_admin);
   const invitePath = `/join?code=${pool?.invite_code ?? ""}`;
   const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}${invitePath}` : invitePath;
 
