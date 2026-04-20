@@ -12,6 +12,7 @@ import ProspectAvatar from "./ProspectAvatar";
 const POSITIONS = ["All", "QB", "WR", "OT", "EDGE", "CB", "DT", "RB", "LB", "S", "TE"];
 
 export default function LiveStage({
+  variant = "live",    // "live" | "predraft"
   currentPick,          // { number }
   currentTeam,          // { name, needs: string[] }
   currentStatus,        // "on_clock" | "pick_is_in" | "revealed"
@@ -30,12 +31,15 @@ export default function LiveStage({
   nextPickLabel,        // string, e.g. "Jets on the clock — Pick 2 →"
   onNextPick,           // () => void — optional next-pick action
   scoringConfig,        // { tier_1..4, streak_threshold, streak_multiplier }
+  mappedPickByProspectId = {}, // { [prospectId]: string }
+  onViewBigBoard,       // () => void — optional big board route
 }) {
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState("All");
 
+  const isPredraft = variant === "predraft";
   const isRevealed = currentStatus === "revealed";
-  const stage = isRevealed ? "reveal" : currentLocked ? "locked" : "on_clock";
+  const stage = isPredraft ? "on_clock" : isRevealed ? "reveal" : currentLocked ? "locked" : "on_clock";
 
   // A4 — parse countdown label for urgency states
   const timerSeconds = (() => {
@@ -69,6 +73,12 @@ export default function LiveStage({
     setPosFilter("All");
   }
 
+  function mappedCopyForProspect(prospectId) {
+    const mappedPick = mappedPickByProspectId?.[prospectId];
+    if (!mappedPick || mappedPick.endsWith(`Pick ${currentPick?.number}`)) return null;
+    return `Predicted to ${mappedPick}`;
+  }
+
   // Scoring config with fallbacks
   const sc = scoringConfig ?? {};
   const T1 = sc.tier_1 ?? 100, T2 = sc.tier_2 ?? 120, T3 = sc.tier_3 ?? 150, T4 = sc.tier_4 ?? 180;
@@ -97,10 +107,10 @@ export default function LiveStage({
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
       {/* ── Header: always visible ── */}
-      <div className={`ls-header ${stage === "on_clock" && timerUrgency === "critical" ? "critical" : ""}`}>
+      <div className={`ls-header ${isPredraft ? "predraft" : ""} ${stage === "on_clock" && !isPredraft && timerUrgency === "critical" ? "critical" : ""}`}>
         <div className="ls-team-block">
           <div className="ls-pick-label">
-            Pick {currentPick?.number} · {stage === "locked" ? "Card submitted — waiting on announcement" : "Now Selecting"}
+            Pick {currentPick?.number} · {isPredraft ? "Prediction editor" : stage === "locked" ? "Card submitted — waiting on announcement" : "Now Selecting"}
           </div>
           <div className="ls-team-name">{currentTeam?.name ?? "—"}</div>
           {stage !== "locked" && currentTeam?.needs?.length ? (
@@ -109,8 +119,21 @@ export default function LiveStage({
             </div>
           ) : null}
         </div>
-        <div className="ls-timer">
-          {stage === "reveal" ? null : (
+        <div className={`ls-timer ${isPredraft ? "predraft" : ""}`}>
+          {isPredraft ? (
+            <div className="ls-header-actions">
+              {onViewBigBoard ? (
+                <button className="ls-header-link" type="button" onClick={onViewBigBoard}>
+                  View full big board
+                </button>
+              ) : null}
+              {suggestedProspect && onChangePick ? (
+                <button className="ls-clear-btn" type="button" onClick={onChangePick}>
+                  Clear prediction
+                </button>
+              ) : null}
+            </div>
+          ) : stage === "reveal" ? null : (
             <>
               <span className={`ls-timer-label ${stage === "locked" ? "locked" : timerUrgency}`}>
                 {stage === "locked" ? "Card Locked" : "Submit in"}
@@ -132,8 +155,8 @@ export default function LiveStage({
           {(suggestedProspect || (expertSuggestions && expertSuggestions.length > 0)) && (
             <div className="ls-suggestions-bar">
               {suggestedProspect && (
-                <div className="ls-suggestion-row queue">
-                  <div className="ls-sug-label">Your Queue Pick</div>
+                <div className={`ls-suggestion-row queue ${isPredraft ? "predraft" : ""}`}>
+                  <div className="ls-sug-label">{isPredraft ? "Current prediction" : "Your Queue Pick"}</div>
                   <ProspectAvatar prospect={suggestedProspect} size="sm" />
                   <div className="ls-sug-info">
                     <span className="ls-sug-name">{suggestedProspect.name}</span>
@@ -149,24 +172,27 @@ export default function LiveStage({
                     type="button"
                     onClick={() => handleLockIn(suggestedProspect.id)}
                   >
-                    Lock in →
+                    {isPredraft ? "Update →" : "Lock in →"}
                   </button>
                 </div>
               )}
               {(expertSuggestions ?? []).map(({ label, prospect }) => (
-                <div key={prospect.id} className="ls-suggestion-row expert">
+                <div key={prospect.id} className={`ls-suggestion-row expert ${isPredraft ? "predraft" : ""}`}>
                   <div className="ls-sug-label">{label}</div>
                   <ProspectAvatar prospect={prospect} size="sm" />
                   <div className="ls-sug-info">
                     <span className="ls-sug-name">{prospect.name}</span>
-                    <span className="ls-sug-meta">{prospect.position} · {prospect.school}</span>
+                    <span className="ls-sug-meta">
+                      {prospect.position} · {prospect.school}
+                      {mappedCopyForProspect(prospect.id) ? ` · ${mappedCopyForProspect(prospect.id)}` : ""}
+                    </span>
                   </div>
                   <button
                     className="ls-sug-lock"
                     type="button"
                     onClick={() => handleLockIn(prospect.id)}
                   >
-                    Lock in →
+                    {isPredraft ? "Use →" : "Lock in →"}
                   </button>
                 </div>
               ))}
@@ -201,17 +227,24 @@ export default function LiveStage({
           {/* Results */}
           {searchResults.length > 0 ? (
             <div className="ls-search-results">
-              <div className="ls-search-results-label">Your board order · tap to lock in instantly</div>
+              <div className="ls-search-results-label">
+                {isPredraft ? "Your board order · click to save and advance" : "Your board order · tap to lock in instantly"}
+              </div>
               {searchResults.map((p) => {
                 const rank = boardIds.indexOf(p.id) + 1;
+                const mappedCopy = mappedCopyForProspect(p.id);
                 return (
-                  <div key={p.id} className="ls-sr-row" onClick={() => handleLockIn(p.id)}>
+                  <div key={p.id} className={`ls-sr-row ${isPredraft ? "predraft" : ""}`} onClick={() => handleLockIn(p.id)}>
                     <div className="ls-sr-rank">#{rank > 0 ? rank : "—"}</div>
                     <ProspectAvatar prospect={p} size="sm" />
-                    <div className="ls-sr-name">{p.name}</div>
-                    <div className="ls-sr-pos">{p.position}</div>
-                    <div className="ls-sr-school">{p.school}</div>
-                    <div className="ls-sr-select">Lock in →</div>
+                    <div className="ls-sr-copy">
+                      <div className="ls-sr-name-row">
+                        <div className="ls-sr-name">{p.name}</div>
+                        {mappedCopy ? <span className="ls-sr-note">{mappedCopy}</span> : null}
+                      </div>
+                      <div className="ls-sr-meta">{p.position} · {p.school}</div>
+                    </div>
+                    <div className="ls-sr-select">{isPredraft ? "Use →" : "Lock in →"}</div>
                   </div>
                 );
               })}

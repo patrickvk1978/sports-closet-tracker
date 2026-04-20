@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { LayoutGroup, motion } from "framer-motion";
 import BigBoardTable from "../components/BigBoardTable";
 import LiveStage from "../components/LiveStage";
-import ProspectAvatar from "../components/ProspectAvatar";
 import SubmitWindowBanner from "../components/SubmitWindowBanner";
 import CenterFeed from "../components/CenterFeed";
 import { SkeletonPanel } from "../components/Skeleton";
@@ -22,26 +21,11 @@ function countdownCopy(status) {
   return "SCORED";
 }
 
-const NAME_SUFFIXES = new Set(["JR", "JR.", "SR", "SR.", "II", "III", "IV", "V"]);
 const EXTERNAL_MOCK_SOURCES = [
   { key: "pff_mock_pick", label: "PFF mock" },
   { key: "athletic_mock_pick", label: "Athletic mock" },
   { key: "ringer_mock_pick", label: "Ringer mock" },
 ];
-
-function formatChipPlayerName(name) {
-  if (!name) return "";
-  const parts = name.trim().split(/\s+/);
-  if (!parts.length) return "";
-
-  const firstInitial = parts[0]?.[0] ? `${parts[0][0]}.` : "";
-  const lastToken = parts[parts.length - 1];
-  const hasSuffix = NAME_SUFFIXES.has(lastToken.toUpperCase());
-  const lastName = hasSuffix ? parts[parts.length - 2] : lastToken;
-  const suffix = hasSuffix ? ` ${lastToken}` : "";
-
-  return lastName ? `${firstInitial} ${lastName}${suffix}`.trim() : name;
-}
 
 export default function LiveDraftView() {
   const navigate = useNavigate();
@@ -67,7 +51,7 @@ export default function LiveDraftView() {
 
   const [selectedPick, setSelectedPick] = useState(1);
   const [liveTab, setLiveTab] = useState("draft");
-  const [pdTab, setPdTab] = useState("picks");
+  const [pdTab, setPdTab] = useState("command");
   const [leftTab, setLeftTab] = useState("picks"); // "picks" | "feed"
   const [devPhase, setDevPhase] = useState(null); // admin override
 
@@ -117,20 +101,16 @@ export default function LiveDraftView() {
   const totalPicks = picks.length || 32;
   const filledPct = Math.round((filledCount / totalPicks) * 100);
 
-  const nextUnsetPick = picks.find((p) => !livePredictions[p.number]);
-  const nextUnsetTeam = nextUnsetPick ? teams[teamForPick(nextUnsetPick)] : null;
   const focusedPreDraftPick =
     picks.find((p) => p.number === selectedPick) ??
-    nextUnsetPick ??
     picks[0] ??
     null;
   const focusedPreDraftTeam = focusedPreDraftPick ? teams[teamForPick(focusedPreDraftPick)] : null;
   const focusedPreDraftPrediction = focusedPreDraftPick
     ? getProspectById(livePredictions[focusedPreDraftPick.number])
     : null;
-  const isFocusedPickUnset = Boolean(focusedPreDraftPick && !livePredictions[focusedPreDraftPick.number]);
 
-  const nextUnsetSuggestions = useMemo(() => {
+  const focusedPreDraftSuggestions = useMemo(() => {
     if (!focusedPreDraftPick || !focusedPreDraftTeam) return [];
     const teamNeeds = new Set(focusedPreDraftTeam.needs ?? []);
     const usedIds = new Set(Object.values(livePredictions));
@@ -287,6 +267,26 @@ export default function LiveDraftView() {
     return acc;
   }, {});
 
+  const mappedPredictionContextByProspectId = Object.entries(livePredictions).reduce((acc, [num, id]) => {
+    if (!id) return acc;
+    const pickNumber = Number(num);
+    const pick = picks.find((entry) => entry.number === pickNumber);
+    const teamName = pick ? teams[teamForPick(pick)]?.name : null;
+    acc[id] = teamName ? `${teamName} at ${getPickLabel(pickNumber)}` : getPickLabel(pickNumber);
+    return acc;
+  }, {});
+
+  function advanceToNextPick(fromPickNumber) {
+    const currentIndex = picks.findIndex((pick) => pick.number === fromPickNumber);
+    const nextPickNumber = picks[currentIndex + 1]?.number ?? fromPickNumber;
+    setSelectedPick(nextPickNumber);
+  }
+
+  function handlePreDraftAssign(pickNumber, prospectId) {
+    saveLivePrediction(pickNumber, prospectId);
+    advanceToNextPick(pickNumber);
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <>
@@ -336,213 +336,112 @@ export default function LiveDraftView() {
 
       {/* ══ PRE-DRAFT ══════════════════════════════════════════════════════ */}
       {isPreDraft && (
-        <div className="predraft-v2">
-
-          {/* Compact status bar: progress + countdown, single row */}
-          <div className="pd-status-bar">
-            <span className="pd-status-count">
-              {filledCount === totalPicks
-                ? "All 32 picks queued ✓"
-                : <><strong>{filledCount}</strong> of {totalPicks} picks set</>}
-            </span>
-            <div className="pd-status-track">
-              <div className="pd-status-fill" style={{ width: `${filledPct}%` }} />
+        pdTab === "board" ? (
+          <>
+            <div className="pd-board-ctx">
+              <span className="pd-board-ctx-label">Assigning for</span>
+              <strong>{getPickLabel(selectedPick)}</strong>
+              {focusedPreDraftTeam?.name ? <span className="pd-board-ctx-team">· {focusedPreDraftTeam.name}</span> : null}
+              <button
+                className="pd-board-ctx-back"
+                type="button"
+                onClick={() => setPdTab("command")}
+              >
+                ← Back to draft list
+              </button>
             </div>
-            {!countdown.expired && (
-              <div className="pd-status-countdown">⏱ Draft in {countdown.label}</div>
-            )}
-          </div>
-
-          {/* Tabs: My Picks / Big Board */}
-          <div className="pd-tabs">
-            <button
-              className={`pd-tab ${pdTab === "picks" ? "active" : ""}`}
-              type="button"
-              onClick={() => setPdTab("picks")}
-            >
-              My Picks
-            </button>
-            <button
-              className={`pd-tab ${pdTab === "board" ? "active" : ""}`}
-              type="button"
-              onClick={() => setPdTab("board")}
-            >
-              Big Board
-            </button>
-          </div>
-
-          {/* ── My Picks tab ── */}
-          {pdTab === "picks" && (
-            <>
-              {/* Next Unset Pick feature card */}
-              {focusedPreDraftPick && (
-                <div className="next-pick-featured">
-                  <div className="npf-num">{focusedPreDraftPick.number}</div>
-
-                  <div className="npf-team-block">
-                    <div className="npf-sub">{isFocusedPickUnset ? "Next unset pick" : "Selected pick"}</div>
-                    <div className="npf-team">{focusedPreDraftTeam?.name ?? "—"}</div>
-                    {focusedPreDraftTeam?.needs?.length ? (
-                      <div className="npf-needs">
-                        Needs {focusedPreDraftTeam.needs.join(" · ")}
-                      </div>
-                    ) : null}
-                    {focusedPreDraftPrediction ? (
-                      <div className="npf-current-pick">
-                        <ProspectAvatar
-                          prospect={focusedPreDraftPrediction}
-                          size="md"
-                          className="npf-current-avatar"
-                        />
-                        <div className="npf-current-copy">
-                          <span className="npf-current-label">Current pick</span>
-                          <strong>{focusedPreDraftPrediction.name}</strong>
-                          <span className="npf-current-meta">
-                            {focusedPreDraftPrediction.position} · {focusedPreDraftPrediction.school}
-                          </span>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="npf-right">
-                    <div className="npf-head">
-                      <div className="npf-label">Suggested options</div>
-                      <button
-                        className="npf-browse-link"
-                        type="button"
-                        onClick={() => setPdTab("board")}
-                      >
-                        Browse all →
-                      </button>
-                    </div>
-                    <div className="npf-suggest">
-                      {nextUnsetSuggestions.map(({ prospect, sourceLabel }, index) => (
-                        <div key={`${sourceLabel}-${prospect.id}`} className={`suggest-card featured ${index > 0 ? "mocked" : "board"}`}>
-                          <div className="sc-source">{sourceLabel}</div>
-                          <div className="sc-player-row">
-                            <ProspectAvatar prospect={prospect} size="sm" className="sc-avatar" />
-                            <div className="sc-player-copy">
-                              <div className="sc-name">{prospect.name}</div>
-                              <div className="sc-pos">{prospect.position} · {prospect.school}</div>
-                            </div>
-                          </div>
-                          {index === 0 ? (
-                            <div className="sc-rank">#{bigBoardIds.indexOf(prospect.id) + 1} on your board</div>
-                          ) : (
-                            <div className="sc-rank">Mocked to Pick {focusedPreDraftPick.number}</div>
-                          )}
-                          <button
-                            className="suggest-use-btn"
-                            type="button"
-                            onClick={() => saveLivePrediction(focusedPreDraftPick.number, prospect.id)}
-                          >
-                            Use for Pick {focusedPreDraftPick.number}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+            <BigBoardTable
+              title="Big Board"
+              subtitle="Your ranking engine — maps players to picks and powers auto-submit"
+              boardIds={bigBoardIds}
+              onMove={moveBigBoardItem}
+              draftedIds={draftedIds}
+              mappedPickByProspectId={mappedPickByProspectId}
+              selectedPickLabel={getPickLabel(selectedPick)}
+              assignLabel={`Use for ${getPickLabel(selectedPick)}`}
+              onAssignSelectedProspect={(prospectId) => {
+                handlePreDraftAssign(selectedPick, prospectId);
+                setPdTab("command");
+              }}
+            />
+          </>
+        ) : (
+          <div className="pd-shell">
+            <div className="pd-subbar">
+              <span className="pd-progress-copy">
+                {filledCount === totalPicks ? "All 32 picks queued" : `${filledCount} of ${totalPicks} picks set`}
+              </span>
+              <div className="pd-progress-track">
+                <div className="pd-progress-fill" style={{ width: `${filledPct}%` }} />
+              </div>
+              {!countdown.expired ? (
+                <span className="pd-countdown-copy">Draft starts in {countdown.label}</span>
+              ) : (
+                <span className="pd-countdown-copy live">Draft is live</span>
               )}
+            </div>
 
-              {/* 32-pick chip grid */}
-              <div className="pd-grid-label">All 32 picks — click any to set or change</div>
-              <div className="picks-grid">
-                {picks.map((pick) => {
-                  const prediction = getProspectById(livePredictions[pick.number]);
-                  const team = teams[teamForPick(pick)];
-                  const teamName = team?.name ?? `Pick ${pick.number}`;
-                  // Abbreviate team name to first word (Raiders, Jets, Browns…)
-                  const teamAbbr = teamName.split(" ").slice(-1)[0];
-                  const isFilled = Boolean(prediction);
-                  const isActive = selectedPick === pick.number;
-                  const playerAbbr = prediction ? formatChipPlayerName(prediction.name) : null;
-                  return (
-                    <div
-                      key={pick.number}
-                      className={`pick-chip-wrap ${isFilled ? "filled" : "empty"} ${isActive ? "active" : ""}`}
-                    >
-                      {isFilled ? (
-                        <button
-                          className="pick-chip-clear"
-                          type="button"
-                          aria-label={`Clear pick ${pick.number}`}
-                          title={`Clear pick ${pick.number}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            saveLivePrediction(pick.number, null);
-                            if (selectedPick === pick.number) {
-                              setSelectedPick(pick.number);
-                            }
-                          }}
-                        >
-                          ×
-                        </button>
-                      ) : null}
+            <div className="pd-body">
+              <div className="pd-left">
+                <div className="pd-left-tabs">
+                  <div className="pd-left-tab active">Draft list</div>
+                </div>
+                <div className="pd-left-picks">
+                  {picks.map((pick) => {
+                    const prediction = getProspectById(livePredictions[pick.number]);
+                    const teamName = teams[teamForPick(pick)]?.name ?? "";
+                    const isActive = pick.number === selectedPick;
+                    return (
                       <button
-                        className={`pick-chip ${isFilled ? "filled" : "empty"} ${isActive ? "active" : ""}`}
+                        key={pick.number}
+                        className={`pd-pick-row ${isActive ? "active" : ""} ${prediction ? "filled" : "empty"}`}
                         type="button"
-                        title={isFilled ? `${prediction.name} → ${teamName}` : teamName}
-                        onClick={() => {
-                          setSelectedPick(pick.number);
-                        }}
+                        onClick={() => setSelectedPick(pick.number)}
                       >
-                        <span className="pc-num">{pick.number}</span>
-                        {isFilled ? (
-                          <>
-                            <span className="pc-player">{playerAbbr}</span>
-                            <span className="pc-meta">{prediction.position}</span>
-                            <span className="pc-team">{teamAbbr}</span>
-                          </>
-                        ) : (
-                          <span className="pc-team">{teamAbbr}</span>
-                        )}
-                        {isActive && <span className="pc-editing">editing</span>}
+                        <span className="pd-pr-num">{pick.number}</span>
+                        <span className="pd-pr-body">
+                          <span className="pd-pr-team">{teamName}</span>
+                          <span className={`pd-pr-pick ${prediction ? "filled" : ""}`}>
+                            {prediction ? `Prediction: ${prediction.name}` : "No prediction yet"}
+                          </span>
+                        </span>
                       </button>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </>
-          )}
 
-          {/* ── Big Board tab ── */}
-          {pdTab === "board" && (
-            <>
-              <div className="pd-board-ctx">
-                <span className="pd-board-ctx-label">Assigning for</span>
-                <strong>{getPickLabel(selectedPick)}</strong>
-                {(() => {
-                  const selPick = picks.find((p) => p.number === selectedPick);
-                  const selTeam = selPick ? teams[teamForPick(selPick)]?.name : null;
-                  return selTeam ? <span className="pd-board-ctx-team">· {selTeam}</span> : null;
-                })()}
-                <button
-                  className="pd-board-ctx-back"
-                  type="button"
-                  onClick={() => setPdTab("picks")}
-                >
-                  ← All picks
-                </button>
+              <div className="pd-center">
+                <LiveStage
+                  variant="predraft"
+                  currentPick={focusedPreDraftPick}
+                  currentTeam={focusedPreDraftTeam}
+                  currentStatus="on_clock"
+                  currentLocked={false}
+                  currentSelection={focusedPreDraftPrediction}
+                  suggestedProspect={focusedPreDraftPrediction}
+                  expertSuggestions={focusedPreDraftSuggestions.map(({ prospect, sourceLabel }) => ({
+                    prospect,
+                    label: sourceLabel,
+                  }))}
+                  countdownLabel={countdown.label}
+                  actualPick={null}
+                  poolState={[]}
+                  boardIds={bigBoardIds}
+                  prospects={prospects}
+                  draftedIds={draftedIds}
+                  mappedPickByProspectId={mappedPredictionContextByProspectId}
+                  onLockIn={(prospectId) => handlePreDraftAssign(selectedPick, prospectId)}
+                  onChangePick={() => saveLivePrediction(selectedPick, null)}
+                  nextPickLabel={null}
+                  onNextPick={() => {}}
+                  scoringConfig={scoringConfig}
+                  onViewBigBoard={() => setPdTab("board")}
+                />
               </div>
-              <BigBoardTable
-                title="Big Board"
-                subtitle="Your ranking engine — maps players to picks and powers auto-submit"
-                boardIds={bigBoardIds}
-                onMove={moveBigBoardItem}
-                draftedIds={draftedIds}
-                mappedPickByProspectId={mappedPickByProspectId}
-                selectedPickLabel={getPickLabel(selectedPick)}
-                assignLabel={`Use for ${getPickLabel(selectedPick)}`}
-                onAssignSelectedProspect={(prospectId) => {
-                  saveLivePrediction(selectedPick, prospectId);
-                  setPdTab("picks");
-                }}
-              />
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )
       )}
 
       {/* ══ LIVE DRAFT — Big Board tab ══════════════════════════════════════ */}
@@ -603,6 +502,7 @@ export default function LiveDraftView() {
                     const rowClass = pickRowClass(pick);
                     const actualId = draftFeed.actual_picks?.[pick.number];
                     const actualProspect = getProspectById(actualId);
+                    const predictedProspect = getProspectById(livePredictions[pick.number]);
                     const teamName = teams[teamForPick(pick)]?.name ?? "";
                     const isCurrent = pick.number === currentPickNumber;
                     return (
@@ -619,6 +519,8 @@ export default function LiveDraftView() {
                             <span className="dn-pr-pick">{actualProspect.name}</span>
                           ) : isCurrent ? (
                             <span className="dn-pr-pick" style={{ color: "var(--dn-red)", opacity: 0.7 }}>on the clock</span>
+                          ) : predictedProspect ? (
+                            <span className="dn-pr-pick prediction">Prediction: {predictedProspect.name}</span>
                           ) : null}
                         </div>
                         {rowClass === "done-hit" && <span className="dn-pr-result hit">✓</span>}
