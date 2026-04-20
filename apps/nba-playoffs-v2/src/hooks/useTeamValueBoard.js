@@ -67,8 +67,9 @@ export function useTeamValueBoard(teamEntries) {
   async function persistAssignments(nextAssignments, options = {}) {
     const targetUserId = options.targetUserId ?? currentUserId;
     const shouldCacheLocally = targetUserId === currentUserId;
+    const forceSupabase = Boolean(options.forceSupabase);
 
-    if (!pool?.id || !targetUserId || persistenceMode !== "supabase") {
+    if (!pool?.id || !targetUserId || (!forceSupabase && persistenceMode !== "supabase")) {
       if (shouldCacheLocally) {
         writeLocalBoard(pool?.id, nextAssignments);
       }
@@ -163,7 +164,7 @@ export function useTeamValueBoard(teamEntries) {
 
         if (!dbIsValid && localIsValid) {
           nextByUser[currentUserId] = localCurrent;
-          void persistAssignments(localCurrent, { targetUserId: currentUserId });
+          void persistAssignments(localCurrent, { targetUserId: currentUserId, forceSupabase: true });
         }
       }
 
