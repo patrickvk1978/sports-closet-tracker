@@ -14,6 +14,7 @@ import { useSubmitWindow } from "../hooks/useSubmitWindow";
 import { useBigBoard } from "../hooks/useBigBoard";
 import { useLiveDraft } from "../hooks/useLiveDraft";
 import { useReferenceData } from "../hooks/useReferenceData";
+import { useWatchlists } from "../hooks/useWatchlists";
 
 function countdownCopy(status) {
   if (status === "on_clock") return "04:18";
@@ -47,6 +48,7 @@ export default function LiveDraftView() {
     liveResultForPick,
     resolveLivePickForUser,
   } = useLiveDraft({ draftFeed, teamCodeForPick });
+  const { watchlistsByTeam, addToWatchlist, removeFromWatchlist } = useWatchlists();
   const countdown = useCountdown();
 
   const [selectedPick, setSelectedPick] = useState(1);
@@ -251,6 +253,24 @@ export default function LiveDraftView() {
   const livePrimarySuggestion = liveRecommendationCards[0] ?? null;
   const expertSuggestions = liveRecommendationCards.slice(1);
 
+  // ── Watchlist derivations ─────────────────────────────────────────────────
+  const focusedTeamCode = focusedPreDraftPick ? teamForPick(focusedPreDraftPick) : null;
+  const currentTeamCode = currentPick ? teamForPick(currentPick) : null;
+  const focusedWatchlistIds = focusedTeamCode ? (watchlistsByTeam[focusedTeamCode] ?? []) : [];
+  const currentWatchlistIds = currentTeamCode ? (watchlistsByTeam[currentTeamCode] ?? []) : [];
+
+  // Live suggestions: watchlist entries for current team, exclude drafted and the PREDICTED primary
+  const liveWatchlistSuggestions = useMemo(() => {
+    if (!currentWatchlistIds.length) return [];
+    const primaryId = livePrimarySuggestion?.prospect?.id;
+    const expertIds = new Set((expertSuggestions ?? []).map((s) => s.prospect?.id));
+    return currentWatchlistIds
+      .filter((pid) => pid && pid !== primaryId && !expertIds.has(pid) && !draftedIds.has(pid))
+      .map((pid) => ({ label: "Watchlist", prospect: getProspectById(pid) }))
+      .filter((x) => x.prospect);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentWatchlistIds, livePrimarySuggestion, expertSuggestions, draftedIds, prospects]);
+
   // ── Pool state for LiveStage ───────────────────────────────────────────────
 
   const meId = profile?.id;
@@ -391,17 +411,20 @@ export default function LiveDraftView() {
             </div>
             <BigBoardTable
               title="Big Board"
-              subtitle="Your ranking engine — maps players to picks and powers auto-submit"
+              subtitle="Your ranking engine — assign any player to any pick or a team's watchlist"
               boardIds={bigBoardIds}
               onMove={moveBigBoardItem}
               draftedIds={draftedIds}
               mappedPickByProspectId={mappedPickByProspectId}
-              selectedPickLabel={getPickLabel(selectedPick)}
-              assignLabel={`Use for ${getPickLabel(selectedPick)}`}
-              onAssignSelectedProspect={(prospectId) => {
-                handlePreDraftAssign(selectedPick, prospectId);
-                setPdTab("command");
+              livePredictions={livePredictions}
+              watchlistsByTeam={watchlistsByTeam}
+              teamCodeForPick={(pickNumber) => {
+                const pick = picks.find((p) => p.number === pickNumber);
+                return pick ? teamForPick(pick) : null;
               }}
+              onSetPrediction={(pickNumber, prospectId) => saveLivePrediction(pickNumber, prospectId)}
+              onAddToWatchlist={(teamCode, prospectId) => addToWatchlist(teamCode, prospectId)}
+              onRemoveFromWatchlist={(teamCode, prospectId) => removeFromWatchlist(teamCode, prospectId)}
             />
           </>
         ) : (
@@ -427,8 +450,10 @@ export default function LiveDraftView() {
                 <div className="pd-left-picks">
                   {picks.map((pick) => {
                     const prediction = getProspectById(livePredictions[pick.number]);
-                    const teamName = teams[teamForPick(pick)]?.name ?? "";
+                    const teamCode = teamForPick(pick);
+                    const teamName = teams[teamCode]?.name ?? "";
                     const isActive = pick.number === selectedPick;
+                    const wlCount = teamCode ? (watchlistsByTeam[teamCode]?.length ?? 0) : 0;
                     return (
                       <button
                         key={pick.number}
@@ -438,7 +463,14 @@ export default function LiveDraftView() {
                       >
                         <span className="pd-pr-num">{pick.number}</span>
                         <span className="pd-pr-body">
-                          <span className="pd-pr-team">{teamName}</span>
+                          <span className="pd-pr-team">
+                            {teamName}
+                            {wlCount > 0 ? (
+                              <span style={{ marginLeft: 6, fontSize: 10, color: "var(--dn-muted, #8b95a6)" }}>
+                                ◆ {wlCount}
+                              </span>
+                            ) : null}
+                          </span>
                           <span className={`pd-pr-pick ${prediction ? "filled" : ""}`}>
                             {prediction ? `Prediction: ${prediction.name}` : "No prediction yet"}
                           </span>
@@ -476,6 +508,16 @@ export default function LiveDraftView() {
                   onNextPick={() => {}}
                   scoringConfig={scoringConfig}
                   onViewBigBoard={() => setPdTab("board")}
+                  predraftWatchlist={focusedWatchlistIds}
+                  allProspects={prospects}
+                  onAddToWatchlist={async (prospectId) => {
+                    if (!focusedTeamCode) return;
+                    await addToWatchlist(focusedTeamCode, prospectId);
+                  }}
+                  onRemoveFromWatchlist={async (prospectId) => {
+                    if (!focusedTeamCode) return;
+                    await removeFromWatchlist(focusedTeamCode, prospectId);
+                  }}
                 />
               </div>
             </div>
@@ -492,9 +534,15 @@ export default function LiveDraftView() {
           onMove={moveBigBoardItem}
           draftedIds={draftedIds}
           mappedPickByProspectId={mappedPickByProspectId}
-          selectedPickLabel={getPickLabel(currentPickNumber)}
-          assignLabel={`Use for Pick ${currentPickNumber}`}
-          onAssignSelectedProspect={(prospectId) => saveLivePrediction(currentPickNumber, prospectId)}
+          livePredictions={livePredictions}
+          watchlistsByTeam={watchlistsByTeam}
+          teamCodeForPick={(pickNumber) => {
+            const pick = picks.find((p) => p.number === pickNumber);
+            return pick ? teamForPick(pick) : null;
+          }}
+          onSetPrediction={(pickNumber, prospectId) => saveLivePrediction(pickNumber, prospectId)}
+          onAddToWatchlist={(teamCode, prospectId) => addToWatchlist(teamCode, prospectId)}
+          onRemoveFromWatchlist={(teamCode, prospectId) => removeFromWatchlist(teamCode, prospectId)}
         />
       )}
 
@@ -601,6 +649,7 @@ export default function LiveDraftView() {
                 nextPickLabel={nextPickLabel}
                 onNextPick={() => {}}
                 scoringConfig={scoringConfig}
+                watchlistSuggestions={liveWatchlistSuggestions}
               />
             </div>
 

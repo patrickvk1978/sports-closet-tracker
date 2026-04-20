@@ -34,9 +34,16 @@ export default function LiveStage({
   scoringConfig,        // { tier_1..4, streak_threshold, streak_multiplier }
   mappedPickByProspectId = {}, // { [prospectId]: string }
   onViewBigBoard,       // () => void — optional big board route
+  watchlistSuggestions = [], // [{ prospect, label? }] — team-specific watchlist (live view)
+  predraftWatchlist = [],    // [prospectId | prospect] — inline strip under pos chips (pre-draft)
+  watchlistCapacity = 4,     // max per-team
+  onAddToWatchlist,          // (prospectId) => void — pre-draft strip
+  onRemoveFromWatchlist,     // (prospectId) => void — pre-draft strip
+  allProspects = [],         // Prospect[] — needed to resolve watchlist ids
 }) {
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState("All");
+  const [wlPickerOpen, setWlPickerOpen] = useState(false);
 
   const isPredraft = variant === "predraft";
   const isActualPredraftSelection = isPredraft && suggestedProspectLabel === "Current";
@@ -153,53 +160,85 @@ export default function LiveStage({
       {/* ══ STATE: on_clock — always show suggestions + search ══ */}
       {stage === "on_clock" && (
         <>
-          {/* Suggestions bar: queue pick + expert picks */}
-          {(suggestedProspect || (expertSuggestions && expertSuggestions.length > 0)) && (
-            <div className="ls-suggestions-bar">
-              {suggestedProspect && (
-                <div className={`ls-suggestion-row queue ${isPredraft ? "predraft" : ""}`}>
-                  <div className="ls-sug-label">{suggestedProspectLabel ?? (isPredraft ? "Current prediction" : "Your Queue Pick")}</div>
-                  <ProspectAvatar prospect={suggestedProspect} size="sm" />
-                  <div className="ls-sug-info">
-                    <span className="ls-sug-name">{suggestedProspect.name}</span>
-                    <span className="ls-sug-meta">
-                      {suggestedProspect.position} · {suggestedProspect.school}
-                      {boardIds.indexOf(suggestedProspect.id) !== -1
-                        ? ` · #${boardIds.indexOf(suggestedProspect.id) + 1} on board`
-                        : ""}
-                    </span>
+          {/* Suggestions: PREDICTED (full-width) + flexible grid (experts + watchlist) */}
+          {(suggestedProspect || (expertSuggestions && expertSuggestions.length > 0) || (watchlistSuggestions && watchlistSuggestions.length > 0)) && (() => {
+            // Dedup expert suggestions by prospect id (if two experts agree, merge)
+            const dedup = [];
+            for (const s of (expertSuggestions ?? [])) {
+              if (!s?.prospect) continue;
+              const existing = dedup.find(d => d.prospect.id === s.prospect.id);
+              if (existing) {
+                existing.label = [existing.label, s.label].filter(Boolean).join(" / ");
+              } else {
+                dedup.push({ label: s.label, prospect: s.prospect });
+              }
+            }
+            const gridItems = [
+              ...dedup.map(x => ({ kind: "expert", ...x })),
+              ...(watchlistSuggestions ?? [])
+                .filter(w => w?.prospect)
+                .map(w => ({ kind: "watchlist", label: w.label ?? "Watchlist", prospect: w.prospect })),
+            ];
+            const colCount = Math.max(1, Math.min(4, gridItems.length || 1));
+            return (
+              <div className="ls-suggestions-bar">
+                {suggestedProspect && (
+                  <div className={`ls-suggestion-row queue primary ${isPredraft ? "predraft" : ""}`} style={{ width: "100%" }}>
+                    <div className="ls-sug-label">{suggestedProspectLabel ?? (isPredraft ? "Current prediction" : "PREDICTED")}</div>
+                    <ProspectAvatar prospect={suggestedProspect} size="sm" />
+                    <div className="ls-sug-info">
+                      <span className="ls-sug-name">{suggestedProspect.name}</span>
+                      <span className="ls-sug-meta">
+                        {suggestedProspect.position} · {suggestedProspect.school}
+                        {boardIds.indexOf(suggestedProspect.id) !== -1
+                          ? ` · #${boardIds.indexOf(suggestedProspect.id) + 1} on board`
+                          : ""}
+                      </span>
+                    </div>
+                    <button
+                      className="ls-sug-lock"
+                      type="button"
+                      onClick={() => handleLockIn(suggestedProspect.id)}
+                    >
+                      {isPredraft ? (isActualPredraftSelection ? "Update →" : "Use →") : "Lock in →"}
+                    </button>
                   </div>
-                  <button
-                    className="ls-sug-lock"
-                    type="button"
-                    onClick={() => handleLockIn(suggestedProspect.id)}
+                )}
+                {gridItems.length > 0 && (
+                  <div
+                    className="ls-sug-grid"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+                      gap: 8,
+                      width: "100%",
+                    }}
                   >
-                    {isPredraft ? (isActualPredraftSelection ? "Update →" : "Use →") : "Lock in →"}
-                  </button>
-                </div>
-              )}
-              {(expertSuggestions ?? []).map(({ label, prospect }) => (
-                <div key={prospect.id} className={`ls-suggestion-row expert ${isPredraft ? "predraft" : ""}`}>
-                  <div className="ls-sug-label">{label}</div>
-                  <ProspectAvatar prospect={prospect} size="sm" />
-                  <div className="ls-sug-info">
-                    <span className="ls-sug-name">{prospect.name}</span>
-                    <span className="ls-sug-meta">
-                      {prospect.position} · {prospect.school}
-                      {mappedCopyForProspect(prospect.id) ? ` · ${mappedCopyForProspect(prospect.id)}` : ""}
-                    </span>
+                    {gridItems.map(({ kind, label, prospect }) => (
+                      <div key={`${kind}-${prospect.id}`} className={`ls-suggestion-row ${kind} ${isPredraft ? "predraft" : ""}`}>
+                        <div className="ls-sug-label">{label}</div>
+                        <ProspectAvatar prospect={prospect} size="sm" />
+                        <div className="ls-sug-info">
+                          <span className="ls-sug-name">{prospect.name}</span>
+                          <span className="ls-sug-meta">
+                            {prospect.position} · {prospect.school}
+                            {mappedCopyForProspect(prospect.id) ? ` · ${mappedCopyForProspect(prospect.id)}` : ""}
+                          </span>
+                        </div>
+                        <button
+                          className="ls-sug-lock"
+                          type="button"
+                          onClick={() => handleLockIn(prospect.id)}
+                        >
+                          {isPredraft ? "Use →" : "Lock in →"}
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  <button
-                    className="ls-sug-lock"
-                    type="button"
-                    onClick={() => handleLockIn(prospect.id)}
-                  >
-                    {isPredraft ? "Use →" : "Lock in →"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
 
           {/* Search field */}
           <div className="ls-search-wrap">
@@ -225,6 +264,105 @@ export default function LiveStage({
               </button>
             ))}
           </div>
+
+          {/* Pre-draft watchlist strip (avatar-only, minimal) */}
+          {isPredraft && onAddToWatchlist && (() => {
+            const resolve = (pid) => {
+              if (pid && typeof pid === "object") return pid;
+              return allProspects.find((p) => p.id === pid) ?? null;
+            };
+            const wlProspects = (predraftWatchlist ?? []).map(resolve).filter(Boolean);
+            const slots = Math.max(0, watchlistCapacity - wlProspects.length);
+            const wlIds = new Set(wlProspects.map((p) => p.id));
+            const predictedId = suggestedProspect?.id;
+            const pickerCandidates = prospects
+              .filter((p) => !draftedIds.has(p.id) && !wlIds.has(p.id) && p.id !== predictedId)
+              .sort((a, b) => {
+                const ia = boardIds.indexOf(a.id); const ib = boardIds.indexOf(b.id);
+                return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
+              })
+              .slice(0, 8);
+            return (
+              <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, marginTop: 2, minHeight: 32 }}>
+                <span style={{ fontSize: 10, letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", textTransform: "uppercase", marginRight: 4 }}>
+                  Watchlist
+                </span>
+                {wlProspects.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onRemoveFromWatchlist && onRemoveFromWatchlist(p.id)}
+                    title={`${p.name} — click to remove`}
+                    style={{ padding: 0, background: "none", border: "none", cursor: "pointer", lineHeight: 0 }}
+                  >
+                    <ProspectAvatar prospect={p} size="sm" />
+                  </button>
+                ))}
+                {Array.from({ length: slots }).map((_, i) => (
+                  <button
+                    key={`empty-${i}`}
+                    type="button"
+                    onClick={() => setWlPickerOpen((v) => !v)}
+                    title="Add to watchlist"
+                    style={{
+                      width: 28, height: 28, borderRadius: "50%",
+                      border: "1px dashed var(--dn-muted, #6b7380)",
+                      background: "transparent", color: "var(--dn-muted, #8b95a6)",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 14, cursor: "pointer", padding: 0,
+                    }}
+                  >
+                    +
+                  </button>
+                ))}
+                {wlPickerOpen && (
+                  <div
+                    style={{
+                      position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 20,
+                      background: "var(--dn-card, #1b2230)", border: "1px solid var(--dn-border, #2a3341)",
+                      borderRadius: 8, padding: 6, minWidth: 260, boxShadow: "0 12px 28px rgba(0,0,0,0.45)",
+                    }}
+                  >
+                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", padding: "4px 6px" }}>
+                      Add to watchlist
+                    </div>
+                    {pickerCandidates.map((p) => (
+                      <div
+                        key={p.id}
+                        onClick={async () => {
+                          if (onAddToWatchlist) await onAddToWatchlist(p.id);
+                          setWlPickerOpen(false);
+                        }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
+                          borderRadius: 6, cursor: "pointer", fontSize: 12,
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      >
+                        <ProspectAvatar prospect={p} size="sm" />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ color: "var(--dn-text, #e6ebf2)", fontWeight: 600 }}>{p.name}</div>
+                          <div style={{ color: "var(--dn-muted, #8b95a6)", fontSize: 11 }}>{p.position} · {p.school}</div>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setWlPickerOpen(false)}
+                      style={{
+                        width: "100%", marginTop: 4, padding: "6px 8px", fontSize: 11,
+                        background: "none", border: "none", color: "var(--dn-muted, #8b95a6)",
+                        cursor: "pointer", textAlign: "center",
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Results */}
           {searchResults.length > 0 ? (

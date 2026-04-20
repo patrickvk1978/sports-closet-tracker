@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useReferenceData } from "../hooks/useReferenceData";
 import { SkeletonBoardTable } from "./Skeleton";
 import EmptyState from "./EmptyState";
 import ProspectAvatar from "./ProspectAvatar";
+import AssignPopover from "./AssignPopover";
 
 const RANK_SOURCES = [
   { value: "your_rank",      label: "Your Rank",       field: null },
@@ -46,7 +47,15 @@ export default function BigBoardTable({
   selectedPickLabel,
   assignLabel = "Make Current Pick",
   onAssignSelectedProspect,
+  // New unified picker props (opt-in)
+  livePredictions,          // { [pickNumber]: prospectId }
+  watchlistsByTeam,         // { [teamCode]: prospectId[] }
+  teamCodeForPick,          // (pickNumber) => teamCode
+  onSetPrediction,          // (pickNumber, prospectId) => void
+  onAddToWatchlist,         // (teamCode, prospectId) => void
+  onRemoveFromWatchlist,    // (teamCode, prospectId) => void
 }) {
+  const rowPickerEnabled = Boolean(onSetPrediction || onAddToWatchlist);
   const { prospects, picks, teams, getProspectById, loading: refLoading } = useReferenceData();
   const [search, setSearch] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
@@ -54,6 +63,8 @@ export default function BigBoardTable({
   const [rankSource, setRankSource] = useState("your_rank");
   const [mockSource, setMockSource] = useState("consensus_mock");
   const [selectedProspectId, setSelectedProspectId] = useState(boardIds[0] ?? null);
+  const [assignOpenFor, setAssignOpenFor] = useState(null);
+  const assignAnchorRef = useRef(null);
 
   useEffect(() => {
     if (!selectedProspectId && boardIds.length > 0) setSelectedProspectId(boardIds[0]);
@@ -153,8 +164,8 @@ export default function BigBoardTable({
         )}
       </div>
 
-      {/* Player select + assign */}
-      {(viewMode === "rankings" || (viewMode === "mocks" && onAssignSelectedProspect)) && (
+      {/* Player select + assign — hidden when per-row picker is active */}
+      {!rowPickerEnabled && (viewMode === "rankings" || (viewMode === "mocks" && onAssignSelectedProspect)) && (
         <div className="board-action-bar">
           <div className="board-selected-player">
             <ProspectAvatar
@@ -241,9 +252,37 @@ export default function BigBoardTable({
                   </span>
                   <span>{prospect.position}</span>
                   <span>{prospect.school}</span>
-                  <span className="board-row-actions">
+                  <span className="board-row-actions" style={{ position: "relative" }}>
                     <button className="small-button" type="button" onClick={(e) => { e.stopPropagation(); onMove(prospect.id, "up"); }}>↑</button>
                     <button className="small-button" type="button" onClick={(e) => { e.stopPropagation(); onMove(prospect.id, "down"); }}>↓</button>
+                    {rowPickerEnabled ? (
+                      <button
+                        className="small-button"
+                        type="button"
+                        ref={assignOpenFor === prospect.id ? assignAnchorRef : null}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAssignOpenFor((cur) => (cur === prospect.id ? null : prospect.id));
+                        }}
+                      >
+                        Assign
+                      </button>
+                    ) : null}
+                    {rowPickerEnabled && assignOpenFor === prospect.id ? (
+                      <AssignPopover
+                        prospect={prospect}
+                        picks={picks}
+                        teams={teams}
+                        teamCodeForPick={teamCodeForPick}
+                        livePredictions={livePredictions}
+                        watchlistsByTeam={watchlistsByTeam}
+                        onSetPrediction={onSetPrediction}
+                        onAddToWatchlist={onAddToWatchlist}
+                        onRemoveFromWatchlist={onRemoveFromWatchlist}
+                        onClose={() => setAssignOpenFor(null)}
+                        anchorRef={assignAnchorRef}
+                      />
+                    ) : null}
                   </span>
                 </div>
               );
