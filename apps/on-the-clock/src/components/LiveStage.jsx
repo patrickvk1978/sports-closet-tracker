@@ -92,15 +92,14 @@ export default function LiveStage({
           ) : null}
         </div>
         <div className="ls-timer">
-          {stage === "locked" ? (
+          {stage === "reveal" ? null : (
             <>
-              <span className="ls-timer-label locked">Card Locked</span>
-              <span className="ls-timer-val locked">✓</span>
-            </>
-          ) : stage === "reveal" ? null : (
-            <>
-              <span className={`ls-timer-label ${timerUrgency}`}>Submit in</span>
-              <span className={`ls-timer-val ${timerUrgency}`}>{countdownLabel}</span>
+              <span className={`ls-timer-label ${stage === "locked" ? "locked" : timerUrgency}`}>
+                {stage === "locked" ? "Card Locked" : "Submit in"}
+              </span>
+              <span className={`ls-timer-val ${stage === "locked" ? "locked" : timerUrgency}`}>
+                {stage === "locked" ? countdownLabel : countdownLabel}
+              </span>
             </>
           )}
         </div>
@@ -225,37 +224,12 @@ export default function LiveStage({
                 {(currentSelection ?? suggestedProspect)?.position} · {(currentSelection ?? suggestedProspect)?.school}
               </div>
             </div>
-            <button className="ls-change-btn" type="button" onClick={onChangePick}>
-              change pick
-            </button>
-          </div>
-          <div className="ls-change-hint">Changing will re-open pick selection. Timer still runs.</div>
-
-          {/* Pool status */}
-          <div className="ls-pool-pulse">
-            <div className="ls-pp-label">
-              {submittedCount === totalCount
-                ? `All ${totalCount} submitted · Waiting for the pick together`
-                : `${submittedCount} of ${totalCount} submitted`}
-            </div>
-            <div className="ls-pp-members">
-              {poolState.map((m) => {
-                const initials = m.name.slice(0, 2).toUpperCase();
-                const cls = m.isCurrentUser ? "me" : m.locked ? "submitted" : "pending";
-                return (
-                  <div key={m.id ?? m.name} className="ls-pp-member">
-                    <div className={`ls-pp-avatar ${cls}`}>{initials}</div>
-                    <div className="ls-pp-name">{m.isCurrentUser ? "you" : m.name}</div>
-                    <div className={`ls-pp-status ${m.locked ? "in" : "wait"}`}>{m.locked ? "✓" : "…"}</div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
 
-          <button className="ls-lock-btn ghost" type="button" disabled>
-            ⏳ Waiting for official announcement…
+          <button className="ls-change-btn-secondary" type="button" onClick={onChangePick}>
+            ↩ Change pick
           </button>
+          <div className="ls-change-hint">Re-opens pick selection · window timer still runs</div>
         </>
       )}
 

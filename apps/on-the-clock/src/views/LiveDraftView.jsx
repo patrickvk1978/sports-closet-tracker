@@ -4,11 +4,13 @@ import { LayoutGroup, motion } from "framer-motion";
 import BigBoardTable from "../components/BigBoardTable";
 import LiveStage from "../components/LiveStage";
 import ProspectAvatar from "../components/ProspectAvatar";
+import SubmitWindowBanner from "../components/SubmitWindowBanner";
 import { SkeletonPanel } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { useCountdown } from "../hooks/useCountdown";
 import { useDraftFeed } from "../hooks/useDraftFeed";
+import { useSubmitWindow } from "../hooks/useSubmitWindow";
 import { useBigBoard } from "../hooks/useBigBoard";
 import { useLiveDraft } from "../hooks/useLiveDraft";
 import { useReferenceData } from "../hooks/useReferenceData";
@@ -236,6 +238,13 @@ export default function LiveDraftView() {
       isCurrentUser: m.id === meId || m.isCurrentUser,
     }));
   }, [currentLivePoolState, meId]);
+
+  const { secondsLeft: windowSecondsLeft, tier: windowTier } = useSubmitWindow({
+    draftFeed,
+    currentLocked,
+    poolState: livePoolState,
+    poolId: pool?.id,
+  });
 
   // ── Left column: CSS class for each pick row ──────────────────────────────
 
@@ -600,6 +609,12 @@ export default function LiveDraftView() {
 
             {/* ── Center: live stage ── */}
             <div className="dn-center">
+              <SubmitWindowBanner
+                secondsLeft={windowSecondsLeft}
+                tier={windowTier}
+                currentLocked={currentLocked}
+                poolState={livePoolState}
+              />
               <LiveStage
                 currentPick={currentPick}
                 currentTeam={currentTeam}

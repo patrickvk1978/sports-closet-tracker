@@ -3883,6 +3883,7 @@ select:focus {
 .ls-locked-name { color: #fff; font-size: 17px; font-weight: 700; }
 .ls-locked-meta { color: #71717a; font-size: 12px; margin-top: 2px; }
 
+/* Old inline change btn kept for compat but replaced by secondary below */
 .ls-change-btn {
   margin-left: auto;
   background: none;
@@ -3896,8 +3897,28 @@ select:focus {
   transition: color 0.12s, border-color 0.12s;
   flex-shrink: 0;
 }
-
 .ls-change-btn:hover { color: var(--dn-sub); border-color: var(--dn-border2); }
+
+/* A2 — promoted change pick button */
+.ls-change-btn-secondary {
+  width: 100%;
+  background: transparent;
+  border: 1.5px solid var(--dn-border2);
+  color: var(--dn-sub);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  text-align: left;
+}
+.ls-change-btn-secondary:hover {
+  background: var(--dn-card);
+  border-color: #52525b;
+  color: #e4e4e7;
+}
 
 .ls-change-hint {
   font-size: 11px;
@@ -4874,4 +4895,137 @@ select:focus {
 .ls-rpc-player-body {
   min-width: 0;
   flex: 1;
+}
+
+/* ════════════════════════════════════════════════════════════
+   SubmitWindowBanner — 20-second pool submit window
+   Three tiers: calm | active | urgent
+   ════════════════════════════════════════════════════════════ */
+
+@keyframes swb-urgent-pulse {
+  0%, 100% {
+    background: #3b0808;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  50% {
+    background: #4c0a0a;
+    box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.3);
+  }
+}
+
+@keyframes swb-count-throb {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.08); }
+}
+
+/* Shared base */
+.swb {
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-family: var(--font);
+}
+
+/* ── Calm tier ── */
+.swb-calm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #0d1a0d;
+  border: 1px solid #1a3a1a;
+  color: var(--dn-green);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.swb-calm-timer {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+/* ── Active tier ── */
+.swb-active {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #1c1200;
+  border: 1.5px solid #78350f;
+  border-radius: 8px;
+}
+.swb-active.you-unlocked {
+  background: #1a0a00;
+  border-color: #b45309;
+}
+.swb-active-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.swb-active-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.swb-active-msg {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fbbf24;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.swb-active.you-unlocked .swb-active-msg {
+  color: #f59e0b;
+}
+.swb-active-timer {
+  font-size: 22px;
+  font-weight: 800;
+  color: #f59e0b;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ── Urgent tier ── */
+.swb-urgent {
+  border-radius: 8px;
+  border: 2px solid #ef4444;
+  animation: swb-urgent-pulse 0.65s ease-in-out infinite;
+  overflow: hidden;
+}
+.swb-urgent-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+.swb-urgent-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #ef4444;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.swb-urgent-count {
+  font-size: 36px;
+  font-weight: 900;
+  color: #ef4444;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  animation: swb-count-throb 0.65s ease-in-out infinite;
+}
+.swb-urgent-who {
+  font-size: 12px;
+  color: #fca5a5;
+  flex: 1;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swb-urgent { animation: none; border-color: #ef4444; background: #3b0808; }
+  .swb-urgent-count { animation: none; }
 }
