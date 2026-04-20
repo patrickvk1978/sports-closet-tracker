@@ -6,19 +6,22 @@ import { useReferenceData } from './useReferenceData'
 
 // ── Scoring helpers ───────────────────────────────────────────────────────
 
-function pickTierPoints(pickNumber) {
-  if (pickNumber <= 8)  return 100
-  if (pickNumber <= 16) return 120
-  if (pickNumber <= 24) return 150
-  return 180
+const DEFAULT_SCORING = { tier_1: 100, tier_2: 120, tier_3: 150, tier_4: 180, streak_threshold: 5, streak_multiplier: 1.5 }
+
+function pickTierPoints(pickNumber, sc) {
+  if (pickNumber <= 8)  return sc.tier_1  ?? DEFAULT_SCORING.tier_1
+  if (pickNumber <= 16) return sc.tier_2  ?? DEFAULT_SCORING.tier_2
+  if (pickNumber <= 24) return sc.tier_3  ?? DEFAULT_SCORING.tier_3
+  return                       sc.tier_4  ?? DEFAULT_SCORING.tier_4
 }
 
 // Returns points earned for a pick given current streak (BEFORE this pick).
-// Streak bonus kicks in after 5 consecutive hits (pick 6+ in a run).
-function scoreForHit(pickNumber, streakBefore) {
-  const base = pickTierPoints(pickNumber)
-  const multiplier = streakBefore >= 5 ? 1.5 : 1
-  return Math.round(base * multiplier)
+// Streak bonus kicks in after streak_threshold consecutive hits.
+function scoreForHit(pickNumber, streakBefore, sc) {
+  const base      = pickTierPoints(pickNumber, sc)
+  const threshold = sc.streak_threshold ?? DEFAULT_SCORING.streak_threshold
+  const mult      = sc.streak_multiplier ?? DEFAULT_SCORING.streak_multiplier
+  return Math.round(base * (streakBefore >= threshold ? mult : 1))
 }
 
 export function useLiveDraft({ draftFeed, teamCodeForPick }) {
@@ -263,10 +266,11 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     return selectedProspectId
   }
 
-  // Computed: standings — tiered pick points + 1.5× streak bonus after 5 in a row
+  // Computed: standings — tiered pick points + streak bonus after N in a row
   const liveStandings = useMemo(() => {
     if (!pool || !memberList.length) return []
 
+    const sc = draftFeed?.scoring_config ?? DEFAULT_SCORING
     const sortedPickNums = Object.keys(draftFeed?.actual_picks ?? {})
       .map(Number)
       .sort((a, b) => a - b)
@@ -281,7 +285,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
           const prospectId = resolveLivePickForUser(member.id, pickNumber)
           const result = liveResultForPick(prospectId, actualProspectId)
           if (result === 'exact') {
-            points += scoreForHit(pickNumber, streak)
+            points += scoreForHit(pickNumber, streak, sc)
             streak++
           } else {
             streak = 0
@@ -291,7 +295,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
         return { id: member.id, name: member.name, points, streak }
       })
       .sort((a, b) => b.points - a.points)
-  }, [draftFeed?.actual_picks, memberList, allMemberCards, allMemberPredictions, allMemberBoards, pool])
+  }, [draftFeed?.actual_picks, draftFeed?.scoring_config, memberList, allMemberCards, allMemberPredictions, allMemberBoards, pool])
 
   // Computed: current pick pool state (includes streakCount entering this pick)
   const currentLivePoolState = useMemo(() => {
@@ -330,12 +334,15 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     })
   }, [draftFeed?.actual_picks, draftFeed?.current_pick_number, memberList, allMemberCards, allMemberPredictions, allMemberBoards, pool])
 
+  const scoringConfig = draftFeed?.scoring_config ?? DEFAULT_SCORING
+
   return {
     livePredictions,
     liveSelections,
     liveCards,
     liveStandings,
     currentLivePoolState,
+    scoringConfig,
     loading,
     saveLivePrediction,
     setLiveCurrentSelection,

@@ -163,6 +163,13 @@ export function useDraftFeed() {
     }).eq('id', 1)
   }
 
+  async function setScoringConfig(config) {
+    await draftDb.from('feed').update({
+      scoring_config: config,
+      updated_at: new Date().toISOString(),
+    }).eq('id', 1)
+  }
+
   async function resetDraftFeed() {
     await draftDb.from('actual_picks').delete().gte('pick_number', 1)
     await draftDb.from('team_overrides').delete().gte('pick_number', 1)
@@ -190,5 +197,6 @@ export function useDraftFeed() {
     rollbackPick,
     advanceDraft,
     resetDraftFeed,
+    setScoringConfig,
   }
 }

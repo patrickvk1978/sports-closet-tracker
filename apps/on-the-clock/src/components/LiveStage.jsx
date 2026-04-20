@@ -29,6 +29,7 @@ export default function LiveStage({
   onChangePick,         // () => void — reset locked card
   nextPickLabel,        // string, e.g. "Jets on the clock — Pick 2 →"
   onNextPick,           // () => void — optional next-pick action
+  scoringConfig,        // { tier_1..4, streak_threshold, streak_multiplier }
 }) {
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState("All");
@@ -68,15 +69,27 @@ export default function LiveStage({
     setPosFilter("All");
   }
 
+  // Scoring config with fallbacks
+  const sc = scoringConfig ?? {};
+  const T1 = sc.tier_1 ?? 100, T2 = sc.tier_2 ?? 120, T3 = sc.tier_3 ?? 150, T4 = sc.tier_4 ?? 180;
+  const streakThreshold = sc.streak_threshold ?? 5;
+  const streakMult = sc.streak_multiplier ?? 1.5;
+
+  function tierBase(pickNumber) {
+    if (pickNumber <= 8)  return T1;
+    if (pickNumber <= 16) return T2;
+    if (pickNumber <= 24) return T3;
+    return T4;
+  }
+
   // Derive my result for the reveal badge
   const meState = poolState.find((m) => m.isCurrentUser);
   const myResult = meState?.result ?? "miss";
   const isHit = myResult === "exact";
   const pickNum = currentPick?.number ?? 1;
-  const tierBase = pickNum <= 8 ? 100 : pickNum <= 16 ? 120 : pickNum <= 24 ? 150 : 180;
   const meStreakBefore = meState?.streakCount ?? 0;
-  const streakBonus = meStreakBefore >= 5;
-  const exactPoints = Math.round(tierBase * (streakBonus ? 1.5 : 1));
+  const streakBonus = meStreakBefore >= streakThreshold;
+  const exactPoints = Math.round(tierBase(pickNum) * (streakBonus ? streakMult : 1));
   const resultLabel = isHit ? (streakBonus ? "🔥 exact hit" : "exact hit") : "miss";
   const resultPoints = isHit ? `+${exactPoints}` : "0";
 
@@ -264,8 +277,8 @@ export default function LiveStage({
             {poolState.map((m) => {
               const hit = m.result === "exact";
               const mStreak = m.streakCount ?? 0;
-              const mMultiplier = mStreak >= 5 ? 1.5 : 1;
-              const mPts = hit ? `+${Math.round(tierBase * mMultiplier)}` : null;
+              const mMultiplier = mStreak >= streakThreshold ? streakMult : 1;
+              const mPts = hit ? `+${Math.round(tierBase(pickNum) * mMultiplier)}` : null;
               const nameLabel = m.isCurrentUser ? `${m.name} · you` : m.name;
               return (
                 <div key={m.id ?? m.name} className={`ls-reveal-pool-card ${hit ? "hit" : "miss"}`}>

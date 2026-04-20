@@ -20,11 +20,44 @@ export default function AdminPage() {
     revealCurrentPick,
     rollbackPick,
     resetDraftFeed,
+    setScoringConfig,
   } = useDraftFeed();
   const [selectedPick, setSelectedPick] = useState(draftFeed.current_pick_number);
   const [selectedProspectId, setSelectedProspectId] = useState("");
   const [selectedTeamCode, setSelectedTeamCode] = useState("");
   const [syncStatus, setSyncStatus] = useState("");
+
+  // ── Scoring config state ──
+  const [scoringDraft, setScoringDraft] = useState(null); // null = not yet loaded
+  const [scoringStatus, setScoringStatus] = useState("");
+
+  // Initialise from live feed once it loads
+  useEffect(() => {
+    if (draftFeed.scoring_config && !scoringDraft) {
+      setScoringDraft({ ...draftFeed.scoring_config });
+    }
+  }, [draftFeed.scoring_config]);
+
+  const sc = scoringDraft ?? { tier_1: 100, tier_2: 120, tier_3: 150, tier_4: 180, streak_threshold: 5, streak_multiplier: 1.5 };
+
+  async function saveScoringConfig() {
+    setScoringStatus("Saving…");
+    const config = {
+      tier_1: Number(sc.tier_1),
+      tier_2: Number(sc.tier_2),
+      tier_3: Number(sc.tier_3),
+      tier_4: Number(sc.tier_4),
+      streak_threshold: Number(sc.streak_threshold),
+      streak_multiplier: Number(sc.streak_multiplier),
+    };
+    await setScoringConfig(config);
+    setScoringStatus("Saved ✓");
+    setTimeout(() => setScoringStatus(""), 2000);
+  }
+
+  function updateSc(key, value) {
+    setScoringDraft(prev => ({ ...(prev ?? sc), [key]: value }));
+  }
 
   // ── Bluesky allowlist state ──
   const [allowlist, setAllowlist] = useState([]);
@@ -226,6 +259,48 @@ export default function AdminPage() {
               Roll Back Pick
             </button>
           </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <span className="label">Point values</span>
+            <h2>Scoring Config</h2>
+          </div>
+        </div>
+
+        <div className="settings-form-grid two-up">
+          <label className="field">
+            <span>Picks 1–8 (base points)</span>
+            <input className="field-input" type="number" min="0" value={sc.tier_1} onChange={(e) => updateSc("tier_1", e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Picks 9–16 (base points)</span>
+            <input className="field-input" type="number" min="0" value={sc.tier_2} onChange={(e) => updateSc("tier_2", e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Picks 17–24 (base points)</span>
+            <input className="field-input" type="number" min="0" value={sc.tier_3} onChange={(e) => updateSc("tier_3", e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Picks 25–32 (base points)</span>
+            <input className="field-input" type="number" min="0" value={sc.tier_4} onChange={(e) => updateSc("tier_4", e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Streak threshold (hits before bonus)</span>
+            <input className="field-input" type="number" min="1" value={sc.streak_threshold} onChange={(e) => updateSc("streak_threshold", e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Streak multiplier (e.g. 1.5 = 50% bonus)</span>
+            <input className="field-input" type="number" min="1" step="0.1" value={sc.streak_multiplier} onChange={(e) => updateSc("streak_multiplier", e.target.value)} />
+          </label>
+        </div>
+        <div className="entry-actions" style={{ marginTop: 8 }}>
+          <button className="primary-button" type="button" onClick={saveScoringConfig}>
+            Save scoring config
+          </button>
+          {scoringStatus && <span className="subtle">{scoringStatus}</span>}
         </div>
       </section>
 

@@ -56,6 +56,7 @@ export default function LiveDraftView() {
     liveCards,
     liveStandings,
     currentLivePoolState,
+    scoringConfig,
     saveLivePrediction,
     submitLiveCard,
     resetLiveCard,
@@ -657,6 +658,7 @@ export default function LiveDraftView() {
                 onChangePick={() => resetLiveCard(currentPickNumber)}
                 nextPickLabel={nextPickLabel}
                 onNextPick={() => {}}
+                scoringConfig={scoringConfig}
               />
             </div>
 
