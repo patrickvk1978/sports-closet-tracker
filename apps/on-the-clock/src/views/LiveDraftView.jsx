@@ -144,9 +144,9 @@ export default function LiveDraftView() {
       const shortMap = {
         "Current prediction": "Current",
         "Predicted player": "Predicted",
-        "Top of your board": "Your board",
-        "Best fit from your board": "Your board",
-        "Best available from your board": "Your board",
+        "Top of your board": "Board",
+        "Best fit from your board": "Board",
+        "Best available from your board": "Board",
         "PFF mock": "PFF",
         "Athletic mock": "Athletic",
         "Ringer mock": "Ringer",
@@ -154,7 +154,7 @@ export default function LiveDraftView() {
       const normalized = [...new Set(labels)]
         .sort((a, b) => order.indexOf(a) - order.indexOf(b))
         .map((label) => shortMap[label] ?? label);
-      return normalized.join(" + ");
+      return normalized.join(" / ");
     };
     const bestFromBoard = (rankField) => {
       const candidates = prospects
