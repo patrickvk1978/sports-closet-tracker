@@ -5,6 +5,7 @@ import BigBoardTable from "../components/BigBoardTable";
 import LiveStage from "../components/LiveStage";
 import ProspectAvatar from "../components/ProspectAvatar";
 import SubmitWindowBanner from "../components/SubmitWindowBanner";
+import CenterFeed from "../components/CenterFeed";
 import { SkeletonPanel } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
@@ -634,6 +635,11 @@ export default function LiveDraftView() {
                 nextPickLabel={nextPickLabel}
                 onNextPick={() => {}}
               />
+            </div>
+
+            {/* ── Center-right: Bluesky feed ── */}
+            <div className="dn-feed">
+              <CenterFeed isLive={draftFeed.phase === "live"} />
             </div>
 
             {/* ── Right: standings + pool activity ── */}

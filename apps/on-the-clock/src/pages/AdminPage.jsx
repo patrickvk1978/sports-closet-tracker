@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { useDraftFeed } from "../hooks/useDraftFeed";
@@ -25,6 +25,44 @@ export default function AdminPage() {
   const [selectedProspectId, setSelectedProspectId] = useState("");
   const [selectedTeamCode, setSelectedTeamCode] = useState("");
   const [syncStatus, setSyncStatus] = useState("");
+
+  // ── Bluesky allowlist state ──
+  const [allowlist, setAllowlist] = useState([]);
+  const [newHandle, setNewHandle] = useState("");
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [allowlistStatus, setAllowlistStatus] = useState("");
+
+  useEffect(() => {
+    supabase.from("bluesky_allowlist").select("*").order("added_at")
+      .then(({ data }) => { if (data) setAllowlist(data); });
+  }, []);
+
+  async function addHandle() {
+    const handle = newHandle.trim().replace(/^@/, "");
+    if (!handle) return;
+    setAllowlistStatus("Adding…");
+    const { error } = await supabase.from("bluesky_allowlist").insert({
+      handle,
+      display_name: newDisplayName.trim() || null,
+      active: true,
+    });
+    if (error) { setAllowlistStatus(`Error: ${error.message}`); return; }
+    setAllowlist((prev) => [...prev, { handle, display_name: newDisplayName.trim() || null, active: true }]);
+    setNewHandle("");
+    setNewDisplayName("");
+    setAllowlistStatus("Added ✓");
+    setTimeout(() => setAllowlistStatus(""), 2000);
+  }
+
+  async function toggleHandle(handle, active) {
+    await supabase.from("bluesky_allowlist").update({ active: !active }).eq("handle", handle);
+    setAllowlist((prev) => prev.map((r) => r.handle === handle ? { ...r, active: !active } : r));
+  }
+
+  async function removeHandle(handle) {
+    await supabase.from("bluesky_allowlist").delete().eq("handle", handle);
+    setAllowlist((prev) => prev.filter((r) => r.handle !== handle));
+  }
 
   async function syncProspects() {
     setSyncStatus("Syncing…");
@@ -188,6 +226,73 @@ export default function AdminPage() {
               Roll Back Pick
             </button>
           </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <span className="label">Center feed</span>
+            <h2>Bluesky Allowlist</h2>
+          </div>
+        </div>
+
+        <div className="bluesky-allowlist">
+          {allowlist.map((row) => (
+            <div key={row.handle} className={`bsl-row ${row.active ? "active" : "inactive"}`}>
+              <div className="bsl-handle">
+                <span className="bsl-at">@</span>{row.handle}
+              </div>
+              <div className="bsl-name">{row.display_name ?? "—"}</div>
+              <div className="bsl-actions">
+                <button
+                  className="bsl-toggle"
+                  type="button"
+                  onClick={() => toggleHandle(row.handle, row.active)}
+                  title={row.active ? "Disable" : "Enable"}
+                >
+                  {row.active ? "On" : "Off"}
+                </button>
+                <button
+                  className="bsl-remove"
+                  type="button"
+                  onClick={() => removeHandle(row.handle)}
+                  title="Remove"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="settings-form-grid two-up" style={{ marginTop: 16 }}>
+          <label className="field">
+            <span>Handle</span>
+            <input
+              className="field-input"
+              placeholder="rapsheet.bsky.social"
+              value={newHandle}
+              onChange={(e) => setNewHandle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addHandle()}
+            />
+          </label>
+          <label className="field">
+            <span>Display name (optional)</span>
+            <input
+              className="field-input"
+              placeholder="Ian Rapoport"
+              value={newDisplayName}
+              onChange={(e) => setNewDisplayName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addHandle()}
+            />
+          </label>
+        </div>
+        <div className="entry-actions" style={{ marginTop: 8 }}>
+          <button className="primary-button" type="button" onClick={addHandle}>
+            Add handle
+          </button>
+          {allowlistStatus && <span className="subtle">{allowlistStatus}</span>}
         </div>
       </section>
 
