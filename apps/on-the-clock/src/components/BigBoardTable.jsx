@@ -47,6 +47,7 @@ export default function BigBoardTable({
   selectedPickLabel,
   assignLabel = "Make Current Pick",
   onAssignSelectedProspect,
+  onBack,                   // () => void — "← Back" link in panel header
   // New unified picker props (opt-in)
   livePredictions,          // { [pickNumber]: prospectId }
   watchlistsByTeam,         // { [teamCode]: prospectId[] }
@@ -65,6 +66,7 @@ export default function BigBoardTable({
   const [selectedProspectId, setSelectedProspectId] = useState(boardIds[0] ?? null);
   const [assignOpenFor, setAssignOpenFor] = useState(null);
   const assignAnchorRef = useRef(null);
+  const [assignAnchorEl, setAssignAnchorEl] = useState(null);
 
   useEffect(() => {
     if (!selectedProspectId && boardIds.length > 0) setSelectedProspectId(boardIds[0]);
@@ -103,6 +105,19 @@ export default function BigBoardTable({
           <span className="label">{title}</span>
           <h2>{subtitle}</h2>
         </div>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              fontSize: 13, color: "var(--text-3, #6b7280)", alignSelf: "center",
+              textDecoration: "underline", padding: "0 4px",
+            }}
+          >
+            ← Back to draft list
+          </button>
+        ) : null}
       </div>
 
       {/* Mode toggle */}
@@ -259,29 +274,14 @@ export default function BigBoardTable({
                       <button
                         className="small-button"
                         type="button"
-                        ref={assignOpenFor === prospect.id ? assignAnchorRef : null}
                         onClick={(e) => {
                           e.stopPropagation();
+                          setAssignAnchorEl(e.currentTarget);
                           setAssignOpenFor((cur) => (cur === prospect.id ? null : prospect.id));
                         }}
                       >
                         Assign
                       </button>
-                    ) : null}
-                    {rowPickerEnabled && assignOpenFor === prospect.id ? (
-                      <AssignPopover
-                        prospect={prospect}
-                        picks={picks}
-                        teams={teams}
-                        teamCodeForPick={teamCodeForPick}
-                        livePredictions={livePredictions}
-                        watchlistsByTeam={watchlistsByTeam}
-                        onSetPrediction={onSetPrediction}
-                        onAddToWatchlist={onAddToWatchlist}
-                        onRemoveFromWatchlist={onRemoveFromWatchlist}
-                        onClose={() => setAssignOpenFor(null)}
-                        anchorRef={assignAnchorRef}
-                      />
                     ) : null}
                   </span>
                 </div>
@@ -340,6 +340,30 @@ export default function BigBoardTable({
           </div>
         )
       )}
+
+      {/* Single portal-rendered popover for the active Assign row */}
+      {rowPickerEnabled && assignOpenFor ? (() => {
+        const prospect = rankingProspects.find((p) => p.id === assignOpenFor)
+          ?? mockProspects.find((p) => p.id === assignOpenFor)
+          ?? null;
+        const elRef = { current: assignAnchorEl };
+        return (
+          <AssignPopover
+            key={assignOpenFor}
+            prospect={prospect}
+            picks={picks}
+            teams={teams}
+            teamCodeForPick={teamCodeForPick}
+            livePredictions={livePredictions}
+            watchlistsByTeam={watchlistsByTeam}
+            onSetPrediction={onSetPrediction}
+            onAddToWatchlist={onAddToWatchlist}
+            onRemoveFromWatchlist={onRemoveFromWatchlist}
+            onClose={() => { setAssignOpenFor(null); setAssignAnchorEl(null); }}
+            anchorRef={elRef}
+          />
+        );
+      })() : null}
     </section>
   );
 }

@@ -397,21 +397,10 @@ export default function LiveDraftView() {
       {isPreDraft && (
         pdTab === "board" ? (
           <>
-            <div className="pd-board-ctx">
-              <span className="pd-board-ctx-label">Assigning for</span>
-              <strong>{getPickLabel(selectedPick)}</strong>
-              {focusedPreDraftTeam?.name ? <span className="pd-board-ctx-team">· {focusedPreDraftTeam.name}</span> : null}
-              <button
-                className="pd-board-ctx-back"
-                type="button"
-                onClick={() => setPdTab("command")}
-              >
-                ← Back to draft list
-              </button>
-            </div>
             <BigBoardTable
               title="Big Board"
               subtitle="Your ranking engine — assign any player to any pick or a team's watchlist"
+              onBack={() => setPdTab("command")}
               boardIds={bigBoardIds}
               onMove={moveBigBoardItem}
               draftedIds={draftedIds}

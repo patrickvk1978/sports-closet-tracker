@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * AssignPopover — per-Big-Board-row popover listing all 32 picks.
@@ -18,10 +19,20 @@ export default function AssignPopover({
   onAddToWatchlist,      // (teamCode, prospectId) => void | Promise
   onRemoveFromWatchlist, // (teamCode, prospectId) => void | Promise
   onClose,
-  anchorRef,
+  anchorRef,             // ref to the trigger button — used for portal positioning
 }) {
   const ref = useRef(null);
   const [filter, setFilter] = useState("");
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  // Calculate position from anchorRef on mount
+  useEffect(() => {
+    if (!anchorRef?.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    const POPOVER_WIDTH = 420;
+    const left = Math.max(8, Math.min(rect.right - POPOVER_WIDTH, window.innerWidth - POPOVER_WIDTH - 8));
+    setPos({ top: rect.bottom + 6 + window.scrollY, left });
+  }, [anchorRef]);
 
   // Close on outside click / escape
   useEffect(() => {
@@ -63,15 +74,15 @@ export default function AssignPopover({
 
   if (!prospect) return null;
 
-  return (
+  const popover = (
     <div
       ref={ref}
       className="assign-popover"
       style={{
         position: "absolute",
-        top: "calc(100% + 4px)",
-        right: 0,
-        zIndex: 40,
+        top: pos.top,
+        left: pos.left,
+        zIndex: 9999,
         background: "var(--dn-card, #1b2230)",
         border: "1px solid var(--dn-border, #2a3341)",
         borderRadius: 10,
@@ -206,4 +217,6 @@ export default function AssignPopover({
       </div>
     </div>
   );
+
+  return createPortal(popover, document.body);
 }

@@ -251,118 +251,139 @@ export default function LiveStage({
             />
           </div>
 
-          {/* Position chips */}
-          <div className="ls-pos-chips">
-            {POSITIONS.map((pos) => (
-              <button
-                key={pos}
-                className={`ls-pos-chip ${posFilter === pos ? "active" : ""}`}
-                type="button"
-                onClick={() => setPosFilter(pos)}
-              >
-                {pos}
-              </button>
-            ))}
-          </div>
+          {/* Position chips + inline watchlist strip */}
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+            <div className="ls-pos-chips" style={{ flex: "1 1 auto", flexWrap: "wrap" }}>
+              {POSITIONS.map((pos) => (
+                <button
+                  key={pos}
+                  className={`ls-pos-chip ${posFilter === pos ? "active" : ""}`}
+                  type="button"
+                  onClick={() => setPosFilter(pos)}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
 
-          {/* Pre-draft watchlist strip (avatar-only, minimal) */}
-          {isPredraft && onAddToWatchlist && (() => {
-            const resolve = (pid) => {
-              if (pid && typeof pid === "object") return pid;
-              return allProspects.find((p) => p.id === pid) ?? null;
-            };
-            const wlProspects = (predraftWatchlist ?? []).map(resolve).filter(Boolean);
-            const slots = Math.max(0, watchlistCapacity - wlProspects.length);
-            const wlIds = new Set(wlProspects.map((p) => p.id));
-            const predictedId = suggestedProspect?.id;
-            const pickerCandidates = prospects
-              .filter((p) => !draftedIds.has(p.id) && !wlIds.has(p.id) && p.id !== predictedId)
-              .sort((a, b) => {
-                const ia = boardIds.indexOf(a.id); const ib = boardIds.indexOf(b.id);
-                return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
-              })
-              .slice(0, 8);
-            return (
-              <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, marginTop: 2, minHeight: 32 }}>
-                <span style={{ fontSize: 10, letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", textTransform: "uppercase", marginRight: 4 }}>
-                  Watchlist
-                </span>
-                {wlProspects.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => onRemoveFromWatchlist && onRemoveFromWatchlist(p.id)}
-                    title={`${p.name} — click to remove`}
-                    style={{ padding: 0, background: "none", border: "none", cursor: "pointer", lineHeight: 0 }}
-                  >
-                    <ProspectAvatar prospect={p} size="sm" />
-                  </button>
-                ))}
-                {Array.from({ length: slots }).map((_, i) => (
-                  <button
-                    key={`empty-${i}`}
-                    type="button"
-                    onClick={() => setWlPickerOpen((v) => !v)}
-                    title="Add to watchlist"
-                    style={{
-                      width: 28, height: 28, borderRadius: "50%",
-                      border: "1px dashed var(--dn-muted, #6b7380)",
-                      background: "transparent", color: "var(--dn-muted, #8b95a6)",
-                      display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 14, cursor: "pointer", padding: 0,
-                    }}
-                  >
-                    +
-                  </button>
-                ))}
-                {wlPickerOpen && (
-                  <div
-                    style={{
-                      position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 20,
-                      background: "var(--dn-card, #1b2230)", border: "1px solid var(--dn-border, #2a3341)",
-                      borderRadius: 8, padding: 6, minWidth: 260, boxShadow: "0 12px 28px rgba(0,0,0,0.45)",
-                    }}
-                  >
-                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", padding: "4px 6px" }}>
-                      Add to watchlist
-                    </div>
-                    {pickerCandidates.map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={async () => {
-                          if (onAddToWatchlist) await onAddToWatchlist(p.id);
-                          setWlPickerOpen(false);
-                        }}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
-                          borderRadius: 6, cursor: "pointer", fontSize: 12,
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                      >
-                        <ProspectAvatar prospect={p} size="sm" />
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ color: "var(--dn-text, #e6ebf2)", fontWeight: 600 }}>{p.name}</div>
-                          <div style={{ color: "var(--dn-muted, #8b95a6)", fontSize: 11 }}>{p.position} · {p.school}</div>
-                        </div>
-                      </div>
-                    ))}
+            {/* Watchlist slots — right side, same row */}
+            {isPredraft && onAddToWatchlist && (() => {
+              const resolve = (pid) => {
+                if (pid && typeof pid === "object") return pid;
+                return allProspects.find((p) => p.id === pid) ?? null;
+              };
+              const wlProspects = (predraftWatchlist ?? []).map(resolve).filter(Boolean);
+              const slots = Math.max(0, watchlistCapacity - wlProspects.length);
+              const wlIds = new Set(wlProspects.map((p) => p.id));
+              const predictedId = suggestedProspect?.id;
+              // Picker: top-8 from board order, excluding drafted/already-watchlisted/predicted
+              const pickerCandidates = prospects
+                .filter((p) => !draftedIds.has(p.id) && !wlIds.has(p.id) && p.id !== predictedId)
+                .sort((a, b) => {
+                  const ia = boardIds.indexOf(a.id); const ib = boardIds.indexOf(b.id);
+                  return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
+                })
+                .slice(0, 8);
+              return (
+                <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", textTransform: "uppercase" }}>
+                    Watch
+                  </span>
+                  {wlProspects.map((p) => (
                     <button
+                      key={p.id}
                       type="button"
-                      onClick={() => setWlPickerOpen(false)}
+                      onClick={() => onRemoveFromWatchlist && onRemoveFromWatchlist(p.id)}
+                      title={`${p.name} — click to remove`}
+                      style={{ padding: 0, background: "none", border: "none", cursor: "pointer", lineHeight: 0 }}
+                    >
+                      <ProspectAvatar prospect={p} size="sm" />
+                    </button>
+                  ))}
+                  {Array.from({ length: slots }).map((_, i) => (
+                    <button
+                      key={`empty-${i}`}
+                      type="button"
+                      onClick={() => setWlPickerOpen((v) => !v)}
+                      title="Add to watchlist"
                       style={{
-                        width: "100%", marginTop: 4, padding: "6px 8px", fontSize: 11,
-                        background: "none", border: "none", color: "var(--dn-muted, #8b95a6)",
-                        cursor: "pointer", textAlign: "center",
+                        width: 28, height: 28, borderRadius: "50%",
+                        border: "1px dashed var(--dn-muted, #6b7380)",
+                        background: "transparent", color: "var(--dn-muted, #8b95a6)",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 14, cursor: "pointer", padding: 0,
                       }}
                     >
-                      Close
+                      +
                     </button>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+                  ))}
+                  {wlPickerOpen && (
+                    <div
+                      style={{
+                        position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 20,
+                        background: "var(--dn-card, #1b2230)", border: "1px solid var(--dn-border, #2a3341)",
+                        borderRadius: 8, padding: 6, minWidth: 260, boxShadow: "0 12px 28px rgba(0,0,0,0.45)",
+                      }}
+                    >
+                      <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", padding: "4px 6px 2px" }}>
+                        Add to watchlist
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--dn-muted, #8b95a6)", padding: "0 6px 6px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                        Top of your board · available only
+                      </div>
+                      {pickerCandidates.map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={async () => {
+                            if (onAddToWatchlist) await onAddToWatchlist(p.id);
+                            setWlPickerOpen(false);
+                          }}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
+                            borderRadius: 6, cursor: "pointer", fontSize: 12,
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                        >
+                          <ProspectAvatar prospect={p} size="sm" />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ color: "var(--dn-text, #e6ebf2)", fontWeight: 600 }}>{p.name}</div>
+                            <div style={{ color: "var(--dn-muted, #8b95a6)", fontSize: 11 }}>{p.position} · {p.school}</div>
+                          </div>
+                        </div>
+                      ))}
+                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 4, display: "flex", gap: 4 }}>
+                        {onViewBigBoard ? (
+                          <button
+                            type="button"
+                            onClick={() => { setWlPickerOpen(false); onViewBigBoard(); }}
+                            style={{
+                              flex: 1, padding: "7px 8px", fontSize: 11,
+                              background: "none", border: "none", color: "var(--dn-accent, #3b82f6)",
+                              cursor: "pointer", textAlign: "left",
+                            }}
+                          >
+                            See full board →
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => setWlPickerOpen(false)}
+                          style={{
+                            padding: "7px 8px", fontSize: 11,
+                            background: "none", border: "none", color: "var(--dn-muted, #8b95a6)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Results */}
           {searchResults.length > 0 ? (
