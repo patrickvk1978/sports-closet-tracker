@@ -1,6 +1,8 @@
 import { createContext, useContext, useMemo } from "react";
 import { PLAYOFF_ROUNDS, PLAYOFF_SERIES, PLAYOFF_TEAMS } from "../data/playoffData";
 import { useBackendProbabilityInputs } from "./useBackendProbabilityInputs";
+import { useBackendMatchupState } from "./useBackendMatchupState";
+import { usePool } from "./usePool";
 import { mergeProbabilityInputs } from "../lib/probabilityInputs";
 
 const PlayoffDataContext = createContext(null);
@@ -21,27 +23,57 @@ function buildRoundSummaries(series) {
 }
 
 export function PlayoffDataProvider({ children }) {
+  const { pool } = usePool();
   const seriesIds = useMemo(() => PLAYOFF_SERIES.map((item) => item.id), []);
   const { probabilityMap } = useBackendProbabilityInputs({
     productKey: "nba_playoffs",
     entityIds: seriesIds,
     entityType: "series",
   });
+  const { matchupStateBySeriesId } = useBackendMatchupState(pool?.id);
 
   const value = useMemo(() => {
     const teamsById = Object.fromEntries(PLAYOFF_TEAMS.map((team) => [team.id, team]));
     const series = PLAYOFF_SERIES.map((item) => {
-      const homeTeam = teamsById[item.homeTeamId];
-      const awayTeam = teamsById[item.awayTeamId];
+      const matchupState = matchupStateBySeriesId?.[item.id] ?? null;
+      const homeTeamId = matchupState?.homeTeamId ?? item.homeTeamId;
+      const awayTeamId = matchupState?.awayTeamId ?? item.awayTeamId;
+      const homeTeam = teamsById[homeTeamId] ?? teamsById[item.homeTeamId];
+      const awayTeam = teamsById[awayTeamId] ?? teamsById[item.awayTeamId];
       const probabilityInputs = mergeProbabilityInputs(item.id, probabilityMap?.[item.id]);
+      const wins = {
+        home: matchupState?.wins?.home ?? item.wins.home,
+        away: matchupState?.wins?.away ?? item.wins.away,
+      };
+      const status = matchupState?.status ?? item.status;
+      const winnerTeamId = matchupState?.winnerTeamId ?? item.winnerTeamId ?? null;
       return {
         ...item,
+        homeTeamId,
+        awayTeamId,
         homeTeam,
         awayTeam,
+        wins,
+        status,
+        winnerTeamId,
+        schedule: {
+          ...item.schedule,
+          lockAt: matchupState?.lockAt ?? item.schedule?.lockAt ?? null,
+          nextGame: item.schedule?.nextGame
+            ? {
+                ...item.schedule.nextGame,
+                tipAt: matchupState?.nextGameAt ?? item.schedule?.nextGame?.tipAt ?? null,
+                label:
+                  matchupState?.nextHomeTeamId && matchupState?.nextAwayTeamId && matchupState?.nextGameNumber
+                    ? `G${matchupState.nextGameNumber} ${(teamsById[matchupState.nextAwayTeamId]?.abbreviation ?? matchupState.nextAwayTeamId).toUpperCase()} at ${(teamsById[matchupState.nextHomeTeamId]?.abbreviation ?? matchupState.nextHomeTeamId).toUpperCase()}`
+                    : item.schedule.nextGame.label,
+              }
+            : null,
+        },
         market: probabilityInputs.market,
         model: probabilityInputs.model,
-        totalGamesPlayed: item.wins.home + item.wins.away,
-        clinchGames: item.winnerTeamId ? item.wins.home + item.wins.away : null,
+        totalGamesPlayed: wins.home + wins.away,
+        clinchGames: winnerTeamId ? wins.home + wins.away : null,
       };
     });
 
@@ -77,7 +109,7 @@ export function PlayoffDataProvider({ children }) {
         featuredSeries,
       roundSummaries: buildRoundSummaries(series),
     };
-  }, [probabilityMap, seriesIds]);
+  }, [matchupStateBySeriesId, probabilityMap, seriesIds]);
 
   return <PlayoffDataContext.Provider value={value}>{children}</PlayoffDataContext.Provider>;
 }

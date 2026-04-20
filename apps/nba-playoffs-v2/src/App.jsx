@@ -51,8 +51,8 @@ export default function App() {
     <BrowserRouter>
       <ScrollToTop />
       <AuthProvider>
-        <PlayoffDataProvider>
-          <PoolProvider>
+        <PoolProvider>
+          <PlayoffDataProvider>
             <div className="app-shell app-shell-routed">
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
@@ -78,8 +78,8 @@ export default function App() {
                 </Route>
               </Routes>
             </div>
-          </PoolProvider>
-        </PlayoffDataProvider>
+          </PlayoffDataProvider>
+        </PoolProvider>
       </AuthProvider>
     </BrowserRouter>
   );
