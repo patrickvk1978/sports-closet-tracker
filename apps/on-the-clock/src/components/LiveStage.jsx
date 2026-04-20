@@ -71,9 +71,14 @@ export default function LiveStage({
   // Derive my result for the reveal badge
   const meState = poolState.find((m) => m.isCurrentUser);
   const myResult = meState?.result ?? "miss";
-  const isHit = myResult === "exact" || myResult === "position";
-  const resultLabel = myResult === "exact" ? "exact hit" : myResult === "position" ? "pos hit" : "miss";
-  const resultPoints = myResult === "exact" ? "+5" : myResult === "position" ? "+2" : "0";
+  const isHit = myResult === "exact";
+  const pickNum = currentPick?.number ?? 1;
+  const tierBase = pickNum <= 8 ? 100 : pickNum <= 16 ? 120 : pickNum <= 24 ? 150 : 180;
+  const meStreakBefore = meState?.streakCount ?? 0;
+  const streakBonus = meStreakBefore >= 5;
+  const exactPoints = Math.round(tierBase * (streakBonus ? 1.5 : 1));
+  const resultLabel = isHit ? (streakBonus ? "🔥 exact hit" : "exact hit") : "miss";
+  const resultPoints = isHit ? `+${exactPoints}` : "0";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -257,15 +262,18 @@ export default function LiveStage({
           <div className="ls-pool-how-label">How the pool did</div>
           <div className="ls-reveal-pool-grid">
             {poolState.map((m) => {
-              const result = m.result ?? "miss";
-              const hit = result === "exact" || result === "position";
-              const pts = result === "exact" ? "+5" : result === "position" ? "+2" : null;
+              const hit = m.result === "exact";
+              const mStreak = m.streakCount ?? 0;
+              const mMultiplier = mStreak >= 5 ? 1.5 : 1;
+              const mPts = hit ? `+${Math.round(tierBase * mMultiplier)}` : null;
               const nameLabel = m.isCurrentUser ? `${m.name} · you` : m.name;
               return (
                 <div key={m.id ?? m.name} className={`ls-reveal-pool-card ${hit ? "hit" : "miss"}`}>
                   <div className="ls-rpc-header">
                     <div className="ls-rpc-name">{nameLabel}</div>
-                    <div className="ls-rpc-result">{pts ? `✓ ${pts}` : "miss"}</div>
+                    <div className="ls-rpc-result">
+                      {hit ? `✓ ${mPts}${mStreak >= 5 ? " 🔥" : ""}` : "miss"}
+                    </div>
                   </div>
                   <div className="ls-rpc-player-row">
                     <ProspectAvatar prospect={m.prospect} size="sm" />

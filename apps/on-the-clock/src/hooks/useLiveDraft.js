@@ -4,6 +4,23 @@ import { usePool } from './usePool'
 import { supabase, draftDb } from '../lib/supabase'
 import { useReferenceData } from './useReferenceData'
 
+// ── Scoring helpers ───────────────────────────────────────────────────────
+
+function pickTierPoints(pickNumber) {
+  if (pickNumber <= 8)  return 100
+  if (pickNumber <= 16) return 120
+  if (pickNumber <= 24) return 150
+  return 180
+}
+
+// Returns points earned for a pick given current streak (BEFORE this pick).
+// Streak bonus kicks in after 5 consecutive hits (pick 6+ in a run).
+function scoreForHit(pickNumber, streakBefore) {
+  const base = pickTierPoints(pickNumber)
+  const multiplier = streakBefore >= 5 ? 1.5 : 1
+  return Math.round(base * multiplier)
+}
+
 export function useLiveDraft({ draftFeed, teamCodeForPick }) {
   const { session } = useAuth()
   const { pool, memberList } = usePool()
@@ -19,7 +36,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
   const poolId = pool?.id
   const userId = session?.user?.id
   const settings = pool?.game_mode === 'live_draft'
-    ? { exact_player_points: 5, correct_position_points: 2, fallback_method: 'queue_plus_team_need', ...(pool?.settings ?? {}) }
+    ? { fallback_method: 'queue_plus_team_need', ...(pool?.settings ?? {}) }
     : {}
 
   // Load current user's predictions and cards + all members' data for scoring
@@ -130,13 +147,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
 
   function liveResultForPick(prospectId, actualProspectId) {
     if (!actualProspectId || !prospectId) return 'waiting'
-    if (prospectId === actualProspectId) return 'exact'
-    const prospect = getProspectById(prospectId)
-    const actualProspect = getProspectById(actualProspectId)
-    const samePosition =
-      prospect && actualProspect &&
-      prospect.position.split('/').some(pos => actualProspect.position.split('/').includes(pos))
-    return samePosition ? 'position' : 'miss'
+    return prospectId === actualProspectId ? 'exact' : 'miss'
   }
 
   async function saveLivePrediction(pickNumber, prospectId) {
@@ -252,37 +263,60 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     return selectedProspectId
   }
 
-  // Computed: standings
+  // Computed: standings — tiered pick points + 1.5× streak bonus after 5 in a row
   const liveStandings = useMemo(() => {
     if (!pool || !memberList.length) return []
 
+    const sortedPickNums = Object.keys(draftFeed?.actual_picks ?? {})
+      .map(Number)
+      .sort((a, b) => a - b)
+
     return memberList
       .map(member => {
-        let exact = 0
-        let position = 0
         let points = 0
+        let streak = 0
 
-        Object.entries(draftFeed?.actual_picks ?? {}).forEach(([pickNumStr, actualProspectId]) => {
-          const pickNumber = Number(pickNumStr)
+        for (const pickNumber of sortedPickNums) {
+          const actualProspectId = draftFeed.actual_picks[pickNumber]
           const prospectId = resolveLivePickForUser(member.id, pickNumber)
           const result = liveResultForPick(prospectId, actualProspectId)
-          if (result === 'exact') { exact++; points += settings.exact_player_points }
-          if (result === 'position') { position++; points += settings.correct_position_points }
-        })
+          if (result === 'exact') {
+            points += scoreForHit(pickNumber, streak)
+            streak++
+          } else {
+            streak = 0
+          }
+        }
 
-        return { id: member.id, name: member.name, exact, position, points }
+        return { id: member.id, name: member.name, points, streak }
       })
       .sort((a, b) => b.points - a.points)
   }, [draftFeed?.actual_picks, memberList, allMemberCards, allMemberPredictions, allMemberBoards, pool])
 
-  // Computed: current pick pool state
+  // Computed: current pick pool state (includes streakCount entering this pick)
   const currentLivePoolState = useMemo(() => {
     if (!pool || !memberList.length) return []
-    const actualProspectId = draftFeed?.actual_picks?.[draftFeed.current_pick_number] ?? null
+    const currentPickNum = draftFeed.current_pick_number
+    const actualProspectId = draftFeed?.actual_picks?.[currentPickNum] ?? null
+
+    // Prior picks in order — used to compute each member's streak entering this pick
+    const priorPickNums = Object.keys(draftFeed?.actual_picks ?? {})
+      .map(Number)
+      .filter(n => n < currentPickNum)
+      .sort((a, b) => a - b)
 
     return memberList.map(member => {
-      const lockedProspectId = allMemberCards[`${member.id}:${draftFeed.current_pick_number}`] ?? null
-      const effectiveProspectId = resolveLivePickForUser(member.id, draftFeed.current_pick_number)
+      // Streak entering the current pick
+      let streak = 0
+      for (const pickNumber of priorPickNums) {
+        const actualId = draftFeed.actual_picks[pickNumber]
+        const prospectId = resolveLivePickForUser(member.id, pickNumber)
+        if (liveResultForPick(prospectId, actualId) === 'exact') streak++
+        else streak = 0
+      }
+
+      const lockedProspectId = allMemberCards[`${member.id}:${currentPickNum}`] ?? null
+      const effectiveProspectId = resolveLivePickForUser(member.id, currentPickNum)
       const result = liveResultForPick(effectiveProspectId, actualProspectId)
       return {
         id: member.id,
@@ -291,6 +325,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
         locked: Boolean(lockedProspectId),
         prospect: getProspectById(effectiveProspectId),
         result,
+        streakCount: streak, // consecutive exact hits BEFORE this pick
       }
     })
   }, [draftFeed?.actual_picks, draftFeed?.current_pick_number, memberList, allMemberCards, allMemberPredictions, allMemberBoards, pool])
