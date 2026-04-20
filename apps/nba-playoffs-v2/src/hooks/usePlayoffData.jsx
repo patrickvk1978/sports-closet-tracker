@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo } from "react";
 import { PLAYOFF_ROUNDS, PLAYOFF_SERIES, PLAYOFF_TEAMS } from "../data/playoffData";
 import { useBackendProbabilityInputs } from "./useBackendProbabilityInputs";
 import { useBackendMatchupState } from "./useBackendMatchupState";
+import { useEspnLiveSeriesState } from "./useEspnLiveSeriesState";
 import { usePool } from "./usePool";
 import { mergeProbabilityInputs } from "../lib/probabilityInputs";
 
@@ -25,17 +26,27 @@ function buildRoundSummaries(series) {
 export function PlayoffDataProvider({ children }) {
   const { pool } = usePool();
   const seriesIds = useMemo(() => PLAYOFF_SERIES.map((item) => item.id), []);
+  const teamsById = useMemo(() => Object.fromEntries(PLAYOFF_TEAMS.map((team) => [team.id, team])), []);
   const { probabilityMap } = useBackendProbabilityInputs({
     productKey: "nba_playoffs",
     entityIds: seriesIds,
     entityType: "series",
   });
   const { matchupStateBySeriesId } = useBackendMatchupState(pool?.id);
+  const { liveStateBySeriesId } = useEspnLiveSeriesState(PLAYOFF_SERIES, teamsById, PLAYOFF_TEAMS);
 
   const value = useMemo(() => {
-    const teamsById = Object.fromEntries(PLAYOFF_TEAMS.map((team) => [team.id, team]));
     const series = PLAYOFF_SERIES.map((item) => {
-      const matchupState = matchupStateBySeriesId?.[item.id] ?? null;
+      const backendMatchupState = matchupStateBySeriesId?.[item.id] ?? null;
+      const espnMatchupState = liveStateBySeriesId?.[item.id] ?? null;
+      const matchupState = {
+        ...(backendMatchupState ?? {}),
+        ...(espnMatchupState ?? {}),
+        lockAt: backendMatchupState?.lockAt ?? null,
+        nextGameNumber: backendMatchupState?.nextGameNumber ?? null,
+        nextHomeTeamId: backendMatchupState?.nextHomeTeamId ?? null,
+        nextAwayTeamId: backendMatchupState?.nextAwayTeamId ?? null,
+      };
       const homeTeamId = matchupState?.homeTeamId ?? item.homeTeamId;
       const awayTeamId = matchupState?.awayTeamId ?? item.awayTeamId;
       const homeTeam = teamsById[homeTeamId] ?? teamsById[item.homeTeamId];
@@ -109,7 +120,7 @@ export function PlayoffDataProvider({ children }) {
         featuredSeries,
       roundSummaries: buildRoundSummaries(series),
     };
-  }, [matchupStateBySeriesId, probabilityMap, seriesIds]);
+  }, [liveStateBySeriesId, matchupStateBySeriesId, probabilityMap, seriesIds, teamsById]);
 
   return <PlayoffDataContext.Provider value={value}>{children}</PlayoffDataContext.Provider>;
 }

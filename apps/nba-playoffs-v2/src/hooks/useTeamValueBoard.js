@@ -35,13 +35,6 @@ function buildBaseTeamOrder(teamEntries) {
   });
 }
 
-function buildSeededAssignments(teamEntries, seedOffset = 0) {
-  const ordered = buildBaseTeamOrder(teamEntries);
-  const slots = [...TEAM_VALUE_SLOTS];
-  const rotated = slots.map((_, index) => slots[(index + seedOffset) % slots.length]);
-  return Object.fromEntries(ordered.map((team, index) => [team.id, rotated[index]]));
-}
-
 function sanitizeAssignments(rawAssignments, teamIds) {
   const validTeamIds = new Set(teamIds);
   return Object.fromEntries(
@@ -51,6 +44,10 @@ function sanitizeAssignments(rawAssignments, teamIds) {
 
 function rowsToAssignments(rows) {
   return Object.fromEntries(rows.map((r) => [r.team_id, r.assigned_value]));
+}
+
+function buildEmptyAssignmentsByUser(memberList) {
+  return Object.fromEntries((memberList ?? []).map((member) => [member.id, {}]));
 }
 
 export function useTeamValueBoard(teamEntries) {
@@ -107,21 +104,14 @@ export function useTeamValueBoard(teamEntries) {
       if (cancelled) return;
 
       if (error) {
-        // Fall back to localStorage; other members get seeded assignments
+        // Stay truthful when the DB read fails. Only recover the current user's
+        // real browser-saved board; do not fabricate seeded boards for the room.
         const storedCurrent = sanitizeAssignments(readLocalBoard(pool.id), teamIds);
-        const seededCurrent =
-          validateTeamValueAssignments(storedCurrent, teamIds).valid
-            ? storedCurrent
-            : buildSeededAssignments(teamEntries, 0);
-
-        const seededByUser = Object.fromEntries(
-          memberList.map((member, index) => {
-            if (member.id === currentUserId) return [member.id, seededCurrent];
-            const seedOffset = (hashString(member.id) + index) % TEAM_VALUE_SLOTS.length;
-            return [member.id, buildSeededAssignments(teamEntries, seedOffset)];
-          })
-        );
-        setAssignmentsByUser(seededByUser);
+        const nextByUser = buildEmptyAssignmentsByUser(memberList);
+        if (currentUserId && validateTeamValueAssignments(storedCurrent, teamIds).valid) {
+          nextByUser[currentUserId] = storedCurrent;
+        }
+        setAssignmentsByUser(nextByUser);
         setPersistenceMode("local");
         return;
       }
@@ -133,9 +123,10 @@ export function useTeamValueBoard(teamEntries) {
         byUser[row.user_id][row.team_id] = row.assigned_value;
       }
 
-      // For each member: use DB assignments if present, seed otherwise
+      // For each member: use real DB assignments when present.
+      // Do not seed missing boards; an absent board should remain absent.
       const nextByUser = Object.fromEntries(
-        memberList.map((member, index) => {
+        memberList.map((member) => {
           const raw = byUser[member.id];
           if (raw) {
             const sanitized = sanitizeAssignments(raw, teamIds);
@@ -143,12 +134,7 @@ export function useTeamValueBoard(teamEntries) {
               return [member.id, sanitized];
             }
           }
-          // No valid DB assignment — seed deterministically
-          const seedOffset =
-            member.id === currentUserId
-              ? 0
-              : (hashString(member.id) + index) % TEAM_VALUE_SLOTS.length;
-          return [member.id, buildSeededAssignments(teamEntries, seedOffset)];
+          return [member.id, {}];
         })
       );
 
