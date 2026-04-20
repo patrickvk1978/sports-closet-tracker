@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { LayoutGroup, motion } from "framer-motion";
 import BigBoardTable from "../components/BigBoardTable";
 import LiveStage from "../components/LiveStage";
+import ProspectAvatar from "../components/ProspectAvatar";
 import { SkeletonPanel } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
@@ -375,7 +377,18 @@ export default function LiveDraftView() {
                     ) : null}
                     {focusedPreDraftPrediction ? (
                       <div className="npf-current-pick">
-                        Current pick: <strong>{focusedPreDraftPrediction.name}</strong>
+                        <ProspectAvatar
+                          prospect={focusedPreDraftPrediction}
+                          size="md"
+                          className="npf-current-avatar"
+                        />
+                        <div className="npf-current-copy">
+                          <span className="npf-current-label">Current pick</span>
+                          <strong>{focusedPreDraftPrediction.name}</strong>
+                          <span className="npf-current-meta">
+                            {focusedPreDraftPrediction.position} · {focusedPreDraftPrediction.school}
+                          </span>
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -395,8 +408,13 @@ export default function LiveDraftView() {
                       {nextUnsetSuggestions.map(({ prospect, sourceLabel }, index) => (
                         <div key={`${sourceLabel}-${prospect.id}`} className={`suggest-card featured ${index > 0 ? "mocked" : "board"}`}>
                           <div className="sc-source">{sourceLabel}</div>
-                          <div className="sc-name">{prospect.name}</div>
-                          <div className="sc-pos">{prospect.position} · {prospect.school}</div>
+                          <div className="sc-player-row">
+                            <ProspectAvatar prospect={prospect} size="sm" className="sc-avatar" />
+                            <div className="sc-player-copy">
+                              <div className="sc-name">{prospect.name}</div>
+                              <div className="sc-pos">{prospect.position} · {prospect.school}</div>
+                            </div>
+                          </div>
                           {index === 0 ? (
                             <div className="sc-rank">#{bigBoardIds.indexOf(prospect.id) + 1} on your board</div>
                           ) : (
@@ -608,16 +626,23 @@ export default function LiveDraftView() {
 
               <div className="dn-right-section">
                 <div className="dn-rs-label">Standings</div>
-                {liveStandings.map((player, idx) => {
-                  const isMe = livePoolState.find((m) => m.isCurrentUser && m.name === player.name);
-                  return (
-                    <div key={player.id ?? player.name} className="dn-standings-row">
-                      <span className={`dn-st-rank ${idx === 0 ? "top" : ""}`}>{idx + 1}</span>
-                      <span className={`dn-st-name ${isMe ? "me" : ""}`}>{player.name}</span>
-                      <span className={`dn-st-pts ${isMe ? "me" : ""}`}>{player.points}pt</span>
-                    </div>
-                  );
-                })}
+                <LayoutGroup id="live-standings">
+                  {liveStandings.map((player, idx) => {
+                    const isMe = livePoolState.find((m) => m.isCurrentUser && m.name === player.name);
+                    return (
+                      <motion.div
+                        key={player.id ?? player.name}
+                        layout
+                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                        className="dn-standings-row"
+                      >
+                        <span className={`dn-st-rank ${idx === 0 ? "top" : ""}`}>{idx + 1}</span>
+                        <span className={`dn-st-name ${isMe ? "me" : ""}`}>{player.name}</span>
+                        <span className={`dn-st-pts ${isMe ? "me" : ""}`}>{player.points}pt</span>
+                      </motion.div>
+                    );
+                  })}
+                </LayoutGroup>
               </div>
 
               <div className="dn-right-section">

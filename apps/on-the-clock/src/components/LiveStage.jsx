@@ -7,6 +7,7 @@
  *   3. reveal    → compact announcement + 2×2 pool comparison grid
  */
 import { useMemo, useState } from "react";
+import ProspectAvatar from "./ProspectAvatar";
 
 const POSITIONS = ["All", "QB", "WR", "OT", "EDGE", "CB", "DT", "RB", "LB", "S", "TE"];
 
@@ -34,6 +35,18 @@ export default function LiveStage({
 
   const isRevealed = currentStatus === "revealed";
   const stage = isRevealed ? "reveal" : currentLocked ? "locked" : "on_clock";
+
+  // A4 — parse countdown label for urgency states
+  const timerSeconds = (() => {
+    if (typeof countdownLabel !== "string") return null;
+    const m = countdownLabel.match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    return Number(m[1]) * 60 + Number(m[2]);
+  })();
+  const timerUrgency =
+    timerSeconds == null ? "" :
+    timerSeconds <= 10 ? "critical" :
+    timerSeconds <= 30 ? "warning" : "";
 
   const submittedCount = poolState.filter((m) => m.locked).length;
   const totalCount = poolState.length;
@@ -66,7 +79,7 @@ export default function LiveStage({
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
       {/* ── Header: always visible ── */}
-      <div className="ls-header">
+      <div className={`ls-header ${stage === "on_clock" && timerUrgency === "critical" ? "critical" : ""}`}>
         <div className="ls-team-block">
           <div className="ls-pick-label">
             Pick {currentPick?.number} · {stage === "locked" ? "Card submitted — waiting on announcement" : "Now Selecting"}
@@ -86,8 +99,8 @@ export default function LiveStage({
             </>
           ) : stage === "reveal" ? null : (
             <>
-              <span className="ls-timer-label">Submit in</span>
-              <span className="ls-timer-val">{countdownLabel}</span>
+              <span className={`ls-timer-label ${timerUrgency}`}>Submit in</span>
+              <span className={`ls-timer-val ${timerUrgency}`}>{countdownLabel}</span>
             </>
           )}
         </div>
@@ -104,6 +117,7 @@ export default function LiveStage({
               {suggestedProspect && (
                 <div className="ls-suggestion-row queue">
                   <div className="ls-sug-label">Your Queue Pick</div>
+                  <ProspectAvatar prospect={suggestedProspect} size="sm" />
                   <div className="ls-sug-info">
                     <span className="ls-sug-name">{suggestedProspect.name}</span>
                     <span className="ls-sug-meta">
@@ -125,6 +139,7 @@ export default function LiveStage({
               {(expertSuggestions ?? []).map(({ label, prospect }) => (
                 <div key={prospect.id} className="ls-suggestion-row expert">
                   <div className="ls-sug-label">{label}</div>
+                  <ProspectAvatar prospect={prospect} size="sm" />
                   <div className="ls-sug-info">
                     <span className="ls-sug-name">{prospect.name}</span>
                     <span className="ls-sug-meta">{prospect.position} · {prospect.school}</span>
@@ -175,6 +190,7 @@ export default function LiveStage({
                 return (
                   <div key={p.id} className="ls-sr-row" onClick={() => handleLockIn(p.id)}>
                     <div className="ls-sr-rank">#{rank > 0 ? rank : "—"}</div>
+                    <ProspectAvatar prospect={p} size="sm" />
                     <div className="ls-sr-name">{p.name}</div>
                     <div className="ls-sr-pos">{p.position}</div>
                     <div className="ls-sr-school">{p.school}</div>
@@ -197,7 +213,11 @@ export default function LiveStage({
       {stage === "locked" && (
         <>
           <div className="ls-locked-card">
-            <div className="ls-locked-avatar">🏈</div>
+            <ProspectAvatar
+              prospect={currentSelection ?? suggestedProspect}
+              size="lg"
+              className="ls-locked-avatar"
+            />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="ls-locked-badge">SUBMITTED</div>
               <div className="ls-locked-name">{currentSelection?.name ?? suggestedProspect?.name ?? "—"}</div>
@@ -243,7 +263,8 @@ export default function LiveStage({
       {stage === "reveal" && (
         <>
           <div className="ls-reveal-announce">
-            <div>
+            <ProspectAvatar prospect={actualPick} size="xl" className="ls-reveal-avatar" />
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div className="ls-reveal-team-label">{currentTeam?.name} select · Pick {currentPick?.number}</div>
               <div className="ls-reveal-player-name">{actualPick?.name ?? "—"}</div>
               <div className="ls-reveal-player-meta">
@@ -272,9 +293,14 @@ export default function LiveStage({
                     <div className="ls-rpc-name">{nameLabel}</div>
                     <div className="ls-rpc-result">{pts ? `✓ ${pts}` : "miss"}</div>
                   </div>
-                  <div className="ls-rpc-player">{m.prospect?.name ?? "—"}</div>
-                  <div className="ls-rpc-meta">
-                    {m.prospect ? `${m.prospect.position} · ${m.prospect.school}` : ""}
+                  <div className="ls-rpc-player-row">
+                    <ProspectAvatar prospect={m.prospect} size="sm" />
+                    <div className="ls-rpc-player-body">
+                      <div className="ls-rpc-player">{m.prospect?.name ?? "—"}</div>
+                      <div className="ls-rpc-meta">
+                        {m.prospect ? `${m.prospect.position} · ${m.prospect.school}` : ""}
+                      </div>
+                    </div>
                   </div>
                 </div>
               );

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useReferenceData } from "../hooks/useReferenceData";
 import { SkeletonBoardTable } from "./Skeleton";
 import EmptyState from "./EmptyState";
+import ProspectAvatar from "./ProspectAvatar";
 
 const RANK_SOURCES = [
   { value: "your_rank",      label: "Your Rank",       field: null },
@@ -155,7 +156,13 @@ export default function BigBoardTable({
       {/* Player select + assign */}
       {(viewMode === "rankings" || (viewMode === "mocks" && onAssignSelectedProspect)) && (
         <div className="board-action-bar">
-          <div>
+          <div className="board-selected-player">
+            <ProspectAvatar
+              prospect={selectedProspect}
+              size="md"
+              className="board-selected-avatar"
+            />
+            <div className="board-selected-copy">
             <span className="micro-label">Selected player</span>
             <strong>{selectedProspect?.name ?? "Choose a player"}</strong>
             <p className="subtle">
@@ -163,6 +170,7 @@ export default function BigBoardTable({
                 ? `Currently mapping to ${selectedPickLabel}`
                 : "Use the Big Board to support live picks, predictions, and auto-submit behavior."}
             </p>
+            </div>
           </div>
           {onAssignSelectedProspect ? (
             <>
@@ -223,10 +231,13 @@ export default function BigBoardTable({
                 >
                   <span className="board-rank">{displayRank}</span>
                   <span className="board-player">
-                    <strong>{prospect.name}</strong>
-                    {assignedPick ? (
-                      <span className="assign-tag">→ {assignedPick}</span>
-                    ) : null}
+                    <ProspectAvatar prospect={prospect} size="sm" className="board-player-avatar" />
+                    <span className="board-player-main">
+                      <strong>{prospect.name}</strong>
+                      {assignedPick ? (
+                        <span className="assign-tag">→ {assignedPick}</span>
+                      ) : null}
+                    </span>
                   </span>
                   <span>{prospect.position}</span>
                   <span>{prospect.school}</span>
@@ -274,10 +285,13 @@ export default function BigBoardTable({
                   <span className="board-rank">{pickNum}</span>
                   <span className="mock-team">{teamName}</span>
                   <span className="board-player">
-                    <strong>{prospect.name}</strong>
-                    {assignedPick ? (
-                      <span className="assign-tag">→ {assignedPick}</span>
-                    ) : null}
+                    <ProspectAvatar prospect={prospect} size="sm" className="board-player-avatar" />
+                    <span className="board-player-main">
+                      <strong>{prospect.name}</strong>
+                      {assignedPick ? (
+                        <span className="assign-tag">→ {assignedPick}</span>
+                      ) : null}
+                    </span>
                   </span>
                   <span>{prospect.position}</span>
                   <span>{prospect.school}</span>

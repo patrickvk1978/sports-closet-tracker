@@ -1869,6 +1869,21 @@ select:focus {
   background: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-0) 100%);
 }
 
+.board-selected-player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.board-selected-copy {
+  min-width: 0;
+}
+
+.board-selected-avatar {
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
 .board-action-bar strong {
   display: block;
   margin-top: 2px;
@@ -1934,7 +1949,18 @@ select:focus {
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.board-player-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   flex-wrap: wrap;
+}
+
+.board-player-main strong {
+  min-width: 0;
 }
 
 .board-rank {
@@ -2435,231 +2461,6 @@ select:focus {
   margin-bottom: 8px;
 }
 
-.pd-header {
-  align-items: center;
-  gap: 32px;
-  margin-bottom: 30px;
-}
-
-.pd-eyebrow {
-  font-size: 0.82rem;
-  letter-spacing: 0.22em;
-  margin-bottom: 10px;
-}
-
-.pd-title {
-  font-size: clamp(2.35rem, 3.6vw, 3.8rem);
-  color: var(--text);
-  margin-bottom: 12px;
-  letter-spacing: -0.05em;
-  line-height: 0.98;
-}
-
-.pd-subtitle {
-  font-size: clamp(1rem, 1.45vw, 1.24rem);
-  color: var(--text-2);
-  max-width: 780px;
-  line-height: 1.6;
-  font-weight: 500;
-}
-
-.pd-countdown-pill {
-  border-radius: 999px;
-  border-color: #d8dee8;
-  padding: 14px 22px;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text);
-  box-shadow: var(--shadow-xs);
-  margin-top: 0;
-}
-
-.pd-progress-card {
-  border-color: #dce3ec;
-  border-radius: 18px;
-  padding: 24px 28px;
-  margin-bottom: 28px;
-  box-shadow: var(--shadow-sm);
-}
-
-.pd-progress-row {
-  margin-bottom: 14px;
-}
-
-.pd-progress-title,
-.pd-progress-count {
-  font-size: 1.05rem;
-}
-
-.pd-progress-title {
-  color: var(--text);
-  font-weight: 700;
-}
-
-.pd-progress-wrap {
-  height: 12px;
-  background: #e9edf4;
-  border: 0;
-  border-radius: 999px;
-  padding: 0;
-  margin: 0;
-  overflow: hidden;
-}
-
-.pd-progress-fill {
-  background: linear-gradient(90deg, var(--brand) 0%, #f34d5d 100%);
-  border-radius: inherit;
-}
-
-.pd-tabs {
-  border-color: #dce3ec;
-  border-radius: 14px;
-  margin-bottom: 28px;
-  background: #fff;
-  box-shadow: var(--shadow-xs);
-}
-
-.pd-tab {
-  padding: 14px 28px;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-3);
-}
-
-.pd-tab.active {
-  background: #111827;
-}
-
-.next-pick-featured {
-  border-radius: 24px;
-  padding: 30px 34px;
-  margin-bottom: 30px;
-  gap: 32px;
-  box-shadow: 0 20px 44px rgba(17, 24, 39, 0.18);
-}
-
-.npf-num {
-  font-size: clamp(4.2rem, 7vw, 5.8rem);
-  width: 90px;
-}
-
-.npf-team-block {
-  min-width: 200px;
-}
-
-.npf-sub,
-.npf-label {
-  color: #9ca3af;
-  font-size: 0.78rem;
-  letter-spacing: 0.18em;
-  font-weight: 800;
-}
-
-.npf-team {
-  font-size: clamp(2rem, 3vw, 2.8rem);
-  line-height: 1.02;
-  letter-spacing: -0.04em;
-}
-
-.npf-needs {
-  color: #d1d5db;
-  font-size: 1.02rem;
-  margin-top: 12px;
-  font-weight: 500;
-}
-
-.npf-current-pick {
-  margin-top: 12px;
-  color: #f3f4f6;
-  font-size: 0.96rem;
-  font-weight: 500;
-}
-
-.npf-current-pick strong {
-  color: #fff;
-  font-weight: 700;
-}
-
-.npf-right {
-  flex: 1 1 520px;
-}
-
-.npf-suggest {
-  gap: 12px;
-}
-
-.suggest-card {
-  flex: 0 1 196px;
-  min-width: 196px;
-  border-radius: 14px;
-  border-color: #343843;
-  padding: 16px 18px;
-}
-
-.suggest-card:hover {
-  border-color: #5b6472;
-}
-
-.suggest-card .sc-name {
-  color: #f8fafc;
-  font-size: 1.08rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.suggest-card .sc-source {
-  color: #fca5a5;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-
-.suggest-card .sc-pos {
-  color: #cbd5e1;
-  font-size: 0.95rem;
-  margin-top: 6px;
-}
-
-.suggest-card .sc-rank {
-  color: #f87171;
-  font-size: 0.84rem;
-  font-weight: 800;
-  margin-top: 8px;
-}
-
-.suggest-use-btn {
-  margin-top: 14px;
-  border-radius: 10px;
-  padding: 11px 14px;
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-
-.picks-grid-label,
-.pd-grid-label {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-2);
-  margin-bottom: 14px;
-}
-
-.picks-grid {
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 32px;
-}
-
-.pick-chip {
-  min-height: 92px;
-  height: auto;
-  border-radius: 14px;
-  padding: 12px 8px;
-  gap: 4px;
-  box-shadow: var(--shadow-xs);
-}
-
 .pick-chip-wrap {
   position: relative;
 }
@@ -2703,107 +2504,6 @@ select:focus {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
-
-.pick-chip.empty {
-  background: #fff;
-  border-color: #dfe5ee;
-}
-
-.pick-chip.empty:hover {
-  background: #f9fafb;
-  border-color: #c7d0dc;
-}
-
-.pick-chip.filled {
-  background: #fff5f5;
-  border-color: #f8a4af;
-}
-
-.pick-chip .pc-num {
-  font-size: 1.1rem;
-  font-weight: 800;
-}
-
-.pick-chip.empty .pc-num {
-  color: var(--text-4);
-}
-
-.pick-chip .pc-team {
-  font-size: 0.92rem;
-  color: var(--text-3);
-  font-weight: 600;
-  line-height: 1.15;
-}
-
-.pick-chip .pc-player {
-  font-size: 0.94rem;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.1;
-}
-
-.pick-chip .pc-meta {
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--brand);
-  line-height: 1;
-}
-
-.pick-chip.active .pc-team {
-  color: #d1d5db;
-}
-
-.pick-chip.active .pc-meta {
-  color: #fca5a5;
-}
-
-.pc-editing {
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-}
-
-.pd-board-ctx {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-  padding: 16px 18px;
-  border-radius: 16px;
-  background: #fff;
-  border: 1px solid #dde3ec;
-  box-shadow: var(--shadow-xs);
-}
-
-.pd-board-ctx-label {
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-
-.pd-board-ctx strong {
-  font-size: 1.08rem;
-  color: var(--text);
-}
-
-.pd-board-ctx-team {
-  color: var(--text-2);
-  font-weight: 600;
-}
-
-.pd-board-ctx-back {
-  margin-left: auto;
-  border: 0;
-  background: transparent;
-  color: var(--brand);
-  font-weight: 700;
-  cursor: pointer;
-}
-
 @media (max-width: 1360px) {
   .predraft-v2 {
     max-width: 1280px;
@@ -2815,15 +2515,6 @@ select:focus {
 }
 
 @media (max-width: 900px) {
-  .pd-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .pd-countdown-pill {
-    align-self: flex-start;
-  }
-
   .next-pick-featured {
     flex-direction: column;
     padding: 24px;
@@ -2849,55 +2540,6 @@ select:focus {
   }
 }
 
-/* Final progress-bar override: keep this last so prototype-era rules
-   cannot turn the track back into a white card shell. */
-.pd-progress-card {
-  background: #fff;
-  border: 1px solid #dce3ec;
-  border-radius: 18px;
-  padding: 24px 28px;
-  margin-bottom: 28px;
-  box-shadow: var(--shadow-sm);
-}
-
-.pd-progress-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 14px;
-}
-
-.pd-progress-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.pd-progress-count {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--brand);
-}
-
-.pd-progress-wrap {
-  width: 100%;
-  height: 12px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: #e9edf4;
-  overflow: hidden;
-}
-
-.pd-progress-fill {
-  display: block;
-  height: 100%;
-  min-width: 0;
-  background: linear-gradient(90deg, var(--brand) 0%, #f34d5d 100%);
-  border-radius: inherit;
-  transition: width 0.4s ease;
-}
 
 /* ─── Live Stage (center column, live draft) ─────────────────────────────── */
 .live-stage {
@@ -3535,38 +3177,6 @@ select:focus {
   color: var(--brand-dark);
 }
 
-/* Progress bar */
-.pd-progress-wrap {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-}
-
-.pd-progress-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.pd-progress-label { font-size: 13px; font-weight: 600; }
-.pd-progress-count { font-size: 13px; color: var(--brand); font-weight: 700; }
-
-.pd-progress-track {
-  height: 6px;
-  background: #f3f4f6;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.pd-progress-fill {
-  height: 100%;
-  background: var(--brand);
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
 
 /* Tabs */
 .pd-tabs {
@@ -3693,6 +3303,20 @@ select:focus {
 
 .suggest-card:hover { border-color: #444; }
 .suggest-card.featured { border-color: var(--brand); background: #1f0f0f; }
+
+.suggest-card .sc-player-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.suggest-card .sc-player-copy {
+  min-width: 0;
+}
+
+.suggest-card .sc-avatar {
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+}
 
 .suggest-card .sc-name { color: #e4e4e7; font-size: 13px; font-weight: 600; }
 .suggest-card .sc-pos { color: #71717a; font-size: 11px; margin-top: 2px; }
@@ -4240,16 +3864,8 @@ select:focus {
 }
 
 .ls-locked-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
   background: #0d1f0d;
-  border: 1px solid var(--dn-green);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
+  border: 1.5px solid var(--dn-green);
 }
 
 .ls-locked-badge {
@@ -4790,85 +4406,6 @@ select:focus {
 
 .pd-board-ctx-back:hover { color: #111; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   PRE-DRAFT V2 — Header, progress card, grid label, chip editing state
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* Page header */
-.pd-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.pd-eyebrow {
-  color: var(--brand);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-
-.pd-title {
-  font-size: 24px;
-  font-weight: 800;
-  color: #111;
-  margin: 0 0 6px;
-  letter-spacing: -0.5px;
-}
-
-.pd-subtitle {
-  font-size: 13px;
-  color: #6b7280;
-  margin: 0;
-  max-width: 520px;
-  line-height: 1.5;
-}
-
-.pd-countdown-pill {
-  flex-shrink: 0;
-  background: #fff;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  white-space: nowrap;
-  margin-top: 4px;
-}
-
-/* Progress card */
-.pd-progress-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-}
-
-.pd-progress-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.pd-progress-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.pd-progress-count {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--brand);
-}
-
 /* ── Compact status bar (progress + countdown, single row) ──────────────── */
 .pd-status-bar {
   display: flex;
@@ -4944,54 +4481,6 @@ select:focus {
   font-weight: 700;
   margin-top: 2px;
   letter-spacing: 0;
-}
-
-/* ─── Terminal override: progress bar must come after every legacy pre-draft block ─── */
-.pd-progress-card {
-  background: #fff;
-  border: 1px solid #dce3ec;
-  border-radius: 18px;
-  padding: 24px 28px;
-  margin-bottom: 28px;
-  box-shadow: var(--shadow-sm);
-}
-
-.pd-progress-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 14px;
-}
-
-.pd-progress-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.pd-progress-count {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--brand);
-}
-
-.pd-progress-wrap {
-  width: 100%;
-  height: 12px;
-  background: #e9edf4;
-  border: 0;
-  border-radius: 999px;
-  padding: 0;
-  margin: 0;
-  overflow: hidden;
-}
-
-.pd-progress-fill {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--brand) 0%, #f34d5d 100%);
-  border-radius: inherit;
-  transition: width 0.4s ease;
 }
 
 /* Final pick-chip text hierarchy override */
@@ -5101,4 +4590,288 @@ select:focus {
 
 .pick-chip.filled .pc-meta {
   color: #b42336;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Session 2 polish — A4 timer urgency, A5 left-rail dim,
+   A8 reveal micro-animation
+   ════════════════════════════════════════════════════════════ */
+
+/* ── A4: under-30s / under-10s urgency on the main submit timer ── */
+@keyframes ls-timer-warn-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.03); }
+}
+
+@keyframes ls-timer-crit-pulse {
+  0%, 100% {
+    transform: scale(1);
+    text-shadow: 0 0 0 rgba(220, 38, 38, 0);
+  }
+  50% {
+    transform: scale(1.06);
+    text-shadow: 0 0 18px rgba(220, 38, 38, 0.65);
+  }
+}
+
+@keyframes ls-header-vignette-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(220, 38, 38, 0); }
+  50%      { box-shadow: inset 0 0 60px 6px rgba(220, 38, 38, 0.22); }
+}
+
+.ls-timer-val.warning {
+  color: #f59e0b;
+  animation: ls-timer-warn-pulse 1s ease-in-out infinite;
+}
+
+.ls-timer-label.warning { color: #f59e0b; }
+
+.ls-timer-val.critical {
+  color: #ef4444;
+  animation: ls-timer-crit-pulse 0.7s ease-in-out infinite;
+}
+
+.ls-timer-label.critical {
+  color: #ef4444;
+  animation: ls-timer-crit-pulse 0.7s ease-in-out infinite;
+}
+
+.ls-header.critical {
+  border-radius: 10px;
+  animation: ls-header-vignette-pulse 0.7s ease-in-out infinite;
+}
+
+/* ── A5: stronger dim on completed picks so current pick dominates ── */
+.dn-pick-row.done-hit {
+  opacity: 0.7;
+}
+
+.dn-pick-row.done-hit .dn-pr-team,
+.dn-pick-row.done-hit .dn-pr-pick {
+  color: #52525b;
+}
+
+.dn-pick-row.done-miss {
+  opacity: 0.45;
+}
+
+.dn-pick-row.done-miss .dn-pr-team,
+.dn-pick-row.done-miss .dn-pr-pick {
+  color: #3f3f46;
+}
+
+.dn-pick-row.done-hit:hover,
+.dn-pick-row.done-miss:hover {
+  opacity: 0.9;
+}
+
+/* ── A8: pick reveal micro-animation ── */
+@keyframes ls-reveal-name-in {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.96); }
+  60%  { opacity: 1; transform: translateY(0) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ls-reveal-badge-burst {
+  0%   { transform: scale(0.7); opacity: 0; }
+  50%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes ls-reveal-badge-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  50%      { box-shadow: 0 0 24px 4px rgba(34, 197, 94, 0.45); }
+}
+
+.ls-reveal-announce .ls-reveal-player-name {
+  animation: ls-reveal-name-in 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.ls-reveal-announce .ls-reveal-team-label,
+.ls-reveal-announce .ls-reveal-player-meta {
+  animation: ls-reveal-name-in 0.55s ease-out 0.08s both;
+}
+
+.ls-reveal-announce .ls-result-badge {
+  animation: ls-reveal-badge-burst 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.4) 0.15s both;
+}
+
+.ls-reveal-announce .ls-result-badge.hit {
+  animation:
+    ls-reveal-badge-burst 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.4) 0.15s both,
+    ls-reveal-badge-glow 1.6s ease-in-out 0.75s 2;
+}
+
+.ls-reveal-pool-card {
+  animation: ls-reveal-name-in 0.45s ease-out both;
+}
+.ls-reveal-pool-card:nth-child(1) { animation-delay: 0.30s; }
+.ls-reveal-pool-card:nth-child(2) { animation-delay: 0.38s; }
+.ls-reveal-pool-card:nth-child(3) { animation-delay: 0.46s; }
+.ls-reveal-pool-card:nth-child(4) { animation-delay: 0.54s; }
+.ls-reveal-pool-card:nth-child(n+5) { animation-delay: 0.62s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-timer-val.warning,
+  .ls-timer-val.critical,
+  .ls-timer-label.critical,
+  .ls-header.critical,
+  .ls-reveal-player-name,
+  .ls-reveal-team-label,
+  .ls-reveal-player-meta,
+  .ls-result-badge,
+  .ls-reveal-pool-card {
+    animation: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   ProspectAvatar — photo tile with monogram fallback
+   ════════════════════════════════════════════════════════════ */
+.pa-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--dn-card);
+  border: 1px solid var(--dn-border2);
+  flex-shrink: 0;
+  position: relative;
+  color: #e4e4e7;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+.pa-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pa-avatar.monogram {
+  background: linear-gradient(135deg, #1f1f23 0%, #131316 100%);
+}
+
+.pa-avatar.has-image { background: #0a0a0a; }
+
+.pa-avatar .pa-initials {
+  font-size: inherit;
+  color: #a1a1aa;
+}
+
+/* Size variants */
+.pa-avatar.sm {
+  width: 32px;
+  height: 32px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+
+.pa-avatar.md {
+  width: 44px;
+  height: 44px;
+  font-size: 14px;
+  border-radius: 8px;
+}
+
+.pa-avatar.lg {
+  width: 56px;
+  height: 56px;
+  font-size: 18px;
+  border-radius: 10px;
+}
+
+.pa-avatar.xl {
+  width: 80px;
+  height: 80px;
+  font-size: 24px;
+  border-radius: 12px;
+}
+
+/* Locked card avatar keeps green-framed success vibe */
+.pa-avatar.ls-locked-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  border: 1.5px solid var(--dn-green);
+}
+
+.pa-avatar.ls-locked-avatar.monogram {
+  background: #0d1f0d;
+}
+
+.pa-avatar.ls-locked-avatar .pa-initials {
+  color: var(--dn-green);
+}
+
+/* Reveal avatar — bigger, hit/miss variants live on parent */
+.ls-reveal-announce .pa-avatar.ls-reveal-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
+  border: 1.5px solid var(--dn-border2);
+}
+
+/* Suggestion row tweaks so avatar sits neatly before info block */
+.ls-suggestion-row .pa-avatar {
+  margin-right: 4px;
+}
+
+/* Search results row — avatar between rank and name */
+.ls-sr-row .pa-avatar {
+  margin: 0 8px 0 2px;
+}
+
+/* Reveal pool card — two-column layout under header */
+.ls-rpc-player-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.npf-current-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  color: #f4f4f5;
+}
+
+.npf-current-avatar {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.npf-current-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.npf-current-label {
+  color: #a1a1aa;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.npf-current-copy strong {
+  color: #fafafa;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.npf-current-meta {
+  color: #a1a1aa;
+  font-size: 12px;
+}
+
+.ls-rpc-player-body {
+  min-width: 0;
+  flex: 1;
 }
