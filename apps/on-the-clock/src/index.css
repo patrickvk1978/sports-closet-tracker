@@ -3483,17 +3483,59 @@ select:focus {
   overflow: hidden;
 }
 
-/* Left: pick timeline */
+/* Left: pick timeline / feed toggle */
 .dn-left {
-  width: 200px;
+  width: 260px;
   flex-shrink: 0;
   border-right: 1px solid var(--dn-border);
   overflow-y: auto;
-  padding: 12px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .dn-left::-webkit-scrollbar { width: 4px; }
 .dn-left::-webkit-scrollbar-thumb { background: var(--dn-border2); border-radius: 2px; }
+
+/* Left rail tab toggle */
+.dn-left-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--dn-border);
+  flex-shrink: 0;
+}
+
+.dn-left-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--dn-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 9px 4px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.dn-left-tab:hover { color: var(--dn-sub); background: rgba(255,255,255,0.03); }
+
+.dn-left-tab.active {
+  color: var(--dn-sub);
+  border-bottom-color: var(--dn-red);
+}
+
+/* When showing picks, restore the inner scroll + padding */
+.dn-left-picks {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.dn-left-picks::-webkit-scrollbar { width: 4px; }
+.dn-left-picks::-webkit-scrollbar-thumb { background: var(--dn-border2); border-radius: 2px; }
 
 .dn-panel-label {
   font-size: 10px;
@@ -3579,17 +3621,6 @@ select:focus {
 
 .dn-center::-webkit-scrollbar { width: 4px; }
 .dn-center::-webkit-scrollbar-thumb { background: var(--dn-border2); border-radius: 2px; }
-
-/* Feed: Bluesky center-right column */
-.dn-feed {
-  width: 280px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--dn-border);
-  overflow-y: auto;
-}
-
-.dn-feed::-webkit-scrollbar { width: 4px; }
-.dn-feed::-webkit-scrollbar-thumb { background: var(--dn-border2); border-radius: 2px; }
 
 /* Right: standings + activity */
 .dn-right {

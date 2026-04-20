@@ -67,6 +67,7 @@ export default function LiveDraftView() {
   const [selectedPick, setSelectedPick] = useState(1);
   const [liveTab, setLiveTab] = useState("draft");
   const [pdTab, setPdTab] = useState("picks");
+  const [leftTab, setLeftTab] = useState("picks"); // "picks" | "feed"
   const [devPhase, setDevPhase] = useState(null); // admin override
 
   const effectivePhase = isAdmin && devPhase ? devPhase : draftFeed.phase;
@@ -576,36 +577,58 @@ export default function LiveDraftView() {
 
           <div className="dn-body">
 
-            {/* ── Left: pick timeline ── */}
+            {/* ── Left: pick timeline / Bluesky feed toggle ── */}
             <div className="dn-left">
-              <div className="dn-panel-label">Picks</div>
-              {picks.map((pick) => {
-                const rowClass = pickRowClass(pick);
-                const actualId = draftFeed.actual_picks?.[pick.number];
-                const actualProspect = getProspectById(actualId);
-                const teamName = teams[teamForPick(pick)]?.name ?? "";
-                const isCurrent = pick.number === currentPickNumber;
-                return (
-                  <div
-                    key={pick.number}
-                    className={`dn-pick-row ${rowClass}`}
-                    onClick={() => !isCurrent && setSelectedPick(pick.number)}
-                    style={{ cursor: isCurrent ? "default" : "pointer" }}
-                  >
-                    <span className="dn-pr-num">{pick.number}</span>
-                    <div className="dn-pr-body">
-                      <span className="dn-pr-team">{teamName}</span>
-                      {actualProspect ? (
-                        <span className="dn-pr-pick">{actualProspect.name}</span>
-                      ) : isCurrent ? (
-                        <span className="dn-pr-pick" style={{ color: "var(--dn-red)", opacity: 0.7 }}>on the clock</span>
-                      ) : null}
-                    </div>
-                    {rowClass === "done-hit" && <span className="dn-pr-result hit">✓</span>}
-                    {rowClass === "done-miss" && <span className="dn-pr-result miss">✗</span>}
-                  </div>
-                );
-              })}
+              <div className="dn-left-tabs">
+                <button
+                  className={`dn-left-tab ${leftTab === "picks" ? "active" : ""}`}
+                  type="button"
+                  onClick={() => setLeftTab("picks")}
+                >
+                  Picks
+                </button>
+                <button
+                  className={`dn-left-tab ${leftTab === "feed" ? "active" : ""}`}
+                  type="button"
+                  onClick={() => setLeftTab("feed")}
+                >
+                  🦋 Feed
+                </button>
+              </div>
+
+              {leftTab === "picks" ? (
+                <div className="dn-left-picks">
+                  {picks.map((pick) => {
+                    const rowClass = pickRowClass(pick);
+                    const actualId = draftFeed.actual_picks?.[pick.number];
+                    const actualProspect = getProspectById(actualId);
+                    const teamName = teams[teamForPick(pick)]?.name ?? "";
+                    const isCurrent = pick.number === currentPickNumber;
+                    return (
+                      <div
+                        key={pick.number}
+                        className={`dn-pick-row ${rowClass}`}
+                        onClick={() => !isCurrent && setSelectedPick(pick.number)}
+                        style={{ cursor: isCurrent ? "default" : "pointer" }}
+                      >
+                        <span className="dn-pr-num">{pick.number}</span>
+                        <div className="dn-pr-body">
+                          <span className="dn-pr-team">{teamName}</span>
+                          {actualProspect ? (
+                            <span className="dn-pr-pick">{actualProspect.name}</span>
+                          ) : isCurrent ? (
+                            <span className="dn-pr-pick" style={{ color: "var(--dn-red)", opacity: 0.7 }}>on the clock</span>
+                          ) : null}
+                        </div>
+                        {rowClass === "done-hit" && <span className="dn-pr-result hit">✓</span>}
+                        {rowClass === "done-miss" && <span className="dn-pr-result miss">✗</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <CenterFeed isLive={draftFeed.phase === "live"} />
+              )}
             </div>
 
             {/* ── Center: live stage ── */}
@@ -635,11 +658,6 @@ export default function LiveDraftView() {
                 nextPickLabel={nextPickLabel}
                 onNextPick={() => {}}
               />
-            </div>
-
-            {/* ── Center-right: Bluesky feed ── */}
-            <div className="dn-feed">
-              <CenterFeed isLive={draftFeed.phase === "live"} />
             </div>
 
             {/* ── Right: standings + pool activity ── */}
