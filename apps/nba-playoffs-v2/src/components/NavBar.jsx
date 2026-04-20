@@ -5,7 +5,7 @@ import { usePool } from "../hooks/usePool";
 export default function NavBar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, session } = useAuth();
   const { pool, allPools, switchPool } = usePool();
 
   const isAdmin     = location.pathname === "/admin";
@@ -14,7 +14,8 @@ export default function NavBar() {
   const isTeams = location.pathname === "/teams";
   const isStandings = location.pathname === "/standings";
   const isReports = location.pathname === "/reports" || location.pathname.startsWith("/reports/");
-  const isPoolCreator = pool?.admin_id === profile?.id;
+  const currentUserId = session?.user?.id ?? profile?.id ?? null;
+  const isPoolCreator = pool?.admin_id === currentUserId;
   const canSettings   = isPoolCreator || Boolean(profile?.is_admin);
 
   function handlePoolSelect(e) {

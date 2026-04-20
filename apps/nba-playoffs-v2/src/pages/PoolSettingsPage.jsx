@@ -19,11 +19,13 @@ function formatDateTimeLocal(value) {
 
 export default function PoolSettingsPage() {
   const { pool, settingsForPool, updatePoolMeta, updatePoolSettings, memberList } = usePool();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { roundSummaries } = usePlayoffData();
 
-  const isCommissioner = pool?.admin_id === profile?.id;
+  const currentUserId = session?.user?.id ?? profile?.id ?? null;
+  const isCommissioner = pool?.admin_id === currentUserId;
   const isSiteAdmin = Boolean(profile?.is_admin);
+  const canManageSettings = isCommissioner || isSiteAdmin;
   const settings = settingsForPool(pool);
   const [name, setName] = useState(pool?.name ?? "");
   const [saved, setSaved] = useState(false);
@@ -38,11 +40,11 @@ export default function PoolSettingsPage() {
     [roundSummaries]
   );
 
-  if (!isCommissioner) {
+  if (!canManageSettings) {
     return (
       <div className="panel">
         <h2>Pool Settings</h2>
-        <p className="subtle">Only the pool creator can edit NBA playoff rules and invite settings.</p>
+        <p className="subtle">Only the commissioner or a site admin can edit NBA playoff rules and invite settings.</p>
       </div>
     );
   }
@@ -93,6 +95,11 @@ export default function PoolSettingsPage() {
           <div className="detail-card">
             <span className="micro-label">Commissioner</span>
             <p>{memberList.find((member) => member.isCommissioner)?.name ?? "Pool creator"}</p>
+          </div>
+
+          <div className="detail-card">
+            <span className="micro-label">Your access</span>
+            <p>{isCommissioner ? "Commissioner" : isSiteAdmin ? "Site admin override" : "Member"}</p>
           </div>
 
           <div className="detail-card">
