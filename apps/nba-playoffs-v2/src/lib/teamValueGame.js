@@ -125,6 +125,7 @@ export function getPointsForDisplayRank(rank) {
 
 export function scoreSeriesForAssignments(assignmentsByTeamId, series) {
   if (!series?.wins) return [];
+  if (series.roundKey === "play_in") return [];
 
   const games = getSeriesLength(series);
   const homeWins = Math.max(0, Math.min(4, Number(series.wins.home ?? 0)));

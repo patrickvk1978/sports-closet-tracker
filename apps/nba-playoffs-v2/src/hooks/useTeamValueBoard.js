@@ -73,11 +73,7 @@ export function useTeamValueBoard(teamEntries) {
     let cancelled = false;
 
     async function loadBoard() {
-      const { data, error } = await supabase
-        .schema("nba_playoffs")
-        .from("team_values")
-        .select("user_id, team_id, assigned_value")
-        .eq("pool_id", pool.id);
+      const { data, error } = await supabase.rpc("get_nba_team_values", { p_pool_id: pool.id });
 
       if (cancelled) return;
 
@@ -192,17 +188,16 @@ export function useTeamValueBoard(teamEntries) {
     }
 
     const rows = Object.entries(nextAssignments).map(([teamId, value]) => ({
-      pool_id: pool.id,
-      user_id: targetUserId,
       team_id: teamId,
       assigned_value: Number(value),
       updated_at: new Date().toISOString(),
     }));
 
-    await supabase
-      .schema("nba_playoffs")
-      .from("team_values")
-      .upsert(rows, { onConflict: "pool_id,user_id,team_id" });
+    await supabase.rpc("upsert_nba_team_values", {
+      p_pool_id: pool.id,
+      p_user_id: targetUserId,
+      p_rows: rows,
+    });
   }
 
   function saveAssignment(teamId, value, options = {}) {

@@ -14,13 +14,7 @@ export function useBackendMatchupState(poolId) {
         return;
       }
 
-      const { data } = await supabase
-        .schema("nba_playoffs")
-        .from("matchups")
-        .select(
-          "series_key, status, home_team_id, away_team_id, winner_team_id, home_wins, away_wins, lock_at, next_game_at, next_game_number, next_home_team_id, next_away_team_id"
-        )
-        .eq("pool_id", poolId);
+      const { data } = await supabase.rpc("get_nba_matchups", { p_pool_id: poolId });
 
       if (!active) return;
 
