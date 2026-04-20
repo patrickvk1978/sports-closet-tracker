@@ -64,6 +64,34 @@ export function useTeamValueBoard(teamEntries) {
   const teamKey = useMemo(() => teamIds.join("|"), [teamIds]);
   const currentUserId = session?.user?.id ?? null;
 
+  async function persistAssignments(nextAssignments, options = {}) {
+    const targetUserId = options.targetUserId ?? currentUserId;
+    const shouldCacheLocally = targetUserId === currentUserId;
+
+    if (!pool?.id || !targetUserId || persistenceMode !== "supabase") {
+      if (shouldCacheLocally) {
+        writeLocalBoard(pool?.id, nextAssignments);
+      }
+      return;
+    }
+
+    if (shouldCacheLocally) {
+      writeLocalBoard(pool.id, nextAssignments);
+    }
+
+    const rows = Object.entries(nextAssignments).map(([teamId, value]) => ({
+      team_id: teamId,
+      assigned_value: Number(value),
+      updated_at: new Date().toISOString(),
+    }));
+
+    await supabase.rpc("upsert_nba_team_values", {
+      p_pool_id: pool.id,
+      p_user_id: targetUserId,
+      p_rows: rows,
+    });
+  }
+
   useEffect(() => {
     if (!pool?.id || !memberList.length || !teamEntries.length) {
       setAssignmentsByUser({});
@@ -123,6 +151,22 @@ export function useTeamValueBoard(teamEntries) {
         })
       );
 
+      // Rescue the current user's real board from local storage if the DB still has
+      // no persisted team_values for them. This lets existing users recover simply by
+      // opening the board after the new public RPC bridge is live.
+      if (currentUserId) {
+        const dbCurrent = byUser[currentUserId];
+        const sanitizedDbCurrent = sanitizeAssignments(dbCurrent, teamIds);
+        const localCurrent = sanitizeAssignments(readLocalBoard(pool.id), teamIds);
+        const localIsValid = validateTeamValueAssignments(localCurrent, teamIds).valid;
+        const dbIsValid = validateTeamValueAssignments(sanitizedDbCurrent, teamIds).valid;
+
+        if (!dbIsValid && localIsValid) {
+          nextByUser[currentUserId] = localCurrent;
+          void persistAssignments(localCurrent, { targetUserId: currentUserId });
+        }
+      }
+
       setAssignmentsByUser(nextByUser);
       setPersistenceMode("supabase");
 
@@ -171,34 +215,6 @@ export function useTeamValueBoard(teamEntries) {
       })),
     [currentAssignments, teamEntries]
   );
-
-  async function persistAssignments(nextAssignments, options = {}) {
-    const targetUserId = options.targetUserId ?? currentUserId;
-    const shouldCacheLocally = targetUserId === currentUserId;
-
-    if (!pool?.id || !targetUserId || persistenceMode !== "supabase") {
-      if (shouldCacheLocally) {
-        writeLocalBoard(pool?.id, nextAssignments);
-      }
-      return;
-    }
-
-    if (shouldCacheLocally) {
-      writeLocalBoard(pool.id, nextAssignments);
-    }
-
-    const rows = Object.entries(nextAssignments).map(([teamId, value]) => ({
-      team_id: teamId,
-      assigned_value: Number(value),
-      updated_at: new Date().toISOString(),
-    }));
-
-    await supabase.rpc("upsert_nba_team_values", {
-      p_pool_id: pool.id,
-      p_user_id: targetUserId,
-      p_rows: rows,
-    });
-  }
 
   function saveAssignment(teamId, value, options = {}) {
     const targetUserId = options.targetUserId ?? currentUserId;
