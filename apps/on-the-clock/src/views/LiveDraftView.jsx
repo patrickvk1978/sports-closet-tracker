@@ -324,33 +324,19 @@ export default function LiveDraftView() {
       {isPreDraft && (
         <div className="predraft-v2">
 
-          {/* Page header */}
-          <div className="pd-header">
-            <div>
-              <div className="pd-eyebrow">Pre-Draft Setup</div>
-              <h2 className="pd-title">Set your picks before draft night</h2>
-              <p className="pd-subtitle">
-                Your Big Board powers auto-submits if you step away. The queue sets specific slot predictions.
-              </p>
+          {/* Compact status bar: progress + countdown, single row */}
+          <div className="pd-status-bar">
+            <span className="pd-status-count">
+              {filledCount === totalPicks
+                ? "All 32 picks queued ✓"
+                : <><strong>{filledCount}</strong> of {totalPicks} picks set</>}
+            </span>
+            <div className="pd-status-track">
+              <div className="pd-status-fill" style={{ width: `${filledPct}%` }} />
             </div>
             {!countdown.expired && (
-              <div className="pd-countdown-pill">
-                ⏱ Draft in {countdown.label}
-              </div>
+              <div className="pd-status-countdown">⏱ Draft in {countdown.label}</div>
             )}
-          </div>
-
-          {/* Progress card */}
-          <div className="pd-progress-card">
-            <div className="pd-progress-row">
-              <span className="pd-progress-title">Setup progress</span>
-              <span className="pd-progress-count">
-                {filledCount === totalPicks ? "All picks queued ✓" : `${filledCount} of ${totalPicks} picks set`}
-              </span>
-            </div>
-            <div className="pd-progress-wrap">
-              <div className="pd-progress-fill" style={{ width: `${filledPct}%` }} />
-            </div>
           </div>
 
           {/* Tabs: My Picks / Big Board */}

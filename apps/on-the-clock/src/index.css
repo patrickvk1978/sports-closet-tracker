@@ -4869,12 +4869,62 @@ select:focus {
   color: var(--brand);
 }
 
-/* Grid label */
-.pd-grid-label {
+/* ── Compact status bar (progress + countdown, single row) ──────────────── */
+.pd-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+
+.pd-status-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pd-status-count strong { color: var(--text-primary); font-weight: 700; }
+
+.pd-status-track {
+  flex: 1;
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 120px;
+}
+
+.pd-status-fill {
+  height: 100%;
+  background: var(--brand);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.pd-status-countdown {
   font-size: 12px;
+  font-weight: 700;
+  color: var(--brand);
+  background: #fff1f3;
+  border: 1px solid #fecdd3;
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Grid label — quieter now that the status bar takes the top */
+.pd-grid-label {
+  font-size: 11px;
   font-weight: 600;
-  color: #6b7280;
-  margin-bottom: 10px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin: 18px 0 8px;
 }
 
 /* Chip editing badge */
