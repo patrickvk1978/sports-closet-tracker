@@ -39,6 +39,7 @@ export default function LiveStage({
   const [posFilter, setPosFilter] = useState("All");
 
   const isPredraft = variant === "predraft";
+  const isActualPredraftSelection = isPredraft && suggestedProspectLabel === "Current";
   const isRevealed = currentStatus === "revealed";
   const stage = isPredraft ? "on_clock" : isRevealed ? "reveal" : currentLocked ? "locked" : "on_clock";
 
@@ -173,7 +174,7 @@ export default function LiveStage({
                     type="button"
                     onClick={() => handleLockIn(suggestedProspect.id)}
                   >
-                    {isPredraft ? "Update →" : "Lock in →"}
+                    {isPredraft ? (isActualPredraftSelection ? "Update →" : "Use →") : "Lock in →"}
                   </button>
                 </div>
               )}
