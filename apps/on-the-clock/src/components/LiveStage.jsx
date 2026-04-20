@@ -19,6 +19,7 @@ export default function LiveStage({
   currentLocked,        // bool — true when a live_card row exists
   currentSelection,     // prospect | null — what was locked
   suggestedProspect,    // prospect | null — from user's pre-draft prediction
+  suggestedProspectLabel, // string | null — label for primary suggested card
   expertSuggestions,    // [{ label, prospect }] — PFF/Athletic/Ringer picks
   countdownLabel,       // string, e.g. "04:18"
   actualPick,           // prospect | null — official pick once revealed
@@ -156,7 +157,7 @@ export default function LiveStage({
             <div className="ls-suggestions-bar">
               {suggestedProspect && (
                 <div className={`ls-suggestion-row queue ${isPredraft ? "predraft" : ""}`}>
-                  <div className="ls-sug-label">{isPredraft ? "Current prediction" : "Your Queue Pick"}</div>
+                  <div className="ls-sug-label">{suggestedProspectLabel ?? (isPredraft ? "Current prediction" : "Your Queue Pick")}</div>
                   <ProspectAvatar prospect={suggestedProspect} size="sm" />
                   <div className="ls-sug-info">
                     <span className="ls-sug-name">{suggestedProspect.name}</span>

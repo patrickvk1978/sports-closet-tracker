@@ -21,38 +21,10 @@ function countdownCopy(status) {
   return "SCORED";
 }
 
-const PREDRAFT_RECOMMENDATION_SOURCES = [
-  {
-    key: "board",
-    mockLabel: null,
-    boardLabelFit: "Best fit from your board",
-    boardLabelAvailable: "Best available from your board",
-    boardRankField: null,
-  },
-  {
-    key: "pff",
-    mockLabel: "PFF mock",
-    boardLabelFit: "PFF board",
-    boardLabelAvailable: "PFF board",
-    boardRankField: "pff_rank",
-    mockPickField: "pff_mock_pick",
-  },
-  {
-    key: "athletic",
-    mockLabel: "Athletic mock",
-    boardLabelFit: "Athletic board",
-    boardLabelAvailable: "Athletic board",
-    boardRankField: "athletic_rank",
-    mockPickField: "athletic_mock_pick",
-  },
-  {
-    key: "ringer",
-    mockLabel: "Ringer mock",
-    boardLabelFit: "Ringer board",
-    boardLabelAvailable: "Ringer board",
-    boardRankField: "ringer_rank",
-    mockPickField: "ringer_mock_pick",
-  },
+const RECOMMENDATION_OUTLETS = [
+  { mockLabel: "PFF mock", mockPickField: "pff_mock_pick", rankField: "pff_rank" },
+  { mockLabel: "Athletic mock", mockPickField: "athletic_mock_pick", rankField: "athletic_rank" },
+  { mockLabel: "Ringer mock", mockPickField: "ringer_mock_pick", rankField: "ringer_rank" },
 ];
 
 export default function LiveDraftView() {
@@ -138,13 +110,13 @@ export default function LiveDraftView() {
     ? getProspectById(livePredictions[focusedPreDraftPick.number])
     : null;
 
-  const focusedPreDraftSuggestions = useMemo(() => {
-    if (!focusedPreDraftPick || !focusedPreDraftTeam) return [];
-    const teamNeeds = new Set(focusedPreDraftTeam.needs ?? []);
+  function buildRecommendationCards({ pickNumber, team, preferredProspect, preferredLabel, boardFallbackLabel }) {
+    if (!pickNumber || !team) return [];
+
+    const teamNeeds = new Set(team.needs ?? []);
     const usedIds = new Set(Object.values(livePredictions));
-    if (focusedPreDraftPrediction?.id) {
-      usedIds.delete(focusedPreDraftPrediction.id);
-    }
+    if (preferredProspect?.id) usedIds.delete(preferredProspect.id);
+
     const isNeedMatch = (prospect) =>
       prospect.position.split("/").some((pos) => teamNeeds.has(pos));
     const isAvailable = (prospect) =>
@@ -158,135 +130,126 @@ export default function LiveDraftView() {
       }
       collection.push({ prospect, sourceLabels: [label] });
     };
-    const bestFromBoard = (rankField, labels) => {
+    const compactSourceLabel = (labels) => {
+      const order = [
+        "Current prediction",
+        "Predicted player",
+        "Top of your board",
+        "Best fit from your board",
+        "Best available from your board",
+        "PFF mock",
+        "Athletic mock",
+        "Ringer mock",
+      ];
+      const shortMap = {
+        "Current prediction": "Current",
+        "Predicted player": "Predicted",
+        "Top of your board": "Your board",
+        "Best fit from your board": "Your board",
+        "Best available from your board": "Your board",
+        "PFF mock": "PFF",
+        "Athletic mock": "Athletic",
+        "Ringer mock": "Ringer",
+      };
+      const normalized = [...new Set(labels)]
+        .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+        .map((label) => shortMap[label] ?? label);
+      return normalized.join(" + ");
+    };
+    const bestFromBoard = (rankField) => {
       const candidates = prospects
         .filter((prospect) => isAvailable(prospect))
         .filter((prospect) => (rankField ? prospect[rankField] != null : bigBoardIds.includes(prospect.id)))
         .sort((a, b) => {
-          const aScore = rankField ? a[rankField] : bigBoardIds.indexOf(a.id);
-          const bScore = rankField ? b[rankField] : bigBoardIds.indexOf(b.id);
-          const aRank = aScore === -1 ? 9999 : aScore ?? 9999;
-          const bRank = bScore === -1 ? 9999 : bScore ?? 9999;
+          const aRank = rankField ? (a[rankField] ?? 9999) : (() => {
+            const idx = bigBoardIds.indexOf(a.id);
+            return idx === -1 ? 9999 : idx;
+          })();
+          const bRank = rankField ? (b[rankField] ?? 9999) : (() => {
+            const idx = bigBoardIds.indexOf(b.id);
+            return idx === -1 ? 9999 : idx;
+          })();
           const needDelta = Number(isNeedMatch(b)) - Number(isNeedMatch(a));
           if (needDelta !== 0) return needDelta;
           return aRank - bRank;
         });
-      if (!candidates.length) return null;
-      const prospect = candidates[0];
-      const label = isNeedMatch(prospect) ? labels.fit : labels.available;
-      return { prospect, label };
+      return candidates[0] ?? null;
     };
 
     const suggestions = [];
+    const topProspect = preferredProspect && !draftedIds.has(preferredProspect.id)
+      ? preferredProspect
+      : bestFromBoard(null);
 
-    const boardChoice = focusedPreDraftPrediction ?? bestFromBoard(null, {
-      fit: "Best fit from your board",
-      available: "Best available from your board",
-    })?.prospect;
-    if (boardChoice) {
+    if (topProspect) {
       addOrMerge(
         suggestions,
-        boardChoice,
-        focusedPreDraftPrediction ? "Current prediction" : (isNeedMatch(boardChoice) ? "Best fit from your board" : "Best available from your board")
+        topProspect,
+        preferredProspect && !draftedIds.has(preferredProspect.id)
+          ? preferredLabel
+          : boardFallbackLabel(topProspect, isNeedMatch(topProspect))
       );
     }
 
-    const mockSourceOrder = [
-      PREDRAFT_RECOMMENDATION_SOURCES.find((source) => source.key === "pff"),
-      PREDRAFT_RECOMMENDATION_SOURCES.find((source) => source.key === "athletic"),
-      PREDRAFT_RECOMMENDATION_SOURCES.find((source) => source.key === "ringer"),
-    ].filter(Boolean);
+    let outletIndex = 0;
+    let fallbackOutletIndex = 0;
 
-    let sourceIndex = 0;
-    let fallbackBoardStartIndex = 0;
-    while (suggestions.length < 3 && sourceIndex < mockSourceOrder.length) {
-      const source = mockSourceOrder[sourceIndex];
-      sourceIndex += 1;
+    while (suggestions.length < 3 && outletIndex < RECOMMENDATION_OUTLETS.length) {
+      const outlet = RECOMMENDATION_OUTLETS[outletIndex];
+      outletIndex += 1;
 
-      const mockProspect = prospects.find((prospect) => prospect[source.mockPickField] === focusedPreDraftPick.number);
+      const mockProspect = prospects.find((prospect) => prospect[outlet.mockPickField] === pickNumber);
       if (isAvailable(mockProspect)) {
-        addOrMerge(suggestions, mockProspect, source.mockLabel);
+        addOrMerge(suggestions, mockProspect, outlet.mockLabel);
         continue;
       }
 
-      if (source.key !== "ringer") {
-        continue;
-      }
+      if (outlet.mockLabel !== "Ringer mock") continue;
 
-      while (suggestions.length < 3 && fallbackBoardStartIndex < mockSourceOrder.length) {
-        const boardSource = mockSourceOrder[fallbackBoardStartIndex];
-        fallbackBoardStartIndex += 1;
-        const boardPick = bestFromBoard(boardSource.boardRankField, {
-          fit: boardSource.boardLabelFit,
-          available: boardSource.boardLabelAvailable,
-        });
-        if (boardPick) addOrMerge(suggestions, boardPick.prospect, boardPick.label);
+      while (suggestions.length < 3 && fallbackOutletIndex < RECOMMENDATION_OUTLETS.length) {
+        const fallbackOutlet = RECOMMENDATION_OUTLETS[fallbackOutletIndex];
+        fallbackOutletIndex += 1;
+        const boardProspect = bestFromBoard(fallbackOutlet.rankField);
+        if (boardProspect) addOrMerge(suggestions, boardProspect, fallbackOutlet.mockLabel);
       }
     }
 
-    while (suggestions.length < 3 && fallbackBoardStartIndex < mockSourceOrder.length) {
-      const boardSource = mockSourceOrder[fallbackBoardStartIndex];
-      fallbackBoardStartIndex += 1;
-      const boardPick = bestFromBoard(boardSource.boardRankField, {
-        fit: boardSource.boardLabelFit,
-        available: boardSource.boardLabelAvailable,
-      });
-      if (boardPick) addOrMerge(suggestions, boardPick.prospect, boardPick.label);
+    while (suggestions.length < 3 && fallbackOutletIndex < RECOMMENDATION_OUTLETS.length) {
+      const fallbackOutlet = RECOMMENDATION_OUTLETS[fallbackOutletIndex];
+      fallbackOutletIndex += 1;
+      const boardProspect = bestFromBoard(fallbackOutlet.rankField);
+      if (boardProspect) addOrMerge(suggestions, boardProspect, fallbackOutlet.mockLabel);
     }
 
     return suggestions.slice(0, 3).map(({ prospect, sourceLabels }) => ({
       prospect,
-      sourceLabel: sourceLabels.join(" + "),
+      sourceLabel: compactSourceLabel(sourceLabels),
     }));
-  }, [focusedPreDraftPick, focusedPreDraftTeam, focusedPreDraftPrediction, bigBoardIds, draftedIds, livePredictions, getProspectById, prospects]);
+  }
+
+  const focusedPreDraftSuggestions = useMemo(() => buildRecommendationCards({
+    pickNumber: focusedPreDraftPick?.number,
+    team: focusedPreDraftTeam,
+    preferredProspect: focusedPreDraftPrediction,
+    preferredLabel: "Current prediction",
+    boardFallbackLabel: (_prospect, isNeedFit) => isNeedFit ? "Best fit from your board" : "Best available from your board",
+  }), [focusedPreDraftPick, focusedPreDraftTeam, focusedPreDraftPrediction, bigBoardIds, draftedIds, livePredictions, prospects]);
+  const focusedPreDraftPrimarySuggestion = focusedPreDraftSuggestions[0] ?? null;
+  const focusedPreDraftExpertSuggestions = focusedPreDraftSuggestions.slice(1);
 
   // ── Expert suggestions for LiveStage on_clock ────────────────────────────
 
   const suggestedProspectForCurrent = getProspectById(livePredictions[currentPickNumber]);
 
-  const EXPERT_SOURCES = [
-    { key: "pff_mock_pick",      mockLabel: "PFF Mock Draft",     boardLabel: "PFF Big Board" },
-    { key: "athletic_mock_pick", mockLabel: "Athletic Mock Draft", boardLabel: "Athletic Big Board" },
-    { key: "ringer_mock_pick",   mockLabel: "Ringer Mock Draft",   boardLabel: "Ringer Big Board" },
-  ];
-
-  const expertSuggestions = useMemo(() => {
-    if (!currentPick || !currentTeam) return [];
-    const hasTradeOverride = Boolean(draftFeed.team_overrides?.[currentPickNumber]);
-    const teamNeeds = new Set(currentTeam.needs ?? []);
-    const results = [];
-    const seenIds = new Set(suggestedProspectForCurrent ? [suggestedProspectForCurrent.id] : []);
-
-    for (const source of EXPERT_SOURCES) {
-      let prospect = null;
-      let label = null;
-
-      if (!hasTradeOverride) {
-        const mockProspect = prospects.find(
-          (p) => p[source.key] === currentPickNumber && !draftedIds.has(p.id) && !seenIds.has(p.id)
-        );
-        if (mockProspect) { prospect = mockProspect; label = source.mockLabel; }
-      }
-
-      if (!prospect) {
-        const boardProspect = bigBoardIds
-          .map((id) => getProspectById(id))
-          .filter((p) => p && !draftedIds.has(p.id) && !seenIds.has(p.id))
-          .find((p) =>
-            teamNeeds.size === 0 || p.position.split("/").some((pos) => teamNeeds.has(pos))
-          );
-        if (boardProspect) { prospect = boardProspect; label = source.boardLabel; }
-      }
-
-      if (prospect) {
-        seenIds.add(prospect.id);
-        results.push({ label, prospect });
-      }
-    }
-    return results;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPick, currentPickNumber, currentTeam, draftFeed.team_overrides, prospects,
-      draftedIds, bigBoardIds, getProspectById, suggestedProspectForCurrent]);
+  const liveRecommendationCards = useMemo(() => buildRecommendationCards({
+    pickNumber: currentPickNumber,
+    team: currentTeam,
+    preferredProspect: suggestedProspectForCurrent,
+    preferredLabel: "Predicted player",
+    boardFallbackLabel: () => "Top of your board",
+  }), [currentPickNumber, currentTeam, suggestedProspectForCurrent, bigBoardIds, draftedIds, livePredictions, prospects]);
+  const livePrimarySuggestion = liveRecommendationCards[0] ?? null;
+  const expertSuggestions = liveRecommendationCards.slice(1);
 
   // ── Pool state for LiveStage ───────────────────────────────────────────────
 
@@ -494,8 +457,9 @@ export default function LiveDraftView() {
                   currentStatus="on_clock"
                   currentLocked={false}
                   currentSelection={focusedPreDraftPrediction}
-                  suggestedProspect={focusedPreDraftPrediction}
-                  expertSuggestions={focusedPreDraftSuggestions.map(({ prospect, sourceLabel }) => ({
+                  suggestedProspect={focusedPreDraftPrimarySuggestion?.prospect ?? null}
+                  suggestedProspectLabel={focusedPreDraftPrimarySuggestion?.sourceLabel ?? null}
+                  expertSuggestions={focusedPreDraftExpertSuggestions.map(({ prospect, sourceLabel }) => ({
                     prospect,
                     label: sourceLabel,
                   }))}
@@ -623,7 +587,8 @@ export default function LiveDraftView() {
                 currentStatus={draftFeed.current_status}
                 currentLocked={currentLocked}
                 currentSelection={currentSelection}
-                suggestedProspect={suggestedProspectForCurrent}
+                suggestedProspect={livePrimarySuggestion?.prospect ?? null}
+                suggestedProspectLabel={livePrimarySuggestion?.sourceLabel ?? null}
                 expertSuggestions={expertSuggestions}
                 countdownLabel={countdownCopy(draftFeed.current_status)}
                 actualPick={actualCurrentPick}
