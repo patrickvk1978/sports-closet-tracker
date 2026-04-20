@@ -3680,16 +3680,6 @@ select:focus {
   color: var(--pd-text);
 }
 
-.pd-subbar {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--pd-border);
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-}
-
 .pd-progress-copy,
 .pd-countdown-copy {
   font-size: 12px;
@@ -3708,6 +3698,10 @@ select:focus {
   border-radius: 999px;
   background: #e2e8f0;
   overflow: hidden;
+}
+
+.pd-progress-track.in-header {
+  margin-top: 12px;
 }
 
 .pd-progress-fill {
@@ -3733,8 +3727,15 @@ select:focus {
 }
 
 .pd-left-tabs {
-  padding: 12px 14px 8px;
+  padding: 12px 14px 10px;
   border-bottom: 1px solid var(--pd-border);
+}
+
+.pd-left-tab-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .pd-left-tab {
@@ -3745,6 +3746,12 @@ select:focus {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--pd-brand);
+}
+
+.pd-left .pd-progress-copy {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .pd-left-picks {
@@ -3794,7 +3801,8 @@ select:focus {
 }
 
 .pd-pick-row.filled {
-  background: rgba(255, 255, 255, 0.54);
+  background: #f3f4f6;
+  border-color: #e5e7eb;
 }
 
 .pd-pr-num {
@@ -3819,6 +3827,10 @@ select:focus {
   font-weight: 700;
 }
 
+.pd-pick-row.filled .pd-pr-team {
+  color: #334155;
+}
+
 .pd-pr-pick {
   color: var(--pd-subtle);
   font-size: 11px;
@@ -3829,6 +3841,12 @@ select:focus {
 
 .pd-pr-pick.filled {
   color: #475569;
+}
+
+.pd-countdown-copy.in-header {
+  display: block;
+  margin-top: 10px;
+  font-size: 11px;
 }
 
 .pd-center {

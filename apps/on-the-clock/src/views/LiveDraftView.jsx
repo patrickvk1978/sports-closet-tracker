@@ -21,10 +21,38 @@ function countdownCopy(status) {
   return "SCORED";
 }
 
-const EXTERNAL_MOCK_SOURCES = [
-  { key: "pff_mock_pick", label: "PFF mock" },
-  { key: "athletic_mock_pick", label: "Athletic mock" },
-  { key: "ringer_mock_pick", label: "Ringer mock" },
+const PREDRAFT_RECOMMENDATION_SOURCES = [
+  {
+    key: "board",
+    mockLabel: null,
+    boardLabelFit: "Best fit from your board",
+    boardLabelAvailable: "Best available from your board",
+    boardRankField: null,
+  },
+  {
+    key: "pff",
+    mockLabel: "PFF mock",
+    boardLabelFit: "PFF board",
+    boardLabelAvailable: "PFF board",
+    boardRankField: "pff_rank",
+    mockPickField: "pff_mock_pick",
+  },
+  {
+    key: "athletic",
+    mockLabel: "Athletic mock",
+    boardLabelFit: "Athletic board",
+    boardLabelAvailable: "Athletic board",
+    boardRankField: "athletic_rank",
+    mockPickField: "athletic_mock_pick",
+  },
+  {
+    key: "ringer",
+    mockLabel: "Ringer mock",
+    boardLabelFit: "Ringer board",
+    boardLabelAvailable: "Ringer board",
+    boardRankField: "ringer_rank",
+    mockPickField: "ringer_mock_pick",
+  },
 ];
 
 export default function LiveDraftView() {
@@ -117,51 +145,99 @@ export default function LiveDraftView() {
     if (focusedPreDraftPrediction?.id) {
       usedIds.delete(focusedPreDraftPrediction.id);
     }
-    const availableBoardProspects = bigBoardIds
-      .filter((id) => !draftedIds.has(id) && !usedIds.has(id))
-      .map((id) => getProspectById(id))
-      .filter(Boolean);
-
-    const bestBoardProspect =
-      [...availableBoardProspects].sort((a, b) => {
-        const aMatch = a.position.split("/").some((pos) => teamNeeds.has(pos));
-        const bMatch = b.position.split("/").some((pos) => teamNeeds.has(pos));
-        return bMatch - aMatch;
-      })[0] ?? null;
-
-    const externalSuggestions = [];
-
-    for (const source of EXTERNAL_MOCK_SOURCES) {
-      const mockProspect = prospects.find(
-        (prospect) =>
-          prospect[source.key] === focusedPreDraftPick.number &&
-          !draftedIds.has(prospect.id) &&
-          !usedIds.has(prospect.id)
-      );
-
-      if (mockProspect) {
-        externalSuggestions.push({
-          prospect: mockProspect,
-          sourceLabel: source.label,
-        });
+    const isNeedMatch = (prospect) =>
+      prospect.position.split("/").some((pos) => teamNeeds.has(pos));
+    const isAvailable = (prospect) =>
+      prospect && !draftedIds.has(prospect.id) && !usedIds.has(prospect.id);
+    const addOrMerge = (collection, prospect, label) => {
+      if (!prospect || !label) return;
+      const existing = collection.find((entry) => entry.prospect.id === prospect.id);
+      if (existing) {
+        if (!existing.sourceLabels.includes(label)) existing.sourceLabels.push(label);
+        return;
       }
+      collection.push({ prospect, sourceLabels: [label] });
+    };
+    const bestFromBoard = (rankField, labels) => {
+      const candidates = prospects
+        .filter((prospect) => isAvailable(prospect))
+        .filter((prospect) => (rankField ? prospect[rankField] != null : bigBoardIds.includes(prospect.id)))
+        .sort((a, b) => {
+          const aScore = rankField ? a[rankField] : bigBoardIds.indexOf(a.id);
+          const bScore = rankField ? b[rankField] : bigBoardIds.indexOf(b.id);
+          const aRank = aScore === -1 ? 9999 : aScore ?? 9999;
+          const bRank = bScore === -1 ? 9999 : bScore ?? 9999;
+          const needDelta = Number(isNeedMatch(b)) - Number(isNeedMatch(a));
+          if (needDelta !== 0) return needDelta;
+          return aRank - bRank;
+        });
+      if (!candidates.length) return null;
+      const prospect = candidates[0];
+      const label = isNeedMatch(prospect) ? labels.fit : labels.available;
+      return { prospect, label };
+    };
 
-      if (externalSuggestions.length === 2) break;
+    const suggestions = [];
+
+    const boardChoice = focusedPreDraftPrediction ?? bestFromBoard(null, {
+      fit: "Best fit from your board",
+      available: "Best available from your board",
+    })?.prospect;
+    if (boardChoice) {
+      addOrMerge(
+        suggestions,
+        boardChoice,
+        focusedPreDraftPrediction ? "Current prediction" : (isNeedMatch(boardChoice) ? "Best fit from your board" : "Best available from your board")
+      );
     }
 
-    return [
-      ...(bestBoardProspect
-        ? [{
-            prospect: bestBoardProspect,
-            sourceLabel: bestBoardProspect.position
-              .split("/")
-              .some((pos) => teamNeeds.has(pos))
-              ? "Best fit from your board"
-              : "Best available from your board",
-          }]
-        : []),
-      ...externalSuggestions,
-    ];
+    const mockSourceOrder = [
+      PREDRAFT_RECOMMENDATION_SOURCES.find((source) => source.key === "pff"),
+      PREDRAFT_RECOMMENDATION_SOURCES.find((source) => source.key === "athletic"),
+      PREDRAFT_RECOMMENDATION_SOURCES.find((source) => source.key === "ringer"),
+    ].filter(Boolean);
+
+    let sourceIndex = 0;
+    let fallbackBoardStartIndex = 0;
+    while (suggestions.length < 3 && sourceIndex < mockSourceOrder.length) {
+      const source = mockSourceOrder[sourceIndex];
+      sourceIndex += 1;
+
+      const mockProspect = prospects.find((prospect) => prospect[source.mockPickField] === focusedPreDraftPick.number);
+      if (isAvailable(mockProspect)) {
+        addOrMerge(suggestions, mockProspect, source.mockLabel);
+        continue;
+      }
+
+      if (source.key !== "ringer") {
+        continue;
+      }
+
+      while (suggestions.length < 3 && fallbackBoardStartIndex < mockSourceOrder.length) {
+        const boardSource = mockSourceOrder[fallbackBoardStartIndex];
+        fallbackBoardStartIndex += 1;
+        const boardPick = bestFromBoard(boardSource.boardRankField, {
+          fit: boardSource.boardLabelFit,
+          available: boardSource.boardLabelAvailable,
+        });
+        if (boardPick) addOrMerge(suggestions, boardPick.prospect, boardPick.label);
+      }
+    }
+
+    while (suggestions.length < 3 && fallbackBoardStartIndex < mockSourceOrder.length) {
+      const boardSource = mockSourceOrder[fallbackBoardStartIndex];
+      fallbackBoardStartIndex += 1;
+      const boardPick = bestFromBoard(boardSource.boardRankField, {
+        fit: boardSource.boardLabelFit,
+        available: boardSource.boardLabelAvailable,
+      });
+      if (boardPick) addOrMerge(suggestions, boardPick.prospect, boardPick.label);
+    }
+
+    return suggestions.slice(0, 3).map(({ prospect, sourceLabels }) => ({
+      prospect,
+      sourceLabel: sourceLabels.join(" + "),
+    }));
   }, [focusedPreDraftPick, focusedPreDraftTeam, focusedPreDraftPrediction, bigBoardIds, draftedIds, livePredictions, getProspectById, prospects]);
 
   // ── Expert suggestions for LiveStage on_clock ────────────────────────────
@@ -367,24 +443,23 @@ export default function LiveDraftView() {
           </>
         ) : (
           <div className="pd-shell">
-            <div className="pd-subbar">
-              <span className="pd-progress-copy">
-                {filledCount === totalPicks ? "All 32 picks queued" : `${filledCount} of ${totalPicks} picks set`}
-              </span>
-              <div className="pd-progress-track">
-                <div className="pd-progress-fill" style={{ width: `${filledPct}%` }} />
-              </div>
-              {!countdown.expired ? (
-                <span className="pd-countdown-copy">Draft starts in {countdown.label}</span>
-              ) : (
-                <span className="pd-countdown-copy live">Draft is live</span>
-              )}
-            </div>
-
             <div className="pd-body">
               <div className="pd-left">
                 <div className="pd-left-tabs">
-                  <div className="pd-left-tab active">Draft list</div>
+                  <div className="pd-left-tab-row">
+                    <div className="pd-left-tab active">Draft list</div>
+                    <div className="pd-progress-copy">
+                      {filledCount} of {totalPicks}
+                    </div>
+                  </div>
+                  <div className="pd-progress-track in-header">
+                    <div className="pd-progress-fill" style={{ width: `${filledPct}%` }} />
+                  </div>
+                  {!countdown.expired ? (
+                    <div className="pd-countdown-copy in-header">Draft starts in {countdown.label}</div>
+                  ) : (
+                    <div className="pd-countdown-copy live in-header">Draft is live</div>
+                  )}
                 </div>
                 <div className="pd-left-picks">
                   {picks.map((pick) => {
