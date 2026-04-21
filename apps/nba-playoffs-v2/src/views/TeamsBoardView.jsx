@@ -12,6 +12,7 @@ import {
 } from "../lib/teamValueGame";
 import { buildTeamSelectionRows, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { buildTeamValueReports, getTeamValuePhase } from "../lib/teamValueReports";
+import { getTeamPalette } from "../../../../packages/shared/src/themes/teamColorBanks.js";
 
 const SORT_OPTIONS = {
   team: {
@@ -166,11 +167,27 @@ export default function TeamsBoardView() {
         ? ["slot-fits", "strategic-moves", "model-gaps", "assets", "fragility"]
         : ["overweight", "assets", "rooting", "slot-fits", "model-gaps"];
 
-    return reportOrder
+    const reports = reportOrder
       .filter((key) => reportState.visibleReportKeys.includes(key))
       .map((key) => reportState.reports[key])
       .filter(Boolean);
-  }, [reportState]);
+
+    const compareTargetId =
+      availableViewers[0]?.id ?? memberList.find((member) => member.id !== currentUserId)?.id ?? "";
+
+    const compareChoice = canViewOtherBoards
+      ? {
+          key: "compare",
+          label: "Compare Report",
+          description: "Compares any two boards side by side and highlights the current pressure points between them.",
+          path: compareTargetId
+            ? `/board-compare?left=${currentUserId}&right=${compareTargetId}`
+            : "/board-compare",
+        }
+      : null;
+
+    return compareChoice ? [compareChoice, ...reports] : reports;
+  }, [availableViewers, canViewOtherBoards, currentUserId, memberList, reportState]);
   const activeReport = reportChoices.find((report) => report.key === selectedReportKey) ?? reportChoices[0] ?? null;
 
   const sortedRows = useMemo(() => {
@@ -243,6 +260,19 @@ export default function TeamsBoardView() {
     const toIndex = nextOrder.findIndex((team) => team.id === targetTeamId);
     if (fromIndex < 0 || toIndex < 0) return;
 
+    const [moved] = nextOrder.splice(fromIndex, 1);
+    nextOrder.splice(toIndex, 0, moved);
+    saveBoardOrder(nextOrder.map((team) => team.id), { targetUserId: selectedViewerId });
+  }
+
+  function moveTeamByStep(teamId, direction) {
+    if (!isEditableBoard) return;
+    const fromIndex = rankedRows.findIndex((team) => team.id === teamId);
+    if (fromIndex < 0) return;
+    const toIndex = fromIndex + direction;
+    if (toIndex < 0 || toIndex >= rankedRows.length) return;
+
+    const nextOrder = [...rankedRows];
     const [moved] = nextOrder.splice(fromIndex, 1);
     nextOrder.splice(toIndex, 0, moved);
     saveBoardOrder(nextOrder.map((team) => team.id), { targetUserId: selectedViewerId });
@@ -420,7 +450,14 @@ export default function TeamsBoardView() {
               </div>
             ) : (
               <div className="board-table">
-                {rankedRows.map((team) => (
+                {isEditableBoard ? (
+                  <p className="nba-mobile-rank-helper">
+                    On phones, use the arrows to move teams up or down. Drag and drop still works on larger screens.
+                  </p>
+                ) : null}
+                {rankedRows.map((team) => {
+                  const palette = getTeamPalette("nba", team);
+                  return (
                   <div
                     key={team.id}
                     className={`board-row ${draggingTeamId === team.id ? "selected" : ""} ${!isEditableBoard ? "read-only" : ""}`}
@@ -443,13 +480,44 @@ export default function TeamsBoardView() {
                       <div className="board-player-meta">
                         <span className="chip subtle-chip board-meta-pill">{team.conference}</span>
                         <span className="chip subtle-chip board-meta-pill">Seed {team.seed}</span>
-                        <span className="assign-tag board-meta-pill board-meta-pill-accent">{team.abbreviation}</span>
+                        <span
+                          className="assign-tag board-meta-pill board-meta-pill-accent"
+                          style={{
+                            background: `linear-gradient(180deg, ${palette.secondary}, ${palette.primary})`,
+                            borderColor: palette.border,
+                            color: palette.text,
+                          }}
+                        >
+                          {team.abbreviation}
+                        </span>
                       </div>
                       <div className="board-player-text">
                         <strong>{team.city} {team.name}</strong>
                         <span className="board-player-opponent">{team.roundOneOpponentLabel}</span>
                       </div>
                     </div>
+                    {isEditableBoard ? (
+                      <div className="board-row-mobile-actions" aria-label={`Move ${team.city} ${team.name}`}>
+                        <button
+                          type="button"
+                          className="board-mobile-move"
+                          onClick={() => moveTeamByStep(team.id, -1)}
+                          disabled={rankedRows[0]?.id === team.id}
+                          aria-label={`Move ${team.city} ${team.name} up one rank`}
+                        >
+                          Up
+                        </button>
+                        <button
+                          type="button"
+                          className="board-mobile-move"
+                          onClick={() => moveTeamByStep(team.id, 1)}
+                          disabled={rankedRows[rankedRows.length - 1]?.id === team.id}
+                          aria-label={`Move ${team.city} ${team.name} down one rank`}
+                        >
+                          Down
+                        </button>
+                      </div>
+                    ) : null}
                     <div className="board-row-metrics">
                       <span>
                         <strong>{team.marketLean}%</strong>
@@ -465,25 +533,13 @@ export default function TeamsBoardView() {
                       </span>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
           <aside className="nba-board-side-rail">
-            <article className="detail-card inset-card">
-              <span className="micro-label">Board status</span>
-              <p>
-                {isEditableBoard && selectedBoardValidation.valid
-                  ? <><strong>Complete.</strong> You can still reshuffle it until lock.</>
-                  : isEditableBoard
-                    ? `${selectedCompletionCount}/16 ranks are filled. Keep going until every slot is assigned.`
-                    : isViewingCurrentUser
-                      ? "This board is locked. The commissioner can still reopen the full board from settings."
-                      : "This is a locked, read-only board."}
-              </p>
-            </article>
-
             <article className="detail-card inset-card nba-board-rail-card reports-card">
               <span className="micro-label">Report Options</span>
               <label className="nba-board-rail-select-wrap">
@@ -507,7 +563,7 @@ export default function TeamsBoardView() {
                   </span>
                 </div>
               </label>
-              <Link className="secondary-button full" to={activeReport ? `/reports/${activeReport.key}` : "/reports"}>
+              <Link className="secondary-button full" to={activeReport?.path ?? (activeReport ? `/reports/${activeReport.key}` : "/reports")}>
                 Open Report
               </Link>
             </article>
@@ -517,6 +573,28 @@ export default function TeamsBoardView() {
               <Link className="secondary-button full" to="/scoring">
                 Open Scoring
               </Link>
+            </article>
+
+            {canViewOtherBoards ? (
+              <article className="detail-card inset-card nba-board-rail-card">
+                <span className="micro-label">Board Matrix</span>
+                <Link className="secondary-button full" to="/board-matrix">
+                  Open Matrix
+                </Link>
+              </article>
+            ) : null}
+
+            <article className="detail-card inset-card">
+              <span className="micro-label">Board status</span>
+              <p>
+                {isEditableBoard && selectedBoardValidation.valid
+                  ? <><strong>Complete.</strong> You can still reshuffle it until lock.</>
+                  : isEditableBoard
+                    ? `${selectedCompletionCount}/16 ranks are filled. Keep going until every slot is assigned.`
+                    : isViewingCurrentUser
+                      ? "This board is locked. The commissioner can still reopen the full board from settings."
+                      : "This is a locked, read-only board."}
+              </p>
             </article>
           </aside>
         </div>

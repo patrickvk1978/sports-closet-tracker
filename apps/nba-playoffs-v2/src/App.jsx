@@ -19,6 +19,8 @@ import TeamValueDashboardView from "./views/TeamValueDashboardView";
 import TeamValueReportsView from "./views/TeamValueReportsView";
 import TeamValueReportDetailView from "./views/TeamValueReportDetailView";
 import TeamValueScoringView from "./views/TeamValueScoringView";
+import TeamValueBoardMatrixView from "./views/TeamValueBoardMatrixView";
+import TeamValueBoardCompareView from "./views/TeamValueBoardCompareView";
 import { usePool } from "./hooks/usePool";
 import { getTeamValuePhase } from "./lib/teamValueReports";
 
@@ -70,6 +72,8 @@ export default function App() {
                       <Route path="/standings" element={<TeamValueStandingsView />} />
                       <Route path="/reports" element={<TeamValueReportsView />} />
                       <Route path="/reports/:reportKey" element={<TeamValueReportDetailView />} />
+                      <Route path="/board-matrix" element={<TeamValueBoardMatrixView />} />
+                      <Route path="/board-compare" element={<TeamValueBoardCompareView />} />
                       <Route path="/scoring" element={<TeamValueScoringView />} />
                       <Route path="/pool-settings" element={<PoolSettingsPage />} />
                       <Route path="/pool-members" element={<PoolMembersPage />} />

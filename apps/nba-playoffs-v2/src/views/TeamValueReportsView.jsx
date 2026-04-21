@@ -179,6 +179,27 @@ export default function TeamValueReportsView() {
               sampleRows={activeReport.rows.slice(0, 1)}
               to={`/reports/${activeReport.key}`}
             />
+            {reportState.phase === "post_lock" ? (
+              <article className="panel">
+                <div className="panel-header">
+                  <div>
+                    <span className="label">Board Compare</span>
+                    <h2>Compare any two live boards</h2>
+                  </div>
+                </div>
+                <p className="subtle nba-report-card-summary">
+                  Use the board matrix for the whole room, then jump into a two-board comparison when you want to see exactly where rankings split.
+                </p>
+                <div className="nba-report-actions">
+                  <a className="secondary-button" href="/board-compare">
+                    Open compare
+                  </a>
+                  <a className="secondary-button" href="/board-matrix">
+                    Open matrix
+                  </a>
+                </div>
+              </article>
+            ) : null}
           </section>
         </section>
       ) : null}
