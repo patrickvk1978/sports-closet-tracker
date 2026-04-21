@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Deployments are handled by Vercel's native GitHub integration.
+# Each Vercel project is configured with:
+#   - Root Directory: apps/<app-name>
+#   - Ignored Build Step: npx turbo-ignore   (skips build when only unrelated files changed)
+#
+# This workflow only validates that every affected app builds cleanly.
+
+jobs:
+  build:
+    name: Build affected apps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed for turbo-ignore to compare commits
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all apps
+        run: pnpm build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}

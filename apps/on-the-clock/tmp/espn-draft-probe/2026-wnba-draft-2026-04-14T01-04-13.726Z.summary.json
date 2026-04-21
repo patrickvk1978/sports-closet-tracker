@@ -1,0 +1,149 @@
+{
+  "fetchedAt": "2026-04-14T01:04:13.724Z",
+  "sourceUrl": "https://www.espn.com/wnba/draft/live",
+  "displayName": "2026 Women's National Basketball Association Draft",
+  "shortDisplayName": "2026 WNBA Draft",
+  "year": 2026,
+  "rounds": 3,
+  "next": 30,
+  "status": {
+    "round": 2,
+    "name": "IN_PROGRESS",
+    "description": "In Progress",
+    "state": "in"
+  },
+  "counts": {
+    "teams": 15,
+    "picks": 45,
+    "selected": 28,
+    "remaining": 17
+  },
+  "current": {
+    "pickId": 29,
+    "bestAvailable": {
+      "id": "111107",
+      "displayName": "Yarden Garzon",
+      "position": null,
+      "team": "MD",
+      "link": "https://www.espn.com/womens-college-basketball/player/_/id/5107834/yarden-garzon"
+    },
+    "bestFit": {
+      "id": "111113",
+      "displayName": "Tonie Morgan",
+      "position": null,
+      "team": "UK",
+      "link": "https://www.espn.com/womens-college-basketball/player/_/id/4565515/tonie-morgan"
+    },
+    "bestAvailableCount": 5,
+    "currentPick": {
+      "round": 2,
+      "pick": 14,
+      "overall": 29,
+      "status": "PICK_IS_IN",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "17",
+      "team": "LV",
+      "selection": null,
+      "expires": null
+    }
+  },
+  "nextPicks": [
+    {
+      "round": 2,
+      "pick": 14,
+      "overall": 29,
+      "status": "PICK_IS_IN",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "17",
+      "team": "LV",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 2,
+      "pick": 15,
+      "overall": 30,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from MIN",
+      "teamId": "16",
+      "team": "WSH",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 3,
+      "pick": 1,
+      "overall": 31,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "3",
+      "team": "DAL",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 3,
+      "pick": 2,
+      "overall": 32,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "19",
+      "team": "CHI",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 3,
+      "pick": 3,
+      "overall": 33,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "18",
+      "team": "CON",
+      "selection": null,
+      "expires": null
+    }
+  ],
+  "sampleKeys": {
+    "root": [
+      "broadcasts",
+      "columns",
+      "current",
+      "displayName",
+      "next",
+      "picks",
+      "positions",
+      "prev",
+      "rounds",
+      "shortDisplayName",
+      "status",
+      "teams",
+      "toggleSwitch",
+      "uid",
+      "usePlayerUID",
+      "year"
+    ],
+    "pick": [
+      "athlete",
+      "overall",
+      "pick",
+      "round",
+      "status",
+      "teamId",
+      "tradeNote",
+      "traded"
+    ],
+    "current": [
+      "bestAvailable",
+      "bestAvailablePicks",
+      "bestFit",
+      "pickId"
+    ]
+  }
+}

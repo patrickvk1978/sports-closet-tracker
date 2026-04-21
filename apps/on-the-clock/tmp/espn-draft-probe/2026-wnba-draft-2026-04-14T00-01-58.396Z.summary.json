@@ -1,0 +1,149 @@
+{
+  "fetchedAt": "2026-04-14T00:01:58.394Z",
+  "sourceUrl": "https://www.espn.com/wnba/draft/live",
+  "displayName": "2026 Women's National Basketball Association Draft",
+  "shortDisplayName": "2026 WNBA Draft",
+  "year": 2026,
+  "rounds": 3,
+  "next": 11,
+  "status": {
+    "round": 1,
+    "name": "IN_PROGRESS",
+    "description": "In Progress",
+    "state": "in"
+  },
+  "counts": {
+    "teams": 15,
+    "picks": 45,
+    "selected": 9,
+    "remaining": 36
+  },
+  "current": {
+    "pickId": 10,
+    "bestAvailable": {
+      "id": "111096",
+      "displayName": "Cotie McMahon",
+      "position": null,
+      "team": "MISS",
+      "link": "https://www.espn.com/womens-college-basketball/player/_/id/4583144/cotie-mcmahon"
+    },
+    "bestFit": {
+      "id": "111097",
+      "displayName": "Nell Angloma",
+      "position": null,
+      "team": "France",
+      "link": null
+    },
+    "bestAvailableCount": 5,
+    "currentPick": {
+      "round": 1,
+      "pick": 10,
+      "overall": 10,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "5",
+      "team": "IND",
+      "selection": null,
+      "expires": "2026-04-14T00:03:54Z"
+    }
+  },
+  "nextPicks": [
+    {
+      "round": 1,
+      "pick": 10,
+      "overall": 10,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "5",
+      "team": "IND",
+      "selection": null,
+      "expires": "2026-04-14T00:03:54Z"
+    },
+    {
+      "round": 1,
+      "pick": 11,
+      "overall": 11,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from NY",
+      "teamId": "16",
+      "team": "WSH",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 1,
+      "pick": 12,
+      "overall": 12,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from PHX",
+      "teamId": "18",
+      "team": "CON",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 1,
+      "pick": 13,
+      "overall": 13,
+      "status": "ON_THE_CLOCK",
+      "traded": false,
+      "tradeNote": "",
+      "teamId": "20",
+      "team": "ATL",
+      "selection": null,
+      "expires": null
+    },
+    {
+      "round": 1,
+      "pick": 14,
+      "overall": 14,
+      "status": "ON_THE_CLOCK",
+      "traded": true,
+      "tradeNote": "Pick acquired from LV",
+      "teamId": "14",
+      "team": "SEA",
+      "selection": null,
+      "expires": null
+    }
+  ],
+  "sampleKeys": {
+    "root": [
+      "broadcasts",
+      "columns",
+      "current",
+      "displayName",
+      "next",
+      "picks",
+      "positions",
+      "prev",
+      "rounds",
+      "shortDisplayName",
+      "status",
+      "teams",
+      "toggleSwitch",
+      "uid",
+      "usePlayerUID",
+      "year"
+    ],
+    "pick": [
+      "athlete",
+      "overall",
+      "pick",
+      "round",
+      "status",
+      "teamId",
+      "tradeNote",
+      "traded"
+    ],
+    "current": [
+      "bestAvailable",
+      "bestAvailablePicks",
+      "bestFit",
+      "pickId"
+    ]
+  }
+}

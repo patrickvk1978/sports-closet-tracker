@@ -1,0 +1,27 @@
+{
+  "name": "on-the-clock",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "probe:wnba-draft": "node scripts/espnDraftcastProbe.mjs",
+    "probe:wnba-draft:watch": "node scripts/espnDraftcastProbe.mjs --interval 30",
+    "watch:wnba-draft": "node scripts/wnbaDraftWatchServer.mjs"
+  },
+  "dependencies": {
+    "@sports/shared": "workspace:*",
+    "@sports/ui": "workspace:*",
+    "@supabase/supabase-js": "^2.101.1",
+    "framer-motion": "^12.38.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.13.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "vite": "^7.3.1"
+  }
+}
