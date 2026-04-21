@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
   const [tab, setTab] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -57,6 +57,20 @@ export default function LoginPage() {
     }
   }
 
+  async function handleGoogleSignIn() {
+    setError("");
+    setInfo("");
+    setLoading(true);
+    try {
+      const { error: oauthError } = await signInWithGoogle();
+      if (oauthError) {
+        setError(oauthError.message ?? "Unable to sign in with Google");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function switchTab(next) {
     setTab(next);
     setError("");
@@ -92,6 +106,24 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="form-stack">
+          {tab === "signin" ? (
+            <button
+              className="primary-button full"
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              style={{ background: "#fff", color: "#111", border: "1px solid #d1d5db" }}
+            >
+              {loading ? "Redirecting…" : "Continue with Google"}
+            </button>
+          ) : null}
+
+          {tab === "signin" ? (
+            <div className="subtle" style={{ textAlign: "center", marginTop: "-6px", marginBottom: "-2px" }}>
+              or use email and password
+            </div>
+          ) : null}
+
           {tab === "signup" ? (
             <label className="field">
               <span>Username</span>
