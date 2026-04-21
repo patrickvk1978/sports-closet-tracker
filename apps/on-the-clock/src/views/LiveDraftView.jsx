@@ -642,9 +642,44 @@ export default function LiveDraftView() {
               />
             </div>
 
-            {/* ── Right: standings + pool activity ── */}
+            {/* ── Right: pick status then standings ── */}
             <div className="dn-right">
 
+              {/* Pool pick status — top, most urgent info */}
+              <div className="dn-right-section">
+                <div className="dn-rs-label">
+                  Pick {currentPickNumber} · Pool
+                  <span className="dn-pool-count-badge">
+                    {livePoolState.filter((m) => m.isCurrentUser ? currentLocked : m.locked).length}/{livePoolState.length} locked
+                  </span>
+                </div>
+                {livePoolState.map((m) => {
+                  const isLocked = m.isCurrentUser ? currentLocked : m.locked;
+                  const isWarning = !isLocked && windowSecondsLeft != null && windowSecondsLeft <= 20 && windowSecondsLeft > 0;
+                  // green = locked, orange = warning (<20s unhurried), yellow = deciding normally
+                  const avatarCls = isLocked ? "submitted" : isWarning ? "warning" : "deciding";
+                  const initials = m.name.slice(0, 2).toUpperCase();
+                  const statusCls = isLocked ? "locked" : isWarning ? "warning" : "deciding";
+                  const statusText = isLocked ? "locked ✓" : isWarning ? "hurry up!" : "deciding…";
+                  return (
+                    <div key={m.id ?? m.name} className="dn-pool-member-row">
+                      <div className={`dn-pool-avatar ${avatarCls}${!isLocked ? " pulsing" : ""}`}>
+                        {initials}
+                      </div>
+                      <div className="dn-pool-member-info">
+                        <span className={`dn-pool-member-name${m.isCurrentUser ? " me" : ""}`}>
+                          {m.isCurrentUser ? "you" : m.name}
+                        </span>
+                        <span className={`dn-pool-member-status ${statusCls}`}>
+                          {statusText}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Standings */}
               <div className="dn-right-section">
                 <div className="dn-rs-label">Standings</div>
                 <LayoutGroup id="live-standings">
@@ -666,41 +701,13 @@ export default function LiveDraftView() {
                 </LayoutGroup>
               </div>
 
-              <div className="dn-right-section">
-                <div className="dn-rs-label">
-                  Pick {currentPickNumber} · Pool
-                  <span className="dn-pool-count-badge">
-                    {livePoolState.filter((m) => m.isCurrentUser ? currentLocked : m.locked).length}/{livePoolState.length} locked
-                  </span>
-                </div>
-                {livePoolState.map((m) => {
-                  const isLocked = m.isCurrentUser ? currentLocked : m.locked;
-                  const avatarCls = m.isCurrentUser ? "me" : isLocked ? "submitted" : "pending";
-                  const initials = m.name.slice(0, 2).toUpperCase();
-                  return (
-                    <div key={m.id ?? m.name} className="dn-pool-member-row">
-                      <div className={`dn-pool-avatar ${avatarCls}${!isLocked ? " pulsing" : ""}`}>
-                        {initials}
-                      </div>
-                      <div className="dn-pool-member-info">
-                        <span className="dn-pool-member-name">{m.isCurrentUser ? "you" : m.name}</span>
-                        <span className={`dn-pool-member-status ${isLocked ? "locked" : "deciding"}`}>
-                          {isLocked ? "locked ✓" : "deciding…"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
               <div style={{ padding: "0 14px" }}>
-                <div className="dn-rs-label">Pool</div>
                 <div style={{ fontSize: 12, color: "var(--dn-muted)" }}>
                   {members.length} member{members.length !== 1 ? "s" : ""}
                 </div>
                 <button
                   type="button"
-                  style={{ marginTop: 8, fontSize: 11, color: "var(--dn-muted)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                  style={{ marginTop: 4, fontSize: 11, color: "var(--dn-muted)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
                   onClick={() => navigate("/pool-members")}
                 >
                   View all →

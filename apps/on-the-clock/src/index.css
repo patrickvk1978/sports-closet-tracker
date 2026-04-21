@@ -4371,6 +4371,8 @@ select:focus {
 .dn-pool-avatar.me        { background: var(--dn-red);  border-color: var(--dn-red);    color: #fff; }
 .dn-pool-avatar.submitted { background: #0d2218;         border-color: var(--dn-green);  color: var(--dn-green); }
 .dn-pool-avatar.pending   { background: var(--dn-card2); border-color: var(--dn-border2); color: #71717a; }
+.dn-pool-avatar.deciding  { background: #1a1600;         border-color: #a07800;          color: #d4a017; }
+.dn-pool-avatar.warning   { background: #1f0a00;         border-color: #c94a00;          color: #ff6b1a; }
 
 @keyframes pool-pulse-red {
   0%, 100% { box-shadow: 0 0 0 0 rgba(208, 18, 38, 0.55); }
@@ -4380,8 +4382,18 @@ select:focus {
   0%, 100% { box-shadow: 0 0 0 0 rgba(113, 113, 122, 0.45); }
   50%       { box-shadow: 0 0 0 5px rgba(113, 113, 122, 0); }
 }
-.dn-pool-avatar.me.pulsing      { animation: pool-pulse-red  1.6s ease-in-out infinite; }
-.dn-pool-avatar.pending.pulsing { animation: pool-pulse-gray 1.8s ease-in-out infinite; }
+@keyframes pool-pulse-yellow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 160, 23, 0.5); }
+  50%       { box-shadow: 0 0 0 5px rgba(212, 160, 23, 0); }
+}
+@keyframes pool-pulse-orange {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 74, 0, 0.65); }
+  50%       { box-shadow: 0 0 0 8px rgba(201, 74, 0, 0); }
+}
+.dn-pool-avatar.me.pulsing       { animation: pool-pulse-red    1.6s ease-in-out infinite; }
+.dn-pool-avatar.pending.pulsing  { animation: pool-pulse-gray   1.8s ease-in-out infinite; }
+.dn-pool-avatar.deciding.pulsing { animation: pool-pulse-yellow 1.8s ease-in-out infinite; }
+.dn-pool-avatar.warning.pulsing  { animation: pool-pulse-orange 0.8s ease-in-out infinite; }
 
 .dn-pool-member-info { flex: 1; min-width: 0; }
 .dn-pool-member-name {
@@ -4393,9 +4405,11 @@ select:focus {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.dn-pool-member-name.me { color: var(--dn-sub); font-weight: 700; }
 .dn-pool-member-status { display: block; font-size: 11px; margin-top: 1px; }
-.dn-pool-member-status.locked  { color: var(--dn-green); }
-.dn-pool-member-status.deciding { color: #3a3a3a; }
+.dn-pool-member-status.locked   { color: var(--dn-green); }
+.dn-pool-member-status.deciding { color: #d4a017; }
+.dn-pool-member-status.warning  { color: #ff6b1a; font-weight: 600; }
 
 /* Search state */
 .ls-compact-queue-bar {
