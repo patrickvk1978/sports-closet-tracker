@@ -63,7 +63,7 @@ function buildReportsHero(reportState) {
 
   return {
     headline: "Use reports to understand what is driving your board now that it is live.",
-    body: "Start with Overweight / underweight and Biggest assets to see where your exposure sits. Then use Rooting guide and Market vs. model to understand what outcomes matter most and where the outside signals still disagree.",
+    body: "Start with Board implications and Overweight / underweight to see which current series matter most and where your exposure sits. Then use Biggest assets and Market vs. model for the deeper read.",
     stats: reportState.summary.stats,
   };
 }
@@ -93,6 +93,7 @@ export default function TeamValueReportsView() {
           "fragility",
         ]
       : [
+          "board-implications",
           "overweight",
           "assets",
           "rooting",

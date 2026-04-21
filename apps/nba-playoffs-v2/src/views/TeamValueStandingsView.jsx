@@ -19,16 +19,21 @@ export default function TeamValueStandingsView() {
   const { memberList, pool, settingsForPool } = usePool();
   const { seriesByRound, teamsById, series } = usePlayoffData();
   const playoffTeams = useMemo(() => getRoundOneTeamsFromData(seriesByRound, teamsById), [seriesByRound, teamsById]);
-  const { allAssignmentsByUser } = useTeamValueBoard(playoffTeams);
+  const { allAssignmentsByUser, syncedBoardCount, syncedUserIds } = useTeamValueBoard(playoffTeams);
   const settings = settingsForPool(pool);
   const phase = getTeamValuePhase(settings);
   const canViewOtherBoards = phase === "post_lock";
   const [sortKey, setSortKey] = useState("points");
   const [sortDirection, setSortDirection] = useState("desc");
 
+  const syncedUserIdSet = useMemo(() => new Set(syncedUserIds), [syncedUserIds]);
+  const trustedMembers = useMemo(
+    () => memberList.filter((member) => syncedUserIdSet.has(member.id)),
+    [memberList, syncedUserIdSet]
+  );
   const standings = useMemo(
-    () => buildTeamValueStandingsWithOdds(memberList, allAssignmentsByUser, series),
-    [allAssignmentsByUser, memberList, series]
+    () => buildTeamValueStandingsWithOdds(trustedMembers, allAssignmentsByUser, series),
+    [allAssignmentsByUser, trustedMembers, series]
   );
   const preLockEntries = useMemo(
     () =>
@@ -80,6 +85,7 @@ export default function TeamValueStandingsView() {
       return a.place - b.place;
     });
   }, [sortDirection, sortKey, standings]);
+  const hasSyncedBoards = syncedBoardCount >= 2;
 
   function handleSort(nextKey) {
     if (sortKey === nextKey) {
@@ -184,56 +190,65 @@ export default function TeamValueStandingsView() {
             </div>
           </div>
 
-          <div className="detail-card inset-card">
-            <span className="micro-label">How points are showing up already</span>
-            <p>Teams score as they win games, not only when they win the whole series. That means standings can move after Game 1, Game 2, and Game 3, with the fourth win still carrying the biggest jump.</p>
-          </div>
+          {hasSyncedBoards ? (
+            <>
+              <div className="detail-card inset-card">
+                <span className="micro-label">How points are showing up already</span>
+                <p>Teams score as they win games, not only when they win the whole series. That means standings can move after Game 1, Game 2, and Game 3, with the fourth win still carrying the biggest jump.</p>
+              </div>
 
-          <div className="nba-standings-table-shell">
-            <table className="nba-standings-table-expanded">
-              <thead>
-                <tr>
-                  {Object.keys(SORT_OPTIONS).map((key) => (
-                    <th key={key}>
-                      <button className="nba-sort-button" type="button" onClick={() => handleSort(key)}>
-                        {sortLabel(key)}
-                      </button>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedStandings.map((member) => (
-                  <tr key={member.id} className={member.isCurrentUser ? "is-current-user" : ""}>
-                    <td>{member.place}</td>
-                    <td>
-                      <div className="nba-standings-name-cell">
-                        {member.isCurrentUser ? (
-                          <a className="standings-board-link" href="/teams">
-                            <strong>{member.displayName ?? member.name}</strong>
-                          </a>
-                        ) : canViewOtherBoards ? (
-                          <a className="standings-board-link" href={`/teams?viewer=${member.id}`}>
-                            <strong>{member.displayName ?? member.name}</strong>
-                          </a>
-                        ) : (
-                          <span className="tooltip-wrap standings-tooltip-wrap">
-                            <strong className="standings-board-link disabled-link">{member.displayName ?? member.name}</strong>
-                            <span className="tooltip-bubble">Boards unlock for everyone after {lockAtDisplay}</span>
-                          </span>
-                        )}
-                        <span>{member.isCurrentUser ? "You" : "Pool entry"}</span>
-                      </div>
-                    </td>
-                    <td>{member.summary.totalPoints}</td>
-                    <td>{member.liveValueRemaining}</td>
-                    <td>{member.bestRemainingAsset ? `${member.bestRemainingAsset.value} pts` : "Out"}</td>
-                    <td>{member.winProbability}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              <div className="nba-standings-table-shell">
+                <table className="nba-standings-table-expanded">
+                  <thead>
+                    <tr>
+                      {Object.keys(SORT_OPTIONS).map((key) => (
+                        <th key={key}>
+                          <button className="nba-sort-button" type="button" onClick={() => handleSort(key)}>
+                            {sortLabel(key)}
+                          </button>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedStandings.map((member) => (
+                      <tr key={member.id} className={member.isCurrentUser ? "is-current-user" : ""}>
+                        <td>{member.place}</td>
+                        <td>
+                          <div className="nba-standings-name-cell">
+                            {member.isCurrentUser ? (
+                              <a className="standings-board-link" href="/teams">
+                                <strong>{member.displayName ?? member.name}</strong>
+                              </a>
+                            ) : canViewOtherBoards ? (
+                              <a className="standings-board-link" href={`/teams?viewer=${member.id}`}>
+                                <strong>{member.displayName ?? member.name}</strong>
+                              </a>
+                            ) : (
+                              <span className="tooltip-wrap standings-tooltip-wrap">
+                                <strong className="standings-board-link disabled-link">{member.displayName ?? member.name}</strong>
+                                <span className="tooltip-bubble">Boards unlock for everyone after {lockAtDisplay}</span>
+                              </span>
+                            )}
+                            <span>{member.isCurrentUser ? "You" : "Pool entry"}</span>
+                          </div>
+                        </td>
+                        <td>{member.summary.totalPoints}</td>
+                        <td>{member.liveValueRemaining}</td>
+                        <td>{member.bestRemainingAsset ? `${member.bestRemainingAsset.value} pts` : "Out"}</td>
+                        <td>{member.winProbability}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <div className="detail-card inset-card">
+              <span className="micro-label">Board sync required</span>
+              <p>Only {syncedBoardCount} live board{syncedBoardCount === 1 ? "" : "s"} are synced to the server for this pool right now, so the standings cannot be trusted yet. Open <strong>My Board</strong> first to resync your saved board, then come back here.</p>
+            </div>
+          )}
         </section>
       )}
     </div>

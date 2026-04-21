@@ -165,7 +165,7 @@ export default function TeamsBoardView() {
     const reportOrder =
       reportState.phase === "pre_lock"
         ? ["slot-fits", "strategic-moves", "model-gaps", "assets", "fragility"]
-        : ["overweight", "assets", "rooting", "slot-fits", "model-gaps"];
+        : ["board-implications", "overweight", "assets", "rooting", "slot-fits", "model-gaps"];
 
     const reports = reportOrder
       .filter((key) => reportState.visibleReportKeys.includes(key))

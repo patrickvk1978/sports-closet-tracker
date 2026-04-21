@@ -258,111 +258,40 @@ function buildHeadToHeadSummary(selectedOpponent, currentStanding, opponentStand
 
 function buildReportsSummary({
   currentRound,
-  currentStanding,
-  currentStandingIndex,
-  pointsBack,
   incompleteCount,
-  contrarianCount,
   showScenarioCard,
 }) {
-  const placeLabel = currentStandingIndex >= 0 ? ordinal(currentStandingIndex + 1) : "unplaced";
-  const winOdds = currentStanding?.roundWinOdds ?? 0;
-
   if (showScenarioCard) {
     return {
-      headline: chooseVariant([
-        "Today is still about the bracket settling, not just your picks",
-        "The board is still being shaped before it can really be judged",
-        "Right now the useful job is reading the bracket movement before lock",
-      ], currentRound?.key, pointsBack, "summary-scenario-head"),
-      body: chooseVariant([
-        "The most useful read right now is which finale-day results and Play-In paths will reshape Round 1 before the Saturday, April 18, 2026 lock.",
-        "Before you over-interpret your own board, make sure the bracket inputs underneath it have actually settled.",
-        "This is still a pre-lock information problem before it becomes a true strategy problem.",
-      ], currentRound?.key, incompleteCount, "summary-scenario-body"),
+      headline: "Use Reports to sort the late-moving bracket",
+      body: `Start with the report that matches the decision in front of you, then use one more report to confirm it before ${currentRound?.label ?? "the round"} locks.`,
       stats: [
-        { label: "Open series", value: incompleteCount },
-        { label: "Current place", value: placeLabel },
-        { label: "Round win odds", value: formatPct(winOdds) },
+        { label: "Start with", value: "Rooting guide" },
+        { label: "Then check", value: "Win odds" },
+        { label: "Window", value: "Pre-lock" },
       ],
     };
   }
 
   if (incompleteCount > 0) {
     return {
-      headline: chooseVariant([
-        `${incompleteCount} ${incompleteCount === 1 ? "series still needs your pick" : "series still need your picks"}`,
-        `Your board still has ${incompleteCount} open ${incompleteCount === 1 ? "series" : "series"}`,
-        `You still have ${incompleteCount} unresolved ${incompleteCount === 1 ? "decision" : "decisions"} before the report gets sharper`,
-      ], currentRound?.key, incompleteCount, "summary-open-head"),
-      body: chooseVariant([
-        `Your report story is still mostly about getting fully set for ${currentRound.label}. Once the board is filled in, the leverage picture will sharpen fast.`,
-        "Right now the best use of the reports is helping you finish the card, not pretending the strategic read is already complete.",
-        "A fuller board will immediately make these reads more actionable. Until then, the biggest edge is still housekeeping done well.",
-      ], currentRound?.key, incompleteCount, "summary-open-body"),
+      headline: "Use Reports to finish the board cleanly",
+      body: `You still have ${incompleteCount} open ${incompleteCount === 1 ? "series" : "series"}. Finish those first, then use Rooting guide, Swing spots, and Win odds to pressure-test the calls that are left.`,
       stats: [
-        { label: "Open series", value: incompleteCount },
-        { label: "Current place", value: placeLabel },
-        { label: "Round win odds", value: formatPct(winOdds) },
-      ],
-    };
-  }
-
-  if (pointsBack <= 2) {
-    return {
-      headline: chooseVariant([
-        "You are within one series of the lead",
-        "You are close enough that one clean swing can matter",
-        "This is still a one-series race for you",
-      ], placeLabel, pointsBack, "summary-close-head"),
-      body: chooseVariant([
-        `From ${placeLabel}, your reports are mostly about protecting good ground while finding one or two spots that can still create separation.`,
-        `From ${placeLabel}, this is less about a wild comeback and more about identifying the couple of places where a clean read can still move you.`,
-        "You are close enough that discipline matters as much as aggression here. One or two good swings can do plenty.",
-      ], placeLabel, pointsBack, "summary-close-body"),
-      stats: [
-        { label: "Points back", value: pointsBack },
-        { label: "Current place", value: placeLabel },
-        { label: "Round win odds", value: formatPct(winOdds) },
-      ],
-    };
-  }
-
-  if (contrarianCount > 0) {
-    return {
-      headline: chooseVariant([
-        `${contrarianCount} contrarian ${contrarianCount === 1 ? "call is" : "calls are"} carrying your upside`,
-        `Your best climb is still tied to ${contrarianCount} contrarian ${contrarianCount === 1 ? "spot" : "spots"}`,
-        `The card is asking your off-room ${contrarianCount === 1 ? "pick" : "picks"} to do real work`,
-      ], contrarianCount, placeLabel, "summary-contrarian-head"),
-      body: chooseVariant([
-        `You are chasing from ${placeLabel}, and your clearest path is through the series where you differ meaningfully from the room.`,
-        `From ${placeLabel}, the upside still lives mostly in the places where your board is willing to break from consensus.`,
-        "If you are going to climb from here, it is probably not through the safe spots. It is through the series where your card has some nerve.",
-      ], contrarianCount, placeLabel, "summary-contrarian-body"),
-      stats: [
-        { label: "Points back", value: pointsBack },
-        { label: "Contrarian picks", value: contrarianCount },
-        { label: "Round win odds", value: formatPct(winOdds) },
+        { label: "Start with", value: "Rooting guide" },
+        { label: "Then check", value: "Swing spots" },
+        { label: "Need attention", value: `${incompleteCount} open` },
       ],
     };
   }
 
   return {
-    headline: chooseVariant([
-      "Your board is mostly aligned with the room",
-      "The card is not screaming for a huge rewrite",
-      "This board looks steadier than dramatic right now",
-    ], placeLabel, pointsBack, "summary-steady-head"),
-    body: chooseVariant([
-      `From ${placeLabel}, this report set is less about one huge swing and more about where market, model, and pool consensus start to diverge.`,
-      "The useful work now is not inventing drama. It is finding the quieter places where the signals start to separate.",
-      "This is the kind of board that benefits more from sharper pressure-testing than from forced action.",
-    ], placeLabel, pointsBack, "summary-steady-body"),
+    headline: "Use Reports to pressure-test the board from a few angles",
+    body: "Start with Rooting guide for the clearest live spots, then use Win odds, Swing spots, and Head to head to see where the same board looks different.",
     stats: [
-      { label: "Points back", value: pointsBack },
-      { label: "Current place", value: placeLabel },
-      { label: "Round win odds", value: formatPct(winOdds) },
+      { label: "Start with", value: "Rooting guide" },
+      { label: "Then check", value: "Win odds" },
+      { label: "Status", value: "Ready to review" },
     ],
   };
 }
@@ -501,11 +430,7 @@ export default function ReportsView() {
   );
   const reportsSummary = buildReportsSummary({
     currentRound,
-    currentStanding,
-    currentStandingIndex,
-    pointsBack,
     incompleteCount,
-    contrarianCount,
     showScenarioCard,
   });
 
@@ -597,7 +522,7 @@ export default function ReportsView() {
       </section>
 
       <section className="nba-dashboard-grid">
-        <article className="panel nba-report-preview-panel">
+        <article className="panel nba-report-preview-panel nba-report-preview-panel-walnut">
           <div className="panel-header">
             <div>
               <span className="label">Rooting guide</span>
@@ -615,14 +540,14 @@ export default function ReportsView() {
               </div>
             ))}
             <div className="nba-report-actions">
-              <Link className="secondary-button" to="/reports/rooting">
+              <Link className="secondary-button nba-report-action-button nba-report-action-button-walnut" to="/reports/rooting">
                 Open full report
               </Link>
             </div>
           </div>
         </article>
 
-        <article className="panel nba-report-preview-panel">
+        <article className="panel nba-report-preview-panel nba-report-preview-panel-navy">
           <div className="panel-header">
             <div>
               <span className="label">Win odds</span>
@@ -649,14 +574,14 @@ export default function ReportsView() {
               </div>
             ))}
             <div className="nba-report-actions">
-              <Link className="secondary-button" to="/reports/win-odds">
+              <Link className="secondary-button nba-report-action-button nba-report-action-button-navy" to="/reports/win-odds">
                 Open full report
               </Link>
             </div>
           </div>
         </article>
 
-        <article className="panel nba-report-preview-panel">
+        <article className="panel nba-report-preview-panel nba-report-preview-panel-orange">
           <div className="panel-header">
             <div>
               <span className="label">Swing spots</span>
@@ -674,7 +599,7 @@ export default function ReportsView() {
               </div>
             ))}
             <div className="nba-report-actions">
-              <Link className="secondary-button" to="/reports/swing">
+              <Link className="secondary-button nba-report-action-button nba-report-action-button-orange" to="/reports/swing">
                 Open full report
               </Link>
             </div>
@@ -683,7 +608,7 @@ export default function ReportsView() {
       </section>
 
       <section className="nba-dashboard-grid">
-        <article className="panel nba-report-preview-panel">
+        <article className="panel nba-report-preview-panel nba-report-preview-panel-navy">
           <div className="panel-header">
             <div>
               <span className="label">Head to head</span>
@@ -729,7 +654,7 @@ export default function ReportsView() {
                   </div>
                 )) : <p className="subtle">You and {selectedOpponent.name} are aligned on the current round so far.</p>}
                 <div className="nba-report-actions">
-                  <Link className="secondary-button" to={`/reports/opponent/${selectedOpponent.id}`}>
+                  <Link className="secondary-button nba-report-action-button nba-report-action-button-navy" to={`/reports/opponent/${selectedOpponent.id}`}>
                     Open matchup report
                   </Link>
                 </div>
@@ -738,7 +663,7 @@ export default function ReportsView() {
           </div>
         </article>
 
-        <article className="panel nba-report-preview-panel">
+        <article className="panel nba-report-preview-panel nba-report-preview-panel-mustard">
           <div className="panel-header">
             <div>
               <span className="label">Pool exposure</span>
@@ -756,7 +681,7 @@ export default function ReportsView() {
               </div>
             ))}
             <div className="nba-report-actions">
-              <Link className="secondary-button" to="/reports/exposure">
+              <Link className="secondary-button nba-report-action-button nba-report-action-button-mustard" to="/reports/exposure">
                 Open full report
               </Link>
             </div>

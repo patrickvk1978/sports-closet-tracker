@@ -4,358 +4,375 @@ import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
+import { useEspnTodayGames } from "../hooks/useEspnTodayGames";
 import {
   buildTeamValueStandingsWithOdds,
   getRoundOneTeamsFromData,
 } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
-import { SCENARIO_WATCH_DATE, SCENARIO_WATCH_ITEMS } from "../data/scenarioWatch";
 
-function formatPlace(value) {
-  if (!Number.isFinite(value)) return "TBD";
-  if (value === 1) return "1st";
-  if (value === 2) return "2nd";
-  if (value === 3) return "3rd";
-  return `${value}th`;
+function formatMemberLabel(member, currentUserId) {
+  if (!member) return "Unknown";
+  const base = member.displayName ?? member.name ?? "Unknown";
+  return member.id === currentUserId ? "You" : base;
 }
 
-function buildPriorityCard({ reportState, completionCount, memberList, currentStanding }) {
-  const slotFits = reportState.reports["slot-fits"]?.rows ?? [];
-  const modelGaps = reportState.reports["model-gaps"]?.rows ?? [];
-  const assets = reportState.reports.assets?.rows ?? [];
-  const fragility = reportState.reports.fragility?.rows ?? [];
+function buildDashboardStandingsRows(standings, currentUserId) {
+  return standings;
+}
 
-  const safestPicks = fragility
-    .slice()
-    .sort((a, b) => a.fragility - b.fragility || b.yourValue - a.yourValue)
-    .slice(0, 2)
-    .map((row) => row.teamLabel);
-  const biggestGambles = fragility
-    .slice()
-    .sort((a, b) => b.fragility - a.fragility || b.yourValue - a.yourValue)
-    .slice(0, 2)
-    .map((row) => row.teamLabel);
+function sameCalendarDay(left, right) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
 
-  if (reportState.phase === "pre_lock") {
-    if (completionCount < 16) {
-      return {
-        eyebrow: "Most important right now",
-        headline: `${16 - completionCount} rank${16 - completionCount === 1 ? "" : "s"} still need a team.`,
-        body: "Finish the board first. Until every rank is filled, the rest of the reports are useful, but not decisive.",
-        ctaLabel: "Open My Board",
-        ctaPath: "/teams",
-        secondary: "Complete the board before lock",
-        safestPicks,
-        biggestGambles,
-      };
-    }
+function formatGameTime(seriesItem, now) {
+  if (seriesItem.status === "in_progress") return "Live now";
+  const tipAt = seriesItem.schedule?.nextGame?.tipAt ?? seriesItem.schedule?.lockAt ?? null;
+  if (!tipAt) return "Time TBD";
 
-    const topMisfit = slotFits.find((row) => row.gap > 0);
-    if (topMisfit) {
-      return {
-        eyebrow: "Most important right now",
-        headline: `${topMisfit.teamLabel} still looks mis-ranked.`,
-        body: `Your board has them at rank ${topMisfit.yourValue || "unassigned"}, while the current board model likes them closer to rank ${topMisfit.fairValue}. That is probably the cleanest revision left before lock.`,
-        ctaLabel: "Open Best slot fits",
-        ctaPath: "/reports/slot-fits",
-        secondary: `${topMisfit.expectedPoints} expected pts · ${topMisfit.poolEv} pool EV`,
-        safestPicks,
-        biggestGambles,
-      };
-    }
+  const tipDate = new Date(tipAt);
+  if (Number.isNaN(tipDate.getTime())) return "Time TBD";
 
-    const topModelGap = modelGaps[0];
-    if (topModelGap) {
-      return {
-        eyebrow: "Most important right now",
-        headline: `${topModelGap.teamLabel} is the biggest market-model split on your board.`,
-        body: `The market and model are ${topModelGap.gap} points apart here. If you still want one meaningful review before lock, this is probably it.`,
-        ctaLabel: "Open Market vs model",
-        ctaPath: "/reports/model-gaps",
-        secondary: `${topModelGap.marketLean}% market · ${topModelGap.modelLean}% model`,
-        safestPicks,
-        biggestGambles,
-      };
-    }
+  const timeLabel = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(tipDate);
 
+  if (sameCalendarDay(tipDate, now)) return timeLabel;
+
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    month: "numeric",
+    day: "numeric",
+  }).format(tipDate);
+
+  return `${dateLabel}, ${timeLabel}`;
+}
+
+function buildFavoriteLabel(seriesItem) {
+  const homePct = Number(seriesItem.market?.homeTeamPct ?? 50);
+  const awayPct = 100 - homePct;
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId ?? "HOME";
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId ?? "AWAY";
+  return homePct >= awayPct ? `${homeAbbr} ${Math.round(homePct)}%` : `${awayAbbr} ${Math.round(awayPct)}%`;
+}
+
+function splitOddsLabel(label) {
+  if (!label) {
     return {
-      eyebrow: "Most important right now",
-      headline: "All 16 slots are in, and the board looks coherent.",
-      body: "At this point the best use of time is a final pass through your top slots, not another full rebuild.",
-      ctaLabel: "Open reports",
-      ctaPath: "/reports",
-      secondary: "Board complete · ready for lock",
-      safestPicks,
-      biggestGambles,
+      display: "Matchup Predictor soon",
+      source: null,
     };
   }
 
-  const topAsset = assets[0];
-  return {
-    eyebrow: "Most important right now",
-    headline: topAsset ? `${topAsset.teamLabel} is your biggest live asset.` : "Your live value is now the whole story.",
-    body: topAsset
-      ? `${topAsset.teamLabel} is carrying ${topAsset.yourValue} points on your board and projecting for ${topAsset.expectedPoints} expected points from here.`
-      : "With the board locked, the key question is which of your top teams are still in position to keep paying out.",
-    ctaLabel: "Open Biggest assets",
-    ctaPath: "/reports/assets",
-    secondary: currentStanding
-      ? `${currentStanding.liveValueRemaining} live value · ${currentStanding.winProbability}% win probability`
-      : "Board locked",
-    safestPicks,
-    biggestGambles,
-  };
-}
-
-function buildLockWatchRows(memberList, allAssignmentsByUser) {
-  const rows = memberList.map((member) => {
-    const assignmentCount = Object.keys(allAssignmentsByUser?.[member.id] ?? {}).length;
+  if (label.startsWith("Matchup Predictor: ")) {
     return {
-      id: member.id,
-      name: member.name,
-      assignmentCount,
-      isReady: assignmentCount === 16,
-    };
-  });
-
-  const readyRows = rows
-    .filter((row) => row.isReady)
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .slice(0, 3);
-  const buildingRows = rows
-    .filter((row) => !row.isReady)
-    .sort((a, b) => b.assignmentCount - a.assignmentCount || a.name.localeCompare(b.name))
-    .slice(0, 3);
-
-  return { readyRows, buildingRows, readyCount: rows.filter((row) => row.isReady).length };
-}
-
-function buildQuickLinks({ reportState, memberList, allAssignmentsByUser }) {
-  const lockWatch = buildLockWatchRows(memberList, allAssignmentsByUser);
-
-  if (reportState.phase === "pre_lock") {
-    return [
-      {
-        key: "slot-fits",
-        label: "Best slot fits",
-        title: "Which team should you revisit first?",
-        body:
-          reportState.reports["slot-fits"]?.rows?.[0]?.body ??
-          "This is the quickest way to find the clearest slot mismatch on your board before lock.",
-        ctaLabel: "Open report",
-        ctaPath: "/reports/slot-fits",
-      },
-      {
-        key: "model-gaps",
-        label: "Market vs. model",
-        title: "Where do outside signals disagree?",
-        body:
-          reportState.reports["model-gaps"]?.rows?.[0]?.body ??
-          "This is the best quick stress test for consensus assumptions before lock.",
-        ctaLabel: "Open report",
-        ctaPath: "/reports/model-gaps",
-      },
-      {
-        key: "strategic-moves",
-        label: "Strategic moves",
-        title: "Which calls are risky in the right way?",
-        body:
-          reportState.reports["strategic-moves"]?.rows?.[0]?.body ??
-          "This is the cleaner tradeoff report: upside buys, rich slots, and safer but expensive choices.",
-        ctaLabel: "Open report",
-        ctaPath: "/reports/strategic-moves",
-      },
-    ];
-  }
-
-  return [
-    {
-      key: "overweight",
-      label: "Overweight / underweight",
-      title: "Where are you really above or below the room?",
-      body:
-        reportState.reports.overweight?.rows?.[0]?.body ??
-        "This is the true pool-leverage report once the board is public.",
-      ctaLabel: "Open report",
-      ctaPath: "/reports/overweight",
-    },
-    {
-      key: "assets",
-      label: "Biggest assets",
-      title: "Which teams are carrying your position?",
-      body:
-        reportState.reports.assets?.rows?.[0]?.body ??
-        "These are the teams doing the most work for you from here.",
-      ctaLabel: "Open report",
-      ctaPath: "/reports/assets",
-    },
-    {
-      key: "standings",
-      label: "Standings",
-      title: "How does the room compare from here?",
-      body: "Points, live value, and win probability all matter once the board starts paying out.",
-      ctaLabel: "Open standings",
-      ctaPath: "/standings",
-    },
-  ];
-}
-
-function buildDeskIntro({ reportState, completionCount }) {
-  const topScenario = SCENARIO_WATCH_ITEMS[0];
-  const secondScenario = SCENARIO_WATCH_ITEMS[1];
-  const topMisfit = reportState.reports["slot-fits"]?.rows?.find((row) => row.gap > 0);
-  const strategicMove = reportState.reports["strategic-moves"]?.rows?.[0];
-
-  if (reportState.phase !== "pre_lock") {
-    return {
-      headline: "The board is locked. Now it is about which teams keep paying you.",
-      body:
-        "At this point the dashboard should stop sounding like a draft room and start sounding like a position monitor: what is still alive, what is carrying you, and what result matters most next.",
-      currentRead:
-        "The private board-building phase is over. The useful question now is how much live value your best teams still have left to return.",
+      display: label.replace("Matchup Predictor: ", ""),
+      source: "ESPN Matchup Predictor",
     };
   }
 
-  if (completionCount < 16) {
+  if (label.startsWith("Game odds: ")) {
     return {
-      headline: "Rank the 16 teams before the field starts scoring.",
-      body:
-        "The biggest mistake right now is waiting for every unknown to vanish. Get the full board in first, then use the reports to decide which few ranks deserve a harder second look.",
-      currentRead:
-        secondScenario?.likelyImpact ??
-        "The useful pre-lock rhythm is simple: finish the board first, then revisit only the places where the bracket movement should actually change your pricing.",
+      display: label.replace("Game odds: ", ""),
+      source: "ESPN Game Odds",
     };
   }
 
-  if (topMisfit) {
+  if (label.startsWith("Board lean: ")) {
     return {
-      headline: `${topMisfit.teamLabel} is probably the cleanest rank tweak still left.`,
-      body:
-        `Your board is in. The job now is not another full rebuild; it is tightening the few teams that still look out of place against the current bracket and market picture.`,
-      currentRead:
-        topScenario?.likelyImpact ??
-        "Portland locking the West 7 line turned one side of the board into a real series. That is the kind of shift that should move a slot, not just your mood.",
+      display: label.replace("Board lean: ", ""),
+      source: "Board implications",
     };
   }
 
   return {
-    headline: "You are done ranking. Now narrow it to the two or three teams worth reopening.",
-      body:
-        strategicMove?.body ??
-        "The highest-value work from here is not reading every report evenly. It is deciding which few teams still deserve a meaningful second look before lock.",
-    currentRead:
-      topScenario?.likelyImpact ??
-      "The board is mature enough now that the only really useful changes are the ones tied to actual bracket movement or a clear outside-signal disagreement.",
+    display: label,
+    source: null,
   };
+}
+
+function buildOnTapRows(todayGames, boardImplicationRows, series, now) {
+  const implicationBySeriesId = Object.fromEntries(boardImplicationRows.map((row) => [row.id, row]));
+  const seriesByPair = Object.fromEntries(
+    series.map((seriesItem) => {
+      const key = [seriesItem.homeTeam?.id ?? seriesItem.homeTeamId, seriesItem.awayTeam?.id ?? seriesItem.awayTeamId].sort().join("|");
+      return [key, seriesItem];
+    })
+  );
+
+  return todayGames
+    .filter((game) => {
+      if (game.status === "in_progress") return true;
+      if (!game.tipAt) return false;
+      const tipDate = new Date(game.tipAt);
+      return !Number.isNaN(tipDate.getTime()) && sameCalendarDay(tipDate, now);
+    })
+    .sort((a, b) => {
+      if (a.status === "in_progress" && b.status !== "in_progress") return -1;
+      if (b.status === "in_progress" && a.status !== "in_progress") return 1;
+      return new Date(a.tipAt ?? 0) - new Date(b.tipAt ?? 0);
+    })
+    .map((game) => {
+      const pairKey = [game.homeTeamId, game.awayTeamId].sort().join("|");
+      const matchingSeries = seriesByPair[pairKey] ?? null;
+      const implication = matchingSeries ? implicationBySeriesId[matchingSeries.id] ?? null : null;
+      const pseudoSeries = {
+        status: game.status,
+        homeTeamId: game.homeTeamId,
+        awayTeamId: game.awayTeamId,
+        homeTeam: { abbreviation: game.homeAbbreviation },
+        awayTeam: { abbreviation: game.awayAbbreviation },
+        schedule: { nextGame: { tipAt: game.tipAt }, lockAt: game.tipAt },
+        market: implication
+          ? {
+              homeTeamPct: implication.marketLean,
+            }
+          : null,
+      };
+      const oddsLabel = splitOddsLabel(
+        game.marketFavoriteLabel ??
+        (implication ? `Board lean: ${buildFavoriteLabel(pseudoSeries)}` : "Matchup Predictor soon")
+      );
+
+      return {
+        id: matchingSeries?.id ?? game.id,
+        teamIds: [game.homeTeamId, game.awayTeamId],
+        matchupLabel: `${game.awayAbbreviation} at ${game.homeAbbreviation}`,
+        timeLabel: formatGameTime(pseudoSeries, now),
+        favoriteLabel: oddsLabel.display,
+        favoriteSource: oddsLabel.source,
+        implicationTitle:
+          implication?.gap > 0
+            ? `${implication.preferredTeam} matters more to your board here`
+            : "More texture than a true lean for your board",
+        implicationBody:
+          implication?.gap > 0
+            ? `${implication.preferredTeam} is carrying ${implication.yourValue} points on your side in this series.`
+            : "You valued both sides fairly similarly, so this one matters less than it entertains.",
+      };
+    });
+}
+
+function buildFuturePressureRows(assetRows, todayRows) {
+  const teamsPlayingToday = new Set(
+    todayRows.flatMap((row) => row.teamIds ?? [])
+  );
+  return assetRows
+    .filter((row) => !teamsPlayingToday.has(row.id))
+    .slice(0, 3)
+    .map((row) => ({
+      id: row.id,
+      title: `${row.teamLabel} still looms beyond today`,
+      body: `${row.teamLabel} is carrying ${row.yourValue} of your board, with ${row.expectedPoints} expected points still available from here.`,
+      chip: `${row.yourValue} pts on your board`,
+    }));
+}
+
+function buildCurrentImplicationRows(rows) {
+  return rows.slice(0, 3).map((row, index) => ({
+    id: row.id,
+    title:
+      index === 0
+        ? `${row.preferredTeam} is your clearest current swing`
+        : row.gap > 0
+          ? `${row.preferredTeam} still holds the stronger side for you`
+          : `${row.teamLabel} is more watchlist than rooting order`,
+    body: row.gap > 0
+      ? `${row.preferredTeam} carries ${row.yourValue} points for you here, which is why this series sits high on the live board-implications list.`
+      : "You are relatively balanced here, so this series is less about protecting one side and more about seeing how the bracket starts to bend.",
+    chip: row.teamLabel,
+  }));
 }
 
 export default function TeamValueDashboardView() {
   const { profile } = useAuth();
-  const { pool, memberList } = usePool();
+  const { memberList } = usePool();
   const { seriesByRound, teamsById, series } = usePlayoffData();
+  const { games: todayGames } = useEspnTodayGames();
   const playoffTeams = useMemo(() => getRoundOneTeamsFromData(seriesByRound, teamsById), [seriesByRound, teamsById]);
-  const { allAssignmentsByUser, completionCount } = useTeamValueBoard(playoffTeams);
-
-  const standings = buildTeamValueStandingsWithOdds(memberList, allAssignmentsByUser, series);
-  const currentStanding = standings.find((member) => member.id === profile?.id) ?? null;
+  const { allAssignmentsByUser, syncedBoardCount, syncedUserIds } = useTeamValueBoard(playoffTeams);
+  const currentUserId = profile?.id ?? null;
+  const syncedUserIdSet = useMemo(() => new Set(syncedUserIds), [syncedUserIds]);
+  const trustedMembers = useMemo(
+    () => memberList.filter((member) => syncedUserIdSet.has(member.id)),
+    [memberList, syncedUserIdSet]
+  );
+  const standings = buildTeamValueStandingsWithOdds(trustedMembers, allAssignmentsByUser, series);
+  const currentStanding = standings.find((member) => member.id === currentUserId) ?? null;
   const reportState = buildTeamValueReports({
-    profileId: profile?.id,
+    profileId: currentUserId,
     memberList,
     allAssignmentsByUser,
     seriesByRound,
     teamsById,
     series,
   });
-  const quickLinks = buildQuickLinks({ reportState, memberList, allAssignmentsByUser });
-  const deskIntro = buildDeskIntro({ reportState, completionCount });
-  const priorityCard = buildPriorityCard({
-    reportState,
-    completionCount,
-    memberList,
-    currentStanding,
-  });
-  const isBoardComplete = completionCount === 16;
+  const boardImplicationRows = reportState.reports["board-implications"]?.rows ?? [];
+  const assetRows = reportState.reports.assets?.rows ?? [];
+  const now = useMemo(() => new Date(), []);
+  const onTapRows = useMemo(() => buildOnTapRows(todayGames, boardImplicationRows, series, now), [boardImplicationRows, now, series, todayGames]);
+  const currentImplicationRows = useMemo(() => buildCurrentImplicationRows(boardImplicationRows), [boardImplicationRows]);
+  const futurePressureRows = useMemo(() => buildFuturePressureRows(assetRows, onTapRows), [assetRows, onTapRows]);
+  const dashboardStandingsRows = useMemo(
+    () => buildDashboardStandingsRows(standings, currentUserId),
+    [currentUserId, standings]
+  );
+  const currentRoundLabel = series.find((item) => item.status === "in_progress") ? "Current-round implications" : "Where the first-round pressure sits";
+  const implicationReportPath = reportState.visibleReportKeys.includes("board-implications")
+    ? "/reports/board-implications"
+    : "/reports/rooting";
+  const canTrustStandings = syncedBoardCount >= 2;
 
   return (
     <div className="nba-shell">
-      <section className={`panel nba-hero-panel ${isBoardComplete ? "board-complete" : "board-building"}`}>
-        <div className={`nba-hero-copy ${isBoardComplete ? "is-secondary" : ""}`}>
-          <span className="label">Team value board · {SCENARIO_WATCH_DATE}</span>
-          <h1>{deskIntro.headline}</h1>
-          <p className="subtle">
-            {deskIntro.body}
-          </p>
-          <div className="nba-commentary-placeholder">
-            <strong>Current read</strong>
-            <span>{deskIntro.currentRead}</span>
-          </div>
-          <div className="nba-hero-actions">
-            <Link className={isBoardComplete ? "secondary-button" : "primary-button"} to="/teams">
-              Open board
-            </Link>
-            <Link className="secondary-button" to="/reports">
-              Open reports
-            </Link>
-          </div>
-        </div>
-
-        <div className={`nba-scoreboard-card ${isBoardComplete ? "is-primary-focus" : ""}`}>
-          <span className="micro-label">{priorityCard.eyebrow}</span>
-          <strong>{priorityCard.headline}</strong>
-          <span className="subtle">
-            {priorityCard.body}
-          </span>
-          <div className="nba-priority-hits">
-            <div className="nba-priority-hit">
-              <span className="micro-label">Safest picks</span>
-              <strong>{priorityCard.safestPicks?.join(" · ") || "Still forming"}</strong>
-            </div>
-            <div className="nba-priority-hit">
-              <span className="micro-label">Biggest gambles</span>
-              <strong>{priorityCard.biggestGambles?.join(" · ") || "Still forming"}</strong>
-            </div>
-          </div>
-          <div className="nba-report-actions">
-            <a className={isBoardComplete ? "primary-button" : "secondary-button"} href={priorityCard.ctaPath}>
-              {priorityCard.ctaLabel}
-            </a>
-          </div>
-          <div className="nba-stat-grid">
-            <div className="nba-stat-card">
-              <span className="micro-label">Board filled</span>
-              <strong>{completionCount}/16</strong>
-            </div>
-            <div className="nba-stat-card">
-              <span className="micro-label">{reportState.phase === "pre_lock" ? "Next key read" : "Live value"}</span>
-              <strong>{priorityCard.secondary}</strong>
-            </div>
-            <div className="nba-stat-card">
-              <span className="micro-label">{reportState.phase === "pre_lock" ? "Pool members" : "Current place"}</span>
-              <strong>{reportState.phase === "pre_lock" ? memberList.length : currentStanding ? formatPlace(currentStanding.place) : "TBD"}</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="nba-dashboard-grid">
-        {quickLinks.map((item) => (
-          <article className="panel" key={item.key}>
-            <div className="panel-header">
-              <div>
-                <span className="label">{item.label}</span>
-                <h2>{item.title}</h2>
+      <section className="panel">
+        <div className="nba-dashboard-main-layout">
+          <div className="nba-dashboard-primary-column">
+            <article className="detail-card inset-card nba-dashboard-on-tap-card">
+              <div className="nba-dashboard-card-head">
+                <div>
+                  <span className="micro-label">What’s On Tap</span>
+                  <h3>Today’s games and what they mean for your board</h3>
+                </div>
+                <Link className="secondary-button" to={implicationReportPath}>
+                  Open report
+                </Link>
               </div>
-              <a className="secondary-button" href={item.ctaPath}>
-                {item.ctaLabel}
-              </a>
-            </div>
-            <div className="nba-dashboard-row nba-dashboard-row-stacked">
-              <div>
-                <p>{item.body}</p>
+
+              {onTapRows.length ? (
+                <div className="nba-dashboard-on-tap-list">
+                  {onTapRows.map((row) => (
+                    <article className="nba-dashboard-on-tap-row" key={row.id}>
+                      <div className="nba-dashboard-on-tap-time">
+                        <strong>{row.timeLabel}</strong>
+                        <span>{row.favoriteLabel}</span>
+                        {row.favoriteSource ? <small>{row.favoriteSource}</small> : null}
+                      </div>
+                      <div className="nba-dashboard-on-tap-copy">
+                        <strong>{row.matchupLabel}</strong>
+                        <p>{row.implicationTitle}</p>
+                        <span>{row.implicationBody}</span>
+                      </div>
+                      <div className="nba-dashboard-on-tap-action">
+                        <Link className="secondary-button full" to={implicationReportPath}>
+                          Board Implications
+                        </Link>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="nba-dashboard-empty-state">
+                  <strong>No games tip today.</strong>
+                  <p>The next useful move is checking where your board is most exposed before the next live swing arrives.</p>
+                </div>
+              )}
+            </article>
+
+            <article className="detail-card inset-card nba-dashboard-live-standings-card">
+              <div className="nba-dashboard-card-head">
+                <div>
+                  <span className="micro-label">Room right now</span>
+                  <h3>Live standings snapshot</h3>
+                </div>
+                <Link className="secondary-button" to="/standings">
+                  Full standings
+                </Link>
               </div>
-            </div>
-          </article>
-        ))}
+              {canTrustStandings ? (
+                <>
+                  <div className="leaderboard-table nba-dashboard-leaderboard-table">
+                    <div className="leaderboard-head nba-dashboard-leaderboard-head">
+                      <span>Player</span>
+                      <span>Pts</span>
+                      <span>Live</span>
+                      <span>Win%</span>
+                      <span>Back</span>
+                    </div>
+                    {dashboardStandingsRows.map((member) => (
+                      <div
+                        className={`leaderboard-row nba-dashboard-leaderboard-row ${member.id === currentUserId ? "is-current" : ""} ${member.place === 1 ? "top" : ""}`}
+                        key={member.id}
+                      >
+                        <div className="leaderboard-player">
+                          <strong>{member.place}</strong>
+                          <span>{formatMemberLabel(member, currentUserId)}</span>
+                        </div>
+                        <span>{member.summary.totalPoints}</span>
+                        <span>{member.liveValueRemaining}</span>
+                        <span>{member.winProbability}%</span>
+                        <span>{member.pointsBack}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {currentStanding ? (
+                    <p className="nba-dashboard-standings-note">
+                      You are currently in <strong>{currentStanding.place}</strong> with <strong>{currentStanding.winProbability}%</strong> win probability and <strong>{currentStanding.liveValueRemaining}</strong> live value still in play.
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <div className="nba-dashboard-empty-state">
+                  <strong>Standings are still syncing.</strong>
+                  <p>Only {syncedBoardCount} live board{syncedBoardCount === 1 ? "" : "s"} are synced to the server right now, so the room read would be misleading.</p>
+                </div>
+              )}
+            </article>
+          </div>
+
+          <aside className="nba-dashboard-side-rail">
+            <article className="detail-card inset-card nba-dashboard-link-card is-primary-link">
+              <span className="micro-label">{currentRoundLabel}</span>
+              <strong>Where today can help you fastest</strong>
+              <div className="nba-dashboard-implication-stack">
+                {currentImplicationRows.map((item) => (
+                  <div className="nba-dashboard-implication-row" key={item.id}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>{item.body}</p>
+                    </div>
+                    <span className="chip subtle-chip">{item.chip}</span>
+                  </div>
+                ))}
+              </div>
+              <Link className="secondary-button full" to={implicationReportPath}>
+                Open Board Implications
+              </Link>
+            </article>
+
+            <article className="detail-card inset-card nba-dashboard-link-card is-secondary-link">
+              <span className="micro-label">Potential future implications</span>
+              <strong>What could become more important after tonight</strong>
+              <div className="nba-dashboard-implication-stack">
+                {futurePressureRows.map((item) => (
+                  <div className="nba-dashboard-implication-row" key={item.id}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>{item.body}</p>
+                    </div>
+                    <span className="chip subtle-chip">{item.chip}</span>
+                  </div>
+                ))}
+              </div>
+              <Link className="secondary-button full" to="/reports/assets">
+                Open Biggest Assets
+              </Link>
+            </article>
+
+            <article className="detail-card inset-card nba-dashboard-link-card is-neutral-link">
+              <span className="micro-label">Deep reads</span>
+              <strong>Compare the room once today’s scores land</strong>
+              <p>Use Board Matrix for the full room view, then compare any two boards to see exactly where the rankings split.</p>
+              <Link className="secondary-button full" to="/board-matrix">
+                Open Board Matrix
+              </Link>
+            </article>
+          </aside>
+        </div>
       </section>
     </div>
   );

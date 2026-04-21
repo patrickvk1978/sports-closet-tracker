@@ -363,6 +363,12 @@ function buildRootingRows(selectionRows, seriesByRound, currentAssignments) {
     return {
       id: seriesItem.id,
       teamLabel: `${seriesItem.homeTeam.abbreviation} vs ${seriesItem.awayTeam.abbreviation}`,
+      homeAbbreviation: seriesItem.homeTeam.abbreviation,
+      awayAbbreviation: seriesItem.awayTeam.abbreviation,
+      marketLean: Number(seriesItem.market?.homeTeamPct ?? 50),
+      modelLean: Number(seriesItem.model?.homeTeamPct ?? 50),
+      tipAt: seriesItem.schedule?.nextGame?.tipAt ?? seriesItem.schedule?.lockAt ?? null,
+      status: seriesItem.status,
       headline:
         gap === 0
           ? boothLine([
@@ -735,6 +741,14 @@ export function buildTeamValueReports({
       description: "These are the teams doing the most work on your current board, combining assigned value with expected scoring from here under the progressive win model.",
       rows: biggestAssets,
       stage: "always",
+    },
+    "board-implications": {
+      key: "board-implications",
+      label: "Board implications",
+      title: "Which current series matter most to your board right now?",
+      description: "This is the first-round implication board: where your current assignments create the clearest live rooting stakes, pressure points, and separation chances.",
+      rows: rootingGuide,
+      stage: "post_lock",
     },
     rooting: {
       key: "rooting",

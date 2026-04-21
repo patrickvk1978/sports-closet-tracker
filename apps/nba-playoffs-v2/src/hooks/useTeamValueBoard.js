@@ -3,6 +3,7 @@ import { useAuth } from "./useAuth";
 import { usePool } from "./usePool";
 import { supabase } from "../lib/supabase";
 import { TEAM_VALUE_SLOTS, validateTeamValueAssignments } from "../lib/teamValueGame";
+import { PLAYOFF_TEAMS } from "../data/playoffData";
 
 function storageKey(poolId) {
   return `nba_team_value_board_${poolId ?? "default"}`;
@@ -35,11 +36,44 @@ function buildBaseTeamOrder(teamEntries) {
   });
 }
 
-function sanitizeAssignments(rawAssignments, teamIds) {
-  const validTeamIds = new Set(teamIds);
-  return Object.fromEntries(
-    Object.entries(rawAssignments ?? {}).filter(([teamId, value]) => validTeamIds.has(teamId) && Number.isFinite(Number(value)))
+function isAliasTeamId(teamId) {
+  return /seed-|playin-/.test(String(teamId ?? ""));
+}
+
+function buildCanonicalAliasMap(teamEntries) {
+  const teamById = Object.fromEntries(PLAYOFF_TEAMS.map((team) => [team.id, team]));
+  const canonicalBySignature = Object.fromEntries(
+    (teamEntries ?? []).map((team) => [`${team.conference}|${team.abbreviation}`, team.id])
   );
+
+  return Object.fromEntries(
+    PLAYOFF_TEAMS.map((team) => {
+      if (!isAliasTeamId(team.id)) return [team.id, team.id];
+      const signature = `${team.conference}|${team.abbreviation}`;
+      return [team.id, canonicalBySignature[signature] ?? team.id];
+    })
+  );
+}
+
+function sanitizeAssignments(rawAssignments, teamIds, aliasMap) {
+  const validTeamIds = new Set(teamIds);
+  const normalizedEntries = [];
+
+  for (const [rawTeamId, rawValue] of Object.entries(rawAssignments ?? {})) {
+    const teamId = aliasMap?.[rawTeamId] ?? rawTeamId;
+    if (!validTeamIds.has(teamId) || !Number.isFinite(Number(rawValue))) continue;
+    normalizedEntries.push([teamId, Number(rawValue)]);
+  }
+
+  normalizedEntries.sort((a, b) => b[1] - a[1]);
+  const dedupedByValue = new Map();
+  normalizedEntries.forEach(([teamId, value]) => {
+    if (!dedupedByValue.has(value)) {
+      dedupedByValue.set(value, [teamId, value]);
+    }
+  });
+
+  return Object.fromEntries(dedupedByValue.values());
 }
 
 function rowsToAssignments(rows) {
@@ -56,8 +90,10 @@ export function useTeamValueBoard(teamEntries) {
   const [assignmentsByUser, setAssignmentsByUser] = useState({});
   const [persistenceMode, setPersistenceMode] = useState("local");
   const channelRef = useRef(null);
+  const lastForcedSyncRef = useRef("");
 
   const teamIds = useMemo(() => teamEntries.map((team) => team.id), [teamEntries]);
+  const aliasMap = useMemo(() => buildCanonicalAliasMap(teamEntries), [teamEntries]);
   const teamKey = useMemo(() => teamIds.join("|"), [teamIds]);
   const currentUserId = session?.user?.id ?? null;
 
@@ -106,7 +142,7 @@ export function useTeamValueBoard(teamEntries) {
       if (error) {
         // Stay truthful when the DB read fails. Only recover the current user's
         // real browser-saved board; do not fabricate seeded boards for the room.
-        const storedCurrent = sanitizeAssignments(readLocalBoard(pool.id), teamIds);
+        const storedCurrent = sanitizeAssignments(readLocalBoard(pool.id), teamIds, aliasMap);
         const nextByUser = buildEmptyAssignmentsByUser(memberList);
         if (currentUserId && validateTeamValueAssignments(storedCurrent, teamIds).valid) {
           nextByUser[currentUserId] = storedCurrent;
@@ -129,7 +165,7 @@ export function useTeamValueBoard(teamEntries) {
         memberList.map((member) => {
           const raw = byUser[member.id];
           if (raw) {
-            const sanitized = sanitizeAssignments(raw, teamIds);
+            const sanitized = sanitizeAssignments(raw, teamIds, aliasMap);
             if (validateTeamValueAssignments(sanitized, teamIds).valid) {
               return [member.id, sanitized];
             }
@@ -143,8 +179,8 @@ export function useTeamValueBoard(teamEntries) {
       // opening the board after the new public RPC bridge is live.
       if (currentUserId) {
         const dbCurrent = byUser[currentUserId];
-        const sanitizedDbCurrent = sanitizeAssignments(dbCurrent, teamIds);
-        const localCurrent = sanitizeAssignments(readLocalBoard(pool.id), teamIds);
+        const sanitizedDbCurrent = sanitizeAssignments(dbCurrent, teamIds, aliasMap);
+        const localCurrent = sanitizeAssignments(readLocalBoard(pool.id), teamIds, aliasMap);
         const localIsValid = validateTeamValueAssignments(localCurrent, teamIds).valid;
         const dbIsValid = validateTeamValueAssignments(sanitizedDbCurrent, teamIds).valid;
 
@@ -185,7 +221,7 @@ export function useTeamValueBoard(teamEntries) {
         channelRef.current = null;
       }
     };
-  }, [currentUserId, memberList, pool?.id, teamEntries, teamIds, teamKey]);
+  }, [aliasMap, currentUserId, memberList, pool?.id, teamEntries, teamIds, teamKey]);
 
   const currentAssignments = currentUserId ? assignmentsByUser[currentUserId] ?? {} : {};
 
@@ -202,6 +238,34 @@ export function useTeamValueBoard(teamEntries) {
       })),
     [currentAssignments, teamEntries]
   );
+  const syncedBoardCount = useMemo(
+    () =>
+      Object.values(assignmentsByUser ?? {}).filter(
+        (assignments) => validateTeamValueAssignments(assignments ?? {}, teamIds).valid
+      ).length,
+    [assignmentsByUser, teamIds]
+  );
+  const syncedUserIds = useMemo(
+    () =>
+      Object.entries(assignmentsByUser ?? {})
+        .filter(([, assignments]) => validateTeamValueAssignments(assignments ?? {}, teamIds).valid)
+        .map(([userId]) => userId),
+    [assignmentsByUser, teamIds]
+  );
+
+  useEffect(() => {
+    if (!pool?.id || !currentUserId || persistenceMode !== "supabase" || !boardValidation.valid) {
+      return;
+    }
+
+    const syncKey = JSON.stringify([pool.id, currentUserId, currentAssignments]);
+    if (lastForcedSyncRef.current === syncKey) {
+      return;
+    }
+
+    lastForcedSyncRef.current = syncKey;
+    void persistAssignments(currentAssignments, { targetUserId: currentUserId, forceSupabase: true });
+  }, [boardValidation.valid, currentAssignments, currentUserId, persistenceMode, pool?.id]);
 
   function saveAssignment(teamId, value, options = {}) {
     const targetUserId = options.targetUserId ?? currentUserId;
@@ -250,6 +314,8 @@ export function useTeamValueBoard(teamEntries) {
     allAssignmentsByUser: assignmentsByUser,
     boardValidation,
     persistenceMode,
+    syncedBoardCount,
+    syncedUserIds,
     completionCount: Object.keys(currentAssignments).length,
     saveAssignment,
     saveBoardOrder,

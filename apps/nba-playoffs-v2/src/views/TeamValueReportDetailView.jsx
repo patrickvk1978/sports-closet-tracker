@@ -54,6 +54,14 @@ function buildVoiceFrame(reportKey) {
     };
   }
 
+  if (reportKey === "board-implications") {
+    return {
+      lane: "Play-by-play lane",
+      persona: "Implication desk",
+      cue: "Separate the current series that can help you, hurt you, or quietly reshape the board next.",
+    };
+  }
+
   if (reportKey === "rooting") {
     return {
       lane: "Play-by-play lane",
@@ -98,6 +106,10 @@ function buildDetailInstruction(reportKey) {
     return "Use this page to compare where outside pricing and the model disagree, then decide which teams deserve one more look before you settle the board.";
   }
 
+  if (reportKey === "board-implications") {
+    return "Use this page to see which live first-round series are most likely to help your board, pressure it, or create the next meaningful swing in the room.";
+  }
+
   return "Use this page to sharpen the board before lock.";
 }
 
@@ -134,6 +146,15 @@ function buildMetricPairs(reportKey, row) {
       { label: "Preferred team", value: row.preferredTeam },
       { label: "Value on side", value: row.yourValue },
       { label: "Board gap", value: row.gap },
+    ];
+  }
+
+  if (reportKey === "board-implications") {
+    return [
+      { label: "Preferred team", value: row.preferredTeam },
+      { label: "Value on side", value: row.yourValue },
+      { label: "Board gap", value: row.gap },
+      { label: "Market lean", value: `${row.marketLean}%` },
     ];
   }
 

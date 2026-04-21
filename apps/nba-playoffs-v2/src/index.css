@@ -544,7 +544,7 @@ p { margin: 0; }
   gap: 14px;
   padding: 18px;
   background: linear-gradient(180deg, rgba(16, 18, 22, 0.98), rgba(28, 32, 39, 0.98));
-  border-color: rgba(207, 48, 70, 0.22);
+  border-color: rgba(226, 122, 63, 0.26);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
@@ -567,14 +567,14 @@ p { margin: 0; }
 }
 
 .detail-card.nba-dashboard-priority-card .primary-button {
-  background: rgba(207, 48, 70, 0.98);
-  border-color: rgba(207, 48, 70, 0.58);
+  background: rgba(226, 122, 63, 0.98);
+  border-color: rgba(194, 90, 44, 0.58);
   color: #ffffff;
 }
 
 .nba-dashboard-stat-grid .nba-stat-card {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(207, 48, 70, 0.14);
+  border-color: rgba(226, 122, 63, 0.16);
 }
 
 .nba-dashboard-stat-grid .micro-label,
@@ -594,12 +594,12 @@ p { margin: 0; }
   padding: 12px 13px;
   border-radius: var(--r-sm);
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(207, 48, 70, 0.12);
+  border: 1px solid rgba(226, 122, 63, 0.12);
 }
 
 .nba-dashboard-mini-card.is-warm {
-  background: rgba(207, 48, 70, 0.14);
-  border-color: rgba(207, 48, 70, 0.18);
+  background: rgba(226, 122, 63, 0.14);
+  border-color: rgba(226, 122, 63, 0.18);
 }
 
 .nba-dashboard-mini-card .micro-label,
@@ -611,7 +611,7 @@ p { margin: 0; }
   display: grid;
   gap: 6px;
   padding-top: 10px;
-  border-top: 1px solid rgba(207, 48, 70, 0.14);
+  border-top: 1px solid rgba(226, 122, 63, 0.14);
 }
 
 .nba-dashboard-current-read p {
@@ -644,8 +644,8 @@ p { margin: 0; }
 }
 
 .nba-dashboard-link-card.is-secondary-link {
-  background: linear-gradient(180deg, rgba(255, 245, 246, 0.98), rgba(252, 238, 240, 0.98));
-  border-color: rgba(207, 48, 70, 0.24);
+  background: linear-gradient(180deg, rgba(255, 247, 241, 0.98), rgba(249, 238, 231, 0.98));
+  border-color: rgba(226, 122, 63, 0.28);
 }
 
 .nba-dashboard-link-card.is-neutral-link {
@@ -665,6 +665,207 @@ p { margin: 0; }
   background: rgba(255, 255, 255, 0.96);
   border-color: rgba(17, 24, 39, 0.12);
   color: var(--text-1);
+}
+
+.detail-card.inset-card.nba-dashboard-on-tap-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-color: rgba(226, 122, 63, 0.34);
+  background: linear-gradient(180deg, rgba(7, 8, 10, 1), rgba(20, 23, 28, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.nba-dashboard-on-tap-list {
+  display: grid;
+  gap: 10px;
+}
+
+.nba-dashboard-on-tap-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 160px;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(226, 122, 63, 0.16);
+}
+
+.nba-dashboard-on-tap-time {
+  display: grid;
+  gap: 2px;
+}
+
+.nba-dashboard-on-tap-time strong {
+  font-size: 1rem;
+  line-height: 1.05;
+  color: #fff7ea;
+}
+
+.nba-dashboard-on-tap-time span {
+  color: #fff7ea;
+  font-size: 0.9rem;
+  font-weight: 700;
+  opacity: 0.96;
+}
+
+.nba-dashboard-on-tap-time small {
+  color: rgba(255, 247, 234, 0.7);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.nba-dashboard-on-tap-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.nba-dashboard-on-tap-copy strong {
+  font-size: 1rem;
+  line-height: 1.1;
+  color: #fff7ea;
+}
+
+.nba-dashboard-on-tap-copy p,
+.nba-dashboard-on-tap-copy span {
+  margin: 0;
+  color: #fff7ea;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  opacity: 0.86;
+}
+
+.nba-dashboard-on-tap-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.nba-dashboard-empty-state {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(226, 122, 63, 0.16);
+}
+
+.nba-dashboard-empty-state strong,
+.nba-dashboard-empty-state p {
+  color: #fff7ea;
+}
+
+.nba-dashboard-empty-state p {
+  margin: 0;
+  opacity: 0.86;
+}
+
+.detail-card.inset-card.nba-dashboard-on-tap-card .micro-label,
+.detail-card.inset-card.nba-dashboard-on-tap-card h3,
+.detail-card.inset-card.nba-dashboard-on-tap-card .secondary-button {
+  color: #fff7ea;
+}
+
+.detail-card.inset-card.nba-dashboard-on-tap-card .secondary-button {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--text-1);
+}
+
+.nba-dashboard-live-standings-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border-color: rgba(17, 24, 39, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(242, 246, 250, 0.98));
+}
+
+.nba-dashboard-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+}
+
+.nba-dashboard-card-head h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.nba-dashboard-card-head .secondary-button {
+  min-height: 40px;
+}
+
+.nba-dashboard-leaderboard-table {
+  gap: 6px;
+}
+
+.nba-dashboard-leaderboard-head,
+.nba-dashboard-leaderboard-row {
+  grid-template-columns: minmax(0, 1.8fr) 0.55fr 0.62fr 0.72fr 0.55fr;
+}
+
+.nba-dashboard-leaderboard-head {
+  padding: 0 6px 10px;
+  border-bottom-color: rgba(17, 24, 39, 0.08);
+}
+
+.nba-dashboard-leaderboard-row {
+  padding: 10px 6px;
+  border-bottom-color: rgba(17, 24, 39, 0.08);
+}
+
+.nba-dashboard-leaderboard-row.top {
+  background: linear-gradient(180deg, rgba(226, 122, 63, 0.12), rgba(226, 122, 63, 0.06));
+}
+
+.nba-dashboard-leaderboard-row.is-current {
+  background: linear-gradient(180deg, rgba(17, 19, 23, 0.06), rgba(17, 19, 23, 0.03));
+  border-radius: var(--r-md);
+  margin: 0 -4px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.nba-dashboard-leaderboard-row.is-current .leaderboard-player strong {
+  background: linear-gradient(180deg, rgba(226, 122, 63, 0.98), rgba(194, 90, 44, 0.98));
+}
+
+.nba-dashboard-implication-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.nba-dashboard-implication-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px 13px;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.nba-dashboard-implication-row strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.98rem;
+  line-height: 1.15;
+}
+
+.nba-dashboard-implication-row p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.nba-dashboard-standings-note {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.92rem;
+  line-height: 1.4;
 }
 
 .nba-board-main-layout {
@@ -4584,6 +4785,15 @@ select:focus {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .nba-dashboard-on-tap-row {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .nba-dashboard-on-tap-action {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
   .nba-reports-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4818,6 +5028,20 @@ select:focus {
   .auth-card { padding: 24px 18px; }
 
   .mode-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  .nba-dashboard-side-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .nba-dashboard-on-tap-row {
+    grid-template-columns: 1fr;
+  }
+
+  .nba-dashboard-on-tap-action {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 480px) {
