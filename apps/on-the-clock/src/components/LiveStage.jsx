@@ -214,26 +214,64 @@ export default function LiveStage({
                       width: "100%",
                     }}
                   >
-                    {gridItems.map(({ kind, label, prospect }) => (
-                      <div key={`${kind}-${prospect.id}`} className={`ls-suggestion-row ${kind} ${isPredraft ? "predraft" : ""}`}>
-                        <div className="ls-sug-label">{label}</div>
-                        <ProspectAvatar prospect={prospect} size="sm" />
-                        <div className="ls-sug-info">
-                          <span className="ls-sug-name">{prospect.name}</span>
-                          <span className="ls-sug-meta">
-                            {prospect.position} · {prospect.school}
-                            {mappedCopyForProspect(prospect.id) ? ` · ${mappedCopyForProspect(prospect.id)}` : ""}
-                          </span>
-                        </div>
-                        <button
-                          className="ls-sug-lock"
-                          type="button"
-                          onClick={() => handleLockIn(prospect.id)}
+                    {gridItems.map(({ kind, label, prospect }) =>
+                      kind === "watchlist" ? (
+                        /* Compact watchlist card — no repeated label, no avatar */
+                        <div
+                          key={`${kind}-${prospect.id}`}
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            gap: 6,
+                            padding: "10px 12px",
+                            borderRadius: 8,
+                            background: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                          }}
                         >
-                          {isPredraft ? "Use →" : "Lock in →"}
-                        </button>
-                      </div>
-                    ))}
+                          <div>
+                            <div style={{ fontSize: 9, letterSpacing: 0.6, textTransform: "uppercase", color: "var(--dn-muted, #8b95a6)", marginBottom: 4 }}>
+                              Watchlist
+                            </div>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: "var(--dn-text, #e6ebf2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {prospect.name}
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--dn-muted, #8b95a6)", marginTop: 2 }}>
+                              {prospect.position} · {prospect.school}
+                            </div>
+                          </div>
+                          <button
+                            className="ls-sug-lock"
+                            type="button"
+                            style={{ alignSelf: "stretch", marginTop: 2 }}
+                            onClick={() => handleLockIn(prospect.id)}
+                          >
+                            {isPredraft ? "Use →" : "Lock in →"}
+                          </button>
+                        </div>
+                      ) : (
+                        /* Expert pick card — original layout */
+                        <div key={`${kind}-${prospect.id}`} className={`ls-suggestion-row ${kind} ${isPredraft ? "predraft" : ""}`}>
+                          <div className="ls-sug-label">{label}</div>
+                          <ProspectAvatar prospect={prospect} size="sm" />
+                          <div className="ls-sug-info">
+                            <span className="ls-sug-name">{prospect.name}</span>
+                            <span className="ls-sug-meta">
+                              {prospect.position} · {prospect.school}
+                              {mappedCopyForProspect(prospect.id) ? ` · ${mappedCopyForProspect(prospect.id)}` : ""}
+                            </span>
+                          </div>
+                          <button
+                            className="ls-sug-lock"
+                            type="button"
+                            onClick={() => handleLockIn(prospect.id)}
+                          >
+                            {isPredraft ? "Use →" : "Lock in →"}
+                          </button>
+                        </div>
+                      )
+                    )}
                   </div>
                 )}
               </div>
