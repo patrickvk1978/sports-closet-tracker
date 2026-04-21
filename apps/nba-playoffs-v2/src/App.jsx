@@ -22,7 +22,6 @@ import TeamValueScoringView from "./views/TeamValueScoringView";
 import TeamValueBoardMatrixView from "./views/TeamValueBoardMatrixView";
 import TeamValueBoardCompareView from "./views/TeamValueBoardCompareView";
 import { usePool } from "./hooks/usePool";
-import { getTeamValuePhase } from "./lib/teamValueReports";
 
 function AppChrome() {
   const location = useLocation();
@@ -38,14 +37,13 @@ function AppChrome() {
 }
 
 function PoolHomeRedirect() {
-  const { pool, settingsForPool } = usePool();
-  const phase = getTeamValuePhase(settingsForPool(pool));
+  const { pool } = usePool();
 
   if (!pool) {
     return <Navigate to="/join" replace />;
   }
 
-  return <Navigate to={phase === "post_lock" ? "/dashboard" : "/teams"} replace />;
+  return <Navigate to="/dashboard" replace />;
 }
 
 export default function App() {

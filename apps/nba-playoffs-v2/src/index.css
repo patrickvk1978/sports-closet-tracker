@@ -761,7 +761,6 @@ p { margin: 0; }
   opacity: 0.86;
 }
 
-.detail-card.inset-card.nba-dashboard-on-tap-card .micro-label,
 .detail-card.inset-card.nba-dashboard-on-tap-card h3,
 .detail-card.inset-card.nba-dashboard-on-tap-card .secondary-button {
   color: #fff7ea;
@@ -790,7 +789,7 @@ p { margin: 0; }
 
 .nba-dashboard-card-head h3 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.6rem;
   line-height: 1.08;
   letter-spacing: -0.02em;
 }
@@ -816,10 +815,6 @@ p { margin: 0; }
 .nba-dashboard-leaderboard-row {
   padding: 10px 6px;
   border-bottom-color: rgba(17, 24, 39, 0.08);
-}
-
-.nba-dashboard-leaderboard-row.top {
-  background: linear-gradient(180deg, rgba(226, 122, 63, 0.12), rgba(226, 122, 63, 0.06));
 }
 
 .nba-dashboard-leaderboard-row.is-current {

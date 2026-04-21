@@ -235,8 +235,7 @@ export default function TeamValueDashboardView() {
             <article className="detail-card inset-card nba-dashboard-on-tap-card">
               <div className="nba-dashboard-card-head">
                 <div>
-                  <span className="micro-label">What’s On Tap</span>
-                  <h3>Today’s games and what they mean for your board</h3>
+                  <h3>What’s On Tap</h3>
                 </div>
                 <Link className="secondary-button" to={implicationReportPath}>
                   Open report
