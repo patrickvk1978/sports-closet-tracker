@@ -622,22 +622,21 @@ function ComingUp({ games, leverageGames, playerLeverage, player }) {
     }
 
     result.sort((a, b) => b.maxAbsDelta - a.maxAbsDelta);
-    return result.slice(0, 3);
+    return result.slice(0, 4);
   }, [games, leverageGames, playerLeverage, player]);
 
   if (upcomingGames.length === 0) return null;
 
   return (
     <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-800/60">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style={{ fontFamily: "Space Mono, monospace" }}>
-          Coming Up
-        </p>
-        <p className="text-[10px] text-slate-400 mt-0.5">Games that matter for your bracket</p>
+      <div className="px-5 py-4 border-b border-slate-800/60">
+        <h3 className="text-xl font-bold text-white" style={{ fontFamily: "Space Mono, monospace" }}>
+          What&apos;s On Tap
+        </h3>
       </div>
       <div className="divide-y divide-slate-800/40">
         {upcomingGames.map(({ game, deltaT1, deltaT2 }) => (
-          <div key={game.slot_index} className="px-5 py-3">
+          <div key={game.slot_index} className="px-5 py-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-slate-300 flex-1 truncate">
                 {game.abbrev1 || shortTeam(game.team1)} vs {game.abbrev2 || shortTeam(game.team2)}
@@ -648,7 +647,7 @@ function ComingUp({ games, leverageGames, playerLeverage, player }) {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-3 mt-1 text-[11px]">
+            <div className="flex items-center gap-3 mt-1.5 text-[11px]">
               <span>
                 <span className="text-orange-400 font-semibold">{game.abbrev1 || shortTeam(game.team1)}</span>
                 <span className="text-slate-500">: </span>
@@ -812,8 +811,11 @@ function Leaderboard({ players, currentPlayer, isLocked, onSelectPlayer, finishM
                   key={p.name}
                   onClick={() => isLocked && onSelectPlayer(p.name)}
                   className={`border-b border-slate-800/60 last:border-b-0 transition-colors ${
-                    isActive ? 'bg-orange-500/10' :
-                    isLocked ? 'hover:bg-slate-800/20 cursor-pointer' : ''
+                    isActive
+                      ? 'bg-orange-500/10'
+                      : isLocked
+                        ? 'cursor-pointer'
+                        : ''
                   }`}
                 >
                   <td className="px-2 sm:px-4 py-2 text-sm font-semibold text-slate-500 tabular-nums" style={{ fontFamily: "Space Mono, monospace" }}>
@@ -1161,22 +1163,7 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── 2. Live Feed / Narrative ────────────────────────────────────────── */}
-      {feedEntries.length > 0 || feedLoading ? (
-        <LiveFeed
-          entries={feedEntries}
-          playerName={player.name}
-          loading={feedLoading}
-        />
-      ) : (
-        <NarrativeCard
-          poolNarrative={poolNarrative}
-          playerNarrative={playerNarrative}
-          hasLiveGames={hasLiveGames}
-        />
-      )}
-
-      {/* ── 3. Score Grid ────────────────────────────────────────────────────── */}
+      {/* ── 2. Score Grid ────────────────────────────────────────────────────── */}
       <ScoreGrid
         games={GAMES}
         leverageGames={LEVERAGE_GAMES}
@@ -1185,7 +1172,7 @@ export default function Dashboard() {
         players={PLAYERS}
       />
 
-      {/* ── 4. Coming Up ─────────────────────────────────────────────────────── */}
+      {/* ── 3. What's On Tap ─────────────────────────────────────────────────── */}
       <ComingUp
         games={GAMES}
         leverageGames={LEVERAGE_GAMES}
@@ -1193,7 +1180,7 @@ export default function Dashboard() {
         player={player}
       />
 
-      {/* ── 5. Leaderboard ───────────────────────────────────────────────────── */}
+      {/* ── 4. Leaderboard ───────────────────────────────────────────────────── */}
       <Leaderboard
         players={PLAYERS}
         currentPlayer={player}
