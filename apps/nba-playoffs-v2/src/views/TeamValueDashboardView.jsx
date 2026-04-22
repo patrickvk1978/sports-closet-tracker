@@ -60,6 +60,25 @@ function buildFavoriteLabel(seriesItem) {
   return homePct >= awayPct ? `${homeAbbr} ${Math.round(homePct)}%` : `${awayAbbr} ${Math.round(awayPct)}%`;
 }
 
+function formatSeriesStatus(seriesItem) {
+  const conference = seriesItem.conference === "west" ? "West" : "East";
+  const roundLabel = seriesItem.roundKey === "round_1" ? "1st Round" : "Playoff";
+  const homeWins = Number(seriesItem.wins?.home ?? 0);
+  const awayWins = Number(seriesItem.wins?.away ?? 0);
+  const nextGameNumber = Math.min(homeWins + awayWins + 1, 7);
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+
+  if (homeWins === awayWins) {
+    return `${conference} ${roundLabel} · Game ${nextGameNumber} · Series tied ${homeWins}-${awayWins}`;
+  }
+
+  const leader = homeWins > awayWins ? homeAbbr : awayAbbr;
+  const leaderWins = Math.max(homeWins, awayWins);
+  const trailingWins = Math.min(homeWins, awayWins);
+  return `${conference} ${roundLabel} · Game ${nextGameNumber} · ${leader} leads series ${leaderWins}-${trailingWins}`;
+}
+
 function splitOddsLabel(label) {
   if (!label) {
     return {
@@ -140,19 +159,16 @@ function buildOnTapRows(todayGames, boardImplicationRows, series, now) {
 
       return {
         id: matchingSeries?.id ?? game.id,
+        analysisPath: matchingSeries
+          ? `/reports/board-implications#analysis-${matchingSeries.id}`
+          : "/reports/board-implications",
         teamIds: [game.homeTeamId, game.awayTeamId],
         matchupLabel: `${game.awayAbbreviation} at ${game.homeAbbreviation}`,
         timeLabel: formatGameTime(pseudoSeries, now),
+        seriesStatus: matchingSeries ? formatSeriesStatus(matchingSeries) : "Playoff game",
+        currentLineLabel: game.currentLineLabel ?? "Line TBD",
         favoriteLabel: oddsLabel.display,
-        favoriteSource: oddsLabel.source,
-        implicationTitle:
-          implication?.gap > 0
-            ? `${implication.preferredTeam} matters more to your board here`
-            : "More texture than a true lean for your board",
-        implicationBody:
-          implication?.gap > 0
-            ? `${implication.preferredTeam} is carrying ${implication.yourValue} points on your side in this series.`
-            : "You valued both sides fairly similarly, so this one matters less than it entertains.",
+        boardLean: implication?.preferredTeam ?? "Balanced",
       };
     });
 }
@@ -161,7 +177,7 @@ function buildFuturePressureRows(assetRows, todayRows) {
   const teamsPlayingToday = new Set(
     todayRows.flatMap((row) => row.teamIds ?? [])
   );
-  return assetRows
+  const rows = assetRows
     .filter((row) => !teamsPlayingToday.has(row.id))
     .slice(0, 3)
     .map((row) => ({
@@ -170,21 +186,39 @@ function buildFuturePressureRows(assetRows, todayRows) {
       body: `${row.teamLabel} is carrying ${row.yourValue} of your board, with ${row.expectedPoints} expected points still available from here.`,
       chip: `${row.yourValue} pts on your board`,
     }));
+
+  if (rows.length) return rows;
+
+  return [
+    {
+      id: "future-watch",
+      title: "The next turn of the bracket is the real watch",
+      body: "Once today’s games settle, the bigger pressure question becomes which advancing teams reopen separation paths for you versus the room. This lane will get sharper as those next-round paths narrow.",
+      chip: "Next wave",
+    },
+  ];
 }
 
-function buildCurrentImplicationRows(rows) {
-  return rows.slice(0, 3).map((row, index) => ({
+function buildCurrentImplicationRows(todayRows) {
+  if (!todayRows.length) {
+    return [
+      {
+        id: "no-games-today",
+        title: "Nothing urgent is landing today",
+        body: "With no games on the slate, this lane becomes a quiet room-read rather than a rooting guide. The useful move is checking which teams could matter most once the next window opens.",
+        chip: "Off day",
+      },
+    ];
+  }
+
+  return todayRows.slice(0, 3).map((row, index) => ({
     id: row.id,
     title:
       index === 0
-        ? `${row.preferredTeam} is your clearest current swing`
-        : row.gap > 0
-          ? `${row.preferredTeam} still holds the stronger side for you`
-          : `${row.teamLabel} is more watchlist than rooting order`,
-    body: row.gap > 0
-      ? `${row.preferredTeam} carries ${row.yourValue} points for you here, which is why this series sits high on the live board-implications list.`
-      : "You are relatively balanced here, so this series is less about protecting one side and more about seeing how the bracket starts to bend.",
-    chip: row.teamLabel,
+        ? `${row.matchupLabel} is the first place today can move`
+        : `${row.matchupLabel} stays on the live board today`,
+    body: `${row.seriesStatus}. ${row.boardLean === "Balanced" ? "Your board is relatively balanced here, so this is more room texture than a true rooting order." : `${row.boardLean} is your current board lean in this matchup.`}`,
+    chip: row.boardLean === "Balanced" ? row.matchupLabel : `${row.boardLean} lean`,
   }));
 }
 
@@ -194,7 +228,12 @@ export default function TeamValueDashboardView() {
   const { seriesByRound, teamsById, series } = usePlayoffData();
   const { games: todayGames } = useEspnTodayGames();
   const playoffTeams = useMemo(() => getRoundOneTeamsFromData(seriesByRound, teamsById), [seriesByRound, teamsById]);
-  const { allAssignmentsByUser, syncedBoardCount, syncedUserIds } = useTeamValueBoard(playoffTeams);
+  const {
+    allAssignmentsByUser,
+    syncedBoardCount,
+    syncedUserIds,
+    hasLoadedInitialBoardState,
+  } = useTeamValueBoard(playoffTeams);
   const currentUserId = profile?.id ?? null;
   const syncedUserIdSet = useMemo(() => new Set(syncedUserIds), [syncedUserIds]);
   const trustedMembers = useMemo(
@@ -215,7 +254,7 @@ export default function TeamValueDashboardView() {
   const assetRows = reportState.reports.assets?.rows ?? [];
   const now = useMemo(() => new Date(), []);
   const onTapRows = useMemo(() => buildOnTapRows(todayGames, boardImplicationRows, series, now), [boardImplicationRows, now, series, todayGames]);
-  const currentImplicationRows = useMemo(() => buildCurrentImplicationRows(boardImplicationRows), [boardImplicationRows]);
+  const currentImplicationRows = useMemo(() => buildCurrentImplicationRows(onTapRows), [onTapRows]);
   const futurePressureRows = useMemo(() => buildFuturePressureRows(assetRows, onTapRows), [assetRows, onTapRows]);
   const dashboardStandingsRows = useMemo(
     () => buildDashboardStandingsRows(standings, currentUserId),
@@ -225,7 +264,7 @@ export default function TeamValueDashboardView() {
   const implicationReportPath = reportState.visibleReportKeys.includes("board-implications")
     ? "/reports/board-implications"
     : "/reports/rooting";
-  const canTrustStandings = syncedBoardCount >= 2;
+  const canTrustStandings = hasLoadedInitialBoardState && syncedBoardCount >= 2;
 
   return (
     <div className="nba-shell">
@@ -238,7 +277,7 @@ export default function TeamValueDashboardView() {
                   <h3>What’s On Tap</h3>
                 </div>
                 <Link className="secondary-button" to={implicationReportPath}>
-                  Open report
+                  Open Today&apos;s Briefing
                 </Link>
               </div>
 
@@ -248,17 +287,19 @@ export default function TeamValueDashboardView() {
                     <article className="nba-dashboard-on-tap-row" key={row.id}>
                       <div className="nba-dashboard-on-tap-time">
                         <strong>{row.timeLabel}</strong>
-                        <span>{row.favoriteLabel}</span>
-                        {row.favoriteSource ? <small>{row.favoriteSource}</small> : null}
                       </div>
                       <div className="nba-dashboard-on-tap-copy">
                         <strong>{row.matchupLabel}</strong>
-                        <p>{row.implicationTitle}</p>
-                        <span>{row.implicationBody}</span>
+                        <p>{row.seriesStatus}</p>
+                        <div className="nba-dashboard-on-tap-meta">
+                          <span><strong>Line:</strong> {row.currentLineLabel}</span>
+                          <span><strong>Predictor:</strong> {row.favoriteLabel}</span>
+                          <span><strong>Board lean:</strong> {row.boardLean}</span>
+                        </div>
                       </div>
                       <div className="nba-dashboard-on-tap-action">
-                        <Link className="secondary-button full" to={implicationReportPath}>
-                          Board Implications
+                        <Link className="secondary-button full" to={row.analysisPath}>
+                          Detailed Analysis
                         </Link>
                       </div>
                     </article>
@@ -282,7 +323,12 @@ export default function TeamValueDashboardView() {
                   Full standings
                 </Link>
               </div>
-              {canTrustStandings ? (
+              {!hasLoadedInitialBoardState ? (
+                <div className="nba-dashboard-empty-state">
+                  <strong>Loading live standings.</strong>
+                  <p>We’re syncing the room first so this card doesn’t jump through an in-between state.</p>
+                </div>
+              ) : canTrustStandings ? (
                 <>
                   <div className="leaderboard-table nba-dashboard-leaderboard-table">
                     <div className="leaderboard-head nba-dashboard-leaderboard-head">
@@ -294,7 +340,7 @@ export default function TeamValueDashboardView() {
                     </div>
                     {dashboardStandingsRows.map((member) => (
                       <div
-                        className={`leaderboard-row nba-dashboard-leaderboard-row ${member.id === currentUserId ? "is-current" : ""} ${member.place === 1 ? "top" : ""}`}
+                        className={`leaderboard-row nba-dashboard-leaderboard-row ${member.id === currentUserId ? "is-current" : ""}`}
                         key={member.id}
                       >
                         <div className="leaderboard-player">

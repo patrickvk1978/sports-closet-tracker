@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
+import { useEspnTodayGames } from "../hooks/useEspnTodayGames";
 import { getDisplayRankFromValue } from "../lib/teamValueGame";
-import { buildSeriesScoringPathMatrix, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
+import { buildSeriesScoringPathMatrix, buildTeamSelectionRows, buildTeamValueStandingsWithOdds, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
+import { getTeamPalette } from "../../../../packages/shared/src/themes/teamColorBanks.js";
 
 function hashSeed(...parts) {
   return parts
@@ -332,6 +334,14 @@ function formatPct(value) {
   return `${Math.round(Number(value ?? 0))}%`;
 }
 
+function ordinal(value) {
+  if (!Number.isFinite(value)) return "TBD";
+  if (value === 1) return "1st";
+  if (value === 2) return "2nd";
+  if (value === 3) return "3rd";
+  return `${value}th`;
+}
+
 function ScoringPathMatrix({ row, seriesItem }) {
   const rank = getDisplayRankFromValue(row?.yourValue);
   const matrixRows = useMemo(
@@ -479,6 +489,459 @@ function SectionIntro({ label, title, description }) {
           <span className="tooltip-bubble">{description}</span>
         </span>
       </div>
+    </div>
+  );
+}
+
+function formatMemberName(member, currentUserId) {
+  if (!member) return "Unknown";
+  return member.id === currentUserId ? "You" : (member.displayName ?? member.name ?? "Unknown");
+}
+
+function sameCalendarDay(left, right) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function formatTipTime(value) {
+  if (!value) return "Time TBD";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Time TBD";
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatSeriesStatus(seriesItem) {
+  const conference = seriesItem.conference === "west" ? "West" : "East";
+  const roundLabel = seriesItem.roundKey === "round_1" ? "1st Round" : "Playoff";
+  const homeWins = Number(seriesItem.wins?.home ?? 0);
+  const awayWins = Number(seriesItem.wins?.away ?? 0);
+  const nextGameNumber = Math.min(homeWins + awayWins + 1, 7);
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+
+  if (homeWins === awayWins) {
+    return `${conference} ${roundLabel} · Game ${nextGameNumber} · Series tied ${homeWins}-${awayWins}`;
+  }
+
+  const leader = homeWins > awayWins ? homeAbbr : awayAbbr;
+  const leaderWins = Math.max(homeWins, awayWins);
+  const trailingWins = Math.min(homeWins, awayWins);
+  return `${conference} ${roundLabel} · Game ${nextGameNumber} · ${leader} leads series ${leaderWins}-${trailingWins}`;
+}
+
+function buildCurrentLineLabel(game) {
+  if (game.currentLineLabel) {
+    return game.currentLineLabel;
+  }
+  return "Line TBD";
+}
+
+function buildPredictorLabel(game) {
+  if (game.oddsSource === "predictor" && game.marketFavoriteLabel) {
+    return game.marketFavoriteLabel.replace(/^Matchup Predictor:\s*/, "");
+  }
+  if (game.favoriteAbbreviation && Number.isFinite(game.favoritePct)) {
+    return `${game.favoriteAbbreviation} ${game.favoritePct}%`;
+  }
+  return "Predictor TBD";
+}
+
+function buildMatchupAccentStyle(seriesItem) {
+  const homePalette = getTeamPalette("nba", seriesItem.homeTeam ?? { id: seriesItem.homeTeamId, abbreviation: seriesItem.homeTeam?.abbreviation });
+  const awayPalette = getTeamPalette("nba", seriesItem.awayTeam ?? { id: seriesItem.awayTeamId, abbreviation: seriesItem.awayTeam?.abbreviation });
+  return {
+    "--briefing-accent-primary": homePalette.primary,
+    "--briefing-accent-secondary": awayPalette.primary,
+    "--briefing-accent-border": homePalette.border,
+  };
+}
+
+function cloneSeriesWithSingleWinner(series, winnerId) {
+  const homeId = series.homeTeam?.id ?? series.homeTeamId;
+  const awayId = series.awayTeam?.id ?? series.awayTeamId;
+  const wins = {
+    home: Number(series.wins?.home ?? 0),
+    away: Number(series.wins?.away ?? 0),
+  };
+  if (winnerId === homeId) wins.home += 1;
+  if (winnerId === awayId) wins.away += 1;
+  return {
+    ...series,
+    wins,
+    homeWins: wins.home,
+    awayWins: wins.away,
+    status: wins.home >= 4 || wins.away >= 4 ? "completed" : (series.status === "scheduled" ? "in_progress" : series.status),
+    winnerTeamId: wins.home >= 4 ? homeId : wins.away >= 4 ? awayId : null,
+  };
+}
+
+function buildScenarioStandings(memberList, allAssignmentsByUser, series, winnersBySeriesId) {
+  const simulatedSeries = series.map((seriesItem) => {
+    const winnerId = winnersBySeriesId[seriesItem.id];
+    return winnerId ? cloneSeriesWithSingleWinner(seriesItem, winnerId) : seriesItem;
+  });
+  return buildTeamValueStandingsWithOdds(memberList, allAssignmentsByUser, simulatedSeries);
+}
+
+function buildTomorrowScenarioRows(todaySeries, memberList, allAssignmentsByUser, allSeries, currentUserId) {
+  if (!todaySeries.length) return [];
+  const options = todaySeries.map((seriesItem) => {
+    const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+    const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+    return [
+      { seriesId: seriesItem.id, winnerId: homeId, label: seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId },
+      { seriesId: seriesItem.id, winnerId: awayId, label: seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId },
+    ];
+  });
+
+  const combinations = [];
+  function walk(index, picks) {
+    if (index === options.length) {
+      combinations.push([...picks]);
+      return;
+    }
+    options[index].forEach((option) => {
+      picks.push(option);
+      walk(index + 1, picks);
+      picks.pop();
+    });
+  }
+  walk(0, []);
+
+  return combinations.map((combo) => {
+    const winnersBySeriesId = Object.fromEntries(combo.map((entry) => [entry.seriesId, entry.winnerId]));
+    const standings = buildScenarioStandings(memberList, allAssignmentsByUser, allSeries, winnersBySeriesId);
+    const currentMember = standings.find((entry) => entry.id === currentUserId) ?? null;
+    const leaders = standings.slice(0, 3).map((entry) => `${formatMemberName(entry, currentUserId)} ${entry.summary.totalPoints}`);
+    return {
+      key: combo.map((entry) => entry.label).join("-"),
+      label: combo.map((entry) => entry.label).join(", "),
+      yourPlace: currentMember?.place ?? null,
+      yourPoints: currentMember?.summary.totalPoints ?? 0,
+      yourWinProb: currentMember?.winProbability ?? 0,
+      leaders,
+    };
+  });
+}
+
+function buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUserId) {
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+
+  return memberList
+    .map((member) => {
+      const assignments = allAssignmentsByUser?.[member.id] ?? {};
+      const homeValue = Number(assignments?.[homeId] ?? 0);
+      const awayValue = Number(assignments?.[awayId] ?? 0);
+      const gap = Math.abs(homeValue - awayValue);
+      const preferred = homeValue === awayValue ? "Balanced" : homeValue > awayValue ? homeAbbr : awayAbbr;
+      return {
+        id: member.id,
+        name: formatMemberName(member, currentUserId),
+        preferred,
+        gap,
+        strength: gap >= 6 ? "Urgent" : gap >= 3 ? "Meaningful" : gap > 0 ? "Light" : "Balanced",
+      };
+    })
+    .sort((a, b) => b.gap - a.gap || a.name.localeCompare(b.name));
+}
+
+function buildFuturePathNote(seriesItem, selectionById, currentAssignments) {
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  const home = selectionById[homeId];
+  const away = selectionById[awayId];
+  const homeValue = Number(currentAssignments?.[homeId] ?? 0);
+  const awayValue = Number(currentAssignments?.[awayId] ?? 0);
+  const preferred = homeValue >= awayValue ? home : away;
+  const other = homeValue >= awayValue ? away : home;
+
+  return {
+    title: preferred && other
+      ? `${preferred.abbreviation} opens the stronger future path for your board`
+      : "Future-round path still depends on tonight",
+    body: preferred && other
+      ? `${preferred.abbreviation} is carrying ${preferred.expectedPoints} expected points from here versus ${other.expectedPoints} for ${other.abbreviation}. If tonight nudges this series toward ${preferred.abbreviation}, the future-round ceiling stays friendlier for you.`
+      : "The real future-round question is which side still leaves you with the stronger live expected-points path after tonight settles.",
+  };
+}
+
+function averageAssignment(allAssignmentsByUser, teamId) {
+  const values = Object.values(allAssignmentsByUser ?? {})
+    .map((assignments) => Number(assignments?.[teamId] ?? 0))
+    .filter((value) => value > 0);
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId) {
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+
+  const currentAssignments = allAssignmentsByUser?.[currentUserId] ?? {};
+  const yourHomeValue = Number(currentAssignments?.[homeId] ?? 0);
+  const yourAwayValue = Number(currentAssignments?.[awayId] ?? 0);
+  const roomHomeAvg = averageAssignment(allAssignmentsByUser, homeId);
+  const roomAwayAvg = averageAssignment(allAssignmentsByUser, awayId);
+
+  const yourPreferred = yourHomeValue === yourAwayValue ? null : yourHomeValue > yourAwayValue ? homeAbbr : awayAbbr;
+  const roomPreferred = roomHomeAvg === roomAwayAvg ? null : roomHomeAvg > roomAwayAvg ? homeAbbr : awayAbbr;
+  const yourGap = Math.abs(yourHomeValue - yourAwayValue);
+  const roomGap = Math.abs(roomHomeAvg - roomAwayAvg);
+  const lighterSide = yourPreferred === homeAbbr ? awayAbbr : homeAbbr;
+
+  if (yourGap === 0 && roomGap === 0) {
+    return {
+      title: `${homeAbbr}-${awayAbbr} is mostly a watchlist game for the room`,
+      body: `Neither your board nor the average room board is leaning hard here, so this matchup is more about keeping track of the bracket than about protecting one major exposure. The useful question is whether tonight creates a stronger future-round path than it creates a same-night swing.`,
+    };
+  }
+
+  if (yourPreferred && roomPreferred && yourPreferred === roomPreferred) {
+    if (yourGap > roomGap + 1) {
+      return {
+        title: `${yourPreferred} helps you, but it is still a relative game`,
+        body: `The room wants ${yourPreferred} too, so the interesting question is not just “does ${yourPreferred} help?” It does. The more useful read is that you are heavier on ${yourPreferred} than the average board is, which means a ${yourPreferred} win helps you a little more than it helps most people. The flip side is that an upset would cut more directly against your board than it would against the room.`,
+      };
+    }
+
+    if (roomGap > yourGap + 1) {
+      return {
+        title: `${yourPreferred} is more defensive than explosive for you`,
+        body: `You and the room are on the same side, but the room is leaning harder into ${yourPreferred} than you are. That means a ${yourPreferred} win is more about staying in line with the field than creating separation, while the other side winning would damage the room a little more than it damages your board.`,
+      };
+    }
+
+    return {
+      title: `${yourPreferred} is the room lean, but not a big separation game`,
+      body: `You and the room are mostly aligned here, and your exposure is close to the room average. That means the main value of tonight is not a giant standings swing; it is avoiding an upset that would scramble the next layer of the bracket and create new pressure elsewhere.`,
+    };
+  }
+
+  if (yourPreferred && roomPreferred && yourPreferred !== roomPreferred) {
+    return {
+      title: `${yourPreferred} is a real leverage side for your board`,
+      body: `This is the kind of game where the obvious rooting interest is actually the right one: you are tilted toward ${yourPreferred}, while the room leans ${roomPreferred}. A ${yourPreferred} win creates separation for you immediately, and a ${roomPreferred} win helps the side the field is already carrying more confidently.`,
+    };
+  }
+
+  if (yourPreferred && !roomPreferred) {
+    return {
+      title: `${yourPreferred} matters more to you than it does to the room`,
+      body: `The field is relatively balanced, but your board is not. That makes ${yourPreferred} less of a public consensus result and more of a private board result for you. If ${lighterSide} wins instead, it does not necessarily wreck the room, but it hits your own construction more directly than it hits most other boards.`,
+    };
+  }
+
+  return {
+    title: `${roomPreferred ?? homeAbbr} is the room's clearer side, but you are more balanced`,
+    body: `Your board is relatively even here, which means this matchup is less about cashing your own heavy exposure and more about understanding what helps the field. If the room-favored side wins, the average board benefits more than yours does. If the other side wins, it does more to disrupt the field than to damage your own setup.`,
+  };
+}
+
+function TodayBoardImplicationsReport({
+  todayGames,
+  series,
+  implicationRows,
+  memberList,
+  allAssignmentsByUser,
+  currentUserId,
+  selectionRows,
+  expandedAnalysisId,
+}) {
+  const now = useMemo(() => new Date(), []);
+  const implicationById = useMemo(
+    () => Object.fromEntries(implicationRows.map((row) => [row.id, row])),
+    [implicationRows]
+  );
+  const selectionById = useMemo(
+    () => Object.fromEntries(selectionRows.map((row) => [row.id, row])),
+    [selectionRows]
+  );
+  const todaySeries = useMemo(() => {
+    const byPair = Object.fromEntries(
+      series.map((seriesItem) => {
+        const key = [
+          seriesItem.homeTeam?.id ?? seriesItem.homeTeamId,
+          seriesItem.awayTeam?.id ?? seriesItem.awayTeamId,
+        ].sort().join("|");
+        return [key, seriesItem];
+      })
+    );
+
+    return todayGames
+      .filter((game) => {
+        if (game.status === "in_progress") return true;
+        if (!game.tipAt) return false;
+        const tipDate = new Date(game.tipAt);
+        return !Number.isNaN(tipDate.getTime()) && sameCalendarDay(tipDate, now);
+      })
+      .map((game) => {
+        const key = [game.homeTeamId, game.awayTeamId].sort().join("|");
+        const seriesItem = byPair[key];
+        if (!seriesItem) return null;
+        return {
+          game,
+          seriesItem,
+          implication: implicationById[seriesItem.id] ?? null,
+        };
+      })
+      .filter(Boolean);
+  }, [todayGames, series, implicationById, now]);
+
+  const tomorrowScenarioRows = useMemo(
+    () => buildTomorrowScenarioRows(todaySeries.map((entry) => entry.seriesItem), memberList, allAssignmentsByUser, series, currentUserId),
+    [todaySeries, memberList, allAssignmentsByUser, series, currentUserId]
+  );
+
+  if (!todaySeries.length) {
+    return (
+      <section className="panel nba-reports-hero nba-report-detail-hero nba-briefing-desk-card">
+        <div>
+          <span className="label">Today&apos;s Briefing</span>
+          <h2>Nothing tips today</h2>
+          <p className="subtle">This desk sharpens into a true daily briefing when the slate is live. Today there are no active game implications to break down.</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <div className="nba-dashboard-list">
+      <section className="panel nba-reports-hero nba-report-detail-hero nba-briefing-desk-card">
+        <div>
+          <span className="label">Today&apos;s Briefing</span>
+          <h2>Today&apos;s briefing desk</h2>
+          <p className="subtle">A today-specific read of the {todaySeries.length} games on tap: the key intel for each matchup, the deeper board implications underneath, and the room-shape outcomes that matter by tomorrow morning.</p>
+        </div>
+      </section>
+
+      {todaySeries.map(({ game, seriesItem, implication }) => {
+        const needRows = buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUserId);
+        const futureNote = buildFuturePathNote(seriesItem, selectionById, allAssignmentsByUser?.[currentUserId] ?? {});
+        const rootingContext = buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId);
+        const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+        const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+        const analysisAnchorId = `analysis-${seriesItem.id}`;
+
+        return (
+          <article
+            className="detail-card inset-card nba-briefing-game-card"
+            key={seriesItem.id}
+            id={analysisAnchorId}
+            style={buildMatchupAccentStyle(seriesItem)}
+          >
+            <div className="panel-header">
+              <div>
+                <span className="micro-label">Today at {formatTipTime(game.tipAt)}</span>
+                <h3>{awayAbbr} at {homeAbbr}</h3>
+                <p className="subtle">{formatSeriesStatus(seriesItem)}</p>
+              </div>
+            </div>
+            <div className="nba-report-metric-wrap">
+              <div className="nba-report-metric-table" role="table" aria-label="Tonight game summary">
+                <div className="nba-report-metric-row nba-report-metric-row-head" role="row" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+                  <span className="nba-report-metric-cell" role="columnheader">Tip</span>
+                  <span className="nba-report-metric-cell" role="columnheader">Current line</span>
+                  <span className="nba-report-metric-cell" role="columnheader">ESPN Matchup Predictor</span>
+                  <span className="nba-report-metric-cell" role="columnheader">Board lean</span>
+                </div>
+                <div className="nba-report-metric-row" role="row" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+                  <strong className="nba-report-metric-cell nba-report-metric-value" role="cell">{formatTipTime(game.tipAt)}</strong>
+                  <strong className="nba-report-metric-cell nba-report-metric-value" role="cell">{buildCurrentLineLabel(game)}</strong>
+                  <strong className="nba-report-metric-cell nba-report-metric-value" role="cell">{buildPredictorLabel(game)}</strong>
+                  <strong className="nba-report-metric-cell nba-report-metric-value" role="cell">{implication?.preferredTeam ?? "Balanced"}</strong>
+                </div>
+              </div>
+            </div>
+            <details
+              className="detail-card inset-card nba-report-game-details nba-briefing-deep-card"
+              open={expandedAnalysisId === analysisAnchorId ? true : undefined}
+            >
+              <summary>
+                <span className="nba-report-game-details-label">
+                  <span className="nba-report-game-details-toggle" aria-hidden="true">+</span>
+                  <span className="micro-label">Detailed Analysis</span>
+                </span>
+              </summary>
+              <div className="nba-report-game-details-body">
+                <p>
+                  {implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`}
+                  {" "}
+                  {implication?.body ?? "This game has direct point and leverage consequences across the room."}
+                </p>
+                <article className="detail-card inset-card">
+                  <span className="micro-label">Who needs what today</span>
+                  <div className="leaderboard-table nba-dashboard-leaderboard-table">
+                    <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "minmax(0,1.2fr) 0.8fr 0.6fr 0.8fr" }}>
+                      <span>Player</span>
+                      <span>Side</span>
+                      <span>Gap</span>
+                      <span>Need</span>
+                    </div>
+                    {needRows.map((row) => (
+                      <div className={`leaderboard-row nba-dashboard-leaderboard-row ${row.id === currentUserId ? "is-current" : ""}`} key={`${seriesItem.id}-${row.id}`} style={{ gridTemplateColumns: "minmax(0,1.2fr) 0.8fr 0.6fr 0.8fr" }}>
+                        <span>{row.name}</span>
+                        <span>{row.preferred}</span>
+                        <span>{row.gap}</span>
+                        <span>{row.strength}</span>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="detail-card inset-card">
+                  <span className="micro-label">Context that matters</span>
+                  <strong>{rootingContext.title}</strong>
+                  <p>{rootingContext.body}</p>
+                </article>
+
+                <article className="detail-card inset-card">
+                  <span className="micro-label">Future-round pressure</span>
+                  <strong>{futureNote.title}</strong>
+                  <p>{futureNote.body}</p>
+                </article>
+              </div>
+            </details>
+          </article>
+        );
+      })}
+
+      <article className="detail-card inset-card nba-briefing-scenarios-card">
+        <div className="panel-header">
+          <div>
+            <span className="micro-label">Tomorrow morning scenarios</span>
+            <h3>How the room looks if tonight breaks different ways</h3>
+          </div>
+        </div>
+        <div className="leaderboard-table nba-dashboard-leaderboard-table">
+          <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "1.4fr 0.5fr 0.5fr 0.6fr 1.6fr" }}>
+            <span>Winners</span>
+            <span>Your place</span>
+            <span>Your pts</span>
+            <span>Win%</span>
+            <span>Projected top three</span>
+          </div>
+          {tomorrowScenarioRows.map((row) => (
+            <div className="leaderboard-row nba-dashboard-leaderboard-row" key={row.key} style={{ gridTemplateColumns: "1.4fr 0.5fr 0.5fr 0.6fr 1.6fr" }}>
+              <span>{row.label}</span>
+              <span>{row.yourPlace ? ordinal(row.yourPlace) : "—"}</span>
+              <span>{row.yourPoints}</span>
+              <span>{row.yourWinProb}%</span>
+              <span>{row.leaders.join(" · ")}</span>
+            </div>
+          ))}
+        </div>
+      </article>
     </div>
   );
 }
@@ -839,11 +1302,13 @@ function ModelGapColumns({ rows, reportLabel, reportTitle, reportBody, reportCue
 
 export default function TeamValueReportDetailView() {
   const { reportKey } = useParams();
+  const location = useLocation();
   const { profile } = useAuth();
   const { memberList } = usePool();
   const { seriesByRound, teamsById, series } = usePlayoffData();
   const playoffTeams = getRoundOneTeamsFromData(seriesByRound, teamsById);
   const { allAssignmentsByUser } = useTeamValueBoard(playoffTeams);
+  const { games: todayGames } = useEspnTodayGames();
   const reportState = buildTeamValueReports({
     profileId: profile?.id,
     memberList,
@@ -902,12 +1367,19 @@ export default function TeamValueReportDetailView() {
           : report.description;
   const groupedInstruction = buildDetailInstruction(report.key);
   const groupedReport = ["slot-fits", "strategic-moves", "model-gaps"].includes(report.key);
+  const customHeroReport = report.key === "board-implications";
+  const selectionRows = useMemo(
+    () => buildTeamSelectionRows(playoffTeams, seriesByRound, allAssignmentsByUser, profile?.id, memberList.length),
+    [playoffTeams, seriesByRound, allAssignmentsByUser, profile?.id, memberList.length]
+  );
+  const implicationRows = reportState.reports["board-implications"]?.rows ?? [];
+  const expandedAnalysisId = location.hash?.replace(/^#/, "") ?? "";
 
   return (
     <div className="report-back-shell">
       <a className="back-link" href="/reports">← Back to Reports</a>
 
-      {!groupedReport ? (
+      {!groupedReport && !customHeroReport ? (
         <section className="panel nba-reports-hero nba-report-detail-hero">
           <div>
             <span className="label">{report.label}</span>
@@ -950,6 +1422,17 @@ export default function TeamValueReportDetailView() {
             reportCue=""
             summaryStats={summaryStats}
             roundOneSeriesByTeamId={roundOneSeriesByTeamId}
+          />
+        ) : report.key === "board-implications" ? (
+          <TodayBoardImplicationsReport
+            todayGames={todayGames}
+            series={series}
+            implicationRows={implicationRows}
+            memberList={memberList}
+            allAssignmentsByUser={allAssignmentsByUser}
+            currentUserId={profile?.id}
+            selectionRows={selectionRows}
+            expandedAnalysisId={expandedAnalysisId}
           />
         ) : (
           <div className="nba-dashboard-list">

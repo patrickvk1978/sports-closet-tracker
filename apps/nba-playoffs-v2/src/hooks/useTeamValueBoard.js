@@ -89,6 +89,7 @@ export function useTeamValueBoard(teamEntries) {
   const { session } = useAuth();
   const [assignmentsByUser, setAssignmentsByUser] = useState({});
   const [persistenceMode, setPersistenceMode] = useState("local");
+  const [hasLoadedInitialBoardState, setHasLoadedInitialBoardState] = useState(false);
   const channelRef = useRef(null);
   const lastForcedSyncRef = useRef("");
 
@@ -129,6 +130,7 @@ export function useTeamValueBoard(teamEntries) {
   useEffect(() => {
     if (!pool?.id || !memberList.length || !teamEntries.length) {
       setAssignmentsByUser({});
+      setHasLoadedInitialBoardState(false);
       return;
     }
 
@@ -149,6 +151,7 @@ export function useTeamValueBoard(teamEntries) {
         }
         setAssignmentsByUser(nextByUser);
         setPersistenceMode("local");
+        setHasLoadedInitialBoardState(true);
         return;
       }
 
@@ -192,6 +195,7 @@ export function useTeamValueBoard(teamEntries) {
 
       setAssignmentsByUser(nextByUser);
       setPersistenceMode("supabase");
+      setHasLoadedInitialBoardState(true);
 
       // Cache current user's board locally
       if (currentUserId && nextByUser[currentUserId]) {
@@ -316,6 +320,7 @@ export function useTeamValueBoard(teamEntries) {
     persistenceMode,
     syncedBoardCount,
     syncedUserIds,
+    hasLoadedInitialBoardState,
     completionCount: Object.keys(currentAssignments).length,
     saveAssignment,
     saveBoardOrder,

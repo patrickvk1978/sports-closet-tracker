@@ -71,8 +71,22 @@ function parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation) {
     const homePct = homePredictorPct;
     const awayPct = awayPredictorPct;
     return homePct >= awayPct
-      ? { label: `Matchup Predictor: ${homeAbbreviation} ${homePct}%`, homePct, source: "predictor" }
-      : { label: `Matchup Predictor: ${awayAbbreviation} ${awayPct}%`, homePct, source: "predictor" };
+      ? {
+          label: `Matchup Predictor: ${homeAbbreviation} ${homePct}%`,
+          homePct,
+          awayPct,
+          favoriteAbbreviation: homeAbbreviation,
+          favoritePct: homePct,
+          source: "predictor",
+        }
+      : {
+          label: `Matchup Predictor: ${awayAbbreviation} ${awayPct}%`,
+          homePct,
+          awayPct,
+          favoriteAbbreviation: awayAbbreviation,
+          favoritePct: awayPct,
+          source: "predictor",
+        };
   }
 
   const homeMoneyline =
@@ -94,11 +108,72 @@ function parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation) {
   const awayPct = americanToImpliedPct(awayMoneyline);
   if (Number.isFinite(homePct) && Number.isFinite(awayPct) && homePct > 0 && awayPct > 0) {
     return homePct >= awayPct
-      ? { label: `Game odds: ${homeAbbreviation} ${homePct}%`, homePct, source: "moneyline" }
-      : { label: `Game odds: ${awayAbbreviation} ${awayPct}%`, homePct, source: "moneyline" };
+      ? {
+          label: `Game odds: ${homeAbbreviation} ${homePct}%`,
+          homePct,
+          awayPct,
+          favoriteAbbreviation: homeAbbreviation,
+          favoritePct: homePct,
+          source: "moneyline",
+        }
+      : {
+          label: `Game odds: ${awayAbbreviation} ${awayPct}%`,
+          homePct,
+          awayPct,
+          favoriteAbbreviation: awayAbbreviation,
+          favoritePct: awayPct,
+          source: "moneyline",
+        };
   }
 
   return null;
+}
+
+function parseEspnCurrentLine(competition, homeAbbreviation, awayAbbreviation) {
+  const odds = competition?.odds?.[0] ?? null;
+  const detailLine = odds?.details ?? odds?.displayValue ?? null;
+  if (typeof detailLine === "string" && detailLine.trim()) {
+    return {
+      label: detailLine.trim(),
+    };
+  }
+
+  const homeMoneyline =
+    odds?.moneyline?.home?.close?.odds ??
+    odds?.moneyline?.home?.open?.odds ??
+    odds?.homeTeamOdds?.moneyLine ??
+    odds?.homeTeamOdds?.american ??
+    odds?.homeMoneyLine ??
+    null;
+  const awayMoneyline =
+    odds?.moneyline?.away?.close?.odds ??
+    odds?.moneyline?.away?.open?.odds ??
+    odds?.awayTeamOdds?.moneyLine ??
+    odds?.awayTeamOdds?.american ??
+    odds?.awayMoneyLine ??
+    null;
+
+  const homePct = americanToImpliedPct(homeMoneyline);
+  const awayPct = americanToImpliedPct(awayMoneyline);
+  if (!Number.isFinite(homePct) || !Number.isFinite(awayPct) || homePct <= 0 || awayPct <= 0) {
+    return null;
+  }
+
+  return homePct >= awayPct
+    ? {
+        label: `${homeAbbreviation} favored`,
+        homePct,
+        awayPct,
+        favoriteAbbreviation: homeAbbreviation,
+        favoritePct: homePct,
+      }
+    : {
+        label: `${awayAbbreviation} favored`,
+        homePct,
+        awayPct,
+        favoriteAbbreviation: awayAbbreviation,
+        favoritePct: awayPct,
+      };
 }
 
 function parseTodayGame(event) {
@@ -116,6 +191,7 @@ function parseTodayGame(event) {
 
   const statusType = competition.status?.type ?? {};
   const parsedOdds = parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation);
+  const currentLine = parseEspnCurrentLine(competition, homeAbbreviation, awayAbbreviation);
 
   return {
     id: event.id,
@@ -128,7 +204,11 @@ function parseTodayGame(event) {
     homeScore: Number(home.score ?? 0),
     awayScore: Number(away.score ?? 0),
     marketFavoriteLabel: parsedOdds?.label ?? null,
+    currentLineLabel: currentLine?.label ?? null,
     homeWinPct: parsedOdds?.homePct ?? null,
+    awayWinPct: parsedOdds?.awayPct ?? null,
+    favoriteAbbreviation: parsedOdds?.favoriteAbbreviation ?? null,
+    favoritePct: parsedOdds?.favoritePct ?? null,
     oddsSource: parsedOdds?.source ?? null,
   };
 }
@@ -160,6 +240,7 @@ async function loadGamePredictor(gameId) {
     return {
       homePct,
       awayPct,
+      favoritePct: homePct >= awayPct ? homePct : awayPct,
       source: "predictor",
     };
   } catch {
@@ -205,10 +286,14 @@ export function useEspnTodayGames() {
             return {
               ...game,
               homeWinPct: predictor.homePct,
+              awayWinPct: predictor.awayPct,
               marketFavoriteLabel:
                 predictor.homePct >= predictor.awayPct
                   ? `Matchup Predictor: ${game.homeAbbreviation} ${predictor.homePct}%`
                   : `Matchup Predictor: ${game.awayAbbreviation} ${predictor.awayPct}%`,
+              favoriteAbbreviation:
+                predictor.homePct >= predictor.awayPct ? game.homeAbbreviation : game.awayAbbreviation,
+              favoritePct: Math.max(predictor.homePct, predictor.awayPct),
               oddsSource: predictor.source,
             };
           })

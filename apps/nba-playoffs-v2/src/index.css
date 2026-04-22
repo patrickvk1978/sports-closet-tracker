@@ -737,6 +737,32 @@ p { margin: 0; }
   opacity: 0.86;
 }
 
+.nba-dashboard-on-tap-copy p {
+  color: rgba(226, 122, 63, 0.96);
+  opacity: 1;
+}
+
+.nba-dashboard-on-tap-copy > p {
+  color: rgba(226, 122, 63, 0.96) !important;
+}
+
+.nba-dashboard-on-tap-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.nba-dashboard-on-tap-meta span {
+  font-size: 0.84rem;
+  line-height: 1.35;
+  color: rgba(255, 247, 234, 0.9);
+}
+
+.nba-dashboard-on-tap-meta strong {
+  color: #fff7ea;
+  font-weight: 800;
+}
+
 .nba-dashboard-on-tap-action {
   display: flex;
   justify-content: flex-end;
@@ -2749,6 +2775,212 @@ select:focus {
 
 .nba-report-metric-cell {
   min-width: 0;
+}
+
+.detail-card details,
+.detail-card summary {
+  all: unset;
+}
+
+.nba-report-game-details {
+  display: block;
+}
+
+.nba-report-game-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  cursor: pointer;
+  padding: 4px 0 2px;
+}
+
+.nba-report-game-details summary::after {
+  content: "";
+}
+
+.nba-report-game-details-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nba-report-game-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  color: #2b394d;
+  font-size: 0;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateY(1px);
+}
+
+.nba-report-game-details-toggle::before {
+  content: "+";
+  font-size: 1.1rem;
+}
+
+.nba-report-game-details[open] .nba-report-game-details-toggle::before {
+  content: "−";
+}
+
+.nba-report-game-details summary .micro-label {
+  color: #2b394d;
+}
+
+.nba-report-game-details > .nba-report-game-details-body > p:first-child {
+  color: #44536a;
+}
+
+.nba-report-game-details-body {
+  margin-top: 12px;
+}
+
+.nba-briefing-desk-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(76, 86, 101, 0.72);
+  background: linear-gradient(180deg, rgba(34, 39, 46, 0.98), rgba(22, 26, 31, 0.99));
+  color: #f3f6fb;
+  box-shadow:
+    0 18px 34px rgba(15, 23, 42, 0.18),
+    inset 4px 0 0 rgba(95, 105, 119, 0.96);
+}
+
+.nba-briefing-desk-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 36%),
+    radial-gradient(circle at top right, rgba(110, 118, 131, 0.26), transparent 38%);
+  pointer-events: none;
+}
+
+.nba-briefing-desk-card .label,
+.nba-briefing-desk-card .micro-label,
+.nba-briefing-desk-card .subtle {
+  color: rgba(214, 222, 235, 0.82);
+}
+
+.nba-briefing-desk-card h2,
+.nba-briefing-desk-card h3,
+.nba-briefing-desk-card p,
+.nba-briefing-desk-card strong {
+  color: #f3f6fb;
+}
+
+.nba-briefing-desk-card .subtle {
+  color: rgba(214, 222, 235, 0.9);
+}
+
+.nba-briefing-desk-card .secondary-button {
+  border-color: rgba(214, 222, 235, 0.22);
+  background: rgba(248, 250, 252, 0.98);
+  color: #111317;
+}
+
+.nba-briefing-desk-card .secondary-button:hover {
+  border-color: rgba(255, 255, 255, 0.36);
+  background: white;
+}
+
+.nba-briefing-game-card {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--briefing-accent-border, rgba(17, 24, 39, 0.12));
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.06),
+    inset 3px 0 0 var(--briefing-accent-primary, rgba(224, 110, 47, 0.9));
+}
+
+.nba-briefing-game-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(241, 245, 249, 0.42) 100%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--briefing-accent-secondary, #e06e2f) 18%, transparent), transparent 32%);
+  pointer-events: none;
+}
+
+.nba-briefing-deep-card {
+  border-color: color-mix(in srgb, var(--briefing-accent-primary, #e06e2f) 28%, rgba(17, 24, 39, 0.18));
+  background: linear-gradient(180deg, rgba(38, 43, 50, 0.98), rgba(27, 31, 36, 0.99));
+}
+
+.nba-briefing-deep-card .micro-label,
+.nba-briefing-deep-card p,
+.nba-briefing-deep-card strong,
+.nba-briefing-deep-card .leaderboard-row,
+.nba-briefing-deep-card .leaderboard-head {
+  color: #eef3fb;
+}
+
+.nba-briefing-deep-card .micro-label {
+  margin-top: 10px;
+  margin-bottom: 6px;
+  color: rgba(214, 222, 235, 0.8);
+}
+
+.nba-briefing-deep-card p {
+  color: rgba(228, 234, 244, 0.92);
+}
+
+.nba-briefing-deep-card .leaderboard-head {
+  color: rgba(214, 222, 235, 0.72);
+}
+
+.nba-briefing-deep-card .leaderboard-row {
+  color: #eef3fb;
+}
+
+.nba-briefing-deep-card .leaderboard-row.is-current {
+  color: #ffffff;
+}
+
+.nba-briefing-deep-card .detail-card {
+  background: linear-gradient(180deg, rgba(52, 58, 67, 0.98), rgba(37, 42, 49, 0.99));
+  border-color: rgba(120, 130, 145, 0.28);
+}
+
+.nba-briefing-deep-card .leaderboard-table {
+  background: transparent;
+}
+
+.nba-briefing-deep-card .leaderboard-row {
+  border-bottom-color: rgba(214, 222, 235, 0.1);
+}
+
+.nba-briefing-deep-card .leaderboard-head {
+  border-bottom-color: rgba(214, 222, 235, 0.12);
+}
+
+.nba-briefing-deep-card .leaderboard-player strong,
+.nba-briefing-deep-card .nba-dashboard-leaderboard-row .leaderboard-player strong {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.nba-briefing-scenarios-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(17, 24, 39, 0.12);
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.07),
+    inset 4px 0 0 rgba(17, 24, 39, 0.92);
+}
+
+.nba-briefing-scenarios-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(17, 24, 39, 0.03), transparent 28%),
+    radial-gradient(circle at top right, rgba(224, 110, 47, 0.08), transparent 40%);
+  pointer-events: none;
 }
 
 .nba-report-metric-row-head .nba-report-metric-cell {

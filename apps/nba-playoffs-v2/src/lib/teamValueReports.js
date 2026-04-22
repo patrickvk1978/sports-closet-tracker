@@ -744,9 +744,9 @@ export function buildTeamValueReports({
     },
     "board-implications": {
       key: "board-implications",
-      label: "Board implications",
-      title: "Which current series matter most to your board right now?",
-      description: "This is the first-round implication board: where your current assignments create the clearest live rooting stakes, pressure points, and separation chances.",
+      label: "Today's Briefing",
+      title: "What's on tap tonight for your board?",
+      description: "A tonight-only desk for the games on tap: the quick intel, the deeper board implications underneath, and the scenario reads that matter by tomorrow morning.",
       rows: rootingGuide,
       stage: "post_lock",
     },
