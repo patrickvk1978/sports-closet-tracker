@@ -6,6 +6,7 @@ import { PoolContext } from '@sports/shared/pools'
 export { PoolContext }
 
 const ACTIVE_KEY = 'otc_active_pool_id'
+const OTC_GAME_MODES = new Set(['live_draft', 'mock_challenge'])
 
 function generateInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -33,6 +34,10 @@ export function PoolProvider({ children }) {
   const [allPools, setAllPools] = useState([])
   const [members, setMembers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+
+  function isOnTheClockPool(candidatePool) {
+    return Boolean(candidatePool?.game_mode && OTC_GAME_MODES.has(candidatePool.game_mode))
+  }
 
   const loadPools = useCallback(async () => {
     if (!session?.user) {
@@ -66,7 +71,7 @@ export function PoolProvider({ children }) {
       .in('id', poolIds)
       .order('created_at', { ascending: false })
 
-    const ownedPools = pools ?? []
+    const ownedPools = (pools ?? []).filter(isOnTheClockPool)
     setAllPools(ownedPools)
 
     // Restore active pool from localStorage
@@ -148,7 +153,7 @@ export function PoolProvider({ children }) {
 
   async function joinPool(inviteCode) {
     const { data: pools } = await supabase.rpc('get_pool_by_invite_code', { code: inviteCode.trim().toUpperCase() })
-    const target = pools?.[0]
+    const target = pools?.find(isOnTheClockPool) ?? null
     if (!target) return { error: 'Invalid invite code' }
 
     // Check if already a member
@@ -178,7 +183,7 @@ export function PoolProvider({ children }) {
 
   async function switchPool(poolId) {
     localStorage.setItem(ACTIVE_KEY, poolId)
-    const nextPool = allPools.find(p => p.id === poolId) ?? null
+    const nextPool = allPools.find(p => p.id === poolId && isOnTheClockPool(p)) ?? null
     setPool(nextPool)
     if (nextPool) await loadMembers(nextPool.id)
   }
