@@ -1332,7 +1332,7 @@ export default function TeamValueReportDetailView() {
   if (!report || !reportState.visibleReportKeys.includes(reportKey)) {
     return (
       <div className="report-back-shell">
-        <a className="back-link" href="/reports">← Back to Reports</a>
+        <a className="back-link" href="/dashboard">← Back to Dashboard</a>
         <div className="panel">
           <h2>Report not available</h2>
         </div>
@@ -1377,7 +1377,7 @@ export default function TeamValueReportDetailView() {
 
   return (
     <div className="report-back-shell">
-      <a className="back-link" href="/reports">← Back to Reports</a>
+      <a className="back-link" href="/dashboard">← Back to Dashboard</a>
 
       {!groupedReport && !customHeroReport ? (
         <section className="panel nba-reports-hero nba-report-detail-hero">
