@@ -195,11 +195,14 @@ function parseTodayGame(event) {
   const period = competition.status?.period ?? null;
   const parsedOdds = parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation);
   const currentLine = parseEspnCurrentLine(competition, homeAbbreviation, awayAbbreviation);
+  const statusState = statusType?.state ?? null;
+  const isCompleted = Boolean(statusType.completed) || statusState === "post";
+  const isInProgress = Boolean(statusType.inProgress) || statusState === "in";
   const status =
-    statusType.completed ? "completed" : statusType.inProgress ? "in_progress" : "scheduled";
-  const statusNote = statusType.completed
+    isCompleted ? "completed" : isInProgress ? "in_progress" : "scheduled";
+  const statusNote = isCompleted
     ? "Final"
-    : statusType.inProgress
+    : isInProgress
       ? shortDetail || (period && displayClock ? `Q${period} ${displayClock}` : "Live")
       : null;
 

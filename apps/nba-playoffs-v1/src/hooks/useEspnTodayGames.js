@@ -196,16 +196,20 @@ function parseTodayGame(event) {
   const parsedOdds = parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation);
   const currentLine = parseEspnCurrentLine(competition, homeAbbreviation, awayAbbreviation);
 
+  const statusState = statusType?.state ?? null;
+  const isCompleted = Boolean(statusType.completed) || statusState === "post";
+  const isInProgress = Boolean(statusType.inProgress) || statusState === "in";
+
   let statusNote = null;
-  if (statusType.completed) {
+  if (isCompleted) {
     statusNote = "Final";
-  } else if (statusType.inProgress) {
+  } else if (isInProgress) {
     statusNote = shortDetail || (period && displayClock ? `Q${period} ${displayClock}` : "Live");
   }
 
   return {
     id: event.id,
-    status: statusType.completed ? "completed" : statusType.inProgress ? "in_progress" : "scheduled",
+    status: isCompleted ? "completed" : isInProgress ? "in_progress" : "scheduled",
     tipAt: competition.date ?? event.date ?? null,
     homeTeamId,
     awayTeamId,
