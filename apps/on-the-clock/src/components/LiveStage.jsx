@@ -155,6 +155,22 @@ export default function LiveStage({
                   View full big board
                 </button>
               ) : null}
+              {stage === "on_clock" ? (
+                <div className="ls-filter-wrap in-header">
+                  <select
+                    className={`ls-filter-select ${isPredraft ? "predraft" : "live"}`}
+                    value={filterValue}
+                    onChange={(event) => setFilterValue(event.target.value)}
+                  >
+                    <option value="ALL">All players</option>
+                    {filterOptions.filter((value) => value !== "ALL").map((value) => (
+                      <option key={value} value={value}>
+                        {value === "WATCHLIST" ? "Watch List" : value}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               {currentSelection && onChangePick ? (
                 <button className="ls-clear-btn" type="button" onClick={onChangePick}>
                   Clear prediction
@@ -162,14 +178,32 @@ export default function LiveStage({
               ) : null}
             </div>
           ) : stage === "reveal" ? null : (
-            <>
-              <span className={`ls-timer-label ${stage === "locked" ? "locked" : timerUrgency}`}>
-                {stage === "locked" ? "Card Locked" : "Submit in"}
-              </span>
-              <span className={`ls-timer-val ${stage === "locked" ? "locked" : timerUrgency}`}>
-                {countdownLabel}
-              </span>
-            </>
+            <div className="ls-header-actions live">
+              <div className="ls-live-header-timer">
+                <span className={`ls-timer-label ${stage === "locked" ? "locked" : timerUrgency}`}>
+                  {stage === "locked" ? "Card Locked" : "Submit in"}
+                </span>
+                <span className={`ls-timer-val ${stage === "locked" ? "locked" : timerUrgency}`}>
+                  {countdownLabel}
+                </span>
+              </div>
+              {stage === "on_clock" ? (
+                <div className="ls-filter-wrap in-header live">
+                  <select
+                    className="ls-filter-select live"
+                    value={filterValue}
+                    onChange={(event) => setFilterValue(event.target.value)}
+                  >
+                    <option value="ALL">All players</option>
+                    {filterOptions.filter((value) => value !== "ALL").map((value) => (
+                      <option key={value} value={value}>
+                        {value === "WATCHLIST" ? "Watch List" : value}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+            </div>
           )}
         </div>
       </div>
@@ -178,24 +212,6 @@ export default function LiveStage({
 
       {stage === "on_clock" && (
         <>
-          <div className={`ls-picker-toolbar ${isPredraft ? "predraft" : "live"}`}>
-            <div className="ls-picker-toolbar-spacer" />
-            <div className="ls-filter-wrap">
-              <select
-                className={`ls-filter-select ${isPredraft ? "predraft" : "live"}`}
-                value={filterValue}
-                onChange={(event) => setFilterValue(event.target.value)}
-              >
-                <option value="ALL">All players</option>
-                {filterOptions.filter((value) => value !== "ALL").map((value) => (
-                  <option key={value} value={value}>
-                    {value === "WATCHLIST" ? "Watch List" : value}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
           {tableRows.length > 0 ? (
             <div className={`ls-table-shell ${isPredraft ? "predraft" : "live"}`}>
               <div className="ls-table-head">

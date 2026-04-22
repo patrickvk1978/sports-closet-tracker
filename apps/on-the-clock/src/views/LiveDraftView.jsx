@@ -68,6 +68,16 @@ export default function LiveDraftView() {
     return draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
   }
 
+  function watchlistIdsForPick(pick) {
+    if (!pick) return [];
+    const teamCodes = [
+      draftFeed.team_overrides?.[pick.number],
+      pick.currentTeam,
+      pick.originalTeam,
+    ].filter(Boolean);
+    return [...new Set(teamCodes.flatMap((teamCode) => watchlistsByTeam[teamCode] ?? []))];
+  }
+
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const draftedIds = useMemo(() => {
@@ -109,8 +119,8 @@ export default function LiveDraftView() {
   // ── Watchlist derivations ─────────────────────────────────────────────────
   const focusedTeamCode = focusedPreDraftPick ? teamForPick(focusedPreDraftPick) : null;
   const currentTeamCode = currentPick ? teamForPick(currentPick) : null;
-  const focusedWatchlistIds = focusedTeamCode ? (watchlistsByTeam[focusedTeamCode] ?? []) : [];
-  const currentWatchlistIds = currentTeamCode ? (watchlistsByTeam[currentTeamCode] ?? []) : [];
+  const focusedWatchlistIds = watchlistIdsForPick(focusedPreDraftPick);
+  const currentWatchlistIds = watchlistIdsForPick(currentPick);
 
   // ── Pool state for LiveStage ───────────────────────────────────────────────
 

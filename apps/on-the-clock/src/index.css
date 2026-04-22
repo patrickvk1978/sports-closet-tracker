@@ -4008,10 +4008,19 @@ select:focus {
 
 .ls-header-actions {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+}
+
+.ls-header-actions.live {
+  gap: 12px;
+}
+
+.ls-live-header-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
 .ls-header-link,
@@ -4056,6 +4065,20 @@ select:focus {
 
 .ls-filter-wrap {
   flex-shrink: 0;
+}
+
+.ls-filter-wrap.in-header {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ls-filter-wrap.in-header .ls-filter-select.predraft {
+  min-width: 178px;
+}
+
+.ls-filter-wrap.in-header.live .ls-filter-select.live {
+  min-width: 184px;
 }
 
 .ls-filter-select {
