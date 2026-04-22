@@ -140,12 +140,10 @@ export function PoolProvider({ children }) {
     })
 
     localStorage.setItem(ACTIVE_KEY, newPool.id)
-
-    // Set state directly — do not call loadPools() here, as its async
-    // re-fetch can transiently set pool=null and bounce PoolGuard to /join.
+    setIsLoading(true)
     setPool(newPool)
-    setAllPools(prev => [newPool, ...prev])
-    setMembers([])
+    setAllPools(prev => [newPool, ...prev.filter(p => p.id !== newPool.id)])
+    await loadMembers(newPool.id)
     setIsLoading(false)
 
     return { pool: newPool }
@@ -172,10 +170,10 @@ export function PoolProvider({ children }) {
     }
 
     localStorage.setItem(ACTIVE_KEY, target.id)
-
-    // Set state directly — do not call loadPools() here for the same reason as createPool.
+    setIsLoading(true)
     setPool(target)
     setAllPools(prev => prev.find(p => p.id === target.id) ? prev : [target, ...prev])
+    await loadMembers(target.id)
     setIsLoading(false)
 
     return { pool: target }
