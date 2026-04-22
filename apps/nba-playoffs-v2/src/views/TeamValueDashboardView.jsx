@@ -79,6 +79,28 @@ function formatSeriesStatus(seriesItem) {
   return `${conference} ${roundLabel} · Game ${nextGameNumber} · ${leader} leads series ${leaderWins}-${trailingWins}`;
 }
 
+function buildUpdatedSeriesStatus(seriesItem, game) {
+  if (!seriesItem) return "Playoff game";
+  if (game?.status !== "completed") return formatSeriesStatus(seriesItem);
+
+  const homeTeamId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayTeamId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  const homeWins = Number(seriesItem.wins?.home ?? 0);
+  const awayWins = Number(seriesItem.wins?.away ?? 0);
+  const homeScore = Number(game?.homeScore ?? 0);
+  const awayScore = Number(game?.awayScore ?? 0);
+  const homeIncrement = homeScore > awayScore && homeTeamId === game.homeTeamId ? 1 : 0;
+  const awayIncrement = awayScore > homeScore && awayTeamId === game.awayTeamId ? 1 : 0;
+
+  return formatSeriesStatus({
+    ...seriesItem,
+    wins: {
+      home: homeWins + homeIncrement,
+      away: awayWins + awayIncrement,
+    },
+  });
+}
+
 function splitOddsLabel(label) {
   if (!label) {
     return {
@@ -165,7 +187,13 @@ function buildOnTapRows(todayGames, boardImplicationRows, series, now) {
         teamIds: [game.homeTeamId, game.awayTeamId],
         matchupLabel: `${game.awayAbbreviation} at ${game.homeAbbreviation}`,
         timeLabel: formatGameTime(pseudoSeries, now),
-        seriesStatus: matchingSeries ? formatSeriesStatus(matchingSeries) : "Playoff game",
+        status: game.status,
+        statusNote: game.statusNote,
+        scoreLabel:
+          game.status === "scheduled"
+            ? null
+            : `${game.awayAbbreviation} ${game.awayScore} · ${game.homeAbbreviation} ${game.homeScore}`,
+        seriesStatus: matchingSeries ? buildUpdatedSeriesStatus(matchingSeries, game) : "Playoff game",
         currentLineLabel: game.currentLineLabel ?? "Line TBD",
         favoriteLabel: oddsLabel.display,
         boardLean: implication?.preferredTeam ?? "Balanced",
@@ -286,7 +314,21 @@ export default function TeamValueDashboardView() {
                   {onTapRows.map((row) => (
                     <article className="nba-dashboard-on-tap-row" key={row.id}>
                       <div className="nba-dashboard-on-tap-time">
-                        <strong>{row.timeLabel}</strong>
+                        {row.status === "in_progress" ? (
+                          <>
+                            <span className="nba-dashboard-live-chip">Live</span>
+                            <strong>{row.scoreLabel}</strong>
+                            <small>{row.statusNote ?? "Updating live"}</small>
+                          </>
+                        ) : row.status === "completed" ? (
+                          <>
+                            <span>Final</span>
+                            <strong>{row.scoreLabel}</strong>
+                            <small>{row.statusNote ?? "Final"}</small>
+                          </>
+                        ) : (
+                          <strong>{row.timeLabel}</strong>
+                        )}
                       </div>
                       <div className="nba-dashboard-on-tap-copy">
                         <strong>{row.matchupLabel}</strong>

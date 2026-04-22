@@ -190,12 +190,23 @@ function parseTodayGame(event) {
   if (!homeTeamId || !awayTeamId) return null;
 
   const statusType = competition.status?.type ?? {};
+  const shortDetail = statusType?.shortDetail ?? event?.status?.type?.shortDetail ?? "";
+  const displayClock = competition.status?.displayClock ?? "";
+  const period = competition.status?.period ?? null;
   const parsedOdds = parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation);
   const currentLine = parseEspnCurrentLine(competition, homeAbbreviation, awayAbbreviation);
+  const status =
+    statusType.completed ? "completed" : statusType.inProgress ? "in_progress" : "scheduled";
+  const statusNote = statusType.completed
+    ? "Final"
+    : statusType.inProgress
+      ? shortDetail || (period && displayClock ? `Q${period} ${displayClock}` : "Live")
+      : null;
 
   return {
     id: event.id,
-    status: statusType.completed ? "completed" : statusType.inProgress ? "in_progress" : "scheduled",
+    status,
+    statusNote,
     tipAt: competition.date ?? event.date ?? null,
     homeTeamId,
     awayTeamId,

@@ -697,6 +697,23 @@ p { margin: 0; }
   gap: 2px;
 }
 
+.nba-dashboard-live-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(226, 122, 63, 0.96);
+  color: #140e09;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 6px 18px rgba(226, 122, 63, 0.28);
+  animation: nba-live-pulse 1.8s ease-in-out infinite;
+}
+
 .nba-dashboard-on-tap-time strong {
   font-size: 1rem;
   line-height: 1.05;
@@ -715,6 +732,17 @@ p { margin: 0; }
   font-size: 0.68rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+@keyframes nba-live-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 6px 18px rgba(226, 122, 63, 0.22);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 8px 24px rgba(226, 122, 63, 0.38);
+  }
 }
 
 .nba-dashboard-on-tap-copy {
