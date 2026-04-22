@@ -23,7 +23,7 @@ import PoolSettingsPage from "./pages/PoolSettingsPage";
 import AdminPage from "./pages/AdminPage";
 import PoolMembersPage from "./pages/PoolMembersPage";
 import ProtectedRoute from "@sports/ui/ProtectedRoute";
-import PoolGuard from "@sports/ui/PoolGuard";
+import PoolGuard from "./components/PoolGuard";
 import NavBar from "./components/NavBar";
 import LiveDraftView from "./views/LiveDraftView";
 import MockChallengeView from "./views/MockChallengeView";
