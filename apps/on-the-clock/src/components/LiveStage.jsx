@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ProspectAvatar from "./ProspectAvatar";
 
 const POSITION_OPTIONS = ["ALL", "QB", "WR", "OT", "EDGE", "CB", "DT", "RB", "LB", "S", "TE"];
@@ -40,6 +40,8 @@ export default function LiveStage({
   activeWatchlistIds = [],
 }) {
   const [filterValue, setFilterValue] = useState("ALL");
+  const [showBadgeKey, setShowBadgeKey] = useState(false);
+  const badgeKeyRef = useRef(null);
 
   const isPredraft = variant === "predraft";
   const isRevealed = currentStatus === "revealed";
@@ -74,7 +76,7 @@ export default function LiveStage({
   function mappedCopyForProspect(prospectId) {
     const mappedPick = mappedPickByProspectId?.[prospectId];
     if (!mappedPick || mappedPick.endsWith(`Pick ${currentPick?.number}`)) return null;
-    return `Predicted to ${mappedPick}`;
+    return mappedPick.includes(" at ") ? mappedPick.split(" at ").slice(-1)[0] : mappedPick;
   }
 
   const activePickNumber = currentPick?.number;
@@ -90,6 +92,17 @@ export default function LiveStage({
       setFilterValue("ALL");
     }
   }, [filterOptions, filterValue]);
+
+  useEffect(() => {
+    if (!showBadgeKey) return undefined;
+    function handlePointerDown(event) {
+      if (badgeKeyRef.current && !badgeKeyRef.current.contains(event.target)) {
+        setShowBadgeKey(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [showBadgeKey]);
 
   const tableRows = useMemo(() => {
     const rows = prospects
@@ -133,6 +146,50 @@ export default function LiveStage({
   const resultLabel = isHit ? (streakBonus ? "🔥 exact hit" : "exact hit") : "miss";
   const resultPoints = isHit ? `+${exactPoints}` : "0";
 
+  function renderHeaderControls(controlVariant) {
+    if (stage !== "on_clock") return null;
+    const isLiveControls = controlVariant === "live";
+    return (
+      <div className={`ls-header-control-row ${isLiveControls ? "live" : "predraft"}`}>
+        <div className="ls-badge-key-wrap" ref={badgeKeyRef}>
+          <button
+            className={`ls-badge-key-btn ${isLiveControls ? "live" : "predraft"}`}
+            type="button"
+            onClick={() => setShowBadgeKey((value) => !value)}
+            aria-expanded={showBadgeKey}
+            aria-haspopup="dialog"
+          >
+            Badge key
+          </button>
+          {showBadgeKey ? (
+            <div className={`ls-badge-key-popover ${isLiveControls ? "live" : "predraft"}`} role="dialog" aria-label="Badge key">
+              {["R", "A", "E", "C", "W"].map((badge) => (
+                <div key={badge} className="ls-badge-key-item">
+                  <span className={`ls-source-badge ${BADGE_CONFIG[badge]?.className ?? ""}`}>{badge}</span>
+                  <span>{BADGE_CONFIG[badge]?.label ?? badge}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className={`ls-filter-wrap in-header ${isLiveControls ? "live" : ""}`}>
+          <select
+            className={`ls-filter-select compact ${isLiveControls ? "live" : "predraft"}`}
+            value={filterValue}
+            onChange={(event) => setFilterValue(event.target.value)}
+          >
+            <option value="ALL">All</option>
+            {filterOptions.filter((value) => value !== "ALL").map((value) => (
+              <option key={value} value={value}>
+                {value === "WATCHLIST" ? "Watch" : value}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className={`ls-header ${isPredraft ? "predraft" : ""} ${stage === "on_clock" && !isPredraft && timerUrgency === "critical" ? "critical" : ""}`}>
@@ -155,22 +212,7 @@ export default function LiveStage({
                   View full big board
                 </button>
               ) : null}
-              {stage === "on_clock" ? (
-                <div className="ls-filter-wrap in-header">
-                  <select
-                    className={`ls-filter-select ${isPredraft ? "predraft" : "live"}`}
-                    value={filterValue}
-                    onChange={(event) => setFilterValue(event.target.value)}
-                  >
-                    <option value="ALL">All players</option>
-                    {filterOptions.filter((value) => value !== "ALL").map((value) => (
-                      <option key={value} value={value}>
-                        {value === "WATCHLIST" ? "Watch List" : value}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
+              {renderHeaderControls("predraft")}
               {currentSelection && onChangePick ? (
                 <button className="ls-clear-btn" type="button" onClick={onChangePick}>
                   Clear prediction
@@ -187,22 +229,7 @@ export default function LiveStage({
                   {countdownLabel}
                 </span>
               </div>
-              {stage === "on_clock" ? (
-                <div className="ls-filter-wrap in-header live">
-                  <select
-                    className="ls-filter-select live"
-                    value={filterValue}
-                    onChange={(event) => setFilterValue(event.target.value)}
-                  >
-                    <option value="ALL">All players</option>
-                    {filterOptions.filter((value) => value !== "ALL").map((value) => (
-                      <option key={value} value={value}>
-                        {value === "WATCHLIST" ? "Watch List" : value}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
+              {renderHeaderControls("live")}
             </div>
           )}
         </div>
@@ -256,7 +283,14 @@ export default function LiveStage({
                                 ))}
                               </span>
                             ) : null}
-                            {mappedCopy ? <span className="ls-player-note">{mappedCopy}</span> : null}
+                            {mappedCopy ? (
+                              <span
+                                className={`ls-player-note ${isPredraft ? "predraft" : "live"}`}
+                                title={`Predicted to ${mappedPickByProspectId?.[prospect.id]}`}
+                              >
+                                Predicted: {mappedCopy}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       </div>

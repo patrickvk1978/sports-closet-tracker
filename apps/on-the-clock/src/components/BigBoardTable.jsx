@@ -109,11 +109,7 @@ export default function BigBoardTable({
           <button
             type="button"
             onClick={onBack}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              fontSize: 13, color: "var(--text-3, #6b7280)", alignSelf: "center",
-              textDecoration: "underline", padding: "0 4px",
-            }}
+            className="board-back-link"
           >
             ← Back to draft list
           </button>
@@ -301,6 +297,7 @@ export default function BigBoardTable({
               <span>Player</span>
               <span>Pos</span>
               <span>School</span>
+              <span></span>
             </div>
             {mockProspects.map((prospect) => {
               const pickNum = prospect[mockSourceCfg.field];
@@ -335,6 +332,22 @@ export default function BigBoardTable({
                   </span>
                   <span>{prospect.position}</span>
                   <span>{prospect.school}</span>
+                  <span className="board-row-actions" style={{ position: "relative" }}>
+                    {rowPickerEnabled ? (
+                      <button
+                        className="small-button"
+                        type="button"
+                        style={{ width: "auto", padding: "0 10px" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAssignAnchorEl(e.currentTarget);
+                          setAssignOpenFor((cur) => (cur === prospect.id ? null : prospect.id));
+                        }}
+                      >
+                        Assign
+                      </button>
+                    ) : null}
+                  </span>
                 </div>
               );
             })}
