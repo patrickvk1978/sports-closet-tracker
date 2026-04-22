@@ -1,56 +1,50 @@
-/**
- * LiveStage — dark command-center stage for a single live pick.
- *
- * Three states derived from props:
- *   1. on_clock  → suggestions bar (queue + expert picks) + search/filter list
- *   2. locked    → green confirmation card, quiet "change pick" link
- *   3. reveal    → compact announcement + 2×2 pool comparison grid
- */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ProspectAvatar from "./ProspectAvatar";
 
-const POSITIONS = ["All", "QB", "WR", "OT", "EDGE", "CB", "DT", "RB", "LB", "S", "TE"];
+const POSITION_OPTIONS = ["ALL", "QB", "WR", "OT", "EDGE", "CB", "DT", "RB", "LB", "S", "TE"];
+
+const BADGE_CONFIG = {
+  W: { label: "Watchlist", className: "watch" },
+  R: { label: "Ringer mock", className: "ringer" },
+  A: { label: "Athletic mock", className: "athletic" },
+  E: { label: "ESPN mock", className: "espn" },
+  C: { label: "Consensus mock", className: "consensus" },
+};
+
+function boardIndex(boardIds, prospectId) {
+  const idx = boardIds.indexOf(prospectId);
+  return idx === -1 ? 9999 : idx;
+}
 
 export default function LiveStage({
-  variant = "live",    // "live" | "predraft"
-  currentPick,          // { number }
-  currentTeam,          // { name, needs: string[] }
-  currentStatus,        // "on_clock" | "pick_is_in" | "revealed"
-  currentLocked,        // bool — true when a live_card row exists
-  currentSelection,     // prospect | null — what was locked
-  suggestedProspect,    // prospect | null — from user's pre-draft prediction
-  suggestedProspectLabel, // string | null — label for primary suggested card
-  expertSuggestions,    // [{ label, prospect }] — PFF/Athletic/Ringer picks
-  countdownLabel,       // string, e.g. "04:18"
-  actualPick,           // prospect | null — official pick once revealed
-  poolState,            // [{ id, name, locked, result, prospect, isCurrentUser }]
-  boardIds,             // string[] — board order for search ranking
-  prospects,            // Prospect[] — full list
-  draftedIds,           // Set<string> — already taken prospect IDs
-  onLockIn,             // (prospectId) => void — immediate submit
-  onChangePick,         // () => void — reset locked card
-  nextPickLabel,        // string, e.g. "Jets on the clock — Pick 2 →"
-  onNextPick,           // () => void — optional next-pick action
-  scoringConfig,        // { tier_1..4, streak_threshold, streak_multiplier }
-  mappedPickByProspectId = {}, // { [prospectId]: string }
-  onViewBigBoard,       // () => void — optional big board route
-  watchlistSuggestions = [], // [{ prospect, label? }] — team-specific watchlist (live view)
-  predraftWatchlist = [],    // [prospectId | prospect] — inline strip under pos chips (pre-draft)
-  watchlistCapacity = 4,     // max per-team
-  onAddToWatchlist,          // (prospectId) => void — pre-draft strip
-  onRemoveFromWatchlist,     // (prospectId) => void — pre-draft strip
-  allProspects = [],         // Prospect[] — needed to resolve watchlist ids
+  variant = "live",
+  currentPick,
+  currentTeam,
+  currentStatus,
+  currentLocked,
+  currentSelection,
+  suggestedProspect,
+  countdownLabel,
+  actualPick,
+  poolState,
+  boardIds,
+  prospects,
+  draftedIds,
+  onLockIn,
+  onChangePick,
+  nextPickLabel,
+  onNextPick,
+  scoringConfig,
+  mappedPickByProspectId = {},
+  onViewBigBoard,
+  activeWatchlistIds = [],
 }) {
-  const [search, setSearch] = useState("");
-  const [posFilter, setPosFilter] = useState("All");
-  const [wlPickerOpen, setWlPickerOpen] = useState(false);
+  const [filterValue, setFilterValue] = useState("ALL");
 
   const isPredraft = variant === "predraft";
-  const isActualPredraftSelection = isPredraft && suggestedProspectLabel === "Current";
   const isRevealed = currentStatus === "revealed";
   const stage = isPredraft ? "on_clock" : isRevealed ? "reveal" : currentLocked ? "locked" : "on_clock";
 
-  // A4 — parse countdown label for urgency states
   const timerSeconds = (() => {
     if (typeof countdownLabel !== "string") return null;
     const m = countdownLabel.match(/^(\d{1,2}):(\d{2})$/);
@@ -62,24 +56,19 @@ export default function LiveStage({
     timerSeconds <= 10 ? "critical" :
     timerSeconds <= 30 ? "warning" : "";
 
-  const submittedCount = poolState.filter((m) => m.locked).length;
-  const totalCount = poolState.length;
+  const sc = scoringConfig ?? {};
+  const T1 = sc.tier_1 ?? 100;
+  const T2 = sc.tier_2 ?? 120;
+  const T3 = sc.tier_3 ?? 150;
+  const T4 = sc.tier_4 ?? 180;
+  const streakThreshold = sc.streak_threshold ?? 5;
+  const streakMult = sc.streak_multiplier ?? 1.5;
 
-  // Search results sorted by board order — shown even with empty query (top 8)
-  const searchResults = useMemo(() => {
-    const boardIndex = (id) => { const i = boardIds.indexOf(id); return i === -1 ? 9999 : i; };
-    return prospects
-      .filter((p) => !draftedIds.has(p.id))
-      .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
-      .filter((p) => posFilter === "All" || p.position.includes(posFilter))
-      .sort((a, b) => boardIndex(a.id) - boardIndex(b.id))
-      .slice(0, 8);
-  }, [prospects, draftedIds, boardIds, search, posFilter]);
-
-  function handleLockIn(prospectId) {
-    onLockIn(prospectId);
-    setSearch("");
-    setPosFilter("All");
+  function tierBase(pickNumber) {
+    if (pickNumber <= 8) return T1;
+    if (pickNumber <= 16) return T2;
+    if (pickNumber <= 24) return T3;
+    return T4;
   }
 
   function mappedCopyForProspect(prospectId) {
@@ -88,20 +77,52 @@ export default function LiveStage({
     return `Predicted to ${mappedPick}`;
   }
 
-  // Scoring config with fallbacks
-  const sc = scoringConfig ?? {};
-  const T1 = sc.tier_1 ?? 100, T2 = sc.tier_2 ?? 120, T3 = sc.tier_3 ?? 150, T4 = sc.tier_4 ?? 180;
-  const streakThreshold = sc.streak_threshold ?? 5;
-  const streakMult = sc.streak_multiplier ?? 1.5;
+  const activePickNumber = currentPick?.number;
+  const watchlistIdSet = useMemo(() => new Set(activeWatchlistIds ?? []), [activeWatchlistIds]);
+  const filterOptions = useMemo(() => {
+    const options = [...POSITION_OPTIONS];
+    if (watchlistIdSet.size > 0) options.push("WATCHLIST");
+    return options;
+  }, [watchlistIdSet]);
 
-  function tierBase(pickNumber) {
-    if (pickNumber <= 8)  return T1;
-    if (pickNumber <= 16) return T2;
-    if (pickNumber <= 24) return T3;
-    return T4;
-  }
+  useEffect(() => {
+    if (!filterOptions.includes(filterValue)) {
+      setFilterValue("ALL");
+    }
+  }, [filterOptions, filterValue]);
 
-  // Derive my result for the reveal badge
+  const tableRows = useMemo(() => {
+    const rows = prospects
+      .filter((prospect) => !draftedIds.has(prospect.id))
+      .filter((prospect) => {
+        if (filterValue === "ALL") return true;
+        if (filterValue === "WATCHLIST") return watchlistIdSet.has(prospect.id);
+        return prospect.position.includes(filterValue);
+      })
+      .sort((a, b) => boardIndex(boardIds, a.id) - boardIndex(boardIds, b.id))
+      .map((prospect) => {
+        const rankIndex = boardIndex(boardIds, prospect.id);
+        const badges = [];
+        if (watchlistIdSet.has(prospect.id)) badges.push("W");
+        if (prospect.ringer_mock_pick === activePickNumber) badges.push("R");
+        if (prospect.athletic_mock_pick === activePickNumber) badges.push("A");
+        if (prospect.espn_mock_pick === activePickNumber) badges.push("E");
+        if (prospect.consensus_mock_pick === activePickNumber) badges.push("C");
+
+        return {
+          prospect,
+          rank: rankIndex === 9999 ? "—" : rankIndex + 1,
+          badges,
+          mappedCopy: mappedCopyForProspect(prospect.id),
+        };
+      });
+
+    return rows;
+  }, [prospects, draftedIds, filterValue, watchlistIdSet, boardIds, activePickNumber, mappedPickByProspectId]);
+
+  const explicitSelectionId = currentSelection?.id ?? suggestedProspect?.id ?? null;
+  const highlightedProspectId = explicitSelectionId ?? tableRows[0]?.prospect?.id ?? null;
+
   const meState = poolState.find((m) => m.isCurrentUser);
   const myResult = meState?.result ?? "miss";
   const isHit = myResult === "exact";
@@ -114,8 +135,6 @@ export default function LiveStage({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-      {/* ── Header: always visible ── */}
       <div className={`ls-header ${isPredraft ? "predraft" : ""} ${stage === "on_clock" && !isPredraft && timerUrgency === "critical" ? "critical" : ""}`}>
         <div className="ls-team-block">
           <div className="ls-pick-label">
@@ -136,7 +155,7 @@ export default function LiveStage({
                   View full big board
                 </button>
               ) : null}
-              {suggestedProspect && onChangePick ? (
+              {currentSelection && onChangePick ? (
                 <button className="ls-clear-btn" type="button" onClick={onChangePick}>
                   Clear prediction
                 </button>
@@ -148,7 +167,7 @@ export default function LiveStage({
                 {stage === "locked" ? "Card Locked" : "Submit in"}
               </span>
               <span className={`ls-timer-val ${stage === "locked" ? "locked" : timerUrgency}`}>
-                {stage === "locked" ? countdownLabel : countdownLabel}
+                {countdownLabel}
               </span>
             </>
           )}
@@ -157,305 +176,93 @@ export default function LiveStage({
 
       <div className="ls-divider" />
 
-      {/* ══ STATE: on_clock — always show suggestions + search ══ */}
       {stage === "on_clock" && (
         <>
-          {/* Suggestions: PREDICTED (full-width) + flexible grid (experts + watchlist) */}
-          {(suggestedProspect || (expertSuggestions && expertSuggestions.length > 0) || (watchlistSuggestions && watchlistSuggestions.length > 0)) && (() => {
-            // Dedup expert suggestions by prospect id (if two experts agree, merge)
-            const dedup = [];
-            for (const s of (expertSuggestions ?? [])) {
-              if (!s?.prospect) continue;
-              const existing = dedup.find(d => d.prospect.id === s.prospect.id);
-              if (existing) {
-                existing.label = [existing.label, s.label].filter(Boolean).join(" / ");
-              } else {
-                dedup.push({ label: s.label, prospect: s.prospect });
-              }
-            }
-            const gridItems = [
-              ...dedup.map(x => ({ kind: "expert", ...x })),
-              ...(watchlistSuggestions ?? [])
-                .filter(w => w?.prospect)
-                .map(w => ({ kind: "watchlist", label: w.label ?? "Watchlist", prospect: w.prospect })),
-            ];
-            const colCount = Math.max(1, Math.min(4, gridItems.length || 1));
-            return (
-              <div className="ls-suggestions-bar">
-                {suggestedProspect && (
-                  <div className={`ls-suggestion-row queue primary ${isPredraft ? "predraft" : ""}`} style={{ width: "100%" }}>
-                    <div className="ls-sug-label">{suggestedProspectLabel ?? (isPredraft ? "Current prediction" : "PREDICTED")}</div>
-                    <ProspectAvatar prospect={suggestedProspect} size="sm" />
-                    <div className="ls-sug-info">
-                      <span className="ls-sug-name">{suggestedProspect.name}</span>
-                      <span className="ls-sug-meta">
-                        {suggestedProspect.position} · {suggestedProspect.school}
-                        {boardIds.indexOf(suggestedProspect.id) !== -1
-                          ? ` · #${boardIds.indexOf(suggestedProspect.id) + 1} on board`
-                          : ""}
-                      </span>
-                    </div>
-                    <button
-                      className="ls-sug-lock"
-                      type="button"
-                      onClick={() => handleLockIn(suggestedProspect.id)}
-                    >
-                      {isPredraft ? (isActualPredraftSelection ? "Update →" : "Use →") : "Lock in →"}
-                    </button>
-                  </div>
-                )}
-                {gridItems.length > 0 && (
-                  <div
-                    className="ls-sug-grid"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
-                      gap: 8,
-                      width: "100%",
-                    }}
-                  >
-                    {gridItems.map(({ kind, label, prospect }) =>
-                      kind === "watchlist" ? (
-                        /* Compact watchlist card — no repeated label, no avatar */
-                        <div
-                          key={`${kind}-${prospect.id}`}
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "space-between",
-                            gap: 6,
-                            padding: "10px 12px",
-                            borderRadius: 8,
-                            background: "rgba(255,255,255,0.04)",
-                            border: "1px solid rgba(255,255,255,0.08)",
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontSize: 9, letterSpacing: 0.6, textTransform: "uppercase", color: "var(--dn-muted, #8b95a6)", marginBottom: 4 }}>
-                              Watchlist
-                            </div>
-                            <div style={{ fontWeight: 600, fontSize: 13, color: "var(--dn-text, #e6ebf2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {prospect.name}
-                            </div>
-                            <div style={{ fontSize: 11, color: "var(--dn-muted, #8b95a6)", marginTop: 2 }}>
-                              {prospect.position} · {prospect.school}
-                            </div>
-                          </div>
-                          <button
-                            className="ls-sug-lock"
-                            type="button"
-                            style={{ alignSelf: "stretch", marginTop: 2 }}
-                            onClick={() => handleLockIn(prospect.id)}
-                          >
-                            {isPredraft ? "Use →" : "Lock in →"}
-                          </button>
-                        </div>
-                      ) : (
-                        /* Expert pick card — original layout */
-                        <div key={`${kind}-${prospect.id}`} className={`ls-suggestion-row ${kind} ${isPredraft ? "predraft" : ""}`}>
-                          <div className="ls-sug-label">{label}</div>
-                          <ProspectAvatar prospect={prospect} size="sm" />
-                          <div className="ls-sug-info">
-                            <span className="ls-sug-name">{prospect.name}</span>
-                            <span className="ls-sug-meta">
-                              {prospect.position} · {prospect.school}
-                              {mappedCopyForProspect(prospect.id) ? ` · ${mappedCopyForProspect(prospect.id)}` : ""}
-                            </span>
-                          </div>
-                          <button
-                            className="ls-sug-lock"
-                            type="button"
-                            onClick={() => handleLockIn(prospect.id)}
-                          >
-                            {isPredraft ? "Use →" : "Lock in →"}
-                          </button>
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Search field */}
-          <div className="ls-search-wrap">
-            <span className="ls-search-ico">🔍</span>
-            <input
-              className="ls-search-field"
-              placeholder="Name or position (e.g. 'Travis' or 'WR')"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          {/* Position chips + inline watchlist strip */}
-          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-            <div className="ls-pos-chips" style={{ flex: "1 1 auto", flexWrap: "wrap" }}>
-              {POSITIONS.map((pos) => (
-                <button
-                  key={pos}
-                  className={`ls-pos-chip ${posFilter === pos ? "active" : ""}`}
-                  type="button"
-                  onClick={() => setPosFilter(pos)}
-                >
-                  {pos}
-                </button>
-              ))}
+          <div className={`ls-picker-toolbar ${isPredraft ? "predraft" : "live"}`}>
+            <div className="ls-picker-toolbar-spacer" />
+            <div className="ls-filter-wrap">
+              <select
+                className={`ls-filter-select ${isPredraft ? "predraft" : "live"}`}
+                value={filterValue}
+                onChange={(event) => setFilterValue(event.target.value)}
+              >
+                <option value="ALL">All players</option>
+                {filterOptions.filter((value) => value !== "ALL").map((value) => (
+                  <option key={value} value={value}>
+                    {value === "WATCHLIST" ? "Watch List" : value}
+                  </option>
+                ))}
+              </select>
             </div>
-
-            {/* Watchlist slots — right side, same row */}
-            {isPredraft && onAddToWatchlist && (() => {
-              const resolve = (pid) => {
-                if (pid && typeof pid === "object") return pid;
-                return allProspects.find((p) => p.id === pid) ?? null;
-              };
-              const wlProspects = (predraftWatchlist ?? []).map(resolve).filter(Boolean);
-              const slots = Math.max(0, watchlistCapacity - wlProspects.length);
-              const wlIds = new Set(wlProspects.map((p) => p.id));
-              const predictedId = suggestedProspect?.id;
-              // Picker: top-8 from board order, excluding drafted/already-watchlisted/predicted
-              const pickerCandidates = prospects
-                .filter((p) => !draftedIds.has(p.id) && !wlIds.has(p.id) && p.id !== predictedId)
-                .sort((a, b) => {
-                  const ia = boardIds.indexOf(a.id); const ib = boardIds.indexOf(b.id);
-                  return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
-                })
-                .slice(0, 4);
-              return (
-                <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-                  <span style={{ fontSize: 10, letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", textTransform: "uppercase" }}>
-                    Watch
-                  </span>
-                  {wlProspects.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => onRemoveFromWatchlist && onRemoveFromWatchlist(p.id)}
-                      title={`${p.name} — click to remove`}
-                      style={{ padding: 0, background: "none", border: "none", cursor: "pointer", lineHeight: 0 }}
-                    >
-                      <ProspectAvatar prospect={p} size="sm" />
-                    </button>
-                  ))}
-                  {Array.from({ length: slots }).map((_, i) => (
-                    <button
-                      key={`empty-${i}`}
-                      type="button"
-                      onClick={() => setWlPickerOpen((v) => !v)}
-                      title="Add to watchlist"
-                      style={{
-                        width: 28, height: 28, borderRadius: "50%",
-                        border: "1px dashed var(--dn-muted, #6b7380)",
-                        background: "transparent", color: "var(--dn-muted, #8b95a6)",
-                        display: "inline-flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 14, cursor: "pointer", padding: 0,
-                      }}
-                    >
-                      +
-                    </button>
-                  ))}
-                  {wlPickerOpen && (
-                    <div
-                      style={{
-                        position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 20,
-                        background: "var(--dn-card, #1b2230)", border: "1px solid var(--dn-border, #2a3341)",
-                        borderRadius: 8, padding: 6, minWidth: 260, boxShadow: "0 12px 28px rgba(0,0,0,0.45)",
-                      }}
-                    >
-                      <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--dn-muted, #8b95a6)", padding: "4px 6px 6px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                        Add to watchlist
-                      </div>
-                      {pickerCandidates.map((p) => (
-                        <div
-                          key={p.id}
-                          onClick={async () => {
-                            if (onAddToWatchlist) await onAddToWatchlist(p.id);
-                            setWlPickerOpen(false);
-                          }}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
-                            borderRadius: 6, cursor: "pointer", fontSize: 12,
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                        >
-                          <ProspectAvatar prospect={p} size="sm" />
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ color: "var(--dn-text, #e6ebf2)", fontWeight: 600 }}>{p.name}</div>
-                            <div style={{ color: "var(--dn-muted, #8b95a6)", fontSize: 11 }}>{p.position} · {p.school}</div>
-                          </div>
-                        </div>
-                      ))}
-                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 4, display: "flex", gap: 4 }}>
-                        {onViewBigBoard ? (
-                          <button
-                            type="button"
-                            onClick={() => { setWlPickerOpen(false); onViewBigBoard(); }}
-                            style={{
-                              flex: 1, padding: "7px 8px", fontSize: 11,
-                              background: "none", border: "none", color: "var(--dn-accent, #3b82f6)",
-                              cursor: "pointer", textAlign: "left",
-                            }}
-                          >
-                            See full board →
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => setWlPickerOpen(false)}
-                          style={{
-                            padding: "7px 8px", fontSize: 11,
-                            background: "none", border: "none", color: "var(--dn-muted, #8b95a6)",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Close
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
           </div>
 
-          {/* Results */}
-          {searchResults.length > 0 ? (
-            <div className="ls-search-results">
-              <div className="ls-search-results-label">
-                {isPredraft ? "Your board order · click to save and advance" : "Your board order · tap to lock in instantly"}
+          {tableRows.length > 0 ? (
+            <div className={`ls-table-shell ${isPredraft ? "predraft" : "live"}`}>
+              <div className="ls-table-head">
+                <span>Player</span>
+                <span>Position</span>
+                <span>Rank</span>
               </div>
-              {searchResults.map((p) => {
-                const rank = boardIds.indexOf(p.id) + 1;
-                const mappedCopy = mappedCopyForProspect(p.id);
-                return (
-                  <div key={p.id} className={`ls-sr-row ${isPredraft ? "predraft" : ""}`} onClick={() => handleLockIn(p.id)}>
-                    <div className="ls-sr-rank">#{rank > 0 ? rank : "—"}</div>
-                    <ProspectAvatar prospect={p} size="sm" />
-                    <div className="ls-sr-copy">
-                      <div className="ls-sr-name-row">
-                        <div className="ls-sr-name">{p.name}</div>
-                        {mappedCopy ? <span className="ls-sr-note">{mappedCopy}</span> : null}
+              <div className="ls-table-body">
+                {tableRows.map(({ prospect, rank, badges, mappedCopy }) => {
+                  const isCurrentPick = highlightedProspectId === prospect.id;
+                  const hasCurrentPickPill = explicitSelectionId === prospect.id;
+                  return (
+                    <button
+                      key={prospect.id}
+                      type="button"
+                      className={`ls-player-row ${isPredraft ? "predraft" : "live"} ${isCurrentPick ? "current" : ""}`}
+                      onClick={() => onLockIn(prospect.id)}
+                    >
+                      <div className="ls-player-main">
+                        <ProspectAvatar prospect={prospect} size="md" className="ls-player-avatar" />
+                        <div className="ls-player-copy">
+                          <div className="ls-player-name-row">
+                            <span className="ls-player-name">{prospect.name}</span>
+                            {hasCurrentPickPill ? (
+                              <span className={`ls-current-pill ${isPredraft ? "predraft" : "live"}`}>
+                                Current pick
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="ls-player-meta-row">
+                            <span className="ls-player-school">{prospect.school}</span>
+                            {badges.length > 0 ? (
+                              <span className="ls-badge-row">
+                                {badges.map((badge) => (
+                                  <span
+                                    key={`${prospect.id}-${badge}`}
+                                    className={`ls-source-badge ${BADGE_CONFIG[badge]?.className ?? ""}`}
+                                    title={BADGE_CONFIG[badge]?.label ?? badge}
+                                  >
+                                    {badge}
+                                  </span>
+                                ))}
+                              </span>
+                            ) : null}
+                            {mappedCopy ? <span className="ls-player-note">{mappedCopy}</span> : null}
+                          </div>
+                        </div>
                       </div>
-                      <div className="ls-sr-meta">{p.position} · {p.school}</div>
-                    </div>
-                    <div className="ls-sr-select">{isPredraft ? "Use →" : "Lock in →"}</div>
-                  </div>
-                );
-              })}
+                      <div className="ls-player-pos">
+                        <span className="ls-player-pos-pill">{prospect.position}</span>
+                      </div>
+                      <div className="ls-player-rank">{rank}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div className="ls-search-hint">
-              {search || posFilter !== "All"
-                ? "No available prospects match — try a different filter."
-                : "All prospects drafted."}
+              {filterValue === "WATCHLIST"
+                ? "No watchlist players for this team yet."
+                : "No available prospects match this filter."}
             </div>
           )}
         </>
       )}
 
-      {/* ══ STATE: locked ══ */}
       {stage === "locked" && (
         <>
           <div className="ls-locked-card">
@@ -480,7 +287,6 @@ export default function LiveStage({
         </>
       )}
 
-      {/* ══ STATE: reveal ══ */}
       {stage === "reveal" && (
         <>
           <div className="ls-reveal-announce">

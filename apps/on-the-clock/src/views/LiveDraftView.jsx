@@ -22,12 +22,6 @@ function countdownCopy(status) {
   return "SCORED";
 }
 
-const RECOMMENDATION_OUTLETS = [
-  { mockLabel: "PFF mock", mockPickField: "pff_mock_pick", rankField: "pff_rank" },
-  { mockLabel: "Athletic mock", mockPickField: "athletic_mock_pick", rankField: "athletic_rank" },
-  { mockLabel: "Ringer mock", mockPickField: "ringer_mock_pick", rankField: "ringer_rank" },
-];
-
 export default function LiveDraftView() {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -112,164 +106,11 @@ export default function LiveDraftView() {
     ? getProspectById(livePredictions[focusedPreDraftPick.number])
     : null;
 
-  function buildRecommendationCards({ pickNumber, team, preferredProspect, preferredLabel, boardFallbackLabel }) {
-    if (!pickNumber || !team) return [];
-
-    const teamNeeds = new Set(team.needs ?? []);
-    const usedIds = new Set(Object.values(livePredictions));
-    if (preferredProspect?.id) usedIds.delete(preferredProspect.id);
-
-    const isNeedMatch = (prospect) =>
-      prospect.position.split("/").some((pos) => teamNeeds.has(pos));
-    const isAvailable = (prospect) =>
-      prospect && !draftedIds.has(prospect.id) && !usedIds.has(prospect.id);
-    const addOrMerge = (collection, prospect, label) => {
-      if (!prospect || !label) return;
-      const existing = collection.find((entry) => entry.prospect.id === prospect.id);
-      if (existing) {
-        if (!existing.sourceLabels.includes(label)) existing.sourceLabels.push(label);
-        return;
-      }
-      collection.push({ prospect, sourceLabels: [label] });
-    };
-    const compactSourceLabel = (labels) => {
-      const order = [
-        "Current prediction",
-        "Predicted player",
-        "Top of your board",
-        "Best fit from your board",
-        "Best available from your board",
-        "PFF mock",
-        "Athletic mock",
-        "Ringer mock",
-      ];
-      const shortMap = {
-        "Current prediction": "Current",
-        "Predicted player": "Predicted",
-        "Top of your board": "Board",
-        "Best fit from your board": "Board",
-        "Best available from your board": "Board",
-        "PFF mock": "PFF",
-        "Athletic mock": "Athletic",
-        "Ringer mock": "Ringer",
-      };
-      const normalized = [...new Set(labels)]
-        .sort((a, b) => order.indexOf(a) - order.indexOf(b))
-        .map((label) => shortMap[label] ?? label);
-      return normalized.join(" / ");
-    };
-    const bestFromBoard = (rankField) => {
-      const candidates = prospects
-        .filter((prospect) => isAvailable(prospect))
-        .filter((prospect) => (rankField ? prospect[rankField] != null : bigBoardIds.includes(prospect.id)))
-        .sort((a, b) => {
-          const aRank = rankField ? (a[rankField] ?? 9999) : (() => {
-            const idx = bigBoardIds.indexOf(a.id);
-            return idx === -1 ? 9999 : idx;
-          })();
-          const bRank = rankField ? (b[rankField] ?? 9999) : (() => {
-            const idx = bigBoardIds.indexOf(b.id);
-            return idx === -1 ? 9999 : idx;
-          })();
-          const needDelta = Number(isNeedMatch(b)) - Number(isNeedMatch(a));
-          if (needDelta !== 0) return needDelta;
-          return aRank - bRank;
-        });
-      return candidates[0] ?? null;
-    };
-
-    const suggestions = [];
-    const topProspect = preferredProspect && !draftedIds.has(preferredProspect.id)
-      ? preferredProspect
-      : bestFromBoard(null);
-
-    if (topProspect) {
-      addOrMerge(
-        suggestions,
-        topProspect,
-        preferredProspect && !draftedIds.has(preferredProspect.id)
-          ? preferredLabel
-          : boardFallbackLabel(topProspect, isNeedMatch(topProspect))
-      );
-    }
-
-    let outletIndex = 0;
-    let fallbackOutletIndex = 0;
-
-    while (suggestions.length < 3 && outletIndex < RECOMMENDATION_OUTLETS.length) {
-      const outlet = RECOMMENDATION_OUTLETS[outletIndex];
-      outletIndex += 1;
-
-      const mockProspect = prospects.find((prospect) => prospect[outlet.mockPickField] === pickNumber);
-      if (isAvailable(mockProspect)) {
-        addOrMerge(suggestions, mockProspect, outlet.mockLabel);
-        continue;
-      }
-
-      if (outlet.mockLabel !== "Ringer mock") continue;
-
-      while (suggestions.length < 3 && fallbackOutletIndex < RECOMMENDATION_OUTLETS.length) {
-        const fallbackOutlet = RECOMMENDATION_OUTLETS[fallbackOutletIndex];
-        fallbackOutletIndex += 1;
-        const boardProspect = bestFromBoard(fallbackOutlet.rankField);
-        if (boardProspect) addOrMerge(suggestions, boardProspect, fallbackOutlet.mockLabel);
-      }
-    }
-
-    while (suggestions.length < 3 && fallbackOutletIndex < RECOMMENDATION_OUTLETS.length) {
-      const fallbackOutlet = RECOMMENDATION_OUTLETS[fallbackOutletIndex];
-      fallbackOutletIndex += 1;
-      const boardProspect = bestFromBoard(fallbackOutlet.rankField);
-      if (boardProspect) addOrMerge(suggestions, boardProspect, fallbackOutlet.mockLabel);
-    }
-
-    return suggestions.slice(0, 3).map(({ prospect, sourceLabels }) => ({
-      prospect,
-      sourceLabel: compactSourceLabel(sourceLabels),
-    }));
-  }
-
-  const focusedPreDraftSuggestions = useMemo(() => buildRecommendationCards({
-    pickNumber: focusedPreDraftPick?.number,
-    team: focusedPreDraftTeam,
-    preferredProspect: focusedPreDraftPrediction,
-    preferredLabel: "Current prediction",
-    boardFallbackLabel: (_prospect, isNeedFit) => isNeedFit ? "Best fit from your board" : "Best available from your board",
-  }), [focusedPreDraftPick, focusedPreDraftTeam, focusedPreDraftPrediction, bigBoardIds, draftedIds, livePredictions, prospects]);
-  const focusedPreDraftPrimarySuggestion = focusedPreDraftSuggestions[0] ?? null;
-  const focusedPreDraftExpertSuggestions = focusedPreDraftSuggestions.slice(1);
-
-  // ── Expert suggestions for LiveStage on_clock ────────────────────────────
-
-  const suggestedProspectForCurrent = getProspectById(livePredictions[currentPickNumber]);
-
-  const liveRecommendationCards = useMemo(() => buildRecommendationCards({
-    pickNumber: currentPickNumber,
-    team: currentTeam,
-    preferredProspect: suggestedProspectForCurrent,
-    preferredLabel: "Predicted player",
-    boardFallbackLabel: () => "Top of your board",
-  }), [currentPickNumber, currentTeam, suggestedProspectForCurrent, bigBoardIds, draftedIds, livePredictions, prospects]);
-  const livePrimarySuggestion = liveRecommendationCards[0] ?? null;
-  const expertSuggestions = liveRecommendationCards.slice(1);
-
   // ── Watchlist derivations ─────────────────────────────────────────────────
   const focusedTeamCode = focusedPreDraftPick ? teamForPick(focusedPreDraftPick) : null;
   const currentTeamCode = currentPick ? teamForPick(currentPick) : null;
   const focusedWatchlistIds = focusedTeamCode ? (watchlistsByTeam[focusedTeamCode] ?? []) : [];
   const currentWatchlistIds = currentTeamCode ? (watchlistsByTeam[currentTeamCode] ?? []) : [];
-
-  // Live suggestions: watchlist entries for current team, exclude drafted and the PREDICTED primary
-  const liveWatchlistSuggestions = useMemo(() => {
-    if (!currentWatchlistIds.length) return [];
-    const primaryId = livePrimarySuggestion?.prospect?.id;
-    const expertIds = new Set((expertSuggestions ?? []).map((s) => s.prospect?.id));
-    return currentWatchlistIds
-      .filter((pid) => pid && pid !== primaryId && !expertIds.has(pid) && !draftedIds.has(pid))
-      .map((pid) => ({ label: "Watchlist", prospect: getProspectById(pid) }))
-      .filter((x) => x.prospect);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentWatchlistIds, livePrimarySuggestion, expertSuggestions, draftedIds, prospects]);
 
   // ── Pool state for LiveStage ───────────────────────────────────────────────
 
@@ -478,12 +319,7 @@ export default function LiveDraftView() {
                   currentStatus="on_clock"
                   currentLocked={false}
                   currentSelection={focusedPreDraftPrediction}
-                  suggestedProspect={focusedPreDraftPrimarySuggestion?.prospect ?? null}
-                  suggestedProspectLabel={focusedPreDraftPrimarySuggestion?.sourceLabel ?? null}
-                  expertSuggestions={focusedPreDraftExpertSuggestions.map(({ prospect, sourceLabel }) => ({
-                    prospect,
-                    label: sourceLabel,
-                  }))}
+                  suggestedProspect={null}
                   countdownLabel={countdown.label}
                   actualPick={null}
                   poolState={[]}
@@ -497,16 +333,7 @@ export default function LiveDraftView() {
                   onNextPick={() => {}}
                   scoringConfig={scoringConfig}
                   onViewBigBoard={() => setPdTab("board")}
-                  predraftWatchlist={focusedWatchlistIds}
-                  allProspects={prospects}
-                  onAddToWatchlist={async (prospectId) => {
-                    if (!focusedTeamCode) return;
-                    await addToWatchlist(focusedTeamCode, prospectId);
-                  }}
-                  onRemoveFromWatchlist={async (prospectId) => {
-                    if (!focusedTeamCode) return;
-                    await removeFromWatchlist(focusedTeamCode, prospectId);
-                  }}
+                  activeWatchlistIds={focusedWatchlistIds}
                 />
               </div>
             </div>
@@ -624,21 +451,20 @@ export default function LiveDraftView() {
                 currentStatus={draftFeed.current_status}
                 currentLocked={currentLocked}
                 currentSelection={currentSelection}
-                suggestedProspect={livePrimarySuggestion?.prospect ?? null}
-                suggestedProspectLabel={livePrimarySuggestion?.sourceLabel ?? null}
-                expertSuggestions={expertSuggestions}
+                suggestedProspect={null}
                 countdownLabel={countdownCopy(draftFeed.current_status)}
                 actualPick={actualCurrentPick}
                 poolState={livePoolState}
                 boardIds={bigBoardIds}
                 prospects={prospects}
                 draftedIds={draftedIds}
+                mappedPickByProspectId={mappedPredictionContextByProspectId}
                 onLockIn={(prospectId) => submitLiveCard(currentPickNumber, prospectId)}
                 onChangePick={() => resetLiveCard(currentPickNumber)}
                 nextPickLabel={nextPickLabel}
                 onNextPick={() => {}}
                 scoringConfig={scoringConfig}
-                watchlistSuggestions={liveWatchlistSuggestions}
+                activeWatchlistIds={currentWatchlistIds}
               />
             </div>
 
