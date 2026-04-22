@@ -908,6 +908,118 @@ p { margin: 0; }
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.nba-dashboard-main-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.nba-dashboard-main-column,
+.nba-dashboard-side-column {
+  display: grid;
+  gap: 20px;
+}
+
+.panel.nba-v1-on-tap-card {
+  display: grid;
+  gap: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(233, 121, 54, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(26, 43, 74, 0.99), rgba(22, 35, 61, 0.99));
+  color: rgba(247, 249, 252, 0.96);
+  border-color: rgba(232, 121, 54, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 32px rgba(8, 11, 18, 0.22);
+}
+
+.panel.nba-v1-on-tap-card .label,
+.panel.nba-v1-on-tap-card h1,
+.panel.nba-v1-on-tap-card h2,
+.panel.nba-v1-on-tap-card .panel-header h2 {
+  color: rgba(247, 249, 252, 0.96);
+}
+
+.nba-v1-on-tap-list {
+  display: grid;
+  gap: 14px;
+}
+
+.nba-v1-on-tap-row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(232, 121, 54, 0.24);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.nba-v1-on-tap-time strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: rgba(247, 249, 252, 0.98);
+}
+
+.nba-v1-live-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  padding: 8px 14px;
+  border-radius: var(--r-full);
+  background: linear-gradient(180deg, rgba(242, 127, 56, 0.98), rgba(211, 96, 31, 0.98));
+  color: rgba(255, 248, 241, 0.98);
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 1px rgba(255, 169, 108, 0.34);
+  animation: live-pulse 1.8s ease-in-out infinite;
+}
+
+.nba-v1-on-tap-note {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(232, 121, 54, 0.92);
+}
+
+.nba-v1-on-tap-copy {
+  display: grid;
+  gap: 5px;
+}
+
+.nba-v1-on-tap-copy strong {
+  font-size: 1.55rem;
+  line-height: 1.08;
+  color: rgba(247, 249, 252, 0.98);
+}
+
+.nba-v1-on-tap-series {
+  color: rgba(232, 121, 54, 0.92);
+  margin: 0;
+}
+
+.nba-v1-on-tap-intel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  font-size: 0.92rem;
+  color: rgba(229, 236, 246, 0.86);
+}
+
+.nba-v1-on-tap-intel span {
+  white-space: nowrap;
+}
+
 .nba-reports-hero {
   display: grid;
   gap: 18px;
@@ -2462,6 +2574,15 @@ p { margin: 0; }
 
 .nba-dashboard-row-stacked {
   grid-template-columns: 1fr;
+}
+
+.nba-dashboard-row-current {
+  margin-left: -10px;
+  margin-right: -10px;
+  padding: 14px 12px;
+  border-top-color: transparent;
+  border-radius: var(--r-lg);
+  background: rgba(232, 121, 54, 0.12);
 }
 
 .nba-dashboard-rank {
@@ -4676,6 +4797,7 @@ select:focus {
   .nba-hero-panel,
   .nba-bracket-layout,
   .nba-bracket-rounds,
+  .nba-dashboard-main-layout,
   .nba-dashboard-grid,
   .nba-reports-summary,
   .nba-feature-grid,
@@ -4704,6 +4826,11 @@ select:focus {
 
   .nba-series-pick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nba-v1-on-tap-row {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .nba-series-meta-grid {
