@@ -106,23 +106,36 @@ export default function AdminPage() {
       school: p.school,
       consensus_rank: p.consensus_rank ?? null,
       espn_rank: p.espn_rank ?? null,
-      pff_rank: p.pff_rank ?? null,
       ringer_rank: p.ringer_rank ?? null,
       athletic_rank: p.athletic_rank ?? null,
       ringer_mock_pick: p.ringer_mock_pick ?? null,
       athletic_mock_pick: p.athletic_mock_pick ?? null,
-      pff_mock_pick: p.pff_mock_pick ?? null,
       consensus_mock_pick: p.consensus_mock_pick ?? null,
       predicted_range: p.predicted_range ?? null,
       notes: p.notes ?? null,
     }));
-    const { error } = await supabase.from("prospects").upsert(rows, { onConflict: "id" });
+    const rowsWithEspnMock = rows.map((row, index) => ({
+      ...row,
+      espn_mock_pick: prospectsData.prospects[index].espn_mock_pick ?? null,
+    }));
+
+    let { error } = await supabase.from("prospects").upsert(rowsWithEspnMock, { onConflict: "id" });
+    if (error?.message?.includes("espn_mock_pick")) {
+      ({ error } = await supabase.from("prospects").upsert(rows, { onConflict: "id" }));
+      if (!error) {
+        setSyncStatus(`Synced ${rows.length} prospects ✓ (ESPN mock stays build-backed until DB column is added)`);
+        await reloadReferenceData();
+        return;
+      }
+    }
+
     if (error) {
       setSyncStatus(`Error: ${error.message}`);
-    } else {
-      setSyncStatus(`Synced ${rows.length} prospects ✓`);
-      await reloadReferenceData();
+      return;
     }
+
+    setSyncStatus(`Synced ${rows.length} prospects ✓`);
+    await reloadReferenceData();
   }
 
   const pick = useMemo(

@@ -7,31 +7,22 @@ import AssignPopover from "./AssignPopover";
 
 const RANK_SOURCES = [
   { value: "your_rank",      label: "Your Rank",       field: null },
-  { value: "consensus_avg",  label: "Expert Consensus", field: null },
-  { value: "espn",           label: "ESPN ScoutsINC",   field: "espn_rank" },
-  { value: "pff",            label: "PFF",              field: "pff_rank" },
-  { value: "ringer_board",   label: "Ringer Board",     field: "ringer_rank" },
-  { value: "athletic_board", label: "Athletic Board",   field: "athletic_rank" },
+  { value: "consensus_board", label: "Consensus Board", field: "consensus_rank" },
+  { value: "espn",            label: "ESPN Big Board",  field: "espn_rank" },
+  { value: "athletic_board",  label: "Athletic Board",  field: "athletic_rank" },
 ];
 
 const MOCK_SOURCES = [
   { value: "consensus_mock", label: "Consensus Mock",  field: "consensus_mock_pick" },
+  { value: "espn_mock",      label: "ESPN Mock",       field: "espn_mock_pick" },
   { value: "ringer_mock",    label: "Ringer Mock",     field: "ringer_mock_pick" },
   { value: "athletic_mock",  label: "Athletic Mock",   field: "athletic_mock_pick" },
-  { value: "pff_mock",       label: "PFF Mock",        field: "pff_mock_pick" },
 ];
-
-function expertConsensusRank(p) {
-  const ranks = [p.espn_rank, p.pff_rank, p.ringer_rank, p.athletic_rank].filter(Boolean);
-  if (!ranks.length) return 9999;
-  return ranks.reduce((s, r) => s + r, 0) / ranks.length;
-}
 
 function sortRankings(prospects, boardIds, source) {
   const idx = (id) => { const i = boardIds.indexOf(id); return i === -1 ? 9999 : i; };
   const sorted = [...prospects];
   if (source === "your_rank") return sorted.sort((a, b) => idx(a.id) - idx(b.id));
-  if (source === "consensus_avg") return sorted.sort((a, b) => expertConsensusRank(a) - expertConsensusRank(b));
   const cfg = RANK_SOURCES.find(s => s.value === source);
   if (cfg?.field) return sorted.sort((a, b) => (a[cfg.field] ?? 9999) - (b[cfg.field] ?? 9999));
   return sorted;
