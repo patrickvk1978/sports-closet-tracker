@@ -2971,6 +2971,7 @@ select:focus {
 .nba-briefing-analysis-copy {
   margin: 10px 0 0;
   text-indent: 0;
+  color: #eef3fb !important;
 }
 
 .nba-briefing-analysis-lead {
@@ -2999,6 +3000,15 @@ select:focus {
   background: #090b0f !important;
   border-color: rgba(214, 222, 235, 0.16);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.nba-briefing-deep-card .leaderboard-table,
+.nba-briefing-deep-card .nba-dashboard-leaderboard-table,
+.nba-briefing-deep-card .leaderboard-head,
+.nba-briefing-deep-card .nba-dashboard-leaderboard-head,
+.nba-briefing-deep-card .leaderboard-row,
+.nba-briefing-deep-card .nba-dashboard-leaderboard-row {
+  background: #090b0f !important;
 }
 
 .nba-briefing-deep-card .leaderboard-table {

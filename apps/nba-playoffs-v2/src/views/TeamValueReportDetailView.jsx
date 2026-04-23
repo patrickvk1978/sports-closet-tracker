@@ -893,19 +893,7 @@ function TodayBoardImplicationsReport({
                   {(() => {
                     const headlineText = implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`;
                     const bodyText = stripRepeatedLead(headlineText, implication?.body ?? "This game has direct point and leverage consequences across the room.");
-                    return (
-                      <>
-                  <span className="nba-briefing-analysis-lead">
-                    {punctuateSentence(headlineText)}
-                  </span>
-                        {bodyText ? (
-                          <>
-                            {" "}
-                            <span>{bodyText}</span>
-                          </>
-                        ) : null}
-                      </>
-                    );
+                    return [punctuateSentence(headlineText), bodyText].filter(Boolean).join(" ");
                   })()}
                 </p>
                 <article className="detail-card inset-card">
