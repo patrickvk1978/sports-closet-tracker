@@ -2968,12 +2968,23 @@ select:focus {
   color: rgba(228, 234, 244, 0.92);
 }
 
+.nba-briefing-analysis-copy {
+  margin: 10px 0 0;
+  text-indent: 0;
+}
+
+.nba-briefing-analysis-lead {
+  color: #eef3fb;
+  font-weight: 600;
+}
+
 .nba-briefing-deep-card .leaderboard-head {
   color: rgba(214, 222, 235, 0.72);
 }
 
 .nba-briefing-deep-card .leaderboard-row {
   color: #eef3fb;
+  background: #090b0f !important;
 }
 
 .nba-briefing-deep-card .leaderboard-row.is-current {
@@ -2991,7 +3002,7 @@ select:focus {
 }
 
 .nba-briefing-deep-card .leaderboard-table {
-  background: transparent;
+  background: #090b0f !important;
 }
 
 .nba-briefing-deep-card .leaderboard-row {
@@ -2999,6 +3010,7 @@ select:focus {
 }
 
 .nba-briefing-deep-card .leaderboard-head {
+  background: #090b0f !important;
   border-bottom-color: rgba(214, 222, 235, 0.12);
 }
 
@@ -3043,10 +3055,12 @@ select:focus {
 }
 
 .nba-briefing-scenarios-card .leaderboard-head {
+  background: #090b0f !important;
   border-bottom-color: rgba(214, 222, 235, 0.12);
 }
 
 .nba-briefing-scenarios-card .leaderboard-row {
+  background: #090b0f !important;
   border-bottom-color: rgba(214, 222, 235, 0.1);
 }
 

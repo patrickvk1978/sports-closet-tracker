@@ -879,8 +879,10 @@ function TodayBoardImplicationsReport({
                 </span>
               </summary>
               <div className="nba-report-game-details-body">
-                <p>
-                  <strong>{punctuateSentence(implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`)}</strong>
+                <p className="nba-briefing-analysis-copy">
+                  <span className="nba-briefing-analysis-lead">
+                    {punctuateSentence(implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`)}
+                  </span>
                   {" "}
                   <span>{implication?.body ?? "This game has direct point and leverage consequences across the room."}</span>
                 </p>
