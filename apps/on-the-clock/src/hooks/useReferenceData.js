@@ -1,5 +1,6 @@
 import { createElement, createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import prospectsData from "../data/prospects2026.json";
 
 const ReferenceDataContext = createContext(null);
 
@@ -25,7 +26,17 @@ export function ReferenceDataProvider({ children }) {
       setTeams(byCode);
     }
 
-    if (prospectsResult.data) setProspects(prospectsResult.data);
+    if (prospectsResult.data) {
+      const localProspectMap = new Map(
+        (prospectsData.prospects ?? []).map((prospect) => [prospect.id, prospect])
+      );
+      setProspects(
+        prospectsResult.data.map((prospect) => ({
+          ...prospect,
+          ...(localProspectMap.get(prospect.id) ?? {}),
+        }))
+      );
+    }
     if (picksResult.data) {
       setPicks(
         picksResult.data.map((p) => ({
@@ -41,7 +52,6 @@ export function ReferenceDataProvider({ children }) {
 
   useEffect(() => { load(); }, []);
 
-  // Helpers that mirror the draftData.js API so callers don't change shape
   const getProspectById = useMemo(
     () => (id) => prospects.find((p) => p.id === id) ?? null,
     [prospects]
