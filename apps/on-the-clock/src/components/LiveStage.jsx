@@ -29,6 +29,7 @@ export default function LiveStage({
   countdownPrefix,
   actualPick,
   poolState,
+  liveStandings = [],
   boardIds,
   prospects,
   draftedIds,
@@ -155,6 +156,91 @@ export default function LiveStage({
   const exactPoints = Math.round(tierBase(pickNum) * (streakBonus ? streakMult : 1));
   const resultLabel = isHit ? (streakBonus ? "🔥 exact hit" : "exact hit") : "miss";
   const resultPoints = isHit ? `+${exactPoints}` : "0";
+
+  const standingsWithRank = useMemo(
+    () => liveStandings.map((player, index) => ({ ...player, rank: index + 1 })),
+    [liveStandings]
+  );
+
+  const standingsById = useMemo(() => {
+    const map = new Map();
+    standingsWithRank.forEach((player) => {
+      map.set(player.id, player);
+    });
+    return map;
+  }, [standingsWithRank]);
+
+  function rankScores(scores) {
+    return [...scores].sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (a.seedRank !== b.seedRank) return a.seedRank - b.seedRank;
+      return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+    });
+  }
+
+  const revealGainById = useMemo(() => {
+    const map = new Map();
+    poolState.forEach((member) => {
+      const streakBefore = member.streakCount ?? 0;
+      const gain = Math.round(tierBase(pickNum) * (streakBefore >= streakThreshold ? streakMult : 1));
+      map.set(member.id, gain);
+    });
+    return map;
+  }, [poolState, pickNum, streakThreshold, streakMult]);
+
+  const postRevealScores = useMemo(() => {
+    return poolState.map((member, index) => ({
+      id: member.id,
+      name: member.name,
+      points: standingsById.get(member.id)?.points ?? 0,
+      seedRank: standingsById.get(member.id)?.rank ?? index + 1,
+    }));
+  }, [poolState, standingsById]);
+
+  const preRevealScores = useMemo(() => {
+    if (stage !== "reveal") {
+      return poolState.map((member, index) => ({
+        id: member.id,
+        name: member.name,
+        points: standingsById.get(member.id)?.points ?? 0,
+        seedRank: standingsById.get(member.id)?.rank ?? index + 1,
+      }));
+    }
+
+    return poolState.map((member, index) => {
+      const postPoints = standingsById.get(member.id)?.points ?? 0;
+      const gain = member.result === "exact" ? (revealGainById.get(member.id) ?? 0) : 0;
+      return {
+        id: member.id,
+        name: member.name,
+        points: postPoints - gain,
+        seedRank: standingsById.get(member.id)?.rank ?? index + 1,
+      };
+    });
+  }, [poolState, standingsById, stage, revealGainById]);
+
+  const preRevealRanks = useMemo(() => {
+    const ranked = rankScores(preRevealScores);
+    const map = new Map();
+    ranked.forEach((player, index) => {
+      map.set(player.id, index + 1);
+    });
+    return map;
+  }, [preRevealScores]);
+
+  const projectedHitRanks = useMemo(() => {
+    const map = new Map();
+    poolState.forEach((member) => {
+      const currentPoints = preRevealScores.find((entry) => entry.id === member.id)?.points ?? 0;
+      const gain = revealGainById.get(member.id) ?? 0;
+      const projected = preRevealScores.map((entry) =>
+        entry.id === member.id ? { ...entry, points: currentPoints + gain } : entry
+      );
+      const ranked = rankScores(projected);
+      map.set(member.id, ranked.findIndex((entry) => entry.id === member.id) + 1);
+    });
+    return map;
+  }, [poolState, preRevealScores, revealGainById]);
 
   async function handleWatchToggle(event, prospectId) {
     event.stopPropagation();
@@ -441,6 +527,45 @@ export default function LiveStage({
                       </div>
                     </div>
                   </div>
+                  {(() => {
+                    const currentScore = preRevealScores.find((entry) => entry.id === m.id)?.points ?? 0;
+                    const currentRank = preRevealRanks.get(m.id) ?? standingsById.get(m.id)?.rank ?? 0;
+                    const gain = revealGainById.get(m.id) ?? 0;
+                    const projectedRank = projectedHitRanks.get(m.id) ?? currentRank;
+                    const finalScore = standingsById.get(m.id)?.points ?? currentScore;
+                    const finalRank = standingsById.get(m.id)?.rank ?? currentRank;
+                    const streakLive = (m.streakCount ?? 0) >= streakThreshold;
+
+                    return (
+                      <div className={`ls-rpc-scoreline ${stage === "awaiting_reveal" ? "awaiting" : hit ? "hit" : "miss"}`}>
+                        <div className="ls-rpc-scorechip">
+                          <span className="ls-rpc-scorechip-label">Rank</span>
+                          <span className="ls-rpc-scorechip-value">
+                            {stage === "awaiting_reveal"
+                              ? `#${currentRank} -> #${projectedRank}`
+                              : `#${currentRank} -> #${finalRank}`}
+                          </span>
+                        </div>
+                        <div className="ls-rpc-scorechip">
+                          <span className="ls-rpc-scorechip-label">Score</span>
+                          <span className="ls-rpc-scorechip-value">
+                            {stage === "awaiting_reveal" ? `${currentScore} pts` : `${finalScore} pts`}
+                          </span>
+                        </div>
+                        <div className={`ls-rpc-scorechip emphasis ${stage === "awaiting_reveal" ? "live" : hit ? "hit" : "miss"}`}>
+                          <span className="ls-rpc-scorechip-label">
+                            {stage === "awaiting_reveal" ? "At stake" : "Result"}
+                          </span>
+                          <span className="ls-rpc-scorechip-value">
+                            {stage === "awaiting_reveal" ? `+${gain} live` : hit ? `+${gain}` : "miss"}
+                          </span>
+                        </div>
+                        {streakLive ? (
+                          <div className="ls-rpc-streaknote">streak x{streakMult}</div>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}

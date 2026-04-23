@@ -620,6 +620,7 @@ export default function LiveDraftView() {
                   countdownLabel={countdown.label}
                   actualPick={null}
                   poolState={[]}
+                  liveStandings={[]}
                   boardIds={bigBoardIds}
                   prospects={prospects}
                   draftedIds={draftedIds}
@@ -670,6 +671,7 @@ export default function LiveDraftView() {
                       countdownLabel={countdown.label}
                       actualPick={null}
                       poolState={[]}
+                      liveStandings={[]}
                       boardIds={bigBoardIds}
                       prospects={prospects}
                       draftedIds={draftedIds}
@@ -793,6 +795,7 @@ export default function LiveDraftView() {
                   countdownPrefix={stageCountdownPrefix}
                   actualPick={actualCurrentPick}
                   poolState={livePoolState}
+                  liveStandings={liveStandings}
                   boardIds={bigBoardIds}
                   prospects={prospects}
                   draftedIds={draftedIds}
@@ -972,6 +975,7 @@ export default function LiveDraftView() {
                 countdownPrefix={stageCountdownPrefix}
                 actualPick={actualCurrentPick}
                 poolState={livePoolState}
+                liveStandings={liveStandings}
                 boardIds={bigBoardIds}
                 prospects={prospects}
                 draftedIds={draftedIds}
