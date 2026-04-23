@@ -347,6 +347,16 @@ function punctuateSentence(value) {
   return /[.!?]$/.test(value.trim()) ? value.trim() : `${value.trim()}.`;
 }
 
+function stripRepeatedLead(headline, body) {
+  const cleanHeadline = punctuateSentence(headline).trim();
+  const cleanBody = (body ?? "").trim();
+  if (!cleanHeadline || !cleanBody) return cleanBody;
+
+  const normalizedHeadline = cleanHeadline.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const repeatedLead = new RegExp(`^${normalizedHeadline}\\s*`, "i");
+  return cleanBody.replace(repeatedLead, "").trim();
+}
+
 function ScoringPathMatrix({ row, seriesItem }) {
   const rank = getDisplayRankFromValue(row?.yourValue);
   const matrixRows = useMemo(
@@ -880,11 +890,23 @@ function TodayBoardImplicationsReport({
               </summary>
               <div className="nba-report-game-details-body">
                 <p className="nba-briefing-analysis-copy">
+                  {(() => {
+                    const headlineText = implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`;
+                    const bodyText = stripRepeatedLead(headlineText, implication?.body ?? "This game has direct point and leverage consequences across the room.");
+                    return (
+                      <>
                   <span className="nba-briefing-analysis-lead">
-                    {punctuateSentence(implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`)}
+                    {punctuateSentence(headlineText)}
                   </span>
-                  {" "}
-                  <span>{implication?.body ?? "This game has direct point and leverage consequences across the room."}</span>
+                        {bodyText ? (
+                          <>
+                            {" "}
+                            <span>{bodyText}</span>
+                          </>
+                        ) : null}
+                      </>
+                    );
+                  })()}
                 </p>
                 <article className="detail-card inset-card">
                   <span className="micro-label">Who needs what today</span>
