@@ -249,12 +249,12 @@ export default function LiveStage({
               <div className="ls-table-body">
                 {tableRows.map(({ prospect, rank, badges, mappedCopy }) => {
                   const isCurrentPick = highlightedProspectId === prospect.id;
-                  const hasCurrentPickPill = explicitSelectionId === prospect.id;
                   return (
                     <button
                       key={prospect.id}
                       type="button"
                       className={`ls-player-row ${isPredraft ? "predraft" : "live"} ${isCurrentPick ? "current" : ""}`}
+                      style={mappedCopy ? { opacity: 0.55 } : undefined}
                       onClick={() => onLockIn(prospect.id)}
                     >
                       <div className="ls-player-main">
@@ -262,14 +262,11 @@ export default function LiveStage({
                         <div className="ls-player-copy">
                           <div className="ls-player-name-row">
                             <span className="ls-player-name">{prospect.name}</span>
-                            {hasCurrentPickPill ? (
-                              <span className={`ls-current-pill ${isPredraft ? "predraft" : "live"}`}>
-                                Current pick
-                              </span>
-                            ) : null}
                           </div>
                           <div className="ls-player-meta-row">
-                            <span className="ls-player-school">{prospect.school}</span>
+                            <span className="ls-player-school">
+                              {prospect.school}{mappedCopy ? ` · ${mappedCopy}` : ""}
+                            </span>
                             {badges.length > 0 ? (
                               <span className="ls-badge-row">
                                 {badges.map((badge) => (
@@ -281,14 +278,6 @@ export default function LiveStage({
                                     {badge}
                                   </span>
                                 ))}
-                              </span>
-                            ) : null}
-                            {mappedCopy ? (
-                              <span
-                                className={`ls-player-note ${isPredraft ? "predraft" : "live"}`}
-                                title={`Predicted to ${mappedPickByProspectId?.[prospect.id]}`}
-                              >
-                                Predicted: {mappedCopy}
                               </span>
                             ) : null}
                           </div>
