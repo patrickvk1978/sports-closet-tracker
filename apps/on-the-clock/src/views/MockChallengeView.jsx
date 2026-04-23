@@ -24,8 +24,8 @@ export default function MockChallengeView() {
   const isAdmin = Boolean(profile?.is_admin);
   const { pool, members, memberList } = usePool();
   const { draftFeed } = useDraftFeed();
-  const { bigBoardIds, moveBigBoardItem } = useBigBoard();
-  const { picks, teams, getPickLabel, getProspectById, loading: refLoading } = useReferenceData();
+  const { bigBoardIds, moveBigBoardItem, saveBigBoard } = useBigBoard();
+  const { picks, teams, getPickLabel, getProspectById, defaultBigBoardIds, loading: refLoading } = useReferenceData();
   const {
     mockPredictions,
     hasSubmittedMock,
@@ -219,6 +219,7 @@ export default function MockChallengeView() {
             subtitle="Your ranking engine — assign players to each team slot"
             boardIds={bigBoardIds}
             onMove={moveBigBoardItem}
+            onResetBoard={() => saveBigBoard(defaultBigBoardIds)}
             draftedIds={draftedIds}
             mappedPickByProspectId={mappedPickByProspectId}
             selectedPickLabel={getPickLabel(selectedPick)}

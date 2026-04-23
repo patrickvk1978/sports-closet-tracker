@@ -4,6 +4,26 @@ import { usePool } from './usePool'
 import { draftDb } from '../lib/supabase'
 import { useReferenceData } from './useReferenceData'
 
+function normalizeBoardOrder(savedBoardIds, defaultBigBoardIds) {
+  const validIds = new Set(defaultBigBoardIds)
+  const next = []
+  const seen = new Set()
+
+  for (const id of savedBoardIds ?? []) {
+    if (!validIds.has(id) || seen.has(id)) continue
+    next.push(id)
+    seen.add(id)
+  }
+
+  for (const id of defaultBigBoardIds) {
+    if (seen.has(id)) continue
+    next.push(id)
+    seen.add(id)
+  }
+
+  return next
+}
+
 export function useBigBoard() {
   const { session } = useAuth()
   const { pool } = usePool()
@@ -30,7 +50,16 @@ export function useBigBoard() {
       .maybeSingle()
 
     if (data?.board_order?.length > 0) {
-      setBigBoardIds(data.board_order)
+      const normalizedOrder = normalizeBoardOrder(data.board_order, defaultBigBoardIds)
+      setBigBoardIds(normalizedOrder)
+      if (normalizedOrder.length !== data.board_order.length || normalizedOrder.some((id, index) => id !== data.board_order[index])) {
+        await draftDb.from('big_boards').upsert({
+          pool_id: poolId,
+          user_id: userId,
+          board_order: normalizedOrder,
+          updated_at: new Date().toISOString(),
+        })
+      }
     } else {
       // Seed default board on first load
       const defaultOrder = [...defaultBigBoardIds]
@@ -47,12 +76,13 @@ export function useBigBoard() {
   useEffect(() => { load() }, [load])
 
   async function saveBigBoard(nextBoardIds) {
-    setBigBoardIds(nextBoardIds) // optimistic
+    const normalizedBoardIds = normalizeBoardOrder(nextBoardIds, defaultBigBoardIds)
+    setBigBoardIds(normalizedBoardIds) // optimistic
     if (!poolId || !userId) return
     await draftDb.from('big_boards').upsert({
       pool_id: poolId,
       user_id: userId,
-      board_order: nextBoardIds,
+      board_order: normalizedBoardIds,
       updated_at: new Date().toISOString(),
     })
   }
@@ -74,7 +104,7 @@ export function useBigBoard() {
       .eq('pool_id', targetPoolId)
       .eq('user_id', targetUserId)
       .maybeSingle()
-    return data?.board_order ?? defaultBigBoardIds
+    return normalizeBoardOrder(data?.board_order ?? [], defaultBigBoardIds)
   }
 
   return {

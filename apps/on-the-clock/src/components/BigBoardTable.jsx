@@ -33,6 +33,7 @@ export default function BigBoardTable({
   subtitle = "Sortable strategy workspace",
   boardIds,
   onMove,
+  onResetBoard,
   draftedIds = new Set(),
   mappedPickByProspectId = {},
   selectedPickLabel,
@@ -96,15 +97,26 @@ export default function BigBoardTable({
           <span className="label">{title}</span>
           <h2>{subtitle}</h2>
         </div>
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="board-back-link"
-          >
-            ← Back to draft list
-          </button>
-        ) : null}
+        <div className="board-header-actions">
+          {onResetBoard ? (
+            <button
+              type="button"
+              onClick={onResetBoard}
+              className="small-button board-reset-button"
+            >
+              Reset to consensus
+            </button>
+          ) : null}
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="board-back-link"
+            >
+              ← Back to draft list
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {/* Mode toggle */}

@@ -129,19 +129,19 @@
       "notes": ""
     },
     {
-      "id": "rueben-bain",
-      "name": "Rueben Bain",
+      "id": "rueben-bain-jr",
+      "name": "Rueben Bain Jr",
       "position": "EDGE",
       "school": "Miami (FL)",
       "consensus_rank": 9,
-      "espn_rank": null,
+      "espn_rank": 16,
       "ringer_rank": null,
       "athletic_rank": null,
-      "espn_mock_pick": null,
-      "ringer_mock_pick": null,
-      "athletic_mock_pick": null,
+      "espn_mock_pick": 9,
+      "ringer_mock_pick": 8,
+      "athletic_mock_pick": 9,
       "consensus_mock_pick": 8,
-      "predicted_range": "7-9",
+      "predicted_range": "8-9",
       "notes": ""
     },
     {
@@ -241,17 +241,17 @@
       "notes": ""
     },
     {
-      "id": "olaivavega-ioane",
+      "id": "vega-ioane",
       "name": "Olaivavega Ioane",
       "position": "G",
       "school": "Penn State",
       "consensus_rank": 16,
       "espn_rank": 12,
       "ringer_rank": null,
-      "athletic_rank": null,
+      "athletic_rank": 12,
       "espn_mock_pick": 14,
       "ringer_mock_pick": 14,
-      "athletic_mock_pick": null,
+      "athletic_mock_pick": 14,
       "consensus_mock_pick": 14,
       "predicted_range": "14-14",
       "notes": ""
@@ -3281,22 +3281,6 @@
       "notes": ""
     },
     {
-      "id": "rueben-bain-jr",
-      "name": "Rueben Bain Jr",
-      "position": "",
-      "school": "",
-      "consensus_rank": null,
-      "espn_rank": 16,
-      "ringer_rank": null,
-      "athletic_rank": null,
-      "espn_mock_pick": 9,
-      "ringer_mock_pick": 8,
-      "athletic_mock_pick": 9,
-      "consensus_mock_pick": null,
-      "predicted_range": "8-9",
-      "notes": ""
-    },
-    {
       "id": "chris-brazzell-ii",
       "name": "Chris Brazzell II",
       "position": "WR",
@@ -3457,22 +3441,6 @@
       "notes": ""
     },
     {
-      "id": "olivavega-ioane",
-      "name": "Olivavega Ioane",
-      "position": "G",
-      "school": "Penn State",
-      "consensus_rank": null,
-      "espn_rank": null,
-      "ringer_rank": null,
-      "athletic_rank": 12,
-      "espn_mock_pick": null,
-      "ringer_mock_pick": null,
-      "athletic_mock_pick": null,
-      "consensus_mock_pick": null,
-      "predicted_range": null,
-      "notes": ""
-    },
-    {
       "id": "tyler-onyediem",
       "name": "Tyler Onyediem",
       "position": "DT",
@@ -3502,22 +3470,6 @@
       "athletic_mock_pick": null,
       "consensus_mock_pick": null,
       "predicted_range": null,
-      "notes": ""
-    },
-    {
-      "id": "vega-ioane",
-      "name": "Vega Ioane",
-      "position": "",
-      "school": "",
-      "consensus_rank": null,
-      "espn_rank": null,
-      "ringer_rank": null,
-      "athletic_rank": null,
-      "espn_mock_pick": null,
-      "ringer_mock_pick": null,
-      "athletic_mock_pick": 14,
-      "consensus_mock_pick": null,
-      "predicted_range": "13-15",
       "notes": ""
     }
   ]

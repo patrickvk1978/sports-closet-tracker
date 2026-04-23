@@ -28,8 +28,8 @@ export default function LiveDraftView() {
   const isAdmin = Boolean(profile?.is_admin);
   const { pool, members } = usePool();
   const { draftFeed, teamCodeForPick } = useDraftFeed();
-  const { bigBoardIds, moveBigBoardItem } = useBigBoard();
-  const { picks, teams, prospects, getPickLabel, getProspectById, loading: refLoading } = useReferenceData();
+  const { bigBoardIds, moveBigBoardItem, saveBigBoard } = useBigBoard();
+  const { picks, teams, prospects, getPickLabel, getProspectById, defaultBigBoardIds, loading: refLoading } = useReferenceData();
   const {
     livePredictions,
     liveCards,
@@ -254,6 +254,7 @@ export default function LiveDraftView() {
               onBack={() => setPdTab("command")}
               boardIds={bigBoardIds}
               onMove={moveBigBoardItem}
+              onResetBoard={() => saveBigBoard(defaultBigBoardIds)}
               draftedIds={draftedIds}
               mappedPickByProspectId={mappedPickByProspectId}
               livePredictions={livePredictions}
@@ -361,6 +362,7 @@ export default function LiveDraftView() {
           subtitle="Your ranking engine — search and assign on the fly"
           boardIds={bigBoardIds}
           onMove={moveBigBoardItem}
+          onResetBoard={() => saveBigBoard(defaultBigBoardIds)}
           draftedIds={draftedIds}
           mappedPickByProspectId={mappedPickByProspectId}
           livePredictions={livePredictions}

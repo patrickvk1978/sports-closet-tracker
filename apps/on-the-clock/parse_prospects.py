@@ -41,6 +41,12 @@ POS_MAP = {
     "WR1": "WR",
 }
 
+NAME_ALIASES = {
+    "rueben bain jr": "rueben bain",
+    "vega ioane": "olaivavega ioane",
+    "olivavega ioane": "olaivavega ioane",
+}
+
 
 def make_id(name: str) -> str:
     s = unicodedata.normalize("NFD", name.lower())
@@ -55,7 +61,8 @@ def norm_name(name: str) -> str:
     s = unicodedata.normalize("NFD", str(name).strip().lower())
     s = s.encode("ascii", "ignore").decode("ascii")
     s = re.sub(r"[^a-z0-9\s]", "", s)
-    return re.sub(r"\s+", " ", s).strip()
+    normalized = re.sub(r"\s+", " ", s).strip()
+    return NAME_ALIASES.get(normalized, normalized)
 
 
 def std_pos(raw: str | None) -> str:

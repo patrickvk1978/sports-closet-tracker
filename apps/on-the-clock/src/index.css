@@ -881,6 +881,20 @@ select:focus {
   background: none;
 }
 
+.board-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.board-reset-button {
+  width: auto;
+  padding: 0 12px;
+  font-weight: 700;
+}
+
 /* ─── Chips, Badges, Pills ───────────────────────────────────────────────── */
 .chip,
 .assign-pill {
