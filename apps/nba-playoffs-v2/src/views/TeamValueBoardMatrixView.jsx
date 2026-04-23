@@ -12,8 +12,8 @@ import { getTeamPalette } from "../../../../packages/shared/src/themes/teamColor
 function TeamBadge({ team }) {
   const palette = getTeamPalette("nba", team);
   return (
-    <div
-      className="nba-board-matrix-team-badge"
+    <span
+      className="assign-tag nba-board-matrix-team-pill"
       style={{
         "--matrix-primary": palette.primary,
         "--matrix-secondary": palette.secondary,
@@ -21,8 +21,8 @@ function TeamBadge({ team }) {
         "--matrix-text": palette.text,
       }}
     >
-      <strong>{team.abbreviation}</strong>
-    </div>
+      {team.abbreviation}
+    </span>
   );
 }
 
@@ -113,7 +113,7 @@ export default function TeamValueBoardMatrixView() {
                     const team = row.teamsByUser?.[member.id];
                     return (
                       <td key={member.id} className={member.id === currentUserId ? "is-current-user" : ""}>
-                        {team ? <TeamBadge team={team} /> : <div className="nba-board-matrix-rank-cell is-empty">—</div>}
+                        {team ? <TeamBadge team={team} /> : <span className="assign-tag nba-board-matrix-team-pill is-empty">—</span>}
                       </td>
                     );
                   })}

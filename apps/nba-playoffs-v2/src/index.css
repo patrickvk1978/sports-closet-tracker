@@ -5412,7 +5412,14 @@ select:focus {
   background: rgba(244, 248, 252, 0.9);
 }
 
-.nba-board-matrix-table,
+.nba-board-matrix-table {
+  width: max-content;
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
 .nba-board-compare-table {
   width: 100%;
   border-collapse: separate;
@@ -5428,6 +5435,12 @@ select:focus {
   padding: 10px 12px;
   border-bottom: 1px solid rgba(88, 110, 148, 0.12);
   text-align: center;
+}
+
+.nba-board-matrix-table th,
+.nba-board-matrix-table td {
+  width: 74px;
+  padding: 6px 6px;
 }
 
 .nba-board-matrix-table thead th,
@@ -5451,6 +5464,10 @@ select:focus {
 .nba-board-compare-table thead th:first-child {
   text-align: center;
   width: 72px;
+}
+
+.nba-board-matrix-rank-head {
+  width: 56px;
 }
 
 .nba-board-compare-table thead th:first-child {
@@ -5482,6 +5499,11 @@ select:focus {
 .nba-board-matrix-member-link {
   color: inherit;
   text-decoration: none;
+  display: block;
+  max-width: 62px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nba-board-matrix-member-link:hover {
@@ -5491,6 +5513,8 @@ select:focus {
 .nba-board-matrix-rank-index-cell {
   background: rgba(241, 245, 249, 0.9);
   vertical-align: middle;
+  width: 56px;
+  padding: 6px 4px;
 }
 
 .nba-board-matrix-rank-index {
@@ -5519,6 +5543,30 @@ select:focus {
   color: var(--matrix-text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
   align-content: center;
+}
+
+.nba-board-matrix-team-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  min-height: 30px;
+  padding: 3px 10px;
+  margin: 0;
+  border-radius: 999px;
+  border: 1px solid var(--matrix-border, rgba(88, 110, 148, 0.16));
+  background: linear-gradient(180deg, var(--matrix-secondary, #dbe5f0), var(--matrix-primary, #f8fafc));
+  color: var(--matrix-text, #1f2937);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.nba-board-matrix-team-pill.is-empty {
+  border-color: rgba(88, 110, 148, 0.16);
+  background: rgba(232, 238, 245, 0.72);
+  color: #60748f;
 }
 
 .nba-board-matrix-team-badge strong,
