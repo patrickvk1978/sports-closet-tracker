@@ -4635,6 +4635,7 @@ select:focus {
 .ls-source-badge.athletic {
   background: #111827;
   color: #fff;
+  border-color: rgba(255, 255, 255, 0.9);
 }
 
 .ls-source-badge.espn {
@@ -5364,8 +5365,8 @@ select:focus {
   color: var(--pd-brand);
 }
 
-.pd-center .ls-team-name {
-  color: #fff;
+.pd-center .ls-header.predraft .ls-team-name {
+  color: #fff !important;
   font-size: 30px;
 }
 
