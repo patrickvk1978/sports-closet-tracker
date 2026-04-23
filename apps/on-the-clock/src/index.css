@@ -4018,8 +4018,23 @@ select:focus {
 
 .pd-center {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
+  overflow: hidden;
   padding: 22px 24px 28px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ls-root {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  height: 100%;
+}
+
+.ls-root.predraft {
+  flex: 1;
 }
 
 /* Standings rows (dark) */
@@ -4338,6 +4353,10 @@ select:focus {
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .ls-table-shell.live {
@@ -4376,8 +4395,9 @@ select:focus {
 }
 
 .ls-table-body {
-  max-height: min(62vh, 760px);
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .ls-table-body::-webkit-scrollbar {
@@ -5423,6 +5443,18 @@ select:focus {
     border-right: none;
     border-bottom: 1px solid var(--pd-border);
     max-height: 320px;
+  }
+
+  .pd-center {
+    overflow: visible;
+  }
+
+  .ls-root,
+  .ls-root.predraft,
+  .ls-table-shell,
+  .ls-table-body {
+    height: auto;
+    max-height: none;
   }
 }
 

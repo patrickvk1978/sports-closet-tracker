@@ -190,7 +190,7 @@ export default function LiveStage({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div className={`ls-root ${isPredraft ? "predraft" : "live"}`}>
       <div className={`ls-header ${isPredraft ? "predraft" : ""} ${stage === "on_clock" && !isPredraft && timerUrgency === "critical" ? "critical" : ""}`}>
         <div className="ls-team-block">
           <div className="ls-pick-label">
