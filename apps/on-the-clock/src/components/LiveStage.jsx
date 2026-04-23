@@ -106,7 +106,7 @@ export default function LiveStage({
       .map((prospect) => {
         const rankIndex = boardIndex(boardIds, prospect.id);
         const badges = [];
-        if (watchlistIdSet.has(prospect.id)) badges.push("W");
+        if (!isPredraft && watchlistIdSet.has(prospect.id)) badges.push("W");
         if (prospect.ringer_mock_pick === activePickNumber) badges.push("R");
         if (prospect.athletic_mock_pick === activePickNumber) badges.push("A");
         if (prospect.espn_mock_pick === activePickNumber) badges.push("E");
@@ -121,7 +121,7 @@ export default function LiveStage({
       });
 
     return rows;
-  }, [prospects, draftedIds, filterValue, watchlistIdSet, boardIds, activePickNumber, mappedPickByProspectId]);
+  }, [prospects, draftedIds, filterValue, watchlistIdSet, boardIds, activePickNumber, mappedPickByProspectId, isPredraft]);
 
   const explicitSelectionId = currentSelection?.id ?? suggestedProspect?.id ?? null;
   const highlightedProspectId = explicitSelectionId ?? tableRows[0]?.prospect?.id ?? null;

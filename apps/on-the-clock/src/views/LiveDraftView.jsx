@@ -50,6 +50,8 @@ export default function LiveDraftView() {
   const [pdTab, setPdTab] = useState("command");
   const [leftTab, setLeftTab] = useState("picks"); // "picks" | "feed"
   const [devPhase, setDevPhase] = useState(null); // admin override
+  const [isMobilePredraft, setIsMobilePredraft] = useState(false);
+  const [mobilePredraftSheetOpen, setMobilePredraftSheetOpen] = useState(false);
 
   const effectivePhase = isAdmin && devPhase ? devPhase : draftFeed.phase;
   const isPreDraft = effectivePhase === "pre_draft" || !isAdmin;
@@ -63,6 +65,21 @@ export default function LiveDraftView() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftFeed.current_pick_number, draftFeed.phase]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const media = window.matchMedia("(max-width: 980px)");
+    const sync = () => setIsMobilePredraft(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobilePredraft) {
+      setMobilePredraftSheetOpen(false);
+    }
+  }, [isMobilePredraft]);
 
   function teamForPick(pick) {
     return draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
@@ -195,6 +212,16 @@ export default function LiveDraftView() {
   function handlePreDraftAssign(pickNumber, prospectId) {
     saveLivePrediction(pickNumber, prospectId);
     advanceToNextPick(pickNumber);
+    if (isMobilePredraft) {
+      setMobilePredraftSheetOpen(true);
+    }
+  }
+
+  function handlePreDraftPickSelect(pickNumber) {
+    setSelectedPick(pickNumber);
+    if (isMobilePredraft) {
+      setMobilePredraftSheetOpen(true);
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -300,7 +327,7 @@ export default function LiveDraftView() {
                         key={pick.number}
                         className={`pd-pick-row ${isActive ? "active" : ""} ${prediction ? "filled" : "empty"}`}
                         type="button"
-                        onClick={() => setSelectedPick(pick.number)}
+                        onClick={() => handlePreDraftPickSelect(pick.number)}
                       >
                         <span className="pd-pr-num">{pick.number}</span>
                         <span className="pd-pr-body">
@@ -322,7 +349,7 @@ export default function LiveDraftView() {
                 </div>
               </div>
 
-              <div className="pd-center">
+              <div className={`pd-center ${isMobilePredraft ? "mobile-hidden" : ""}`}>
                 <LiveStage
                   variant="predraft"
                   currentPick={focusedPreDraftPick}
@@ -344,12 +371,63 @@ export default function LiveDraftView() {
                   nextPickLabel={null}
                   onNextPick={() => {}}
                   scoringConfig={scoringConfig}
-                  onViewBigBoard={() => setPdTab("board")}
+                  onViewBigBoard={isMobilePredraft ? undefined : () => setPdTab("board")}
                   activeWatchlistIds={focusedWatchlistIds}
                   onAddToWatchlist={(teamCode, prospectId) => addToWatchlist(teamCode, prospectId)}
                   onRemoveFromWatchlist={(teamCode, prospectId) => removeFromWatchlist(teamCode, prospectId)}
                 />
               </div>
+
+              {isMobilePredraft && mobilePredraftSheetOpen ? (
+                <div
+                  className="pd-mobile-sheet-backdrop"
+                  role="presentation"
+                  onClick={() => setMobilePredraftSheetOpen(false)}
+                >
+                  <div
+                    className="pd-mobile-sheet"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={focusedPreDraftTeam ? `${focusedPreDraftTeam.name} player picker` : "Player picker"}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      className="pd-mobile-sheet-close"
+                      onClick={() => setMobilePredraftSheetOpen(false)}
+                      aria-label="Close player picker"
+                    >
+                      ×
+                    </button>
+                    <LiveStage
+                      variant="predraft"
+                      currentPick={focusedPreDraftPick}
+                      currentTeam={focusedPreDraftTeam}
+                      activeTeamCode={focusedTeamCode}
+                      currentStatus="on_clock"
+                      currentLocked={false}
+                      currentSelection={focusedPreDraftPrediction}
+                      suggestedProspect={null}
+                      countdownLabel={countdown.label}
+                      actualPick={null}
+                      poolState={[]}
+                      boardIds={bigBoardIds}
+                      prospects={prospects}
+                      draftedIds={draftedIds}
+                      mappedPickByProspectId={mappedPredictionContextByProspectId}
+                      onLockIn={(prospectId) => handlePreDraftAssign(selectedPick, prospectId)}
+                      onChangePick={() => saveLivePrediction(selectedPick, null)}
+                      nextPickLabel={null}
+                      onNextPick={() => {}}
+                      scoringConfig={scoringConfig}
+                      onViewBigBoard={undefined}
+                      activeWatchlistIds={focusedWatchlistIds}
+                      onAddToWatchlist={(teamCode, prospectId) => addToWatchlist(teamCode, prospectId)}
+                      onRemoveFromWatchlist={(teamCode, prospectId) => removeFromWatchlist(teamCode, prospectId)}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         )
