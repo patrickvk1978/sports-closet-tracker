@@ -2974,8 +2974,8 @@ select:focus {
 }
 
 .nba-briefing-analysis-lead {
-  color: #eef3fb;
-  font-weight: 600;
+  color: inherit;
+  font-weight: inherit;
 }
 
 .nba-briefing-deep-card .leaderboard-head {
