@@ -376,44 +376,27 @@ export default function LiveStage({
         </>
       )}
 
-      {stage === "awaiting_reveal" && (
+      {(stage === "awaiting_reveal" || stage === "reveal") && (
         <>
-          <div className="ls-locked-card">
-            <ProspectAvatar
-              prospect={currentSelection ?? suggestedProspect}
-              size="lg"
-              className="ls-locked-avatar"
-            />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="ls-locked-badge">AWAITING REVEAL</div>
-              <div className="ls-locked-name">{currentSelection?.name ?? suggestedProspect?.name ?? "Waiting for locked pick"}</div>
-              <div className="ls-locked-meta">
-                {(currentSelection ?? suggestedProspect)
-                  ? `${(currentSelection ?? suggestedProspect)?.position} · ${(currentSelection ?? suggestedProspect)?.school}`
-                  : "This pick is finalized. Waiting for the official reveal."}
-              </div>
-            </div>
-          </div>
-
-          <div className="ls-change-hint">This pick is locked for scoring. Official selection pending.</div>
-        </>
-      )}
-
-      {stage === "reveal" && (
-        <>
-          <div className="ls-reveal-announce">
-            <ProspectAvatar prospect={actualPick} size="xl" className="ls-reveal-avatar" />
+          <div className={`ls-reveal-announce ${stage === "awaiting_reveal" ? "awaiting" : ""}`}>
+            <ProspectAvatar prospect={stage === "awaiting_reveal" ? null : actualPick} size="xl" className="ls-reveal-avatar" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="ls-reveal-team-label">{currentTeam?.name} select · Pick {currentPick?.number}</div>
-              <div className="ls-reveal-player-name">{actualPick?.name ?? "—"}</div>
+              <div className={`ls-reveal-player-name ${stage === "awaiting_reveal" ? "awaiting" : ""}`}>
+                {stage === "awaiting_reveal" ? "Awaiting official pick" : actualPick?.name ?? "—"}
+              </div>
               <div className="ls-reveal-player-meta">
-                {actualPick ? `${actualPick.position} · ${actualPick.school}` : ""}
+                {stage === "awaiting_reveal"
+                  ? "Selections are locked. Waiting for the commissioner card."
+                  : actualPick
+                    ? `${actualPick.position} · ${actualPick.school}`
+                    : ""}
               </div>
             </div>
-            <div className={`ls-result-badge ${isHit ? "hit" : "miss"}`}>
+            <div className={`ls-result-badge ${stage === "awaiting_reveal" ? "awaiting" : isHit ? "hit" : "miss"}`}>
               <div className="ls-result-badge-who">YOU</div>
-              <span className="ls-result-badge-pts">{resultPoints}</span>
-              <span className="ls-result-badge-label">{resultLabel}</span>
+              <span className="ls-result-badge-pts">{stage === "awaiting_reveal" ? "…" : resultPoints}</span>
+              <span className="ls-result-badge-label">{stage === "awaiting_reveal" ? "pending" : resultLabel}</span>
             </div>
           </div>
 
@@ -428,19 +411,29 @@ export default function LiveStage({
               const mPts = hit ? `+${Math.round(tierBase(pickNum) * mMultiplier)}` : null;
               const nameLabel = m.isCurrentUser ? `${m.name} · you` : m.name;
               return (
-                <div key={m.id ?? m.name} className={`ls-reveal-pool-card ${hit ? "hit" : "miss"}`}>
+                <div key={m.id ?? m.name} className={`ls-reveal-pool-card ${stage === "awaiting_reveal" ? "awaiting" : hit ? "hit" : "miss"}`}>
                   <div className="ls-rpc-header">
                     <div className="ls-rpc-name">{nameLabel}</div>
                     <div className="ls-rpc-result">
-                      {hit ? `✓ ${mPts}${mStreak >= 5 ? " 🔥" : ""}` : "miss"}
+                      {stage === "awaiting_reveal"
+                        ? "locked"
+                        : hit
+                          ? `✓ ${mPts}${mStreak >= 5 ? " 🔥" : ""}`
+                          : "miss"}
                     </div>
                   </div>
                   <div className="ls-rpc-player-row">
-                    <ProspectAvatar prospect={m.prospect} size="sm" />
+                    <ProspectAvatar prospect={stage === "awaiting_reveal" ? null : m.prospect} size="sm" />
                     <div className="ls-rpc-player-body">
-                      <div className="ls-rpc-player">{m.prospect?.name ?? "—"}</div>
+                      <div className={`ls-rpc-player ${stage === "awaiting_reveal" ? "awaiting" : ""}`}>
+                        {stage === "awaiting_reveal" ? "Locked selection hidden" : m.prospect?.name ?? "—"}
+                      </div>
                       <div className="ls-rpc-meta">
-                        {m.prospect ? `${m.prospect.position} · ${m.prospect.school}` : ""}
+                        {stage === "awaiting_reveal"
+                          ? "Will flip when the pick is official"
+                          : m.prospect
+                            ? `${m.prospect.position} · ${m.prospect.school}`
+                            : ""}
                       </div>
                     </div>
                   </div>
@@ -449,7 +442,7 @@ export default function LiveStage({
             })}
           </div>
 
-          {nextPickLabel ? (
+          {stage === "reveal" && nextPickLabel ? (
             <button className="ls-next-btn" type="button" onClick={onNextPick}>
               {nextPickLabel} →
             </button>

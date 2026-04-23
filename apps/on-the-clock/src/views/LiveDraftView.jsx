@@ -22,7 +22,7 @@ export default function LiveDraftView() {
   const { profile, session } = useAuth();
   const isAdmin = Boolean(profile?.is_admin);
   const { pool, members } = usePool();
-  const { draftFeed, teamCodeForPick } = useDraftFeed();
+  const { draftFeed, teamCodeForPick, advanceDraft } = useDraftFeed();
   const { bigBoardIds, moveBigBoardItem, saveBigBoard } = useBigBoard();
   const { picks, teams, prospects, getPickLabel, getProspectById, defaultBigBoardIds, loading: refLoading } = useReferenceData();
   const {
@@ -174,8 +174,7 @@ export default function LiveDraftView() {
         const aRank = bigBoardIds.indexOf(a.id);
         const bRank = bigBoardIds.indexOf(b.id);
         return (aRank === -1 ? 9999 : aRank) - (bRank === -1 ? 9999 : bRank);
-      })
-      .slice(0, 6);
+      });
   }, [shouldShowNextUp, nextPick, nextWatchlistIds, nextPickAllowsSlotContext, livePredictions, nextSelectionId, prospects, draftedIds, bigBoardIds]);
 
   // ── Pre-draft: progress + suggestions ─────────────────────────────────────
@@ -223,6 +222,23 @@ export default function LiveDraftView() {
 
   const previewWindowTier = isPreviewMode && previewStatus === "pick_is_in" ? "active" : windowTier;
 
+  useEffect(() => {
+    if (effectiveCurrentStatus !== "revealed") return undefined;
+
+    const timer = window.setTimeout(() => {
+      if (isPreviewMode) {
+        if (nextPick) {
+          setPreviewPickNumberValue(nextPick.number);
+          setPreviewStatusValue("on_clock");
+        }
+        return;
+      }
+      void advanceDraft();
+    }, 10000);
+
+    return () => window.clearTimeout(timer);
+  }, [effectiveCurrentStatus, isPreviewMode, nextPick, advanceDraft]);
+
   function formatClockLabel(expiresAt) {
     if (!expiresAt) return null;
     const target = new Date(expiresAt).getTime();
@@ -237,6 +253,11 @@ export default function LiveDraftView() {
 
   const providerClockLabel =
     effectiveCurrentStatus === "on_clock"
+      ? formatClockLabel(draftFeed.provider_expires_at)
+      : null;
+
+  const nextContextClockLabel =
+    effectiveCurrentStatus !== "on_clock"
       ? formatClockLabel(draftFeed.provider_expires_at)
       : null;
 
@@ -662,11 +683,12 @@ export default function LiveDraftView() {
                 <div className="dn-left-picks">
                   {picks.map((pick) => {
                     const rowClass = pickRowClass(pick);
-                    const actualId = draftFeed.actual_picks?.[pick.number];
+                    const actualId = (isPreviewMode ? previewReveals[pick.number] : null) ?? draftFeed.actual_picks?.[pick.number];
                     const actualProspect = getProspectById(actualId);
                     const predictedProspect = getProspectById(livePredictions[pick.number]);
                     const teamName = teams[teamForPick(pick)]?.name ?? "";
                     const isCurrent = pick.number === currentPickNumber;
+                    const showNextClock = effectiveCurrentStatus !== "on_clock" && nextPick && pick.number === nextPick.number && nextContextClockLabel;
                     return (
                       <div
                         key={pick.number}
@@ -678,9 +700,11 @@ export default function LiveDraftView() {
                         <div className="dn-pr-body">
                           <span className="dn-pr-team">{teamName}</span>
                           {actualProspect ? (
-                            <span className="dn-pr-pick">{actualProspect.name}</span>
+                            <span className="dn-pr-pick">{`${actualProspect.name} · ${actualProspect.position}`}</span>
                           ) : isCurrent ? (
                             <span className="dn-pr-pick" style={{ color: "var(--dn-red)", opacity: 0.7 }}>on the clock</span>
+                          ) : showNextClock ? (
+                            <span className="dn-pr-pick prediction">{`Clock: ${nextContextClockLabel}`}</span>
                           ) : predictedProspect ? (
                             <span className="dn-pr-pick prediction">Prediction: {predictedProspect.name}</span>
                           ) : null}
@@ -740,7 +764,10 @@ export default function LiveDraftView() {
                   <div className="dn-rs-label">Next Up</div>
                   <div className="dn-nextup-card">
                     <div className="dn-nextup-kicker">Pick {nextPick.number}</div>
-                    <div className="dn-nextup-team">{nextTeam?.name ?? "—"}</div>
+                    <div className="dn-nextup-team-row">
+                      <div className="dn-nextup-team">{nextTeam?.name ?? "—"}</div>
+                      {nextContextClockLabel ? <div className="dn-nextup-clock">{nextContextClockLabel}</div> : null}
+                    </div>
                     {nextTeam?.needs?.length ? (
                       <div className="dn-nextup-needs">
                         {nextTeam.needs.map((need) => (
