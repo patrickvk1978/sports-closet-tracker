@@ -61,22 +61,6 @@ export default function LoginPage() {
 
   return (
     <div className="login-split">
-      {/* ── Left: brand panel ── */}
-      <div className="login-brand">
-        <div className="login-brand-bg" />
-        <div className="login-brand-content">
-          <div>
-            <div className="login-eyebrow">NFL Draft Pool</div>
-            <h1 className="login-headline">On the<br />Clock.</h1>
-            <p className="login-sub">
-              Predict every pick. Compete with your crew.<br />
-              Stay in the game even when you step away.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Right: form panel ── */}
       <div className="login-form-panel">
         {tab === "signin" ? (
           <>
@@ -176,6 +160,20 @@ export default function LoginPage() {
               </button>
             </>
           )}
+        </div>
+      </div>
+
+      <div className="login-brand">
+        <div className="login-brand-bg" />
+        <div className="login-brand-content">
+          <div>
+            <div className="login-eyebrow">NFL Draft Pool</div>
+            <h1 className="login-headline">On the<br />Clock.</h1>
+            <p className="login-sub">
+              Predict every pick. Compete with your crew.<br />
+              Stay in the game even when you step away.
+            </p>
+          </div>
         </div>
       </div>
     </div>

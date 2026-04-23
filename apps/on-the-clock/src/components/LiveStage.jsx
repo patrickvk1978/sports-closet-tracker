@@ -197,7 +197,7 @@ export default function LiveStage({
             </button>
           ) : null}
         </div>
-        {renderBadgeLegend()}
+        {isLiveControls ? renderBadgeLegend() : null}
       </>
     );
   }
@@ -211,6 +211,7 @@ export default function LiveStage({
               Pick {currentPick?.number} · {isPredraft ? "Prediction editor" : stage === "locked" ? "Card submitted — waiting on announcement" : "Now Selecting"}
             </div>
             <div className="ls-team-name">{currentTeam?.name ?? "—"}</div>
+            {isPredraft && stage === "on_clock" ? renderBadgeLegend() : null}
             {stage !== "locked" && currentTeam?.needs?.length ? (
               <div className="ls-needs">
                 {currentTeam.needs.map((n) => <span key={n} className="ls-need-tag">{n}</span>)}

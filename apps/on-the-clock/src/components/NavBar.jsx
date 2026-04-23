@@ -156,12 +156,27 @@ export default function NavBar() {
 
   return (
     <nav className="nav-shell" aria-label="Primary navigation">
-      <button className="brand-link" onClick={goHome} aria-label="Go to draft view">
-        <span className="brand-mark">OTC</span>
-        <span>On the Clock</span>
-      </button>
+      {!isMobileNav ? (
+        <button className="brand-link" onClick={goHome} aria-label="Go to draft view">
+          <span className="brand-mark">OTC</span>
+          <span>On the Clock</span>
+        </button>
+      ) : (
+        <div className="nav-mobile-spacer" aria-hidden="true" />
+      )}
 
       <div className="nav-actions">
+        {isMobileNav ? (
+          <button
+            type="button"
+            className="nav-mobile-home"
+            onClick={goHome}
+            aria-label="Go to draft view"
+            title="On the Clock"
+          >
+            <span className="brand-mark">OTC</span>
+          </button>
+        ) : null}
         <PoolMenu
           pool={pool}
           allPools={allPools}

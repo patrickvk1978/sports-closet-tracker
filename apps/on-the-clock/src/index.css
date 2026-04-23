@@ -292,6 +292,20 @@ p { margin: 0; }
   justify-content: flex-end;
 }
 
+.nav-mobile-spacer {
+  flex: 1;
+}
+
+.nav-mobile-home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
 .nav-mobile-menu {
   position: relative;
 }
@@ -2602,12 +2616,24 @@ select:focus {
     gap: 10px;
   }
 
-  .brand-link span {
-    display: none; /* show only logo mark on small screens */
+  .brand-link > span:not(.brand-mark) {
+    display: none;
   }
 
   .nav-actions {
     gap: 6px;
+    width: 100%;
+  }
+
+  .nav-mobile-spacer,
+  .brand-link {
+    display: none;
+  }
+
+  .nav-mobile-home .brand-mark {
+    width: 30px;
+    height: 30px;
+    font-size: 0.66rem;
   }
 
   .pool-menu-trigger {
@@ -3081,6 +3107,7 @@ select:focus {
 
 .login-brand {
   flex: 1;
+  order: 0;
   background: #0a0a0a;
   padding: 48px 56px 72px; /* more breathing room at the bottom */
   display: flex;
@@ -3196,6 +3223,7 @@ select:focus {
 .login-form-panel {
   width: min(100%, 420px);
   flex-shrink: 0;
+  order: 1;
   background: #fff;
   display: flex;
   flex-direction: column;
@@ -3351,7 +3379,6 @@ select:focus {
   .login-brand {
     min-height: 180px;
     padding: 22px 20px 22px;
-    order: 1;
   }
 
   .login-brand-content {
@@ -3378,7 +3405,6 @@ select:focus {
   .login-form-panel {
     width: 100%;
     padding: 24px 20px 30px;
-    order: 0;
     justify-content: flex-start;
   }
 
@@ -4511,6 +4537,10 @@ select:focus {
 
 .ls-badge-legend.predraft {
   color: #cbd5e1;
+}
+
+.ls-team-block .ls-badge-legend.predraft {
+  margin-top: 10px;
 }
 
 .ls-badge-legend.live {
@@ -5700,10 +5730,11 @@ select:focus {
 
   .pd-left-tabs {
     position: sticky;
-    top: 0;
-    z-index: 2;
+    top: 54px;
+    z-index: 12;
     backdrop-filter: blur(10px);
     background: rgba(248, 250, 252, 0.92);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
   }
 
   .pd-left-picks {
@@ -5737,21 +5768,35 @@ select:focus {
   .pd-mobile-sheet .ls-header.predraft {
     border-radius: 0;
     padding: 14px 16px 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px 14px;
   }
 
   .pd-mobile-sheet .ls-pick-label {
-    font-size: 10px;
-    letter-spacing: 1.2px;
-    margin-bottom: 6px;
+    font-size: 9px;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    white-space: nowrap;
   }
 
   .pd-mobile-sheet .ls-team-name {
     font-size: 24px;
   }
 
+  .pd-mobile-sheet .ls-team-block {
+    min-width: 0;
+  }
+
+  .pd-mobile-sheet .ls-team-block .ls-badge-legend {
+    margin-top: 8px;
+    justify-content: flex-start;
+  }
+
   .pd-mobile-sheet .ls-needs {
     gap: 5px;
-    margin-top: 6px;
+    margin-top: 8px;
   }
 
   .pd-mobile-sheet .ls-need-tag {
@@ -5760,11 +5805,12 @@ select:focus {
   }
 
   .pd-mobile-sheet .ls-header-actions {
-    align-items: flex-start;
-    gap: 10px;
+    align-items: flex-end;
+    gap: 8px;
     max-width: none;
     padding-right: 34px;
-    margin-top: 10px;
+    margin-top: 0;
+    width: auto;
   }
 
   .pd-mobile-sheet .ls-timer.predraft {
@@ -5773,12 +5819,12 @@ select:focus {
   }
 
   .pd-mobile-sheet .ls-header-control-row.predraft {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    justify-content: flex-end;
   }
 
   .pd-mobile-sheet .ls-filter-wrap.in-header .ls-filter-select.predraft {
-    min-width: 104px;
+    min-width: 112px;
   }
 
   .pd-mobile-sheet .ls-badge-legend {
@@ -5788,6 +5834,10 @@ select:focus {
   .pd-mobile-sheet .ls-badge-legend-copy,
   .pd-mobile-sheet .ls-badge-legend-item span:last-child,
   .pd-mobile-sheet .ls-badge-legend-separator {
+    display: none;
+  }
+
+  .pd-mobile-sheet .ls-header-link {
     display: none;
   }
 
