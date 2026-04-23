@@ -342,6 +342,11 @@ function ordinal(value) {
   return `${value}th`;
 }
 
+function punctuateSentence(value) {
+  if (!value) return "";
+  return /[.!?]$/.test(value.trim()) ? value.trim() : `${value.trim()}.`;
+}
+
 function ScoringPathMatrix({ row, seriesItem }) {
   const rank = getDisplayRankFromValue(row?.yourValue);
   const matrixRows = useMemo(
@@ -875,9 +880,9 @@ function TodayBoardImplicationsReport({
               </summary>
               <div className="nba-report-game-details-body">
                 <p>
-                  {implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`}
+                  <strong>{punctuateSentence(implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`)}</strong>
                   {" "}
-                  {implication?.body ?? "This game has direct point and leverage consequences across the room."}
+                  <span>{implication?.body ?? "This game has direct point and leverage consequences across the room."}</span>
                 </p>
                 <article className="detail-card inset-card">
                   <span className="micro-label">Who needs what today</span>

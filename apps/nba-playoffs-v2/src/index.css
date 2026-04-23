@@ -2880,7 +2880,7 @@ select:focus {
   position: relative;
   overflow: hidden;
   border-color: rgba(76, 86, 101, 0.72);
-  background: linear-gradient(180deg, rgba(34, 39, 46, 0.98), rgba(22, 26, 31, 0.99));
+  background: #090b0f !important;
   color: #f3f6fb;
   box-shadow:
     0 18px 34px rgba(15, 23, 42, 0.18),
@@ -2946,7 +2946,8 @@ select:focus {
 
 .nba-briefing-deep-card {
   border-color: color-mix(in srgb, var(--briefing-accent-primary, #e06e2f) 28%, rgba(17, 24, 39, 0.18));
-  background: linear-gradient(180deg, rgba(38, 43, 50, 0.98), rgba(27, 31, 36, 0.99));
+  background: #090b0f !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
 .nba-briefing-deep-card .micro-label,
@@ -2979,9 +2980,14 @@ select:focus {
   color: #ffffff;
 }
 
-.nba-briefing-deep-card .detail-card {
-  background: linear-gradient(180deg, rgba(52, 58, 67, 0.98), rgba(37, 42, 49, 0.99));
-  border-color: rgba(120, 130, 145, 0.28);
+.nba-briefing-deep-card .detail-card,
+.nba-briefing-deep-card .detail-card.inset-card,
+.nba-briefing-deep-card > .detail-card,
+.nba-briefing-deep-card > .detail-card.inset-card,
+.nba-briefing-deep-card article.detail-card {
+  background: #090b0f !important;
+  border-color: rgba(214, 222, 235, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 .nba-briefing-deep-card .leaderboard-table {
@@ -3005,10 +3011,11 @@ select:focus {
 .nba-briefing-scenarios-card {
   position: relative;
   overflow: hidden;
-  border-color: rgba(17, 24, 39, 0.12);
+  border-color: rgba(76, 86, 101, 0.72);
+  background: #090b0f !important;
   box-shadow:
-    0 12px 28px rgba(15, 23, 42, 0.07),
-    inset 4px 0 0 rgba(17, 24, 39, 0.92);
+    0 18px 34px rgba(15, 23, 42, 0.18),
+    inset 4px 0 0 rgba(95, 105, 119, 0.96);
 }
 
 .nba-briefing-scenarios-card::before {
@@ -3016,9 +3023,31 @@ select:focus {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(135deg, rgba(17, 24, 39, 0.03), transparent 28%),
-    radial-gradient(circle at top right, rgba(224, 110, 47, 0.08), transparent 40%);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 36%),
+    radial-gradient(circle at top right, rgba(110, 118, 131, 0.26), transparent 38%);
   pointer-events: none;
+}
+
+.nba-briefing-scenarios-card .micro-label,
+.nba-briefing-scenarios-card .subtle {
+  color: rgba(214, 222, 235, 0.82);
+}
+
+.nba-briefing-scenarios-card h2,
+.nba-briefing-scenarios-card h3,
+.nba-briefing-scenarios-card p,
+.nba-briefing-scenarios-card strong,
+.nba-briefing-scenarios-card .leaderboard-head,
+.nba-briefing-scenarios-card .leaderboard-row {
+  color: #f3f6fb;
+}
+
+.nba-briefing-scenarios-card .leaderboard-head {
+  border-bottom-color: rgba(214, 222, 235, 0.12);
+}
+
+.nba-briefing-scenarios-card .leaderboard-row {
+  border-bottom-color: rgba(214, 222, 235, 0.1);
 }
 
 .nba-report-metric-row-head .nba-report-metric-cell {
