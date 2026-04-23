@@ -92,6 +92,25 @@ export function DraftFeedProvider({ children }) {
 
   const totalPicks = picks.length || 32
 
+  async function clearPickStateArtifacts(pickNumber) {
+    const operations = [
+      draftDb.from('live_cards').delete().eq('pick_number', pickNumber),
+      draftDb.from('queues').delete().eq('pick_number', pickNumber),
+      draftDb.from('actual_picks').delete().eq('pick_number', pickNumber),
+      draftDb.from('finalized_picks').delete().eq('pick_number', pickNumber),
+    ]
+
+    const results = await Promise.allSettled(operations)
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value?.error) {
+        const message = result.value.error.message ?? ''
+        if (!message.includes('finalized_picks')) {
+          console.warn('clearPickStateArtifacts:', message)
+        }
+      }
+    })
+  }
+
   // ── Admin controls ──
 
   async function setDraftPhase(phase) {
@@ -103,15 +122,29 @@ export function DraftFeedProvider({ children }) {
     await draftDb.from('feed').update({
       current_pick_number: clamped,
       current_status: 'on_clock',
+      pick_is_in_at: null,
+      provider_expires_at: null,
       updated_at: new Date().toISOString(),
     }).eq('id', 1)
   }
 
   async function setPickStatus(status) {
-    await draftDb.from('feed').update({
+    const now = new Date().toISOString()
+    const payload = {
       current_status: status,
-      updated_at: new Date().toISOString(),
-    }).eq('id', 1)
+      updated_at: now,
+    }
+
+    if (status === 'pick_is_in') {
+      payload.pick_is_in_at = now
+      payload.provider_expires_at = null
+    } else if (status === 'on_clock') {
+      payload.pick_is_in_at = null
+    } else if (status === 'awaiting_reveal' || status === 'revealed') {
+      payload.provider_expires_at = null
+    }
+
+    await draftDb.from('feed').update(payload).eq('id', 1)
   }
 
   async function startDraftNight() {
@@ -119,19 +152,37 @@ export function DraftFeedProvider({ children }) {
       phase: 'live',
       current_pick_number: 1,
       current_status: 'on_clock',
+      pick_is_in_at: null,
+      provider_expires_at: null,
       updated_at: new Date().toISOString(),
     }).eq('id', 1)
   }
 
   async function overrideTeamOnClock(teamCode, pickNumber = draftFeed.current_pick_number) {
+    await clearPickStateArtifacts(pickNumber)
     await draftDb.from('team_overrides').upsert({
       pick_number: pickNumber,
       team_code: teamCode,
     })
+    await draftDb.from('feed').update({
+      current_pick_number: pickNumber,
+      current_status: 'on_clock',
+      pick_is_in_at: null,
+      provider_expires_at: null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', 1)
   }
 
   async function clearTeamOverride(pickNumber = draftFeed.current_pick_number) {
+    await clearPickStateArtifacts(pickNumber)
     await draftDb.from('team_overrides').delete().eq('pick_number', pickNumber)
+    await draftDb.from('feed').update({
+      current_pick_number: pickNumber,
+      current_status: 'on_clock',
+      pick_is_in_at: null,
+      provider_expires_at: null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', 1)
   }
 
   async function revealCurrentPick(prospectId, pickNumber = draftFeed.current_pick_number) {
@@ -142,15 +193,18 @@ export function DraftFeedProvider({ children }) {
     })
     await draftDb.from('feed').update({
       current_status: 'revealed',
+      provider_expires_at: null,
       updated_at: new Date().toISOString(),
     }).eq('id', 1)
   }
 
   async function rollbackPick(pickNumber = draftFeed.current_pick_number) {
-    await draftDb.from('actual_picks').delete().eq('pick_number', pickNumber)
+    await clearPickStateArtifacts(pickNumber)
     await draftDb.from('feed').update({
       current_pick_number: pickNumber,
       current_status: 'on_clock',
+      pick_is_in_at: null,
+      provider_expires_at: null,
       updated_at: new Date().toISOString(),
     }).eq('id', 1)
   }
@@ -161,6 +215,8 @@ export function DraftFeedProvider({ children }) {
       phase: 'live',
       current_pick_number: next,
       current_status: 'on_clock',
+      pick_is_in_at: null,
+      provider_expires_at: null,
       updated_at: new Date().toISOString(),
     }).eq('id', 1)
   }
@@ -179,6 +235,8 @@ export function DraftFeedProvider({ children }) {
       phase: 'pre_draft',
       current_pick_number: 1,
       current_status: 'on_clock',
+      pick_is_in_at: null,
+      provider_expires_at: null,
       updated_at: new Date().toISOString(),
     }).eq('id', 1)
   }

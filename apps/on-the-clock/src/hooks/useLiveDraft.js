@@ -27,13 +27,14 @@ function scoreForHit(pickNumber, streakBefore, sc) {
 export function useLiveDraft({ draftFeed, teamCodeForPick }) {
   const { session } = useAuth()
   const { pool, memberList } = usePool()
-  const { teams, picks, getProspectById, defaultBigBoardIds } = useReferenceData()
+  const { teams, prospects, picks, getProspectById, defaultBigBoardIds } = useReferenceData()
   const [livePredictions, setLivePredictions] = useState({})
   const [liveSelections, setLiveSelections] = useState({})
   const [liveCards, setLiveCards] = useState({})
   const [allMemberCards, setAllMemberCards] = useState({}) // { `userId:pickNumber`: prospectId }
   const [allMemberPredictions, setAllMemberPredictions] = useState({}) // { `userId:pickNumber`: prospectId }
   const [allMemberBoards, setAllMemberBoards] = useState({}) // { userId: boardOrder[] }
+  const [allFinalizedPicks, setAllFinalizedPicks] = useState({}) // { `userId:pickNumber`: { prospectId, source, teamCode } }
   const [loading, setLoading] = useState(true)
 
   const poolId = pool?.id
@@ -41,6 +42,12 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
   const settings = pool?.game_mode === 'live_draft'
     ? { fallback_method: 'queue_plus_team_need', ...(pool?.settings ?? {}) }
     : {}
+
+  function slotAllowsSourceTeamContext(pickNumber) {
+    const pick = picks.find(p => p.number === pickNumber)
+    if (!pick) return true
+    return teamCodeForPick(pickNumber) === pick.originalTeam
+  }
 
   // Load current user's predictions and cards + all members' data for scoring
   const load = useCallback(async () => {
@@ -51,12 +58,13 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
 
     setLoading(true)
 
-    const [predRes, cardsRes, allCardsRes, allPredsRes, allBoardsRes] = await Promise.all([
+    const [predRes, cardsRes, allCardsRes, allPredsRes, allBoardsRes, finalizedRes] = await Promise.all([
       draftDb.from('queues').select('pick_number, prospect_id').eq('pool_id', poolId).eq('user_id', userId),
       draftDb.from('live_cards').select('pick_number, prospect_id').eq('pool_id', poolId).eq('user_id', userId),
       draftDb.from('live_cards').select('user_id, pick_number, prospect_id').eq('pool_id', poolId),
       draftDb.from('queues').select('user_id, pick_number, prospect_id').eq('pool_id', poolId),
       draftDb.from('big_boards').select('user_id, board_order').eq('pool_id', poolId),
+      draftDb.from('finalized_picks').select('user_id, pick_number, prospect_id, resolution_source, resolved_team_code').eq('pool_id', poolId),
     ])
 
     if (predRes.data) {
@@ -89,6 +97,20 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
       setAllMemberBoards(map)
     }
 
+    if (!finalizedRes.error && finalizedRes.data) {
+      const map = {}
+      finalizedRes.data.forEach(r => {
+        map[`${r.user_id}:${r.pick_number}`] = {
+          prospectId: r.prospect_id,
+          source: r.resolution_source,
+          teamCode: r.resolved_team_code,
+        }
+      })
+      setAllFinalizedPicks(map)
+    } else {
+      setAllFinalizedPicks({})
+    }
+
     setLoading(false)
   }, [poolId, userId])
 
@@ -99,6 +121,31 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     if (!poolId) return
     const channel = supabase
       .channel(`live-cards-${poolId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'draft',
+        table: 'finalized_picks',
+        filter: `pool_id=eq.${poolId}`,
+      }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          const r = payload.old
+          setAllFinalizedPicks(prev => {
+            const next = { ...prev }
+            delete next[`${r.user_id}:${r.pick_number}`]
+            return next
+          })
+          return
+        }
+        const r = payload.new
+        setAllFinalizedPicks(prev => ({
+          ...prev,
+          [`${r.user_id}:${r.pick_number}`]: {
+            prospectId: r.prospect_id,
+            source: r.resolution_source,
+            teamCode: r.resolved_team_code,
+          },
+        }))
+      })
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'draft',
@@ -115,28 +162,62 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     return () => { supabase.removeChannel(channel) }
   }, [poolId, userId])
 
-  function buildFallback({ boardIds, teamCode, fallbackMethod, draftedIds }) {
+  function buildFallback({ boardIds, teamCode, fallbackMethod, draftedIds, pickNumber, allowSlotSources, predictionId = null }) {
+    if (allowSlotSources && predictionId && !draftedIds.has(predictionId)) {
+      const prospect = getProspectById(predictionId)
+      if (prospect) return { prospect, source: 'slot_prediction' }
+    }
+
+    if (allowSlotSources) {
+      const rankedMocks = [
+        ['consensus_mock', prospectsBySlot('consensus_mock_pick', 'consensus_rank', pickNumber)],
+        ['athletic_mock', prospectsBySlot('athletic_mock_pick', 'athletic_rank', pickNumber)],
+        ['espn_mock', prospectsBySlot('espn_mock_pick', 'espn_rank', pickNumber)],
+        ['ringer_mock', prospectsBySlot('ringer_mock_pick', 'ringer_rank', pickNumber)],
+      ]
+
+      for (const [source, prospect] of rankedMocks) {
+        if (prospect && !draftedIds.has(prospect.id)) {
+          return { prospect, source }
+        }
+      }
+    }
+
     const available = boardIds
       .filter(id => !draftedIds.has(id))
       .map(getProspectById)
       .filter(Boolean)
     if (available.length === 0) return null
-    if (fallbackMethod !== 'queue_plus_team_need') return available[0]
+    if (fallbackMethod !== 'queue_plus_team_need') return { prospect: available[0], source: 'board_best_available' }
     const teamNeeds = new Set(teams[teamCode]?.needs ?? [])
-    return (
-      available.find(p => p.position.split('/').some(pos => teamNeeds.has(pos))) ?? available[0]
-    )
+    const needMatch = available.find(p => p.position.split('/').some(pos => teamNeeds.has(pos))) ?? null
+    if (needMatch) return { prospect: needMatch, source: 'board_team_need' }
+    return { prospect: available[0], source: 'board_best_available' }
   }
 
-  function resolveLivePickForUser(targetUserId, pickNumber) {
-    // 1. Submitted card
+  function prospectsBySlot(mockField, rankField, pickNumber) {
+    return prospects
+      .filter(prospect => prospect[mockField] === pickNumber)
+      .sort((a, b) => {
+        const aRank = Number.isFinite(a[rankField]) ? a[rankField] : Number.POSITIVE_INFINITY
+        const bRank = Number.isFinite(b[rankField]) ? b[rankField] : Number.POSITIVE_INFINITY
+        return aRank - bRank
+      })[0] ?? null
+  }
+
+  function getFinalizedEntry(targetUserId, pickNumber) {
+    return allFinalizedPicks[`${targetUserId}:${pickNumber}`] ?? null
+  }
+
+  function resolvePreviewPickForUser(targetUserId, pickNumber) {
+    const finalized = getFinalizedEntry(targetUserId, pickNumber)
+    if (finalized?.prospectId) return finalized.prospectId
+
+    const allowSlotSources = slotAllowsSourceTeamContext(pickNumber)
     const cardKey = `${targetUserId}:${pickNumber}`
-    if (allMemberCards[cardKey]) return allMemberCards[cardKey]
+    if (allowSlotSources && allMemberCards[cardKey]) return allMemberCards[cardKey]
 
-    // 2. Prediction
-    if (allMemberPredictions[cardKey]) return allMemberPredictions[cardKey]
-
-    // 3. Fallback from big board
+    const predictionId = allowSlotSources ? (allMemberPredictions[cardKey] ?? null) : null
     const boardIds = allMemberBoards[targetUserId] ?? defaultBigBoardIds
     const draftedIds = new Set(Object.values(draftFeed?.actual_picks ?? {}))
     const fallback = buildFallback({
@@ -144,8 +225,17 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
       teamCode: teamCodeForPick(pickNumber),
       fallbackMethod: settings.fallback_method,
       draftedIds,
+      pickNumber,
+      allowSlotSources,
+      predictionId,
     })
-    return fallback?.id ?? null
+    return fallback?.prospect?.id ?? null
+  }
+
+  function resolveLivePickForUser(targetUserId, pickNumber) {
+    const finalized = getFinalizedEntry(targetUserId, pickNumber)
+    if (finalized?.prospectId) return finalized.prospectId
+    return resolvePreviewPickForUser(targetUserId, pickNumber)
   }
 
   function liveResultForPick(prospectId, actualProspectId) {
@@ -237,16 +327,20 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     if (!pick) return null
 
     const draftedIds = new Set(Object.values(draftFeed?.actual_picks ?? {}))
+    const allowSlotSources = slotAllowsSourceTeamContext(pickNumber)
+    const manualSelectionId = prospectIdOverride ?? liveSelections[pickNumber] ?? null
     const selectedProspectId =
-      prospectIdOverride ??
-      liveSelections[pickNumber] ??
-      livePredictions[pickNumber] ??
+      manualSelectionId ??
+      (allowSlotSources ? (livePredictions[pickNumber] ?? null) : null) ??
       buildFallback({
         boardIds: allMemberBoards[userId] ?? defaultBigBoardIds,
         teamCode: teamCodeForPick(pickNumber),
         fallbackMethod: settings.fallback_method,
         draftedIds,
-      })?.id ??
+        pickNumber,
+        allowSlotSources,
+        predictionId: allowSlotSources ? (livePredictions[pickNumber] ?? null) : null,
+      })?.prospect?.id ??
       null
 
     if (!selectedProspectId) return null
@@ -282,7 +376,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
 
         for (const pickNumber of sortedPickNums) {
           const actualProspectId = draftFeed.actual_picks[pickNumber]
-          const prospectId = resolveLivePickForUser(member.id, pickNumber)
+          const prospectId = getFinalizedEntry(member.id, pickNumber)?.prospectId ?? resolveLivePickForUser(member.id, pickNumber)
           const result = liveResultForPick(prospectId, actualProspectId)
           if (result === 'exact') {
             points += scoreForHit(pickNumber, streak, sc)
@@ -295,7 +389,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
         return { id: member.id, name: member.name, points, streak }
       })
       .sort((a, b) => b.points - a.points)
-  }, [draftFeed?.actual_picks, draftFeed?.scoring_config, memberList, allMemberCards, allMemberPredictions, allMemberBoards, pool])
+  }, [draftFeed?.actual_picks, draftFeed?.scoring_config, memberList, allMemberCards, allMemberPredictions, allMemberBoards, allFinalizedPicks, pool])
 
   // Computed: current pick pool state (includes streakCount entering this pick)
   const currentLivePoolState = useMemo(() => {
@@ -319,8 +413,10 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
         else streak = 0
       }
 
-      const lockedProspectId = allMemberCards[`${member.id}:${currentPickNum}`] ?? null
-      const effectiveProspectId = resolveLivePickForUser(member.id, currentPickNum)
+      const finalized = getFinalizedEntry(member.id, currentPickNum)
+      const allowSlotSources = slotAllowsSourceTeamContext(currentPickNum)
+      const lockedProspectId = finalized?.prospectId ?? (allowSlotSources ? (allMemberCards[`${member.id}:${currentPickNum}`] ?? null) : null)
+      const effectiveProspectId = finalized?.prospectId ?? resolveLivePickForUser(member.id, currentPickNum)
       const result = liveResultForPick(effectiveProspectId, actualProspectId)
       return {
         id: member.id,
@@ -328,11 +424,12 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
         isCurrentUser: member.isCurrentUser,
         locked: Boolean(lockedProspectId),
         prospect: getProspectById(effectiveProspectId),
+        resolutionSource: finalized?.source ?? null,
         result,
         streakCount: streak, // consecutive exact hits BEFORE this pick
       }
     })
-  }, [draftFeed?.actual_picks, draftFeed?.current_pick_number, memberList, allMemberCards, allMemberPredictions, allMemberBoards, pool])
+  }, [draftFeed?.actual_picks, draftFeed?.current_pick_number, memberList, allMemberCards, allMemberPredictions, allMemberBoards, allFinalizedPicks, pool, picks, teamCodeForPick])
 
   const scoringConfig = draftFeed?.scoring_config ?? DEFAULT_SCORING
 
@@ -342,6 +439,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     liveCards,
     liveStandings,
     currentLivePoolState,
+    allFinalizedPicks,
     scoringConfig,
     loading,
     saveLivePrediction,

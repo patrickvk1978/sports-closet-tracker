@@ -3737,6 +3737,72 @@ select:focus {
   font-size: 14px;
 }
 
+.preview-chip {
+  border: 1px solid rgba(220, 38, 38, 0.38);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #fca5a5;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #111111;
+  border-bottom: 1px solid rgba(220, 38, 38, 0.2);
+  flex-wrap: wrap;
+}
+
+.preview-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preview-toolbar-label {
+  color: #71717a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.preview-toolbar-btn {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 999px;
+  color: #e4e4e7;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 11px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.preview-toolbar-btn:hover {
+  border-color: #52525b;
+  background: #212124;
+}
+
+.preview-toolbar-btn.active {
+  border-color: rgba(220, 38, 38, 0.5);
+  background: rgba(220, 38, 38, 0.16);
+  color: #fecaca;
+}
+
+.preview-toolbar-btn.accent {
+  border-color: rgba(74, 222, 128, 0.35);
+  color: #bbf7d0;
+}
+
 /* Subbar */
 .dn-subbar {
   background: #0f0f0f;
@@ -3969,6 +4035,167 @@ select:focus {
   text-transform: uppercase;
   color: #3a3a3a;
   margin-bottom: 10px;
+}
+
+.dn-nextup-card {
+  background:
+    linear-gradient(180deg, rgba(220, 38, 38, 0.12), rgba(220, 38, 38, 0) 42%),
+    #121212;
+  border: 1px solid rgba(220, 38, 38, 0.24);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.dn-nextup-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #f87171;
+}
+
+.dn-nextup-team {
+  margin-top: 4px;
+  color: #f4f4f5;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.dn-nextup-needs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.dn-nextup-need {
+  border: 1px solid var(--dn-border2);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #d4d4d8;
+}
+
+.dn-nextup-selection-label {
+  margin-top: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.dn-nextup-selection-name {
+  margin-top: 6px;
+  color: #fafafa;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.dn-nextup-selection-meta {
+  margin-top: 3px;
+  color: #a1a1aa;
+  font-size: 12px;
+}
+
+.dn-nextup-action {
+  width: 100%;
+  margin-top: 12px;
+  background: transparent;
+  border: 1px solid var(--dn-border2);
+  border-radius: 8px;
+  color: #f4f4f5;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 10px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.dn-nextup-action:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: #71717a;
+}
+
+.dn-nextup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dn-nextup-row {
+  width: 100%;
+  background: #171717;
+  border: 1px solid var(--dn-border);
+  border-radius: 10px;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.12s, background 0.12s;
+}
+
+.dn-nextup-row:hover {
+  border-color: rgba(220, 38, 38, 0.38);
+  background: #1a1a1a;
+  transform: translateY(-1px);
+}
+
+.dn-nextup-row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dn-nextup-row-name {
+  color: #f4f4f5;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.dn-nextup-row-meta {
+  margin-top: 3px;
+  color: #71717a;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dn-nextup-row-tags {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.dn-nextup-tag {
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.dn-nextup-tag.predicted {
+  background: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+}
+
+.dn-nextup-tag.watch {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

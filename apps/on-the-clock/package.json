@@ -9,7 +9,11 @@
     "preview": "vite preview",
     "probe:wnba-draft": "node scripts/espnDraftcastProbe.mjs",
     "probe:wnba-draft:watch": "node scripts/espnDraftcastProbe.mjs --interval 30",
-    "watch:wnba-draft": "node scripts/wnbaDraftWatchServer.mjs"
+    "watch:wnba-draft": "node scripts/wnbaDraftWatchServer.mjs",
+    "probe:nfl-draft": "node scripts/espnDraftcastProbe.mjs --url https://www.espn.com/nfl/draft/live --out-dir tmp/espn-draft-probe-nfl",
+    "probe:nfl-draft:watch": "node scripts/espnDraftcastProbe.mjs --url https://www.espn.com/nfl/draft/live --out-dir tmp/espn-draft-probe-nfl --interval 30",
+    "watch:nfl-draft": "DRAFT_URL=https://www.espn.com/nfl/draft/live OUTPUT_DIR=tmp/espn-draft-probe-nfl DRAFT_TITLE='NFL Draft Watch' DRAFT_LABEL='NFL Draft' node scripts/wnbaDraftWatchServer.mjs",
+    "sync:nfl-draft": "DRAFT_URL=https://www.espn.com/nfl/draft/live OUTPUT_DIR=tmp/espn-draft-sync-nfl node scripts/syncEspnDraftToSupabase.mjs"
   },
   "dependencies": {
     "@sports/shared": "workspace:*",

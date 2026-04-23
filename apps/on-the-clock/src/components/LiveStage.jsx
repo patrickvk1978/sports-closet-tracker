@@ -26,6 +26,7 @@ export default function LiveStage({
   currentSelection,
   suggestedProspect,
   countdownLabel,
+  countdownPrefix,
   actualPick,
   poolState,
   boardIds,
@@ -46,7 +47,16 @@ export default function LiveStage({
 
   const isPredraft = variant === "predraft";
   const isRevealed = currentStatus === "revealed";
-  const stage = isPredraft ? "on_clock" : isRevealed ? "reveal" : currentLocked ? "locked" : "on_clock";
+  const isAwaitingReveal = currentStatus === "awaiting_reveal";
+  const stage = isPredraft
+    ? "on_clock"
+    : isRevealed
+      ? "reveal"
+      : isAwaitingReveal
+        ? "awaiting_reveal"
+        : currentLocked
+          ? "locked"
+          : "on_clock";
 
   const timerSeconds = (() => {
     if (typeof countdownLabel !== "string") return null;
@@ -81,6 +91,7 @@ export default function LiveStage({
   }
 
   const activePickNumber = currentPick?.number;
+  const explicitSelectionId = currentSelection?.id ?? suggestedProspect?.id ?? null;
   const watchlistIdSet = useMemo(() => new Set(activeWatchlistIds ?? []), [activeWatchlistIds]);
   const filterOptions = useMemo(() => {
     const options = [...POSITION_OPTIONS];
@@ -102,7 +113,17 @@ export default function LiveStage({
         if (filterValue === "WATCHLIST") return watchlistIdSet.has(prospect.id);
         return prospect.position.includes(filterValue);
       })
-      .sort((a, b) => boardIndex(boardIds, a.id) - boardIndex(boardIds, b.id))
+      .sort((a, b) => {
+        const aSelected = explicitSelectionId === a.id ? 1 : 0;
+        const bSelected = explicitSelectionId === b.id ? 1 : 0;
+        if (aSelected !== bSelected) return bSelected - aSelected;
+
+        const aWatch = watchlistIdSet.has(a.id) ? 1 : 0;
+        const bWatch = watchlistIdSet.has(b.id) ? 1 : 0;
+        if (aWatch !== bWatch) return bWatch - aWatch;
+
+        return boardIndex(boardIds, a.id) - boardIndex(boardIds, b.id);
+      })
       .map((prospect) => {
         const rankIndex = boardIndex(boardIds, prospect.id);
         const badges = [];
@@ -123,7 +144,6 @@ export default function LiveStage({
     return rows;
   }, [prospects, draftedIds, filterValue, watchlistIdSet, boardIds, activePickNumber, mappedPickByProspectId, isPredraft]);
 
-  const explicitSelectionId = currentSelection?.id ?? suggestedProspect?.id ?? null;
   const highlightedProspectId = explicitSelectionId ?? tableRows[0]?.prospect?.id ?? null;
 
   const meState = poolState.find((m) => m.isCurrentUser);
@@ -232,11 +252,19 @@ export default function LiveStage({
               <div className="ls-header-actions live">
                 <div className="ls-live-header-timer">
                   <span className={`ls-timer-label ${stage === "locked" ? "locked" : timerUrgency}`}>
-                    {stage === "locked" ? "Card Locked" : "Submit in"}
+                    {stage === "locked"
+                      ? "Card Locked"
+                      : countdownLabel
+                        ? (countdownPrefix ?? "On the clock")
+                        : currentStatus === "pick_is_in"
+                          ? "Pick is in"
+                          : "On the clock"}
                   </span>
-                  <span className={`ls-timer-val ${stage === "locked" ? "locked" : timerUrgency}`}>
-                    {countdownLabel}
-                  </span>
+                  {countdownLabel ? (
+                    <span className={`ls-timer-val ${stage === "locked" ? "locked" : timerUrgency}`}>
+                      {countdownLabel}
+                    </span>
+                  ) : null}
                 </div>
                 {renderHeaderControls("live")}
               </div>
@@ -345,6 +373,29 @@ export default function LiveStage({
             ↩ Change pick
           </button>
           <div className="ls-change-hint">Re-opens pick selection · window timer still runs</div>
+        </>
+      )}
+
+      {stage === "awaiting_reveal" && (
+        <>
+          <div className="ls-locked-card">
+            <ProspectAvatar
+              prospect={currentSelection ?? suggestedProspect}
+              size="lg"
+              className="ls-locked-avatar"
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="ls-locked-badge">AWAITING REVEAL</div>
+              <div className="ls-locked-name">{currentSelection?.name ?? suggestedProspect?.name ?? "Waiting for locked pick"}</div>
+              <div className="ls-locked-meta">
+                {(currentSelection ?? suggestedProspect)
+                  ? `${(currentSelection ?? suggestedProspect)?.position} · ${(currentSelection ?? suggestedProspect)?.school}`
+                  : "This pick is finalized. Waiting for the official reveal."}
+              </div>
+            </div>
+          </div>
+
+          <div className="ls-change-hint">This pick is locked for scoring. Official selection pending.</div>
         </>
       )}
 

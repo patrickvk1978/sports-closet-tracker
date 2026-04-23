@@ -22,7 +22,7 @@ export default function AdminPage() {
     resetDraftFeed,
     setScoringConfig,
   } = useDraftFeed();
-  const [selectedPick, setSelectedPick] = useState(draftFeed.current_pick_number);
+  const [managedPickNumber, setManagedPickNumber] = useState(null);
   const [selectedProspectId, setSelectedProspectId] = useState("");
   const [selectedTeamCode, setSelectedTeamCode] = useState("");
   const [syncStatus, setSyncStatus] = useState("");
@@ -37,6 +37,12 @@ export default function AdminPage() {
       setScoringDraft({ ...draftFeed.scoring_config });
     }
   }, [draftFeed.scoring_config]);
+
+  useEffect(() => {
+    if (managedPickNumber == null && draftFeed.current_pick_number) {
+      setManagedPickNumber(draftFeed.current_pick_number);
+    }
+  }, [draftFeed.current_pick_number, managedPickNumber]);
 
   const sc = scoringDraft ?? { tier_1: 100, tier_2: 120, tier_3: 150, tier_4: 180, streak_threshold: 5, streak_multiplier: 1.5 };
 
@@ -138,11 +144,11 @@ export default function AdminPage() {
     await reloadReferenceData();
   }
 
-  const pick = useMemo(
-    () => picks.find((item) => item.number === Number(selectedPick)) ?? picks[0] ?? { number: 1, currentTeam: "" },
-    [selectedPick, picks]
+  const managedPick = useMemo(
+    () => picks.find((item) => item.number === Number(managedPickNumber ?? draftFeed.current_pick_number)) ?? picks[0] ?? { number: 1, currentTeam: "" },
+    [draftFeed.current_pick_number, managedPickNumber, picks]
   );
-  const effectiveTeamCode = draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
+  const effectiveTeamCode = draftFeed.team_overrides?.[managedPick.number] ?? managedPick.currentTeam;
 
   if (!profile?.is_admin) {
     return (
@@ -214,7 +220,7 @@ export default function AdminPage() {
           </label>
           <label className="field">
             <span>Current pick</span>
-            <select value={selectedPick} onChange={(event) => { const next = Number(event.target.value); setSelectedPick(next); setCurrentPickNumber(next); }}>
+            <select value={draftFeed.current_pick_number} onChange={(event) => setCurrentPickNumber(Number(event.target.value))}>
               {picks.map((item) => (
                 <option key={item.number} value={item.number}>{`${item.number} · ${teams[item.currentTeam]?.name ?? item.currentTeam}`}</option>
               ))}
@@ -225,12 +231,29 @@ export default function AdminPage() {
             <select value={draftFeed.current_status} onChange={(event) => setPickStatus(event.target.value)}>
               <option value="on_clock">On the clock</option>
               <option value="pick_is_in">Pick is in</option>
+              <option value="awaiting_reveal">Awaiting reveal</option>
               <option value="revealed">Revealed</option>
             </select>
           </label>
           <div className="detail-card">
             <span className="micro-label">Effective team on the clock</span>
             <p>{teams[effectiveTeamCode]?.name ?? effectiveTeamCode}</p>
+          </div>
+        </div>
+
+        <div className="settings-form-grid two-up">
+          <label className="field">
+            <span>Manage pick</span>
+            <select value={managedPick.number} onChange={(event) => setManagedPickNumber(Number(event.target.value))}>
+              {picks.map((item) => (
+                <option key={item.number} value={item.number}>{`${item.number} · ${teams[item.currentTeam]?.name ?? item.currentTeam}`}</option>
+              ))}
+            </select>
+          </label>
+          <div className="entry-actions align-end">
+            <button className="secondary-button" type="button" onClick={() => setManagedPickNumber(draftFeed.current_pick_number)}>
+              Use Live Pick
+            </button>
           </div>
         </div>
 
@@ -245,10 +268,10 @@ export default function AdminPage() {
             </select>
           </label>
           <div className="entry-actions align-end">
-            <button className="secondary-button" type="button" disabled={!selectedTeamCode} onClick={() => overrideTeamOnClock(selectedTeamCode, pick.number)}>
+            <button className="secondary-button" type="button" disabled={!selectedTeamCode} onClick={() => overrideTeamOnClock(selectedTeamCode, managedPick.number)}>
               Override Team
             </button>
-            <button className="secondary-button" type="button" onClick={() => clearTeamOverride(pick.number)}>
+            <button className="secondary-button" type="button" onClick={() => clearTeamOverride(managedPick.number)}>
               Clear Override
             </button>
           </div>
@@ -265,10 +288,10 @@ export default function AdminPage() {
             </select>
           </label>
           <div className="entry-actions align-end">
-            <button className="primary-button" type="button" disabled={!selectedProspectId} onClick={() => revealCurrentPick(selectedProspectId, pick.number)}>
+            <button className="primary-button" type="button" disabled={!selectedProspectId} onClick={() => revealCurrentPick(selectedProspectId, managedPick.number)}>
               Reveal Pick
             </button>
-            <button className="secondary-button" type="button" onClick={() => rollbackPick(pick.number)}>
+            <button className="secondary-button" type="button" onClick={() => rollbackPick(managedPick.number)}>
               Roll Back Pick
             </button>
           </div>
@@ -415,6 +438,11 @@ export default function AdminPage() {
                       <span className="subtle">{item.number === draftFeed.current_pick_number ? draftFeed.current_status : actual ? "revealed" : "pending"}</span>
                     </div>
                   </div>
+                </div>
+                <div className="entry-actions align-end">
+                  <button className="secondary-button" type="button" onClick={() => setManagedPickNumber(item.number)}>
+                    Manage
+                  </button>
                 </div>
               </div>
             );

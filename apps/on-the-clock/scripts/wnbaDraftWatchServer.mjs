@@ -4,10 +4,16 @@ import path from "node:path";
 import process from "node:process";
 import { DEFAULT_URL, OUTPUT_DIR, takeSnapshot } from "./espnDraftcastProbe.mjs";
 
+const DRAFT_URL = process.env.DRAFT_URL || DEFAULT_URL;
+const DRAFT_OUTPUT_DIR = process.env.OUTPUT_DIR
+  ? path.resolve(process.cwd(), process.env.OUTPUT_DIR)
+  : OUTPUT_DIR;
+const DRAFT_TITLE = process.env.DRAFT_TITLE || "WNBA Draft Watch";
+const DRAFT_LABEL = process.env.DRAFT_LABEL || "WNBA Draft";
 const PORT = Number(process.env.PORT || 8787);
 const POLL_MS = Number(process.env.POLL_MS || 15000);
 const HISTORY_LIMIT = 120;
-const HISTORY_FILE = path.join(OUTPUT_DIR, "watch-history.jsonl");
+const HISTORY_FILE = path.join(DRAFT_OUTPUT_DIR, "watch-history.jsonl");
 
 let latest = null;
 let previousSummary = null;
@@ -218,7 +224,7 @@ function buildEvents(snapshot, previous, normalized) {
 
 async function appendHistory(events) {
   if (!events.length) return;
-  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  await fs.mkdir(DRAFT_OUTPUT_DIR, { recursive: true });
   const lines = events.map((event) => JSON.stringify(event)).join("\n") + "\n";
   await fs.appendFile(HISTORY_FILE, lines, "utf8");
 }
@@ -241,7 +247,7 @@ async function refresh() {
   isFetching = true;
 
   try {
-    const snapshot = await takeSnapshot(DEFAULT_URL, OUTPUT_DIR, previousSummary);
+    const snapshot = await takeSnapshot(DRAFT_URL, DRAFT_OUTPUT_DIR, previousSummary);
     const normalized = normalizeForUi(snapshot);
     const events = buildEvents(snapshot, latest?._snapshot ?? null, normalized);
 
@@ -283,7 +289,7 @@ function html() {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>WNBA Draft Watch</title>
+    <title>${DRAFT_TITLE}</title>
     <style>
       :root {
         color-scheme: dark;
@@ -382,11 +388,11 @@ function html() {
   <body>
     <div class="shell">
       <div class="header">
-        <div>
-          <div class="label">Draft rehearsal</div>
-          <h1>WNBA Draft Watch</h1>
-          <div class="subtle">A lightweight monitor for ESPN draftcast data. This tells us what On the Clock can trust on draft night.</div>
-        </div>
+          <div>
+            <div class="label">Draft rehearsal</div>
+            <h1>${DRAFT_TITLE}</h1>
+            <div class="subtle">A lightweight monitor for ESPN draftcast data. This tells us what On the Clock can trust on draft night.</div>
+          </div>
         <button class="button" id="refresh">Refresh now</button>
       </div>
 
@@ -572,7 +578,7 @@ const server = http.createServer(async (req, res) => {
 history = await loadHistory();
 await refresh();
 server.listen(PORT, () => {
-  console.log(`[watch] WNBA draft watch server running at http://localhost:${PORT}`);
+  console.log(`[watch] ${DRAFT_LABEL} watch server running at http://localhost:${PORT}`);
   console.log(`[watch] polling ESPN every ${Math.round(POLL_MS / 1000)}s`);
   console.log(`[watch] history file ${HISTORY_FILE}`);
 });

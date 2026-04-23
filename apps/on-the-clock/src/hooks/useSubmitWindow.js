@@ -32,7 +32,7 @@ export function useSubmitWindow({
   const hasCalledFinalizeRef = useRef(false);
 
   const isPickIsIn = draftFeed?.current_status === "pick_is_in";
-  const pickIsInAt = draftFeed?.pick_is_in_at ?? null;
+  const pickIsInAt = draftFeed?.pick_is_in_at ?? draftFeed?.updated_at ?? null;
   const currentPickNumber = draftFeed?.current_pick_number;
 
   // Reset finalize flag when pick advances

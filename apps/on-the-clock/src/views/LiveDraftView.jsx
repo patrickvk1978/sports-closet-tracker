@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { LayoutGroup, motion } from "framer-motion";
 import BigBoardTable from "../components/BigBoardTable";
 import LiveStage from "../components/LiveStage";
@@ -16,15 +16,10 @@ import { useLiveDraft } from "../hooks/useLiveDraft";
 import { useReferenceData } from "../hooks/useReferenceData";
 import { useWatchlists } from "../hooks/useWatchlists";
 
-function countdownCopy(status) {
-  if (status === "on_clock") return "04:18";
-  if (status === "pick_is_in") return "00:24";
-  return "SCORED";
-}
-
 export default function LiveDraftView() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { profile, session } = useAuth();
   const isAdmin = Boolean(profile?.is_admin);
   const { pool, members } = usePool();
   const { draftFeed, teamCodeForPick } = useDraftFeed();
@@ -35,6 +30,7 @@ export default function LiveDraftView() {
     liveCards,
     liveStandings,
     currentLivePoolState,
+    allFinalizedPicks,
     scoringConfig,
     saveLivePrediction,
     submitLiveCard,
@@ -52,11 +48,17 @@ export default function LiveDraftView() {
   const [devPhase, setDevPhase] = useState(null); // admin override
   const [isMobilePredraft, setIsMobilePredraft] = useState(false);
   const [mobilePredraftSheetOpen, setMobilePredraftSheetOpen] = useState(false);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const [previewCards, setPreviewCards] = useState({});
+  const [previewReveals, setPreviewReveals] = useState({});
 
   const effectivePhase = isAdmin && devPhase ? devPhase : draftFeed.phase;
   const isPreDraft = effectivePhase === "pre_draft" || !isAdmin;
+  const isPreviewMode = searchParams.get("preview") === "1";
+  const previewStatus = searchParams.get("status") ?? draftFeed.current_status;
+  const previewPickNumber = Number(searchParams.get("pick") ?? draftFeed.current_pick_number);
 
-  const currentPickNumber = draftFeed.current_pick_number;
+  const currentPickNumber = isPreviewMode ? previewPickNumber : draftFeed.current_pick_number;
 
   // When the live draft advances to a new pick, snap the left column focus
   useEffect(() => {
@@ -81,6 +83,11 @@ export default function LiveDraftView() {
     }
   }, [isMobilePredraft]);
 
+  useEffect(() => {
+    const intervalId = setInterval(() => setClockNow(Date.now()), 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
   function teamForPick(pick) {
     return draftFeed.team_overrides?.[pick.number] ?? pick.currentTeam;
   }
@@ -98,25 +105,78 @@ export default function LiveDraftView() {
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const draftedIds = useMemo(() => {
-    const blocked = new Set(Object.values(draftFeed.actual_picks ?? {}));
-    Object.entries(liveCards).forEach(([pickNum, prospectId]) => {
+    const actualMap = isPreviewMode
+      ? { ...(draftFeed.actual_picks ?? {}), ...previewReveals }
+      : draftFeed.actual_picks ?? {};
+    const liveCardMap = isPreviewMode ? previewCards : liveCards;
+    const blocked = new Set(Object.values(actualMap));
+    Object.entries(liveCardMap).forEach(([pickNum, prospectId]) => {
       if (Number(pickNum) < currentPickNumber) blocked.add(prospectId);
     });
     return blocked;
-  }, [draftFeed.actual_picks, liveCards, currentPickNumber]);
+  }, [draftFeed.actual_picks, liveCards, currentPickNumber, isPreviewMode, previewCards, previewReveals]);
 
   const currentPick = picks.find((p) => p.number === currentPickNumber) ?? picks[0] ?? { number: 1, currentTeam: "" };
   const currentTeam = teams[teamForPick(currentPick)] ?? {};
-  const currentLocked = Boolean(liveCards[currentPickNumber]);
+  const userId = session?.user?.id ?? profile?.id ?? null;
+  const currentUserFinalized = userId ? allFinalizedPicks?.[`${userId}:${currentPickNumber}`] ?? null : null;
+  const currentLocked = isPreviewMode
+    ? Boolean(previewCards[currentPickNumber])
+    : Boolean(currentUserFinalized?.prospectId || (teamForPick(currentPick) === currentPick.originalTeam ? liveCards[currentPickNumber] : null));
 
-  const currentSelectionId = liveCards[currentPickNumber] ?? livePredictions[currentPickNumber] ?? null;
+  const currentSelectionId = isPreviewMode
+    ? previewCards[currentPickNumber] ?? livePredictions[currentPickNumber] ?? null
+    : currentUserFinalized?.prospectId ?? liveCards[currentPickNumber] ?? livePredictions[currentPickNumber] ?? null;
   const currentSelection = getProspectById(currentSelectionId);
-  const actualCurrentPick = getProspectById(draftFeed.actual_picks?.[currentPickNumber]);
+  const actualCurrentPick = getProspectById((isPreviewMode ? previewReveals[currentPickNumber] : null) ?? draftFeed.actual_picks?.[currentPickNumber]);
 
   // Next pick label for the advance button after reveal
   const nextPick = picks.find((p) => p.number === currentPickNumber + 1);
   const nextTeam = nextPick ? teams[teamForPick(nextPick)] : null;
   const nextPickLabel = nextTeam ? `${nextTeam.name} — Pick ${currentPickNumber + 1}` : null;
+  const effectiveCurrentStatus = isPreviewMode ? previewStatus : draftFeed.current_status;
+  const shouldShowNextUp = ["awaiting_reveal", "revealed"].includes(effectiveCurrentStatus) && Boolean(nextPick);
+  const nextPickTeamCode = nextPick ? teamForPick(nextPick) : null;
+  const nextPickAllowsSlotContext = nextPick ? teamForPick(nextPick) === nextPick.originalTeam : false;
+  const nextUserFinalized = userId && nextPick ? allFinalizedPicks?.[`${userId}:${nextPick.number}`] ?? null : null;
+  const nextLocked = isPreviewMode
+    ? Boolean(nextPick ? previewCards[nextPick.number] : null)
+    : Boolean(nextUserFinalized?.prospectId || (nextPickAllowsSlotContext && nextPick ? liveCards[nextPick.number] : null));
+  const nextSelectionId = nextPick
+    ? (isPreviewMode
+        ? previewCards[nextPick.number] ?? livePredictions[nextPick.number] ?? null
+        : nextUserFinalized?.prospectId ?? liveCards[nextPick.number] ?? livePredictions[nextPick.number] ?? null)
+    : null;
+  const nextSelection = getProspectById(nextSelectionId);
+  const nextWatchlistIds = watchlistIdsForPick(nextPick);
+
+  const nextUpRows = useMemo(() => {
+    if (!shouldShowNextUp || !nextPick) return [];
+
+    const nextWatchlistSet = new Set(nextWatchlistIds);
+    const predictedId = nextPickAllowsSlotContext ? livePredictions[nextPick.number] ?? null : null;
+
+    return prospects
+      .filter((prospect) => !draftedIds.has(prospect.id))
+      .sort((a, b) => {
+        const aSelected = nextSelectionId === a.id ? 1 : 0;
+        const bSelected = nextSelectionId === b.id ? 1 : 0;
+        if (aSelected !== bSelected) return bSelected - aSelected;
+
+        const aPredicted = predictedId === a.id ? 1 : 0;
+        const bPredicted = predictedId === b.id ? 1 : 0;
+        if (aPredicted !== bPredicted) return bPredicted - aPredicted;
+
+        const aWatch = nextWatchlistSet.has(a.id) ? 1 : 0;
+        const bWatch = nextWatchlistSet.has(b.id) ? 1 : 0;
+        if (aWatch !== bWatch) return bWatch - aWatch;
+
+        const aRank = bigBoardIds.indexOf(a.id);
+        const bRank = bigBoardIds.indexOf(b.id);
+        return (aRank === -1 ? 9999 : aRank) - (bRank === -1 ? 9999 : bRank);
+      })
+      .slice(0, 6);
+  }, [shouldShowNextUp, nextPick, nextWatchlistIds, nextPickAllowsSlotContext, livePredictions, nextSelectionId, prospects, draftedIds, bigBoardIds]);
 
   // ── Pre-draft: progress + suggestions ─────────────────────────────────────
 
@@ -156,17 +216,90 @@ export default function LiveDraftView() {
     poolId: pool?.id,
   });
 
+  const previewWindowSecondsLeft = useMemo(() => {
+    if (!isPreviewMode || previewStatus !== "pick_is_in") return windowSecondsLeft;
+    return 20;
+  }, [isPreviewMode, previewStatus, windowSecondsLeft]);
+
+  const previewWindowTier = isPreviewMode && previewStatus === "pick_is_in" ? "active" : windowTier;
+
+  function formatClockLabel(expiresAt) {
+    if (!expiresAt) return null;
+    const target = new Date(expiresAt).getTime();
+    if (Number.isNaN(target)) return null;
+    const deltaMs = target - clockNow;
+    if (deltaMs <= 0) return "00:00";
+    const totalSeconds = Math.floor(deltaMs / 1000);
+    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+    const seconds = String(totalSeconds % 60).padStart(2, "0");
+    return `${minutes}:${seconds}`;
+  }
+
+  const providerClockLabel =
+    effectiveCurrentStatus === "on_clock"
+      ? formatClockLabel(draftFeed.provider_expires_at)
+      : null;
+
+  const stageCountdownLabel = isPreviewMode && effectiveCurrentStatus === "on_clock"
+    ? (providerClockLabel ?? "04:18")
+    : providerClockLabel;
+  const stageCountdownPrefix = stageCountdownLabel ? "On the clock" : null;
+
   // ── Left column: CSS class for each pick row ──────────────────────────────
 
   function pickRowClass(pick) {
     if (pick.number === currentPickNumber) return "current";
-    const actualId = draftFeed.actual_picks?.[pick.number];
+    const actualId = (isPreviewMode ? previewReveals[pick.number] : null) ?? draftFeed.actual_picks?.[pick.number];
     if (!actualId) return "";
     const me = livePoolState.find((m) => m.isCurrentUser);
     if (!me || !resolveLivePickForUser) return "done-miss";
     const myProspectId = resolveLivePickForUser(me.id, pick.number);
     const result = liveResultForPick(myProspectId, actualId);
     return result === "exact" || result === "position" ? "done-hit" : "done-miss";
+  }
+
+  function updatePreviewParams(updates) {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value == null || value === "") next.delete(key);
+      else next.set(key, String(value));
+    });
+    setSearchParams(next, { replace: true });
+  }
+
+  function setPreviewStatusValue(status) {
+    updatePreviewParams({ preview: "1", status, pick: currentPickNumber });
+    if (status !== "revealed") {
+      setPreviewReveals((prev) => {
+        const next = { ...prev };
+        delete next[currentPickNumber];
+        return next;
+      });
+    }
+  }
+
+  function setPreviewPickNumberValue(pickNumber) {
+    const clamped = Math.max(1, Math.min(pickNumber, totalPicks));
+    updatePreviewParams({ preview: "1", pick: clamped, status: previewStatus });
+  }
+
+  function handlePreviewLockIn(pickNumber, prospectId) {
+    setPreviewCards((prev) => ({ ...prev, [pickNumber]: prospectId }));
+  }
+
+  function handlePreviewReset(pickNumber) {
+    setPreviewCards((prev) => {
+      const next = { ...prev };
+      delete next[pickNumber];
+      return next;
+    });
+  }
+
+  function handlePreviewReveal() {
+    const revealId = currentSelectionId ?? prospects.find((prospect) => !draftedIds.has(prospect.id))?.id ?? null;
+    if (!revealId) return;
+    setPreviewReveals((prev) => ({ ...prev, [currentPickNumber]: revealId }));
+    setPreviewStatusValue("revealed");
   }
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -264,6 +397,9 @@ export default function LiveDraftView() {
           ) : null}
         </div>
         <div className="tab-actions">
+          {isPreviewMode ? (
+            <div className="preview-chip">Preview mode</div>
+          ) : null}
           {!(isMobilePredraft && isPreDraft) ? (
             <div className={`countdown-clock ${countdown.expired ? "live" : ""}`}>
               <span className="countdown-label">{countdown.expired ? "DRAFT IS LIVE" : "Draft starts in"}</span>
@@ -461,6 +597,33 @@ export default function LiveDraftView() {
       {/* ══ LIVE DRAFT — Command center ══════════════════════════════════════ */}
       {!isPreDraft && liveTab === "draft" && (
         <div className="dn-shell">
+          {isPreviewMode ? (
+            <div className="preview-toolbar">
+              <div className="preview-toolbar-group">
+                <span className="preview-toolbar-label">Preview</span>
+                <button type="button" className="preview-toolbar-btn" onClick={() => setPreviewPickNumberValue(currentPickNumber - 1)}>← Pick</button>
+                <button type="button" className="preview-toolbar-btn" onClick={() => setPreviewPickNumberValue(currentPickNumber + 1)}>Pick →</button>
+              </div>
+              <div className="preview-toolbar-group">
+                {["on_clock", "pick_is_in", "awaiting_reveal", "revealed"].map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    className={`preview-toolbar-btn ${previewStatus === status ? "active" : ""}`}
+                    onClick={() => setPreviewStatusValue(status)}
+                  >
+                    {status.replace(/_/g, " ")}
+                  </button>
+                ))}
+                <button type="button" className="preview-toolbar-btn accent" onClick={handlePreviewReveal}>
+                  Reveal sample
+                </button>
+                <button type="button" className="preview-toolbar-btn" onClick={() => updatePreviewParams({ preview: null, status: null, pick: null })}>
+                  Exit preview
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {/* Subbar */}
           <div className="dn-subbar">
@@ -536,8 +699,8 @@ export default function LiveDraftView() {
             {/* ── Center: live stage ── */}
             <div className="dn-center">
               <SubmitWindowBanner
-                secondsLeft={windowSecondsLeft}
-                tier={windowTier}
+                secondsLeft={previewWindowSecondsLeft}
+                tier={previewWindowTier}
                 currentLocked={currentLocked}
                 poolState={livePoolState}
               />
@@ -545,25 +708,26 @@ export default function LiveDraftView() {
                 currentPick={currentPick}
                 currentTeam={currentTeam}
                 activeTeamCode={currentTeamCode}
-                currentStatus={draftFeed.current_status}
+                currentStatus={effectiveCurrentStatus}
                 currentLocked={currentLocked}
                 currentSelection={currentSelection}
                 suggestedProspect={null}
-                countdownLabel={countdownCopy(draftFeed.current_status)}
+                countdownLabel={stageCountdownLabel}
+                countdownPrefix={stageCountdownPrefix}
                 actualPick={actualCurrentPick}
                 poolState={livePoolState}
                 boardIds={bigBoardIds}
                 prospects={prospects}
                 draftedIds={draftedIds}
                 mappedPickByProspectId={mappedPredictionContextByProspectId}
-                onLockIn={(prospectId) => submitLiveCard(currentPickNumber, prospectId)}
-                onChangePick={() => resetLiveCard(currentPickNumber)}
+                onLockIn={(prospectId) => (isPreviewMode ? handlePreviewLockIn(currentPickNumber, prospectId) : submitLiveCard(currentPickNumber, prospectId))}
+                onChangePick={() => (isPreviewMode ? handlePreviewReset(currentPickNumber) : resetLiveCard(currentPickNumber))}
                 nextPickLabel={nextPickLabel}
                 onNextPick={() => {}}
                 scoringConfig={scoringConfig}
                 activeWatchlistIds={currentWatchlistIds}
-                onAddToWatchlist={(teamCode, prospectId) => addToWatchlist(teamCode, prospectId)}
-                onRemoveFromWatchlist={(teamCode, prospectId) => removeFromWatchlist(teamCode, prospectId)}
+                onAddToWatchlist={(teamCode, prospectId) => (isPreviewMode ? Promise.resolve() : addToWatchlist(teamCode, prospectId))}
+                onRemoveFromWatchlist={(teamCode, prospectId) => (isPreviewMode ? Promise.resolve() : removeFromWatchlist(teamCode, prospectId))}
               />
             </div>
 
@@ -571,6 +735,65 @@ export default function LiveDraftView() {
             <div className="dn-right">
 
               {/* Pool pick status — top, most urgent info */}
+              {shouldShowNextUp ? (
+                <div className="dn-right-section">
+                  <div className="dn-rs-label">Next Up</div>
+                  <div className="dn-nextup-card">
+                    <div className="dn-nextup-kicker">Pick {nextPick.number}</div>
+                    <div className="dn-nextup-team">{nextTeam?.name ?? "—"}</div>
+                    {nextTeam?.needs?.length ? (
+                      <div className="dn-nextup-needs">
+                        {nextTeam.needs.map((need) => (
+                          <span key={need} className="dn-nextup-need">{need}</span>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {nextLocked ? (
+                      <>
+                        <div className="dn-nextup-selection-label">Your next card</div>
+                        <div className="dn-nextup-selection-name">{nextSelection?.name ?? "Locked"}</div>
+                        <div className="dn-nextup-selection-meta">
+                          {nextSelection ? `${nextSelection.position} · ${nextSelection.school}` : "Saved for the next pick"}
+                        </div>
+                        <button className="dn-nextup-action" type="button" onClick={() => (isPreviewMode ? handlePreviewReset(nextPick.number) : resetLiveCard(nextPick.number))}>
+                          Change next pick
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="dn-nextup-selection-label">
+                          {nextPickAllowsSlotContext ? "Predicted, watchlist, then board" : "Trade mode: watchlist first"}
+                        </div>
+                        <div className="dn-nextup-list">
+                          {nextUpRows.map((prospect) => {
+                            const isPredicted = nextPickAllowsSlotContext && livePredictions[nextPick.number] === prospect.id;
+                            const isWatch = nextWatchlistIds.includes(prospect.id);
+                            return (
+                              <button
+                                key={prospect.id}
+                                type="button"
+                                className="dn-nextup-row"
+                                onClick={() => (isPreviewMode ? handlePreviewLockIn(nextPick.number, prospect.id) : submitLiveCard(nextPick.number, prospect.id))}
+                              >
+                                <div className="dn-nextup-row-main">
+                                  <span className="dn-nextup-row-name">{prospect.name}</span>
+                                  <span className="dn-nextup-row-meta">{prospect.position} · {prospect.school}</span>
+                                </div>
+                                <div className="dn-nextup-row-tags">
+                                  {isPredicted ? <span className="dn-nextup-tag predicted">P</span> : null}
+                                  {isWatch ? <span className="dn-nextup-tag watch">W</span> : null}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="dn-right-section">
                 <div className="dn-rs-label">
                   Pick {currentPickNumber} · Pool
@@ -580,7 +803,7 @@ export default function LiveDraftView() {
                 </div>
                 {livePoolState.map((m) => {
                   const isLocked = m.isCurrentUser ? currentLocked : m.locked;
-                  const isWarning = !isLocked && windowSecondsLeft != null && windowSecondsLeft <= 20 && windowSecondsLeft > 0;
+                  const isWarning = !isLocked && previewWindowSecondsLeft != null && previewWindowSecondsLeft <= 20 && previewWindowSecondsLeft > 0;
                   // green = locked, orange = warning (<20s unhurried), yellow = deciding normally
                   const avatarCls = isLocked ? "submitted" : isWarning ? "warning" : "deciding";
                   const initials = (m.name ?? "?").slice(0, 2).toUpperCase();
