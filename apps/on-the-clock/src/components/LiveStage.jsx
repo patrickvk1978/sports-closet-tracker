@@ -191,45 +191,46 @@ export default function LiveStage({
 
   return (
     <div className={`ls-root ${isPredraft ? "predraft" : "live"}`}>
-      <div className={`ls-header ${isPredraft ? "predraft" : ""} ${stage === "on_clock" && !isPredraft && timerUrgency === "critical" ? "critical" : ""}`}>
-        <div className="ls-team-block">
-          <div className="ls-pick-label">
-            Pick {currentPick?.number} · {isPredraft ? "Prediction editor" : stage === "locked" ? "Card submitted — waiting on announcement" : "Now Selecting"}
-          </div>
-          <div className="ls-team-name">{currentTeam?.name ?? "—"}</div>
-          {stage !== "locked" && currentTeam?.needs?.length ? (
-            <div className="ls-needs">
-              {currentTeam.needs.map((n) => <span key={n} className="ls-need-tag">{n}</span>)}
+      <div className={`ls-topbar ${isPredraft ? "predraft" : "live"}`}>
+        <div className={`ls-header ${isPredraft ? "predraft" : ""} ${stage === "on_clock" && !isPredraft && timerUrgency === "critical" ? "critical" : ""}`}>
+          <div className="ls-team-block">
+            <div className="ls-pick-label">
+              Pick {currentPick?.number} · {isPredraft ? "Prediction editor" : stage === "locked" ? "Card submitted — waiting on announcement" : "Now Selecting"}
             </div>
-          ) : null}
-        </div>
-        <div className={`ls-timer ${isPredraft ? "predraft" : ""}`}>
-          {isPredraft ? (
-            <div className="ls-header-actions">
-              {onViewBigBoard ? (
-                <button className="board-back-link ls-header-link" type="button" onClick={onViewBigBoard}>
-                  View full big board →
-                </button>
-              ) : null}
-              {renderHeaderControls("predraft")}
-            </div>
-          ) : stage === "reveal" ? null : (
-            <div className="ls-header-actions live">
-              <div className="ls-live-header-timer">
-                <span className={`ls-timer-label ${stage === "locked" ? "locked" : timerUrgency}`}>
-                  {stage === "locked" ? "Card Locked" : "Submit in"}
-                </span>
-                <span className={`ls-timer-val ${stage === "locked" ? "locked" : timerUrgency}`}>
-                  {countdownLabel}
-                </span>
+            <div className="ls-team-name">{currentTeam?.name ?? "—"}</div>
+            {stage !== "locked" && currentTeam?.needs?.length ? (
+              <div className="ls-needs">
+                {currentTeam.needs.map((n) => <span key={n} className="ls-need-tag">{n}</span>)}
               </div>
-              {renderHeaderControls("live")}
-            </div>
-          )}
+            ) : null}
+          </div>
+          <div className={`ls-timer ${isPredraft ? "predraft" : ""}`}>
+            {isPredraft ? (
+              <div className="ls-header-actions">
+                {onViewBigBoard ? (
+                  <button className="board-back-link ls-header-link" type="button" onClick={onViewBigBoard}>
+                    View full big board →
+                  </button>
+                ) : null}
+                {renderHeaderControls("predraft")}
+              </div>
+            ) : stage === "reveal" ? null : (
+              <div className="ls-header-actions live">
+                <div className="ls-live-header-timer">
+                  <span className={`ls-timer-label ${stage === "locked" ? "locked" : timerUrgency}`}>
+                    {stage === "locked" ? "Card Locked" : "Submit in"}
+                  </span>
+                  <span className={`ls-timer-val ${stage === "locked" ? "locked" : timerUrgency}`}>
+                    {countdownLabel}
+                  </span>
+                </div>
+                {renderHeaderControls("live")}
+              </div>
+            )}
+          </div>
         </div>
+        <div className="ls-divider" />
       </div>
-
-      <div className="ls-divider" />
 
       {stage === "on_clock" && (
         <>

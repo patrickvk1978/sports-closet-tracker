@@ -3833,13 +3833,14 @@ select:focus {
   --pd-text: #0f172a;
   --pd-subtle: #64748b;
   --pd-brand: #dc2626;
-  --pd-brand-soft: #fff1f2;
+  --pd-brand-soft: #eef2ff;
 
   margin: 0 -16px -32px;
   width: calc(100% + 32px);
-  min-height: calc(100vh - 60px);
+  height: calc(100dvh - 124px);
+  min-height: calc(100dvh - 124px);
   background:
-    radial-gradient(circle at top right, rgba(220, 38, 38, 0.08), transparent 22%),
+    radial-gradient(circle at top right, rgba(15, 23, 42, 0.08), transparent 22%),
     linear-gradient(180deg, #fff 0%, #f8fafc 100%);
   display: flex;
   flex-direction: column;
@@ -4037,6 +4038,10 @@ select:focus {
   flex: 1;
 }
 
+.ls-topbar {
+  flex-shrink: 0;
+}
+
 /* Standings rows (dark) */
 .dn-standings-row {
   display: flex;
@@ -4115,6 +4120,14 @@ select:focus {
 
 .ls-header.predraft {
   align-items: flex-start;
+  background: #111827;
+  color: #f8fafc;
+  border: 1px solid #111827;
+  border-radius: 18px 18px 0 0;
+  padding: 18px 18px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .ls-pick-label {
@@ -4186,6 +4199,12 @@ select:focus {
   height: 1px;
   background: var(--dn-border);
   margin: 4px 0;
+}
+
+.ls-topbar.predraft .ls-divider {
+  margin: 0;
+  background: #111827;
+  border-bottom: 1px solid #111827;
 }
 
 .ls-header-actions {
@@ -4312,7 +4331,7 @@ select:focus {
 }
 
 .ls-badge-legend.predraft {
-  color: #64748b;
+  color: #cbd5e1;
 }
 
 .ls-badge-legend.live {
@@ -4366,8 +4385,8 @@ select:focus {
 
 .ls-table-shell.predraft {
   background: rgba(255, 255, 255, 0.92);
-  border-color: #dbe4f0;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+  border: 2px solid #111827;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
 }
 
 .ls-table-head {
@@ -4389,9 +4408,9 @@ select:focus {
 }
 
 .ls-table-shell.predraft .ls-table-head {
-  background: #f8fafc;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
+  background: #111827;
+  color: #e5e7eb;
+  border-bottom: 1px solid #1f2937;
 }
 
 .ls-table-body {
@@ -4461,8 +4480,8 @@ select:focus {
 }
 
 .ls-player-row.predraft.current {
-  background: rgba(255, 241, 242, 0.82);
-  box-shadow: inset 3px 0 0 0 #ef4444;
+  background: #eef2f7;
+  box-shadow: inset 3px 0 0 0 #111827;
 }
 
 .ls-player-main {
