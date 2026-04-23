@@ -296,7 +296,6 @@ export default function BigBoardTable({
               const teamName = teams[pickInfo?.currentTeam]?.name ?? pickInfo?.currentTeam ?? "—";
               const selected = selectedProspectId === prospect.id;
               const drafted = draftedIds.has(prospect.id);
-              const assignedPick = mappedPickByProspectId[prospect.id];
               return (
                 <div
                   key={prospect.id}
@@ -316,9 +315,6 @@ export default function BigBoardTable({
                     <ProspectAvatar prospect={prospect} size="sm" className="board-player-avatar" />
                     <span className="board-player-main">
                       <strong>{prospect.name}</strong>
-                      {assignedPick ? (
-                        <span className="assign-tag">→ {assignedPick}</span>
-                      ) : null}
                     </span>
                   </span>
                   <span>{prospect.position}</span>

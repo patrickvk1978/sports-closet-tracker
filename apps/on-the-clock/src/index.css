@@ -2236,18 +2236,22 @@ select:focus {
 /* Mock draft table */
 .mock-table-head,
 .mock-row {
-  grid-template-columns: 52px minmax(120px, 1fr) minmax(160px, 1.6fr) 0.6fr 1fr;
+  grid-template-columns: 52px minmax(120px, 1fr) minmax(180px, 1.6fr) 0.6fr 1fr auto;
 }
 
 .mock-team {
-  font-size: 0.85rem;
-  color: var(--text-2);
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-1);
 }
 
 .board-row-actions {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+  align-items: center;
+  white-space: nowrap;
 }
 
 /* ─── Leaderboard ────────────────────────────────────────────────────────── */
