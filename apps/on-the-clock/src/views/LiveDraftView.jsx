@@ -256,6 +256,14 @@ export default function LiveDraftView() {
     bigBoardIds,
   ]);
 
+  const meId = profile?.id;
+  const livePoolState = useMemo(() => {
+    return currentLivePoolState.map((m) => ({
+      ...m,
+      isCurrentUser: m.id === meId || m.isCurrentUser,
+    }));
+  }, [currentLivePoolState, meId]);
+
   const meStanding = useMemo(() => {
     return liveStandings.find((player) => player.id === meId) ?? null;
   }, [liveStandings, meId]);
@@ -272,14 +280,6 @@ export default function LiveDraftView() {
             : "Awaiting pick";
 
   // ── Pool state for LiveStage ───────────────────────────────────────────────
-
-  const meId = profile?.id;
-  const livePoolState = useMemo(() => {
-    return currentLivePoolState.map((m) => ({
-      ...m,
-      isCurrentUser: m.id === meId || m.isCurrentUser,
-    }));
-  }, [currentLivePoolState, meId]);
 
   const { secondsLeft: windowSecondsLeft, tier: windowTier } = useSubmitWindow({
     draftFeed,
