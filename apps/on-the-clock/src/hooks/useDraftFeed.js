@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { supabase, draftDb } from '../lib/supabase'
 import { useReferenceData } from './useReferenceData'
 
 export function useDraftFeed() {
   const { picks } = useReferenceData()
+  const channelId = useId()
   const [draftFeed, setDraftFeed] = useState({
     phase: 'pre_draft',
     current_pick_number: 1,
@@ -46,7 +47,7 @@ export function useDraftFeed() {
 
     // Realtime subscriptions — note schema: 'draft'
     const channel = supabase
-      .channel('draft-state')
+      .channel(`draft-state-${channelId}`)
       .on('postgres_changes', { event: '*', schema: 'draft', table: 'feed' }, (payload) => {
         if (payload.new) setDraftFeed(payload.new)
       })
@@ -74,7 +75,7 @@ export function useDraftFeed() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [load])
+  }, [load, channelId])
 
   function teamCodeForPick(pickNumber) {
     if (teamOverrides[pickNumber]) return teamOverrides[pickNumber]
