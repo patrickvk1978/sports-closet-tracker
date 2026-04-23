@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ProspectAvatar from "./ProspectAvatar";
 
 const POSITION_OPTIONS = ["ALL", "QB", "WR", "OT", "EDGE", "CB", "DT", "RB", "LB", "S", "TE"];
@@ -40,8 +40,6 @@ export default function LiveStage({
   activeWatchlistIds = [],
 }) {
   const [filterValue, setFilterValue] = useState("ALL");
-  const [showBadgeKey, setShowBadgeKey] = useState(false);
-  const badgeKeyRef = useRef(null);
 
   const isPredraft = variant === "predraft";
   const isRevealed = currentStatus === "revealed";
@@ -93,17 +91,6 @@ export default function LiveStage({
     }
   }, [filterOptions, filterValue]);
 
-  useEffect(() => {
-    if (!showBadgeKey) return undefined;
-    function handlePointerDown(event) {
-      if (badgeKeyRef.current && !badgeKeyRef.current.contains(event.target)) {
-        setShowBadgeKey(false);
-      }
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [showBadgeKey]);
-
   const tableRows = useMemo(() => {
     const rows = prospects
       .filter((prospect) => !draftedIds.has(prospect.id))
@@ -146,47 +133,59 @@ export default function LiveStage({
   const resultLabel = isHit ? (streakBonus ? "🔥 exact hit" : "exact hit") : "miss";
   const resultPoints = isHit ? `+${exactPoints}` : "0";
 
+  function renderBadgeLegend() {
+    return (
+      <div className={`ls-badge-legend ${isPredraft ? "predraft" : "live"}`}>
+        <span className="ls-badge-legend-label">Key:</span>
+        <span className="ls-badge-legend-copy">Mock Draft Selections:</span>
+        {["R", "A", "E", "C"].map((badge) => (
+          <span key={badge} className="ls-badge-legend-item">
+            <span className={`ls-source-badge ${BADGE_CONFIG[badge]?.className ?? ""}`}>{badge}</span>
+            <span>{BADGE_CONFIG[badge]?.label ?? badge}</span>
+          </span>
+        ))}
+        <span className="ls-badge-legend-item">
+          <span className={`ls-source-badge ${BADGE_CONFIG.W.className}`}>W</span>
+          <span>Your Watchlist</span>
+        </span>
+      </div>
+    );
+  }
+
   function renderHeaderControls(controlVariant) {
     if (stage !== "on_clock") return null;
     const isLiveControls = controlVariant === "live";
     return (
-      <div className={`ls-header-control-row ${isLiveControls ? "live" : "predraft"}`}>
-        <div className="ls-badge-key-wrap" ref={badgeKeyRef}>
-          <button
-            className={`ls-badge-key-btn ${isLiveControls ? "live" : "predraft"}`}
-            type="button"
-            onClick={() => setShowBadgeKey((value) => !value)}
-            aria-expanded={showBadgeKey}
-            aria-haspopup="dialog"
-          >
-            Badge key
-          </button>
-          {showBadgeKey ? (
-            <div className={`ls-badge-key-popover ${isLiveControls ? "live" : "predraft"}`} role="dialog" aria-label="Badge key">
-              {["R", "A", "E", "C", "W"].map((badge) => (
-                <div key={badge} className="ls-badge-key-item">
-                  <span className={`ls-source-badge ${BADGE_CONFIG[badge]?.className ?? ""}`}>{badge}</span>
-                  <span>{BADGE_CONFIG[badge]?.label ?? badge}</span>
-                </div>
+      <>
+        <div className={`ls-header-control-row ${isLiveControls ? "live" : "predraft"}`}>
+          <div className={`ls-filter-wrap in-header ${isLiveControls ? "live" : ""}`}>
+            <select
+              className={`ls-filter-select compact ${isLiveControls ? "live" : "predraft"}`}
+              value={filterValue}
+              onChange={(event) => setFilterValue(event.target.value)}
+            >
+              <option value="ALL">All</option>
+              {filterOptions.filter((value) => value !== "ALL").map((value) => (
+                <option key={value} value={value}>
+                  {value === "WATCHLIST" ? "Watch" : value}
+                </option>
               ))}
-            </div>
+            </select>
+          </div>
+          {!isLiveControls && currentSelection && onChangePick ? (
+            <button
+              className="ls-clear-btn icon-only"
+              type="button"
+              onClick={onChangePick}
+              aria-label="Clear prediction"
+              title="Clear prediction"
+            >
+              ×
+            </button>
           ) : null}
         </div>
-        <div className={`ls-filter-wrap in-header ${isLiveControls ? "live" : ""}`}>
-          <select
-            className={`ls-filter-select compact ${isLiveControls ? "live" : "predraft"}`}
-            value={filterValue}
-            onChange={(event) => setFilterValue(event.target.value)}
-          >
-            <option value="ALL">All</option>
-            {filterOptions.filter((value) => value !== "ALL").map((value) => (
-              <option key={value} value={value}>
-                {value === "WATCHLIST" ? "Watch" : value}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+        {renderBadgeLegend()}
+      </>
     );
   }
 
@@ -208,16 +207,11 @@ export default function LiveStage({
           {isPredraft ? (
             <div className="ls-header-actions">
               {onViewBigBoard ? (
-                <button className="ls-header-link" type="button" onClick={onViewBigBoard}>
-                  View full big board
+                <button className="board-back-link ls-header-link" type="button" onClick={onViewBigBoard}>
+                  View full big board →
                 </button>
               ) : null}
               {renderHeaderControls("predraft")}
-              {currentSelection && onChangePick ? (
-                <button className="ls-clear-btn" type="button" onClick={onChangePick}>
-                  Clear prediction
-                </button>
-              ) : null}
             </div>
           ) : stage === "reveal" ? null : (
             <div className="ls-header-actions live">
