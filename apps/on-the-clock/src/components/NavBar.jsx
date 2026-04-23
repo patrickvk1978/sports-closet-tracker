@@ -116,12 +116,39 @@ export default function NavBar() {
   const { signOut, profile } = useAuth();
   const { pool, allPools, switchPool, isLoading } = usePool();
   const { draftFeed } = useDraftFeed();
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [isMobileNav, setIsMobileNav] = useState(false);
+  const mobileMenuRef = useRef(null);
 
   const isAdmin = location.pathname === "/admin";
   const isSettings = location.pathname === "/pool-settings";
   const isPoolCreator = pool?.admin_id === profile?.id;
   const canSettings = isPoolCreator || Boolean(profile?.is_admin);
   const hideInviteLinks = location.pathname === "/draft" && draftFeed.phase === "live";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const media = window.matchMedia("(max-width: 820px)");
+    const sync = () => setIsMobileNav(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileActionsOpen) return undefined;
+    function handlePointerDown(event) {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
+        setMobileActionsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [mobileActionsOpen]);
+
+  useEffect(() => {
+    setMobileActionsOpen(false);
+  }, [location.pathname]);
 
   function goHome() {
     navigate(pool?.game_mode === "mock_challenge" ? "/mock" : "/draft");
@@ -143,29 +170,86 @@ export default function NavBar() {
           hideInviteLinks={hideInviteLinks}
         />
 
-        {canSettings ? (
-          <button
-            className={isSettings ? "nav-button chip active" : "nav-button"}
-            onClick={() => navigate("/pool-settings")}
-            aria-label="Pool settings"
-          >
-            Settings
-          </button>
-        ) : null}
+        {isMobileNav ? (
+          <div className="nav-mobile-menu" ref={mobileMenuRef}>
+            <button
+              type="button"
+              className={`nav-button nav-mobile-toggle ${mobileActionsOpen ? "active" : ""}`}
+              onClick={() => setMobileActionsOpen((value) => !value)}
+              aria-haspopup="menu"
+              aria-expanded={mobileActionsOpen}
+              aria-label="More actions"
+            >
+              More
+            </button>
+            {mobileActionsOpen ? (
+              <div className="nav-mobile-panel" role="menu">
+                {canSettings ? (
+                  <button
+                    className={`nav-mobile-action ${isSettings ? "active" : ""}`}
+                    onClick={() => {
+                      navigate("/pool-settings");
+                      setMobileActionsOpen(false);
+                    }}
+                    aria-label="Pool settings"
+                  >
+                    Settings
+                  </button>
+                ) : null}
 
-        {profile?.is_admin ? (
-          <button
-            className={isAdmin ? "nav-button chip active" : "nav-button"}
-            onClick={() => navigate("/admin")}
-            aria-label="Admin panel"
-          >
-            Admin
-          </button>
-        ) : null}
+                {profile?.is_admin ? (
+                  <button
+                    className={`nav-mobile-action ${isAdmin ? "active" : ""}`}
+                    onClick={() => {
+                      navigate("/admin");
+                      setMobileActionsOpen(false);
+                    }}
+                    aria-label="Admin panel"
+                  >
+                    Admin
+                  </button>
+                ) : null}
 
-        <button className="nav-button muted" onClick={() => signOut()} aria-label="Sign out">
-          Sign out
-        </button>
+                <button
+                  className="nav-mobile-action muted"
+                  onClick={() => {
+                    setMobileActionsOpen(false);
+                    signOut();
+                  }}
+                  aria-label="Sign out"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            {canSettings ? (
+              <button
+                className={isSettings ? "nav-button chip active" : "nav-button"}
+                onClick={() => navigate("/pool-settings")}
+                aria-label="Pool settings"
+              >
+                Settings
+              </button>
+            ) : null}
+
+            {profile?.is_admin ? (
+              <button
+                className={isAdmin ? "nav-button chip active" : "nav-button"}
+                onClick={() => navigate("/admin")}
+                aria-label="Admin panel"
+              >
+                Admin
+              </button>
+            ) : null}
+
+            <button className="nav-button muted" onClick={() => signOut()} aria-label="Sign out">
+              Sign out
+            </button>
+          </>
+        )}
       </div>
     </nav>
   );

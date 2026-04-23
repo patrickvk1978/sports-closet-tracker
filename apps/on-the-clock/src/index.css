@@ -292,6 +292,52 @@ p { margin: 0; }
   justify-content: flex-end;
 }
 
+.nav-mobile-menu {
+  position: relative;
+}
+
+.nav-mobile-toggle {
+  min-width: 72px;
+}
+
+.nav-mobile-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(28, 31, 38, 0.98);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+  display: grid;
+  gap: 6px;
+  z-index: 140;
+}
+
+.nav-mobile-action {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: #f8fafc;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+
+.nav-mobile-action:hover,
+.nav-mobile-action.active {
+  background: rgba(255,255,255,0.08);
+}
+
+.nav-mobile-action.muted {
+  color: #d1d5db;
+}
+
 .nav-button {
   height: 36px;
   border-radius: var(--r-md);
@@ -3303,13 +3349,13 @@ select:focus {
   }
 
   .login-brand {
-    min-height: 220px;
-    padding: 28px 22px 26px;
-    order: 0;
+    min-height: 180px;
+    padding: 22px 20px 22px;
+    order: 1;
   }
 
   .login-brand-content {
-    gap: 14px;
+    gap: 10px;
     justify-content: flex-end;
   }
 
@@ -3324,15 +3370,15 @@ select:focus {
   }
 
   .login-sub {
-    font-size: 14px;
-    line-height: 1.45;
+    font-size: 13px;
+    line-height: 1.4;
     max-width: 28rem;
   }
 
   .login-form-panel {
     width: 100%;
-    padding: 28px 20px 36px;
-    order: 1;
+    padding: 24px 20px 30px;
+    order: 0;
     justify-content: flex-start;
   }
 
@@ -3356,6 +3402,7 @@ select:focus {
   .login-footer {
     margin-top: 16px;
     line-height: 1.5;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
   }
 }
 
@@ -4119,8 +4166,8 @@ select:focus {
 
 .pd-mobile-sheet {
   width: min(100%, 680px);
-  max-height: 92dvh;
-  min-height: 72dvh;
+  max-height: 90dvh;
+  min-height: 70dvh;
   border-radius: 22px;
   overflow: hidden;
   background: #f8fafc;
@@ -4130,13 +4177,22 @@ select:focus {
   flex-direction: column;
 }
 
+.pd-mobile-sheet-handle {
+  width: 44px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.6);
+  margin: 10px auto 2px;
+  flex-shrink: 0;
+}
+
 .pd-mobile-sheet-close {
   position: absolute;
-  top: 12px;
+  top: 8px;
   right: 14px;
   z-index: 3;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(15, 23, 42, 0.72);
@@ -5680,10 +5736,59 @@ select:focus {
 
   .pd-mobile-sheet .ls-header.predraft {
     border-radius: 0;
+    padding: 14px 16px 10px;
+  }
+
+  .pd-mobile-sheet .ls-pick-label {
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    margin-bottom: 6px;
+  }
+
+  .pd-mobile-sheet .ls-team-name {
+    font-size: 24px;
+  }
+
+  .pd-mobile-sheet .ls-needs {
+    gap: 5px;
+    margin-top: 6px;
+  }
+
+  .pd-mobile-sheet .ls-need-tag {
+    padding: 3px 7px;
+    font-size: 10px;
   }
 
   .pd-mobile-sheet .ls-header-actions {
+    align-items: flex-start;
+    gap: 10px;
+    max-width: none;
     padding-right: 34px;
+    margin-top: 10px;
+  }
+
+  .pd-mobile-sheet .ls-timer.predraft {
+    width: 100%;
+    text-align: left;
+  }
+
+  .pd-mobile-sheet .ls-header-control-row.predraft {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .pd-mobile-sheet .ls-filter-wrap.in-header .ls-filter-select.predraft {
+    min-width: 104px;
+  }
+
+  .pd-mobile-sheet .ls-badge-legend {
+    gap: 6px;
+  }
+
+  .pd-mobile-sheet .ls-badge-legend-copy,
+  .pd-mobile-sheet .ls-badge-legend-item span:last-child,
+  .pd-mobile-sheet .ls-badge-legend-separator {
+    display: none;
   }
 
   .pd-mobile-sheet .ls-table-shell.predraft {
@@ -5692,6 +5797,85 @@ select:focus {
     border-right: 0;
     border-bottom: 0;
     box-shadow: none;
+  }
+
+  .pd-mobile-sheet .ls-table-head,
+  .pd-mobile-sheet .ls-player-row {
+    grid-template-columns: minmax(0, 1fr) 88px 48px;
+    gap: 8px;
+  }
+
+  .pd-mobile-sheet .ls-table-head {
+    padding: 12px 16px;
+    font-size: 11px;
+  }
+
+  .pd-mobile-sheet .ls-player-row {
+    padding: 14px 16px;
+  }
+
+  .pd-mobile-sheet .ls-player-main {
+    gap: 10px;
+  }
+
+  .pd-mobile-sheet .ls-player-avatar.pa-avatar.md {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+  }
+
+  .pd-mobile-sheet .ls-player-name {
+    font-size: 16px;
+  }
+
+  .pd-mobile-sheet .ls-watch-toggle-ring {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+
+  .pd-mobile-sheet .ls-player-meta-row {
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .pd-mobile-sheet .ls-source-badge {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+
+  .pd-mobile-sheet .ls-player-school {
+    font-size: 11px;
+  }
+
+  .pd-mobile-sheet .ls-player-pos-pill {
+    min-width: 42px;
+    padding: 5px 10px;
+    font-size: 10px;
+  }
+
+  .pd-mobile-sheet .ls-player-rank {
+    font-size: 14px;
+  }
+
+  .workspace-nav.live-nav {
+    gap: 10px;
+  }
+
+  .workspace-nav.live-nav .tab-set {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .workspace-nav.live-nav .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 12px;
+  }
+
+  .workspace-nav.live-nav .tab-actions {
+    width: 100%;
   }
 
   .ls-root,

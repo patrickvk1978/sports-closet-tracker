@@ -264,10 +264,12 @@ export default function LiveDraftView() {
           ) : null}
         </div>
         <div className="tab-actions">
-          <div className={`countdown-clock ${countdown.expired ? "live" : ""}`}>
-            <span className="countdown-label">{countdown.expired ? "DRAFT IS LIVE" : "Draft starts in"}</span>
-            {!countdown.expired ? <span className="countdown-time">{countdown.label}</span> : null}
-          </div>
+          {!(isMobilePredraft && isPreDraft) ? (
+            <div className={`countdown-clock ${countdown.expired ? "live" : ""}`}>
+              <span className="countdown-label">{countdown.expired ? "DRAFT IS LIVE" : "Draft starts in"}</span>
+              {!countdown.expired ? <span className="countdown-time">{countdown.label}</span> : null}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -391,6 +393,7 @@ export default function LiveDraftView() {
                     aria-label={focusedPreDraftTeam ? `${focusedPreDraftTeam.name} player picker` : "Player picker"}
                     onClick={(event) => event.stopPropagation()}
                   >
+                    <div className="pd-mobile-sheet-handle" aria-hidden="true" />
                     <button
                       type="button"
                       className="pd-mobile-sheet-close"
