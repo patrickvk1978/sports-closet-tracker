@@ -494,7 +494,7 @@ export default function LiveDraftView() {
                   const isWarning = !isLocked && windowSecondsLeft != null && windowSecondsLeft <= 20 && windowSecondsLeft > 0;
                   // green = locked, orange = warning (<20s unhurried), yellow = deciding normally
                   const avatarCls = isLocked ? "submitted" : isWarning ? "warning" : "deciding";
-                  const initials = m.name.slice(0, 2).toUpperCase();
+                  const initials = (m.name ?? "?").slice(0, 2).toUpperCase();
                   const statusCls = isLocked ? "locked" : isWarning ? "warning" : "deciding";
                   const statusText = isLocked ? "locked ✓" : isWarning ? "hurry up!" : "deciding…";
                   return (
@@ -504,7 +504,7 @@ export default function LiveDraftView() {
                       </div>
                       <div className="dn-pool-member-info">
                         <span className={`dn-pool-member-name${m.isCurrentUser ? " me" : ""}`}>
-                          {m.isCurrentUser ? "you" : m.name}
+                          {m.isCurrentUser ? "you" : (m.name ?? "—")}
                         </span>
                         <span className={`dn-pool-member-status ${statusCls}`}>
                           {statusText}
@@ -529,7 +529,7 @@ export default function LiveDraftView() {
                         className="dn-standings-row"
                       >
                         <span className={`dn-st-rank ${idx === 0 ? "top" : ""}`}>{idx + 1}</span>
-                        <span className={`dn-st-name ${isMe ? "me" : ""}`}>{player.name}</span>
+                        <span className={`dn-st-name ${isMe ? "me" : ""}`}>{player.name ?? "—"}</span>
                         <span className={`dn-st-pts ${isMe ? "me" : ""}`}>{player.points}pt</span>
                       </motion.div>
                     );

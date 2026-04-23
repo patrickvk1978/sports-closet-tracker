@@ -102,7 +102,7 @@ export function PoolProvider({ children }) {
   const memberList = useMemo(() => {
     return members.map(m => ({
       id: m.user_id,
-      name: m.username,
+      name: m.username ?? m.email?.split('@')[0] ?? 'Member',
       isAdmin: m.is_admin,
       isCurrentUser: m.user_id === session?.user?.id,
     }))
