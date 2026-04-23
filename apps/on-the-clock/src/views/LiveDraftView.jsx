@@ -16,6 +16,8 @@ import { useLiveDraft } from "../hooks/useLiveDraft";
 import { useReferenceData } from "../hooks/useReferenceData";
 import { useWatchlists } from "../hooks/useWatchlists";
 
+const MOBILE_POSITION_OPTIONS = ["ALL", "QB", "WR", "OT", "EDGE", "CB", "DT", "RB", "LB", "S", "TE", "WATCHLIST"];
+
 export default function LiveDraftView() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,7 +49,10 @@ export default function LiveDraftView() {
   const [leftTab, setLeftTab] = useState("picks"); // "picks" | "feed"
   const [devPhase, setDevPhase] = useState(null); // admin override
   const [isMobilePredraft, setIsMobilePredraft] = useState(false);
+  const [isMobileLive, setIsMobileLive] = useState(false);
   const [mobilePredraftSheetOpen, setMobilePredraftSheetOpen] = useState(false);
+  const [mobileLiveFilter, setMobileLiveFilter] = useState("ALL");
+  const [mobileStandingsOpen, setMobileStandingsOpen] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [previewCards, setPreviewCards] = useState({});
   const [previewReveals, setPreviewReveals] = useState({});
@@ -71,7 +76,10 @@ export default function LiveDraftView() {
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     const media = window.matchMedia("(max-width: 980px)");
-    const sync = () => setIsMobilePredraft(media.matches);
+    const sync = () => {
+      setIsMobilePredraft(media.matches);
+      setIsMobileLive(media.matches);
+    };
     sync();
     media.addEventListener("change", sync);
     return () => media.removeEventListener("change", sync);
@@ -82,6 +90,12 @@ export default function LiveDraftView() {
       setMobilePredraftSheetOpen(false);
     }
   }, [isMobilePredraft]);
+
+  useEffect(() => {
+    if (!isMobileLive) {
+      setMobileStandingsOpen(false);
+    }
+  }, [isMobileLive]);
 
   useEffect(() => {
     const intervalId = setInterval(() => setClockNow(Date.now()), 1000);
@@ -197,6 +211,65 @@ export default function LiveDraftView() {
   const currentTeamCode = currentPick ? teamForPick(currentPick) : null;
   const focusedWatchlistIds = watchlistIdsForPick(focusedPreDraftPick);
   const currentWatchlistIds = watchlistIdsForPick(currentPick);
+  const currentWatchlistSet = useMemo(() => new Set(currentWatchlistIds), [currentWatchlistIds]);
+
+  const mobileListRows = useMemo(() => {
+    if (!isMobileLive || isPreDraft) return [];
+    const allowSlotContext = teamForPick(currentPick) === currentPick.originalTeam;
+    const predictedId = allowSlotContext ? livePredictions[currentPickNumber] ?? null : null;
+
+    return prospects
+      .filter((prospect) => !draftedIds.has(prospect.id))
+      .filter((prospect) => {
+        if (mobileLiveFilter === "ALL") return true;
+        if (mobileLiveFilter === "WATCHLIST") return currentWatchlistSet.has(prospect.id);
+        return prospect.position.includes(mobileLiveFilter);
+      })
+      .sort((a, b) => {
+        const aSelected = currentSelectionId === a.id ? 1 : 0;
+        const bSelected = currentSelectionId === b.id ? 1 : 0;
+        if (aSelected !== bSelected) return bSelected - aSelected;
+
+        const aPredicted = predictedId === a.id ? 1 : 0;
+        const bPredicted = predictedId === b.id ? 1 : 0;
+        if (aPredicted !== bPredicted) return bPredicted - aPredicted;
+
+        const aWatch = currentWatchlistSet.has(a.id) ? 1 : 0;
+        const bWatch = currentWatchlistSet.has(b.id) ? 1 : 0;
+        if (aWatch !== bWatch) return bWatch - aWatch;
+
+        const aRank = bigBoardIds.indexOf(a.id);
+        const bRank = bigBoardIds.indexOf(b.id);
+        return (aRank === -1 ? 9999 : aRank) - (bRank === -1 ? 9999 : bRank);
+      });
+  }, [
+    isMobileLive,
+    isPreDraft,
+    currentPick,
+    livePredictions,
+    currentPickNumber,
+    prospects,
+    draftedIds,
+    mobileLiveFilter,
+    currentWatchlistSet,
+    currentSelectionId,
+    bigBoardIds,
+  ]);
+
+  const meStanding = useMemo(() => {
+    return liveStandings.find((player) => player.id === meId) ?? null;
+  }, [liveStandings, meId]);
+
+  const mobileStatusCopy =
+    effectiveCurrentStatus === "pick_is_in"
+      ? "Pick is in"
+      : effectiveCurrentStatus === "awaiting_reveal"
+        ? "Awaiting reveal"
+        : effectiveCurrentStatus === "revealed"
+          ? "Pick revealed"
+          : currentLocked
+            ? "Pick submitted"
+            : "Awaiting pick";
 
   // ── Pool state for LiveStage ───────────────────────────────────────────────
 
@@ -376,6 +449,32 @@ export default function LiveDraftView() {
     if (isMobilePredraft) {
       setMobilePredraftSheetOpen(true);
     }
+  }
+
+  function mobileBadgesForProspect(prospect) {
+    const badges = [];
+    if (currentWatchlistSet.has(prospect.id)) badges.push("W");
+    if (prospect.ringer_mock_pick === currentPickNumber) badges.push("R");
+    if (prospect.athletic_mock_pick === currentPickNumber) badges.push("A");
+    if (prospect.espn_mock_pick === currentPickNumber) badges.push("E");
+    if (prospect.consensus_mock_pick === currentPickNumber) badges.push("C");
+    return badges;
+  }
+
+  function handleMobileSelectProspect(prospectId) {
+    if (isPreviewMode) {
+      handlePreviewLockIn(currentPickNumber, prospectId);
+      return;
+    }
+    void submitLiveCard(currentPickNumber, prospectId);
+  }
+
+  function ordinalSuffix(rank) {
+    if (rank % 100 >= 11 && rank % 100 <= 13) return "th";
+    if (rank % 10 === 1) return "st";
+    if (rank % 10 === 2) return "nd";
+    if (rank % 10 === 3) return "rd";
+    return "th";
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -615,8 +714,141 @@ export default function LiveDraftView() {
         />
       )}
 
+      {!isPreDraft && liveTab === "draft" && isMobileLive && (
+        <div className="mobile-live-shell">
+          <div className="mobile-live-topcard">
+            <div className="mobile-live-topline">
+              <span className="mobile-live-pick">Pick {currentPickNumber}</span>
+              <span className={`mobile-live-status ${effectiveCurrentStatus}`}>{mobileStatusCopy}</span>
+            </div>
+            <div className="mobile-live-team">{currentTeam?.name ?? "—"}</div>
+            <div className="mobile-live-controls">
+              <select
+                className="mobile-live-filter"
+                value={mobileLiveFilter}
+                onChange={(event) => setMobileLiveFilter(event.target.value)}
+              >
+                {MOBILE_POSITION_OPTIONS.filter((option) => option !== "WATCHLIST" || currentWatchlistIds.length > 0).map((option) => (
+                  <option key={option} value={option}>
+                    {option === "WATCHLIST" ? "Watchlist" : option}
+                  </option>
+                ))}
+              </select>
+              <div className="mobile-live-clock-stack">
+                <span className="mobile-live-clock-label">
+                  {effectiveCurrentStatus === "pick_is_in" ? "Locks in" : effectiveCurrentStatus}
+                </span>
+                <span className="mobile-live-clock-value">
+                  {effectiveCurrentStatus === "pick_is_in"
+                    ? `${String(previewWindowSecondsLeft ?? 20).padStart(2, "0")}s`
+                    : stageCountdownLabel ?? "—"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mobile-live-main">
+            {(effectiveCurrentStatus === "on_clock" || effectiveCurrentStatus === "pick_is_in") && !currentLocked ? (
+              <div className="mobile-live-list">
+                {mobileListRows.map((prospect) => {
+                  const badges = mobileBadgesForProspect(prospect);
+                  return (
+                    <button
+                      key={prospect.id}
+                      type="button"
+                      className="mobile-live-row"
+                      onClick={() => handleMobileSelectProspect(prospect.id)}
+                    >
+                      <div className="mobile-live-row-main">
+                        <span className="mobile-live-row-name">{prospect.name}</span>
+                        <span className="mobile-live-row-meta">{prospect.position} · {prospect.school}</span>
+                      </div>
+                      <div className="mobile-live-row-side">
+                        <span className="mobile-live-row-rank">
+                          #{(bigBoardIds.indexOf(prospect.id) === -1 ? "—" : bigBoardIds.indexOf(prospect.id) + 1)}
+                        </span>
+                        <div className="mobile-live-row-badges">
+                          {badges.map((badge) => (
+                            <span key={`${prospect.id}-${badge}`} className={`mobile-live-badge ${badge === "W" ? "watch" : ""}`}>
+                              {badge}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mobile-live-stage">
+                <LiveStage
+                  currentPick={currentPick}
+                  currentTeam={currentTeam}
+                  activeTeamCode={currentTeamCode}
+                  currentStatus={effectiveCurrentStatus}
+                  currentLocked={currentLocked}
+                  currentSelection={currentSelection}
+                  suggestedProspect={null}
+                  countdownLabel={stageCountdownLabel}
+                  countdownPrefix={stageCountdownPrefix}
+                  actualPick={actualCurrentPick}
+                  poolState={livePoolState}
+                  boardIds={bigBoardIds}
+                  prospects={prospects}
+                  draftedIds={draftedIds}
+                  mappedPickByProspectId={mappedPredictionContextByProspectId}
+                  onLockIn={(prospectId) => (isPreviewMode ? handlePreviewLockIn(currentPickNumber, prospectId) : submitLiveCard(currentPickNumber, prospectId))}
+                  onChangePick={() => (isPreviewMode ? handlePreviewReset(currentPickNumber) : resetLiveCard(currentPickNumber))}
+                  nextPickLabel={null}
+                  onNextPick={() => {}}
+                  scoringConfig={scoringConfig}
+                  activeWatchlistIds={currentWatchlistIds}
+                  onAddToWatchlist={() => Promise.resolve()}
+                  onRemoveFromWatchlist={() => Promise.resolve()}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="mobile-live-pooldots">
+            {livePoolState.map((member) => {
+              const isLocked = member.isCurrentUser ? currentLocked : member.locked;
+              const isWarning = !isLocked && previewWindowSecondsLeft != null && previewWindowSecondsLeft <= 20 && previewWindowSecondsLeft > 0;
+              const cls = isLocked ? "locked" : isWarning ? "warning" : "waiting";
+              return (
+                <div key={member.id ?? member.name} className="mobile-live-dot-wrap">
+                  <div className={`mobile-live-dot ${cls}`} />
+                  <span className="mobile-live-dot-label">{member.isCurrentUser ? "You" : (member.name ?? "—").slice(0, 3)}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            className="mobile-live-scorebar"
+            onClick={() => setMobileStandingsOpen((prev) => !prev)}
+          >
+            <span>{meStanding ? `You: ${liveStandings.findIndex((player) => player.id === meStanding.id) + 1}${ordinalSuffix(liveStandings.findIndex((player) => player.id === meStanding.id) + 1)} · ${meStanding.points} pts` : "View standings"}</span>
+            <span>{mobileStandingsOpen ? "Hide" : "Standings"}</span>
+          </button>
+
+          {mobileStandingsOpen ? (
+            <div className="mobile-live-standings">
+              {liveStandings.map((player, idx) => (
+                <div key={player.id ?? player.name} className={`mobile-live-standing-row ${player.id === meId ? "me" : ""}`}>
+                  <span>{idx + 1}</span>
+                  <span>{player.name}</span>
+                  <span>{player.points} pts</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+
       {/* ══ LIVE DRAFT — Command center ══════════════════════════════════════ */}
-      {!isPreDraft && liveTab === "draft" && (
+      {!isPreDraft && liveTab === "draft" && !isMobileLive && (
         <div className="dn-shell">
           {isPreviewMode ? (
             <div className="preview-toolbar">
@@ -757,6 +989,42 @@ export default function LiveDraftView() {
 
             {/* ── Right: pick status then standings ── */}
             <div className="dn-right">
+              {!(effectiveCurrentStatus === "awaiting_reveal" || effectiveCurrentStatus === "revealed") ? (
+                <>
+                  {/* Pool pick status — top, most urgent info */}
+                  <div className="dn-right-section">
+                    <div className="dn-rs-label">
+                      Pick {currentPickNumber} · Pool
+                      <span className="dn-pool-count-badge">
+                        {livePoolState.filter((m) => m.isCurrentUser ? currentLocked : m.locked).length}/{livePoolState.length} locked
+                      </span>
+                    </div>
+                    {livePoolState.map((m) => {
+                      const isLocked = m.isCurrentUser ? currentLocked : m.locked;
+                      const isWarning = !isLocked && previewWindowSecondsLeft != null && previewWindowSecondsLeft <= 20 && previewWindowSecondsLeft > 0;
+                      const avatarCls = isLocked ? "submitted" : isWarning ? "warning" : "deciding";
+                      const initials = (m.name ?? "?").slice(0, 2).toUpperCase();
+                      const statusCls = isLocked ? "locked" : isWarning ? "warning" : "deciding";
+                      const statusText = isLocked ? "locked ✓" : isWarning ? "hurry up!" : "deciding…";
+                      return (
+                        <div key={m.id ?? m.name} className="dn-pool-member-row">
+                          <div className={`dn-pool-avatar ${avatarCls}${!isLocked ? " pulsing" : ""}`}>
+                            {initials}
+                          </div>
+                          <div className="dn-pool-member-info">
+                            <span className={`dn-pool-member-name${m.isCurrentUser ? " me" : ""}`}>
+                              {m.isCurrentUser ? "you" : (m.name ?? "—")}
+                            </span>
+                            <span className={`dn-pool-member-status ${statusCls}`}>
+                              {statusText}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
 
               {/* Pool pick status — top, most urgent info */}
               {shouldShowNextUp ? (
@@ -820,39 +1088,6 @@ export default function LiveDraftView() {
                   </div>
                 </div>
               ) : null}
-
-              <div className="dn-right-section">
-                <div className="dn-rs-label">
-                  Pick {currentPickNumber} · Pool
-                  <span className="dn-pool-count-badge">
-                    {livePoolState.filter((m) => m.isCurrentUser ? currentLocked : m.locked).length}/{livePoolState.length} locked
-                  </span>
-                </div>
-                {livePoolState.map((m) => {
-                  const isLocked = m.isCurrentUser ? currentLocked : m.locked;
-                  const isWarning = !isLocked && previewWindowSecondsLeft != null && previewWindowSecondsLeft <= 20 && previewWindowSecondsLeft > 0;
-                  // green = locked, orange = warning (<20s unhurried), yellow = deciding normally
-                  const avatarCls = isLocked ? "submitted" : isWarning ? "warning" : "deciding";
-                  const initials = (m.name ?? "?").slice(0, 2).toUpperCase();
-                  const statusCls = isLocked ? "locked" : isWarning ? "warning" : "deciding";
-                  const statusText = isLocked ? "locked ✓" : isWarning ? "hurry up!" : "deciding…";
-                  return (
-                    <div key={m.id ?? m.name} className="dn-pool-member-row">
-                      <div className={`dn-pool-avatar ${avatarCls}${!isLocked ? " pulsing" : ""}`}>
-                        {initials}
-                      </div>
-                      <div className="dn-pool-member-info">
-                        <span className={`dn-pool-member-name${m.isCurrentUser ? " me" : ""}`}>
-                          {m.isCurrentUser ? "you" : (m.name ?? "—")}
-                        </span>
-                        <span className={`dn-pool-member-status ${statusCls}`}>
-                          {statusText}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
 
               {/* Standings */}
               <div className="dn-right-section">
