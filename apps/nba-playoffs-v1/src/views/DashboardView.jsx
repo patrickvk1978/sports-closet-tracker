@@ -76,6 +76,10 @@ function formatSeriesStatus(seriesItem, currentRoundLabel) {
 }
 
 function buildUpdatedSeriesStatus(seriesItem, currentRoundLabel, game) {
+  if (game?.seriesHeadline && game?.seriesSummary) {
+    return `${game.seriesHeadline.replace(" - ", " · ")} · ${game.seriesSummary}`;
+  }
+
   if (!seriesItem || game?.status !== "completed") {
     return formatSeriesStatus(seriesItem, currentRoundLabel);
   }
@@ -311,7 +315,6 @@ export default function DashboardView() {
           <article className="panel nba-v1-on-tap-card">
             <div className="panel-header">
               <div>
-                <span className="label">What&apos;s On Tap</span>
                 <h1>What&apos;s On Tap</h1>
               </div>
             </div>
@@ -322,22 +325,27 @@ export default function DashboardView() {
                   <div className="nba-v1-on-tap-time">
                     {row.status === "in_progress" ? (
                       <span className="nba-v1-live-chip">Live</span>
+                    ) : row.status === "completed" ? (
+                      <span className="nba-v1-on-tap-note">Final</span>
                     ) : (
-                      <strong>{row.status === "completed" ? row.scoreLabel : row.timeLabel}</strong>
+                      <strong>{row.timeLabel}</strong>
                     )}
-                    {row.status === "in_progress" ? <strong>{row.scoreLabel}</strong> : null}
-                    {row.statusNote ? <span className="nba-v1-on-tap-note">{row.statusNote}</span> : null}
                   </div>
 
                   <div className="nba-v1-on-tap-copy">
-                    <strong>{row.matchupLabel}</strong>
+                    <strong>{row.status === "scheduled" ? row.matchupLabel : row.scoreLabel}</strong>
+                    {row.status !== "scheduled" ? (
+                      <span className="nba-v1-on-tap-live-status">{row.statusNote ?? (row.status === "completed" ? "Final" : "Live")}</span>
+                    ) : null}
                     <p className="nba-v1-on-tap-series">{row.statusLabel}</p>
-                    <div className="nba-v1-on-tap-intel">
-                      <span>Market: {row.marketLabel}</span>
-                      <span>Line: {row.modelLabel}</span>
-                      {row.seriesItem ? <span>Your pick: {row.yourSide}</span> : null}
-                      {row.publicLean ? <span>Room lean: {row.publicLean}</span> : null}
-                    </div>
+                    {row.status === "scheduled" ? (
+                      <div className="nba-v1-on-tap-intel">
+                        <span>Market: {row.marketLabel}</span>
+                        <span>Line: {row.modelLabel}</span>
+                        {row.seriesItem ? <span>Your pick: {row.yourSide}</span> : null}
+                        {row.publicLean ? <span>Room lean: {row.publicLean}</span> : null}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="nba-v1-on-tap-action">

@@ -985,11 +985,18 @@ p { margin: 0; }
 
 .nba-v1-on-tap-note {
   display: block;
-  margin-top: 6px;
   font-size: 0.88rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(232, 121, 54, 0.92);
+}
+
+.nba-v1-on-tap-live-status {
+  display: block;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(247, 249, 252, 0.82);
 }
 
 .nba-v1-on-tap-copy {

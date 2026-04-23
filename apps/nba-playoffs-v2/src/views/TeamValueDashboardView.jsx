@@ -315,29 +315,26 @@ export default function TeamValueDashboardView() {
                     <article className="nba-dashboard-on-tap-row" key={row.id}>
                       <div className="nba-dashboard-on-tap-time">
                         {row.status === "in_progress" ? (
-                          <>
-                            <span className="nba-dashboard-live-chip">Live</span>
-                            <strong>{row.scoreLabel}</strong>
-                            <small>{row.statusNote ?? "Updating live"}</small>
-                          </>
+                          <span className="nba-dashboard-live-chip">Live</span>
                         ) : row.status === "completed" ? (
-                          <>
-                            <span>Final</span>
-                            <strong>{row.scoreLabel}</strong>
-                            <small>{row.statusNote ?? "Final"}</small>
-                          </>
+                          <span>Final</span>
                         ) : (
                           <strong>{row.timeLabel}</strong>
                         )}
                       </div>
                       <div className="nba-dashboard-on-tap-copy">
-                        <strong>{row.matchupLabel}</strong>
+                        <strong>{row.status === "scheduled" ? row.matchupLabel : row.scoreLabel}</strong>
+                        {row.status !== "scheduled" ? (
+                          <span className="nba-dashboard-on-tap-live-status">{row.statusNote ?? (row.status === "completed" ? "Final" : "Live")}</span>
+                        ) : null}
                         <p>{row.seriesStatus}</p>
-                        <div className="nba-dashboard-on-tap-meta">
-                          <span><strong>Line:</strong> {row.currentLineLabel}</span>
-                          <span><strong>Predictor:</strong> {row.favoriteLabel}</span>
-                          <span><strong>Board lean:</strong> {row.boardLean}</span>
-                        </div>
+                        {row.status === "scheduled" ? (
+                          <div className="nba-dashboard-on-tap-meta">
+                            <span><strong>Line:</strong> {row.currentLineLabel}</span>
+                            <span><strong>Predictor:</strong> {row.favoriteLabel}</span>
+                            <span><strong>Board lean:</strong> {row.boardLean}</span>
+                          </div>
+                        ) : null}
                       </div>
                       <div className="nba-dashboard-on-tap-action">
                         <Link className="secondary-button full" to={row.analysisPath}>

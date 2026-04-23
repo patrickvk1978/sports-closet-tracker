@@ -195,6 +195,8 @@ function parseTodayGame(event) {
   const period = competition.status?.period ?? null;
   const parsedOdds = parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation);
   const currentLine = parseEspnCurrentLine(competition, homeAbbreviation, awayAbbreviation);
+  const seriesHeadline = competition?.notes?.[0]?.headline ?? null;
+  const seriesSummary = competition?.series?.summary ?? null;
 
   const statusState = statusType?.state ?? null;
   const isCompleted = Boolean(statusType.completed) || statusState === "post";
@@ -218,6 +220,8 @@ function parseTodayGame(event) {
     homeScore: Number(home.score ?? 0),
     awayScore: Number(away.score ?? 0),
     statusNote,
+    seriesHeadline,
+    seriesSummary,
     marketFavoriteLabel: parsedOdds?.label ?? null,
     currentLineLabel: currentLine?.label ?? null,
     homeWinPct: parsedOdds?.homePct ?? null,
