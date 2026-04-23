@@ -24,6 +24,14 @@ function scoreForHit(pickNumber, streakBefore, sc) {
   return Math.round(base * (streakBefore >= threshold ? mult : 1))
 }
 
+function compareStandings(a, b) {
+  if (b.points !== a.points) return b.points - a.points
+  if ((a.seedRank ?? Number.MAX_SAFE_INTEGER) !== (b.seedRank ?? Number.MAX_SAFE_INTEGER)) {
+    return (a.seedRank ?? Number.MAX_SAFE_INTEGER) - (b.seedRank ?? Number.MAX_SAFE_INTEGER)
+  }
+  return String(a.name ?? '').localeCompare(String(b.name ?? ''))
+}
+
 export function useLiveDraft({ draftFeed, teamCodeForPick }) {
   const { session } = useAuth()
   const { pool, memberList } = usePool()
@@ -45,7 +53,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
 
   function slotAllowsSourceTeamContext(pickNumber) {
     const pick = picks.find(p => p.number === pickNumber)
-    if (!pick) return true
+    if (!pick) return false
     return teamCodeForPick(pickNumber) === pick.originalTeam
   }
 
@@ -147,15 +155,59 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
         }))
       })
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'draft',
         table: 'live_cards',
         filter: `pool_id=eq.${poolId}`,
       }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          const r = payload.old
+          setAllMemberCards(prev => {
+            const next = { ...prev }
+            delete next[`${r.user_id}:${r.pick_number}`]
+            return next
+          })
+          if (r.user_id === userId) {
+            setLiveCards(prev => {
+              const next = { ...prev }
+              delete next[r.pick_number]
+              return next
+            })
+          }
+          return
+        }
         const r = payload.new
         setAllMemberCards(prev => ({ ...prev, [`${r.user_id}:${r.pick_number}`]: r.prospect_id }))
         if (r.user_id === userId) {
           setLiveCards(prev => ({ ...prev, [r.pick_number]: r.prospect_id }))
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'draft',
+        table: 'queues',
+        filter: `pool_id=eq.${poolId}`,
+      }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          const r = payload.old
+          setAllMemberPredictions(prev => {
+            const next = { ...prev }
+            delete next[`${r.user_id}:${r.pick_number}`]
+            return next
+          })
+          if (r.user_id === userId) {
+            setLivePredictions(prev => {
+              const next = { ...prev }
+              delete next[r.pick_number]
+              return next
+            })
+          }
+          return
+        }
+        const r = payload.new
+        setAllMemberPredictions(prev => ({ ...prev, [`${r.user_id}:${r.pick_number}`]: r.prospect_id }))
+        if (r.user_id === userId) {
+          setLivePredictions(prev => ({ ...prev, [r.pick_number]: r.prospect_id }))
         }
       })
       .subscribe()
@@ -215,7 +267,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
 
     const allowSlotSources = slotAllowsSourceTeamContext(pickNumber)
     const cardKey = `${targetUserId}:${pickNumber}`
-    if (allowSlotSources && allMemberCards[cardKey]) return allMemberCards[cardKey]
+    if (allMemberCards[cardKey]) return allMemberCards[cardKey]
 
     const predictionId = allowSlotSources ? (allMemberPredictions[cardKey] ?? null) : null
     const boardIds = allMemberBoards[targetUserId] ?? defaultBigBoardIds
@@ -386,9 +438,15 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
           }
         }
 
-        return { id: member.id, name: member.name, points, streak }
+        return {
+          id: member.id,
+          name: member.name,
+          points,
+          streak,
+          seedRank: memberList.findIndex((m) => m.id === member.id) + 1,
+        }
       })
-      .sort((a, b) => b.points - a.points)
+      .sort(compareStandings)
   }, [draftFeed?.actual_picks, draftFeed?.scoring_config, memberList, allMemberCards, allMemberPredictions, allMemberBoards, allFinalizedPicks, pool])
 
   // Computed: current pick pool state (includes streakCount entering this pick)
@@ -414,8 +472,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
       }
 
       const finalized = getFinalizedEntry(member.id, currentPickNum)
-      const allowSlotSources = slotAllowsSourceTeamContext(currentPickNum)
-      const lockedProspectId = finalized?.prospectId ?? (allowSlotSources ? (allMemberCards[`${member.id}:${currentPickNum}`] ?? null) : null)
+      const lockedProspectId = finalized?.prospectId ?? (allMemberCards[`${member.id}:${currentPickNum}`] ?? null)
       const effectiveProspectId = finalized?.prospectId ?? resolveLivePickForUser(member.id, currentPickNum)
       const result = liveResultForPick(effectiveProspectId, actualProspectId)
       return {

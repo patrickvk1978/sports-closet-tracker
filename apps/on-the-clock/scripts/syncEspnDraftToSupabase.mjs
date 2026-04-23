@@ -170,7 +170,7 @@ function buildProviderBoard(snapshot, roundOneBaseTeams) {
     phase,
     currentPickNumber,
     currentStatus: currentPick?.status ?? "on_clock",
-    providerExpiresAt: currentPick?.status === "ON_THE_CLOCK" ? (currentPick?.expiresAt ?? null) : null,
+    providerExpiresAt: currentPick?.status === "on_clock" ? (currentPick?.expiresAt ?? null) : null,
     picks,
   };
 }

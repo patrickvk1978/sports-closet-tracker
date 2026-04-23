@@ -58,7 +58,7 @@ export default function LiveDraftView() {
   const [previewReveals, setPreviewReveals] = useState({});
 
   const effectivePhase = isAdmin && devPhase ? devPhase : draftFeed.phase;
-  const isPreDraft = effectivePhase === "pre_draft" || !isAdmin;
+  const isPreDraft = effectivePhase === "pre_draft";
   const isPreviewMode = searchParams.get("preview") === "1";
   const previewStatus = searchParams.get("status") ?? draftFeed.current_status;
   const previewPickNumber = Number(searchParams.get("pick") ?? draftFeed.current_pick_number);
@@ -134,13 +134,14 @@ export default function LiveDraftView() {
   const currentTeam = teams[teamForPick(currentPick)] ?? {};
   const userId = session?.user?.id ?? profile?.id ?? null;
   const currentUserFinalized = userId ? allFinalizedPicks?.[`${userId}:${currentPickNumber}`] ?? null : null;
+  const currentPickAllowsSlotContext = teamForPick(currentPick) === currentPick.originalTeam;
   const currentLocked = isPreviewMode
     ? Boolean(previewCards[currentPickNumber])
-    : Boolean(currentUserFinalized?.prospectId || (teamForPick(currentPick) === currentPick.originalTeam ? liveCards[currentPickNumber] : null));
+    : Boolean(currentUserFinalized?.prospectId || liveCards[currentPickNumber]);
 
   const currentSelectionId = isPreviewMode
     ? previewCards[currentPickNumber] ?? livePredictions[currentPickNumber] ?? null
-    : currentUserFinalized?.prospectId ?? liveCards[currentPickNumber] ?? livePredictions[currentPickNumber] ?? null;
+    : currentUserFinalized?.prospectId ?? liveCards[currentPickNumber] ?? (currentPickAllowsSlotContext ? livePredictions[currentPickNumber] ?? null : null);
   const currentSelection = getProspectById(currentSelectionId);
   const actualCurrentPick = getProspectById((isPreviewMode ? previewReveals[currentPickNumber] : null) ?? draftFeed.actual_picks?.[currentPickNumber]);
 
@@ -155,7 +156,7 @@ export default function LiveDraftView() {
   const nextUserFinalized = userId && nextPick ? allFinalizedPicks?.[`${userId}:${nextPick.number}`] ?? null : null;
   const nextLocked = isPreviewMode
     ? Boolean(nextPick ? previewCards[nextPick.number] : null)
-    : Boolean(nextUserFinalized?.prospectId || (nextPickAllowsSlotContext && nextPick ? liveCards[nextPick.number] : null));
+    : Boolean(nextUserFinalized?.prospectId || (nextPick ? liveCards[nextPick.number] : null));
   const nextSelectionId = nextPick
     ? (isPreviewMode
         ? previewCards[nextPick.number] ?? livePredictions[nextPick.number] ?? null
@@ -256,7 +257,7 @@ export default function LiveDraftView() {
     bigBoardIds,
   ]);
 
-  const meId = profile?.id;
+  const meId = userId;
   const livePoolState = useMemo(() => {
     return currentLivePoolState.map((m) => ({
       ...m,
@@ -310,7 +311,7 @@ export default function LiveDraftView() {
     }, 10000);
 
     return () => window.clearTimeout(timer);
-  }, [effectiveCurrentStatus, isPreviewMode, nextPick, advanceDraft]);
+  }, [effectiveCurrentStatus, isPreviewMode, nextPick?.number, advanceDraft]);
 
   function formatClockLabel(expiresAt) {
     if (!expiresAt) return null;
@@ -738,7 +739,13 @@ export default function LiveDraftView() {
               </select>
               <div className="mobile-live-clock-stack">
                 <span className="mobile-live-clock-label">
-                  {effectiveCurrentStatus === "pick_is_in" ? "Locks in" : effectiveCurrentStatus}
+                  {effectiveCurrentStatus === "pick_is_in"
+                    ? "Locks in"
+                    : effectiveCurrentStatus === "awaiting_reveal"
+                      ? "Awaiting reveal"
+                      : effectiveCurrentStatus === "revealed"
+                        ? "Revealed"
+                        : "On the clock"}
                 </span>
                 <span className="mobile-live-clock-value">
                   {effectiveCurrentStatus === "pick_is_in"
@@ -889,7 +896,7 @@ export default function LiveDraftView() {
             </span>
             <div style={{ flex: 1 }} />
             <span style={{ fontSize: 12, color: "var(--dn-muted)" }}>
-              {livePoolState.filter((m) => m.locked).length}/{livePoolState.length} locked
+              {livePoolState.filter((m) => (m.isCurrentUser ? currentLocked : m.locked)).length}/{livePoolState.length} locked
             </span>
           </div>
 
@@ -1098,7 +1105,7 @@ export default function LiveDraftView() {
                 <div className="dn-rs-label">Standings</div>
                 <LayoutGroup id="live-standings">
                   {liveStandings.map((player, idx) => {
-                    const isMe = livePoolState.find((m) => m.isCurrentUser && m.name === player.name);
+                    const isMe = player.id === meId;
                     return (
                       <motion.div
                         key={player.id ?? player.name}

@@ -16,6 +16,14 @@ function boardIndex(boardIds, prospectId) {
   return idx === -1 ? 9999 : idx;
 }
 
+function positionMatchesFilter(position, filterValue) {
+  if (!position || !filterValue || filterValue === "ALL") return true;
+  return String(position)
+    .split("/")
+    .map((value) => value.trim())
+    .includes(filterValue);
+}
+
 export default function LiveStage({
   variant = "live",
   currentPick,
@@ -112,7 +120,7 @@ export default function LiveStage({
       .filter((prospect) => {
         if (filterValue === "ALL") return true;
         if (filterValue === "WATCHLIST") return watchlistIdSet.has(prospect.id);
-        return prospect.position.includes(filterValue);
+        return positionMatchesFilter(prospect.position, filterValue);
       })
       .sort((a, b) => {
         const aSelected = explicitSelectionId === a.id ? 1 : 0;
@@ -504,7 +512,7 @@ export default function LiveStage({
                       {stage === "awaiting_reveal"
                         ? "locked"
                         : hit
-                          ? `✓ ${mPts}${mStreak >= 5 ? " 🔥" : ""}`
+                          ? `✓ ${mPts}${mStreak >= streakThreshold ? " 🔥" : ""}`
                           : "miss"}
                     </div>
                   </div>

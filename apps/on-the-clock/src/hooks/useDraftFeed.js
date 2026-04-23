@@ -187,6 +187,13 @@ export function DraftFeedProvider({ children }) {
 
   async function revealCurrentPick(prospectId, pickNumber = draftFeed.current_pick_number) {
     if (!prospectId) return
+    // Ensure finalized_picks rows exist before flipping to revealed so scoring
+    // doesn't silently fall through to resolvePreviewPickForUser. Idempotent.
+    try {
+      await supabase.rpc('finalize_pick', { p_pick_number: pickNumber })
+    } catch (err) {
+      console.warn('revealCurrentPick finalize_pick:', err?.message)
+    }
     await draftDb.from('actual_picks').upsert({
       pick_number: pickNumber,
       prospect_id: prospectId,
@@ -218,7 +225,7 @@ export function DraftFeedProvider({ children }) {
       pick_is_in_at: null,
       provider_expires_at: null,
       updated_at: new Date().toISOString(),
-    }).eq('id', 1)
+    }).eq('id', 1).eq('current_pick_number', draftFeed.current_pick_number).eq('current_status', 'revealed')
   }
 
   async function setScoringConfig(config) {
@@ -231,6 +238,9 @@ export function DraftFeedProvider({ children }) {
   async function resetDraftFeed() {
     await draftDb.from('actual_picks').delete().gte('pick_number', 1)
     await draftDb.from('team_overrides').delete().gte('pick_number', 1)
+    await draftDb.from('live_cards').delete().gte('pick_number', 1)
+    await draftDb.from('queues').delete().gte('pick_number', 1)
+    await draftDb.from('finalized_picks').delete().gte('pick_number', 1)
     await draftDb.from('feed').update({
       phase: 'pre_draft',
       current_pick_number: 1,
