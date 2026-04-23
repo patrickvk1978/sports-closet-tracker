@@ -15,6 +15,7 @@ function AuthRedirectHandler() {
 }
 import { PoolProvider } from "./context/PoolContext";
 import { ReferenceDataProvider } from "./hooks/useReferenceData";
+import { DraftFeedProvider } from "./hooks/useDraftFeed";
 import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import JoinPoolPage from "./pages/JoinPoolPage";
@@ -56,6 +57,7 @@ export default function App() {
       <AuthRedirectHandler />
       <AuthProvider>
         <ReferenceDataProvider>
+        <DraftFeedProvider>
         <PoolProvider>
           <div className="app-shell app-shell-routed">
             <Routes>
@@ -79,6 +81,7 @@ export default function App() {
             </Routes>
           </div>
         </PoolProvider>
+        </DraftFeedProvider>
         </ReferenceDataProvider>
       </AuthProvider>
     </BrowserRouter>

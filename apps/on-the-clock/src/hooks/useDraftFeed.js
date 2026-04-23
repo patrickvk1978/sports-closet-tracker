@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useId, useState } from 'react'
+import { createContext, createElement, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase, draftDb } from '../lib/supabase'
 import { useReferenceData } from './useReferenceData'
 
-export function useDraftFeed() {
+const DraftFeedContext = createContext(null)
+
+export function DraftFeedProvider({ children }) {
   const { picks } = useReferenceData()
-  const channelId = useId()
   const [draftFeed, setDraftFeed] = useState({
     phase: 'pre_draft',
     current_pick_number: 1,
@@ -47,7 +48,7 @@ export function useDraftFeed() {
 
     // Realtime subscriptions — note schema: 'draft'
     const channel = supabase
-      .channel(`draft-state-${channelId}`)
+      .channel('draft-state')
       .on('postgres_changes', { event: '*', schema: 'draft', table: 'feed' }, (payload) => {
         if (payload.new) setDraftFeed(payload.new)
       })
@@ -75,7 +76,7 @@ export function useDraftFeed() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [load, channelId])
+  }, [load])
 
   function teamCodeForPick(pickNumber) {
     if (teamOverrides[pickNumber]) return teamOverrides[pickNumber]
@@ -182,7 +183,7 @@ export function useDraftFeed() {
     }).eq('id', 1)
   }
 
-  return {
+  const value = {
     draftFeed: combinedFeed,
     actualPicks,
     teamOverrides,
@@ -200,4 +201,12 @@ export function useDraftFeed() {
     resetDraftFeed,
     setScoringConfig,
   }
+
+  return createElement(DraftFeedContext.Provider, { value }, children)
+}
+
+export function useDraftFeed() {
+  const ctx = useContext(DraftFeedContext)
+  if (!ctx) throw new Error('useDraftFeed must be used inside DraftFeedProvider')
+  return ctx
 }
