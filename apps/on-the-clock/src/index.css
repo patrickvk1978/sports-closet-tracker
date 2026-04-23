@@ -4291,7 +4291,7 @@ select:focus {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
-  gap: 8px 10px;
+  gap: 6px 8px;
   font-size: 12px;
   line-height: 1.35;
 }
@@ -4304,7 +4304,6 @@ select:focus {
   color: #94a3b8;
 }
 
-.ls-badge-legend-label,
 .ls-badge-legend-copy {
   font-weight: 700;
 }
@@ -4312,7 +4311,13 @@ select:focus {
 .ls-badge-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+}
+
+.ls-badge-legend-separator {
+  color: #94a3b8;
+  margin: 0 2px 0 4px;
+  font-weight: 700;
 }
 
 .ls-filter-select.live {

@@ -5,10 +5,10 @@ const POSITION_OPTIONS = ["ALL", "QB", "WR", "OT", "EDGE", "CB", "DT", "RB", "LB
 
 const BADGE_CONFIG = {
   W: { label: "Watchlist", className: "watch" },
-  R: { label: "Ringer mock", className: "ringer" },
-  A: { label: "Athletic mock", className: "athletic" },
-  E: { label: "ESPN mock", className: "espn" },
-  C: { label: "Consensus mock", className: "consensus" },
+  R: { label: "Ringer", className: "ringer" },
+  A: { label: "Athletic", className: "athletic" },
+  E: { label: "ESPN", className: "espn" },
+  C: { label: "Consensus", className: "consensus" },
 };
 
 function boardIndex(boardIds, prospectId) {
@@ -136,7 +136,6 @@ export default function LiveStage({
   function renderBadgeLegend() {
     return (
       <div className={`ls-badge-legend ${isPredraft ? "predraft" : "live"}`}>
-        <span className="ls-badge-legend-label">Key:</span>
         <span className="ls-badge-legend-copy">Mock Draft Selections:</span>
         {["R", "A", "E", "C"].map((badge) => (
           <span key={badge} className="ls-badge-legend-item">
@@ -144,6 +143,7 @@ export default function LiveStage({
             <span>{BADGE_CONFIG[badge]?.label ?? badge}</span>
           </span>
         ))}
+        <span className="ls-badge-legend-separator" aria-hidden="true">|</span>
         <span className="ls-badge-legend-item">
           <span className={`ls-source-badge ${BADGE_CONFIG.W.className}`}>W</span>
           <span>Your Watchlist</span>
