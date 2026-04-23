@@ -326,6 +326,7 @@ export default function LiveDraftView() {
                   variant="predraft"
                   currentPick={focusedPreDraftPick}
                   currentTeam={focusedPreDraftTeam}
+                  activeTeamCode={focusedTeamCode}
                   currentStatus="on_clock"
                   currentLocked={false}
                   currentSelection={focusedPreDraftPrediction}
@@ -344,6 +345,8 @@ export default function LiveDraftView() {
                   scoringConfig={scoringConfig}
                   onViewBigBoard={() => setPdTab("board")}
                   activeWatchlistIds={focusedWatchlistIds}
+                  onAddToWatchlist={(teamCode, prospectId) => addToWatchlist(teamCode, prospectId)}
+                  onRemoveFromWatchlist={(teamCode, prospectId) => removeFromWatchlist(teamCode, prospectId)}
                 />
               </div>
             </div>
@@ -458,6 +461,7 @@ export default function LiveDraftView() {
               <LiveStage
                 currentPick={currentPick}
                 currentTeam={currentTeam}
+                activeTeamCode={currentTeamCode}
                 currentStatus={draftFeed.current_status}
                 currentLocked={currentLocked}
                 currentSelection={currentSelection}
@@ -475,6 +479,8 @@ export default function LiveDraftView() {
                 onNextPick={() => {}}
                 scoringConfig={scoringConfig}
                 activeWatchlistIds={currentWatchlistIds}
+                onAddToWatchlist={(teamCode, prospectId) => addToWatchlist(teamCode, prospectId)}
+                onRemoveFromWatchlist={(teamCode, prospectId) => removeFromWatchlist(teamCode, prospectId)}
               />
             </div>
 

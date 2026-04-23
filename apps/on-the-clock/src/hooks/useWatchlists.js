@@ -6,7 +6,7 @@ import { supabase, draftDb } from '../lib/supabase'
 /**
  * Per-user team watchlists.
  *
- * Shape: watchlistsByTeam[teamCode] = [prospectId, prospectId, ...] (max 4)
+ * Shape: watchlistsByTeam[teamCode] = [prospectId, prospectId, ...]
  * Private to the current user (RLS enforced).
  */
 export function useWatchlists() {
@@ -65,7 +65,6 @@ export function useWatchlists() {
   const addToWatchlist = useCallback(async (teamCode, prospectId) => {
     if (!poolId || !userId || !teamCode || !prospectId) return { error: 'missing args' }
     const current = rows.filter(r => r.team_code === teamCode)
-    if (current.length >= 4) return { error: 'Watchlist full (4 max for this team)' }
     if (current.some(r => r.prospect_id === prospectId)) return { error: 'Already on watchlist' }
     const { data, error } = await draftDb
       .from('user_watchlists')

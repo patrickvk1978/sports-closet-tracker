@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 /**
  * AssignPopover — per-Big-Board-row popover listing all 32 picks.
  *
- * Each row: Pick# · Team · needs · [prediction slot] · [watchlist (N/4)]
+ * Each row: Pick# · Team · needs · [prediction slot] · [watchlist count]
  * Two actions per row: "Set as prediction" | "Add to watchlist"
  */
 export default function AssignPopover({
@@ -14,7 +14,6 @@ export default function AssignPopover({
   teamCodeForPick,       // (pickNumber) => teamCode
   livePredictions,       // { [pickNumber]: prospectId }
   watchlistsByTeam,      // { [teamCode]: prospectId[] }
-  watchlistCapacity = 4,
   onSetPrediction,       // (pickNumber, prospectId) => void | Promise
   onAddToWatchlist,      // (teamCode, prospectId) => void | Promise
   onRemoveFromWatchlist, // (teamCode, prospectId) => void | Promise
@@ -128,7 +127,6 @@ export default function AssignPopover({
       />
       <div style={{ overflowY: "auto", flex: 1 }}>
         {rows.map(({ pick, team, teamCode, needs, wl, onWatchlist, isPredicted }) => {
-          const wlFull = wl.length >= watchlistCapacity && !onWatchlist;
           return (
             <div
               key={pick.number}
@@ -153,7 +151,7 @@ export default function AssignPopover({
                   {needs.length ? <span>needs {needs.join(", ")}</span> : <span>—</span>}
                   {isPredicted ? <span style={{ color: "#5ee0a5" }}>· your prediction</span> : null}
                   {onWatchlist ? <span style={{ color: "#e0b65e" }}>· on watchlist</span> : null}
-                  <span>· wl {wl.length}/{watchlistCapacity}</span>
+                  <span>· wl {wl.length}</span>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 4 }}>
@@ -191,15 +189,13 @@ export default function AssignPopover({
                 ) : (
                   <button
                     type="button"
-                    disabled={wlFull}
                     onClick={async () => { await onAddToWatchlist?.(teamCode, prospect.id); }}
-                    title={wlFull ? "Watchlist full (4 max)" : ""}
                     style={{
                       fontSize: 11, padding: "4px 8px", borderRadius: 5,
                       border: "1px solid var(--dn-border, #2a3341)",
                       background: "transparent",
-                      color: wlFull ? "rgba(255,255,255,0.3)" : "inherit",
-                      cursor: wlFull ? "not-allowed" : "pointer",
+                      color: "inherit",
+                      cursor: "pointer",
                     }}
                   >
                     Watchlist

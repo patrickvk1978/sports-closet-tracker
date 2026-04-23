@@ -20,6 +20,7 @@ export default function LiveStage({
   variant = "live",
   currentPick,
   currentTeam,
+  activeTeamCode = null,
   currentStatus,
   currentLocked,
   currentSelection,
@@ -38,6 +39,8 @@ export default function LiveStage({
   mappedPickByProspectId = {},
   onViewBigBoard,
   activeWatchlistIds = [],
+  onAddToWatchlist,
+  onRemoveFromWatchlist,
 }) {
   const [filterValue, setFilterValue] = useState("ALL");
 
@@ -132,6 +135,16 @@ export default function LiveStage({
   const exactPoints = Math.round(tierBase(pickNum) * (streakBonus ? streakMult : 1));
   const resultLabel = isHit ? (streakBonus ? "🔥 exact hit" : "exact hit") : "miss";
   const resultPoints = isHit ? `+${exactPoints}` : "0";
+
+  async function handleWatchToggle(event, prospectId) {
+    event.stopPropagation();
+    if (!isPredraft || !activeTeamCode || !prospectId) return;
+    if (watchlistIdSet.has(prospectId)) {
+      await onRemoveFromWatchlist?.(activeTeamCode, prospectId);
+      return;
+    }
+    await onAddToWatchlist?.(activeTeamCode, prospectId);
+  }
 
   function renderBadgeLegend() {
     return (
@@ -257,6 +270,19 @@ export default function LiveStage({
                         <div className="ls-player-copy">
                           <div className="ls-player-name-row">
                             <span className="ls-player-name">{prospect.name}</span>
+                            {isPredraft && activeTeamCode ? (
+                              <button
+                                type="button"
+                                className={`ls-watch-toggle ${watchlistIdSet.has(prospect.id) ? "active" : ""}`}
+                                aria-label={watchlistIdSet.has(prospect.id) ? `Remove ${prospect.name} from ${currentTeam?.name ?? "team"} watchlist` : `Add ${prospect.name} to ${currentTeam?.name ?? "team"} watchlist`}
+                                title={watchlistIdSet.has(prospect.id) ? "Remove from watchlist" : "Add to watchlist"}
+                                onClick={(event) => { void handleWatchToggle(event, prospect.id); }}
+                              >
+                                <span className="ls-watch-toggle-ring" aria-hidden="true">
+                                  W
+                                </span>
+                              </button>
+                            ) : null}
                           </div>
                           <div className="ls-player-meta-row">
                             <span className="ls-player-school">

@@ -4510,6 +4510,43 @@ select:focus {
   min-width: 0;
 }
 
+.ls-watch-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ls-watch-toggle-ring {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1.5px solid #cbd5e1;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  background: transparent;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast), transform var(--t-fast);
+}
+
+.ls-watch-toggle:hover .ls-watch-toggle-ring {
+  border-color: #94a3b8;
+  color: #64748b;
+}
+
+.ls-watch-toggle.active .ls-watch-toggle-ring {
+  background: #fde68a;
+  border-color: #f5c542;
+  color: #713f12;
+}
+
 .ls-player-name {
   font-size: 18px;
   font-weight: 800;
@@ -4521,6 +4558,10 @@ select:focus {
 
 .ls-player-row.predraft .ls-player-name {
   color: #0f172a;
+}
+
+.ls-player-row.live .ls-watch-toggle {
+  display: none;
 }
 
 .ls-player-row.live .ls-player-name {
@@ -5310,7 +5351,7 @@ select:focus {
 }
 
 .pd-center .ls-team-name {
-  color: var(--pd-text);
+  color: #fff;
   font-size: 30px;
 }
 
