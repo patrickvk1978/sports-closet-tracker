@@ -97,7 +97,7 @@ export default function AssignPopover({
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 6px 6px" }}>
         <div>
-          <div style={{ fontSize: 10, letterSpacing: 0.5, textTransform: "uppercase", color: "var(--dn-muted, #8b95a6)" }}>
+          <div style={{ fontSize: 10, letterSpacing: 0.5, textTransform: "uppercase", color: "var(--dn-muted, #c5cad2)" }}>
             Assign
           </div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{prospect.name}</div>
@@ -105,7 +105,7 @@ export default function AssignPopover({
         <button
           type="button"
           onClick={onClose}
-          style={{ background: "none", border: "none", color: "var(--dn-muted, #8b95a6)", cursor: "pointer", fontSize: 16 }}
+          style={{ background: "none", border: "none", color: "var(--dn-muted, #c5cad2)", cursor: "pointer", fontSize: 16 }}
         >
           ✕
         </button>
@@ -140,14 +140,14 @@ export default function AssignPopover({
                 borderBottom: "1px solid rgba(255,255,255,0.04)",
               }}
             >
-              <span style={{ fontSize: 11, color: "var(--dn-muted, #8b95a6)", textAlign: "right" }}>
+              <span style={{ fontSize: 11, color: "var(--dn-muted, #c5cad2)", textAlign: "right" }}>
                 {pick.number}
               </span>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 600 }}>
                   {team.name ?? teamCode ?? "—"}
                 </div>
-                <div style={{ fontSize: 10, color: "var(--dn-muted, #8b95a6)", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ fontSize: 10, color: "var(--dn-muted, #c5cad2)", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                   {needs.length ? <span>needs {needs.join(", ")}</span> : <span>—</span>}
                   {isPredicted ? <span style={{ color: "#5ee0a5" }}>· your prediction</span> : null}
                   {onWatchlist ? <span style={{ color: "#e0b65e" }}>· on watchlist</span> : null}
@@ -168,7 +168,7 @@ export default function AssignPopover({
                     borderRadius: 5,
                     border: "1px solid var(--dn-border, #2a3341)",
                     background: isPredicted ? "transparent" : "var(--dn-accent, #3b82f6)",
-                    color: isPredicted ? "var(--dn-muted, #8b95a6)" : "white",
+                    color: isPredicted ? "var(--dn-muted, #c5cad2)" : "white",
                     cursor: isPredicted ? "default" : "pointer",
                   }}
                 >
@@ -181,7 +181,7 @@ export default function AssignPopover({
                     style={{
                       fontSize: 11, padding: "4px 8px", borderRadius: 5,
                       border: "1px solid var(--dn-border, #2a3341)",
-                      background: "transparent", color: "var(--dn-muted, #8b95a6)", cursor: "pointer",
+                      background: "transparent", color: "var(--dn-muted, #c5cad2)", cursor: "pointer",
                     }}
                   >
                     Remove
@@ -206,7 +206,7 @@ export default function AssignPopover({
           );
         })}
         {rows.length === 0 ? (
-          <div style={{ padding: 16, textAlign: "center", fontSize: 12, color: "var(--dn-muted, #8b95a6)" }}>
+          <div style={{ padding: 16, textAlign: "center", fontSize: 12, color: "var(--dn-muted, #c5cad2)" }}>
             No picks match that filter.
           </div>
         ) : null}

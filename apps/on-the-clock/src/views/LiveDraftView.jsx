@@ -590,7 +590,7 @@ export default function LiveDraftView() {
                           <span className="pd-pr-team">
                             {teamName}
                             {wlCount > 0 ? (
-                              <span style={{ marginLeft: 6, fontSize: 10, color: "var(--dn-muted, #8b95a6)" }}>
+                              <span style={{ marginLeft: 6, fontSize: 10, color: "var(--dn-muted, #c5cad2)" }}>
                                 ◆ {wlCount}
                               </span>
                             ) : null}
