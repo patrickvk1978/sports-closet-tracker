@@ -228,6 +228,8 @@ async function loadDbState(publicDb, draftDb) {
   };
 }
 
+const STATUS_ORDER = ["on_clock", "pick_is_in", "awaiting_reveal", "revealed"];
+
 async function applyProviderBoard({ draftDb, dbState, providerBoard, appliedState, dryRun }) {
   const nowIso = new Date().toISOString();
   const feedPayload = {
@@ -242,6 +244,28 @@ async function applyProviderBoard({ draftDb, dbState, providerBoard, appliedStat
   }
   if (providerBoard.currentStatus !== "pick_is_in") {
     feedPayload.pick_is_in_at = null;
+  }
+
+  const dbPickNumber = dbState.feed?.current_pick_number ?? 1;
+  const isSamePick = providerBoard.currentPickNumber === dbPickNumber;
+
+  if (!isSamePick && providerBoard.currentPickNumber > dbPickNumber) {
+    // Provider has moved on to the next pick but our DB hasn't advanced yet.
+    // Hold at the current pick in 'revealed' state so the reveal screen shows
+    // for 10 seconds before the client auto-advance timer fires.
+    feedPayload.current_pick_number = dbPickNumber;
+    feedPayload.current_status = "revealed";
+    feedPayload.pick_is_in_at = null;
+    feedPayload.provider_expires_at = null;
+  } else if (isSamePick) {
+    // Never let the sync downgrade status within the same pick. finalize_pick
+    // sets awaiting_reveal which ESPN will never report — don't overwrite it.
+    const dbRank = STATUS_ORDER.indexOf(dbState.feed?.current_status ?? "on_clock");
+    const newRank = STATUS_ORDER.indexOf(feedPayload.current_status);
+    if (newRank < dbRank) {
+      feedPayload.current_status = dbState.feed.current_status;
+      feedPayload.pick_is_in_at = dbState.feed.pick_is_in_at ?? null;
+    }
   }
 
   if (!dryRun) {

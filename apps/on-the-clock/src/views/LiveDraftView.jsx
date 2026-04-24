@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LayoutGroup, motion } from "framer-motion";
 import BigBoardTable from "../components/BigBoardTable";
@@ -25,6 +25,8 @@ export default function LiveDraftView() {
   const isAdmin = Boolean(profile?.is_admin);
   const { pool, members } = usePool();
   const { draftFeed, teamCodeForPick, advanceDraft } = useDraftFeed();
+  const advanceDraftRef = useRef(advanceDraft);
+  useEffect(() => { advanceDraftRef.current = advanceDraft; }, [advanceDraft]);
   const { bigBoardIds, moveBigBoardItem, saveBigBoard } = useBigBoard();
   const { picks, teams, prospects, getPickLabel, getProspectById, defaultBigBoardIds, loading: refLoading } = useReferenceData();
   const {
@@ -302,11 +304,11 @@ export default function LiveDraftView() {
         }
         return;
       }
-      void advanceDraft();
+      void advanceDraftRef.current();
     }, 10000);
 
     return () => window.clearTimeout(timer);
-  }, [effectiveCurrentStatus, isPreviewMode, nextPick?.number, advanceDraft]);
+  }, [effectiveCurrentStatus, isPreviewMode, nextPick?.number]);
 
   function formatClockLabel(expiresAt) {
     if (!expiresAt) return null;
@@ -805,7 +807,7 @@ export default function LiveDraftView() {
                   onLockIn={(prospectId) => (isPreviewMode ? handlePreviewLockIn(currentPickNumber, prospectId) : submitLiveCard(currentPickNumber, prospectId))}
                   onChangePick={() => (isPreviewMode ? handlePreviewReset(currentPickNumber) : resetLiveCard(currentPickNumber))}
                   nextPickLabel={null}
-                  onNextPick={() => {}}
+                  onNextPick={() => { if (!isPreviewMode) void advanceDraft(); }}
                   scoringConfig={scoringConfig}
                   activeWatchlistIds={currentWatchlistIds}
                   onAddToWatchlist={() => Promise.resolve()}
@@ -985,7 +987,7 @@ export default function LiveDraftView() {
                 onLockIn={(prospectId) => (isPreviewMode ? handlePreviewLockIn(currentPickNumber, prospectId) : submitLiveCard(currentPickNumber, prospectId))}
                 onChangePick={() => (isPreviewMode ? handlePreviewReset(currentPickNumber) : resetLiveCard(currentPickNumber))}
                 nextPickLabel={nextPickLabel}
-                onNextPick={() => {}}
+                onNextPick={() => { if (!isPreviewMode) void advanceDraft(); }}
                 scoringConfig={scoringConfig}
                 activeWatchlistIds={currentWatchlistIds}
                 onAddToWatchlist={(teamCode, prospectId) => (isPreviewMode ? Promise.resolve() : addToWatchlist(teamCode, prospectId))}

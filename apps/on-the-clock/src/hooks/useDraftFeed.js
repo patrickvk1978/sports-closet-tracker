@@ -228,15 +228,18 @@ export function DraftFeedProvider({ children }) {
   }
 
   async function advanceDraft() {
-    const next = Math.min(draftFeed.current_pick_number + 1, totalPicks)
-    await draftDb.from('feed').update({
+    const from = draftFeed.current_pick_number
+    const next = Math.min(from + 1, totalPicks)
+    const { data, error } = await draftDb.from('feed').update({
       phase: 'live',
       current_pick_number: next,
       current_status: 'on_clock',
       pick_is_in_at: null,
       provider_expires_at: null,
       updated_at: new Date().toISOString(),
-    }).eq('id', 1).eq('current_pick_number', draftFeed.current_pick_number).eq('current_status', 'revealed')
+    }).eq('id', 1).select()
+    if (error) console.warn('advanceDraft:', error.message)
+    else console.log('advanceDraft:', from, '->', next, data)
   }
 
   async function setScoringConfig(config) {
