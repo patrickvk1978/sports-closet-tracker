@@ -230,7 +230,7 @@ async function loadDbState(publicDb, draftDb) {
 
 const STATUS_ORDER = ["on_clock", "pick_is_in", "awaiting_reveal", "revealed"];
 
-async function applyProviderBoard({ draftDb, dbState, providerBoard, appliedState, dryRun }) {
+async function applyProviderBoard({ publicDb, draftDb, dbState, providerBoard, appliedState, dryRun }) {
   const nowIso = new Date().toISOString();
   const feedPayload = {
     phase: providerBoard.phase,
@@ -321,6 +321,17 @@ async function applyProviderBoard({ draftDb, dbState, providerBoard, appliedStat
 
     if (!dbProspectId || dbProspectId === providerProspectId || (appliedProspectId && dbProspectId === appliedProspectId)) {
       if (!dryRun) {
+        // Ensure finalized_picks exist for every member before the actual pick
+        // becomes visible. Without this, auto-picked members (who didn't lock
+        // a live_card) have no finalized row and scoring falls back to a
+        // resolver that excludes the just-drafted player → everyone misses.
+        // Idempotent: honors manual live_cards via ON CONFLICT.
+        const { error: finalizeError } = await publicDb.rpc("finalize_pick", { p_pick_number: pick.pickNumber });
+        if (finalizeError) {
+          skippedOps.push(`finalize_pick(${pick.pickNumber}) failed: ${finalizeError.message}`);
+        } else {
+          appliedOps.push(`finalize_pick(${pick.pickNumber})`);
+        }
         const { error } = await draftDb.from("actual_picks").upsert({
           pick_number: pick.pickNumber,
           prospect_id: providerProspectId,
@@ -370,6 +381,7 @@ async function main() {
       const providerBoard = buildProviderBoard(snapshot, dbState.roundOneBaseTeams);
       const appliedState = await readJson(stateFile, { actualPicks: {}, teamOverrides: {} });
       const { nextAppliedState, appliedOps, skippedOps } = await applyProviderBoard({
+        publicDb,
         draftDb,
         dbState,
         providerBoard,
