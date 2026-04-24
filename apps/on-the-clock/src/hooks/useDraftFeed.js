@@ -78,6 +78,17 @@ export function DraftFeedProvider({ children }) {
     return () => { supabase.removeChannel(channel) }
   }, [load])
 
+  useEffect(() => {
+    // Realtime is the primary source of truth, but during the live draft we
+    // also poll as a safety net so stale tabs recover if a websocket update is
+    // missed.
+    const intervalId = setInterval(() => {
+      void load()
+    }, draftFeed.phase === 'live' ? 5000 : 15000)
+
+    return () => clearInterval(intervalId)
+  }, [draftFeed.phase, load])
+
   function teamCodeForPick(pickNumber) {
     if (teamOverrides[pickNumber]) return teamOverrides[pickNumber]
     const pick = picks.find(p => p.number === pickNumber)
