@@ -2,10 +2,10 @@ export const TEAM_VALUE_SLOTS = Array.from({ length: 16 }, (_, index) => 16 - in
 export const TEAM_VALUE_DISPLAY_RANKS = Array.from({ length: 16 }, (_, index) => index + 1);
 
 export const ROUND_BONUS = {
-  round_1: 0,
-  semifinals: 4,
-  finals: 8,
-  nba_finals: 12,
+  round_1: 5,
+  semifinals: 10,
+  finals: 15,
+  nba_finals: 25,
 };
 
 export const ROUND_LABELS = {
@@ -14,15 +14,6 @@ export const ROUND_LABELS = {
   finals: "Conference Finals",
   nba_finals: "NBA Finals",
 };
-
-export const SERIES_LENGTH_BONUS = {
-  4: 3,
-  5: 2,
-  6: 1,
-  7: 0,
-};
-
-const WIN_STEP_WEIGHTS = [1, 2, 3, 6];
 
 export function getSeriesLength(series) {
   if (!series?.wins) return null;
@@ -33,22 +24,7 @@ export function getSeriesLength(series) {
 export function buildWinStepPoints(teamValue) {
   const normalizedTeamValue = Math.max(0, Math.round(Number(teamValue) || 0));
   if (normalizedTeamValue <= 0) return [0, 0, 0, 0];
-
-  const totalWeight = WIN_STEP_WEIGHTS.reduce((sum, weight) => sum + weight, 0);
-  const rawPoints = WIN_STEP_WEIGHTS.map((weight) => (normalizedTeamValue * weight) / totalWeight);
-  const points = rawPoints.map((value) => Math.floor(value));
-  let remainder = normalizedTeamValue - points.reduce((sum, value) => sum + value, 0);
-
-  const priorityOrder = rawPoints
-    .map((value, index) => ({ index, fraction: value - points[index] }))
-    .sort((a, b) => b.fraction - a.fraction || b.index - a.index);
-
-  for (let index = 0; index < priorityOrder.length && remainder > 0; index += 1) {
-    points[priorityOrder[index].index] += 1;
-    remainder -= 1;
-  }
-
-  return points;
+  return [normalizedTeamValue, normalizedTeamValue, normalizedTeamValue, normalizedTeamValue];
 }
 
 export function getWinStepPoints(teamValue, winNumber) {
@@ -56,17 +32,17 @@ export function getWinStepPoints(teamValue, winNumber) {
   return progression[Math.max(0, Number(winNumber) - 1)] ?? 0;
 }
 
-export function getClinchingBonus(roundKey, games) {
-  return (ROUND_BONUS[roundKey] ?? 0) + (SERIES_LENGTH_BONUS[games] ?? 0);
+export function getClinchingBonus(roundKey) {
+  return ROUND_BONUS[roundKey] ?? 0;
 }
 
 export function getTeamPointsForSeriesProgress(teamValue, wins, roundKey, clinchedInGames = null) {
   const normalizedWins = Math.max(0, Math.min(4, Math.round(Number(wins) || 0)));
   if (normalizedWins <= 0) return 0;
 
-  const progression = buildWinStepPoints(teamValue);
-  const basePoints = progression.slice(0, normalizedWins).reduce((sum, value) => sum + value, 0);
-  const clinchingBonus = clinchedInGames ? getClinchingBonus(roundKey, clinchedInGames) : 0;
+  const normalizedTeamValue = Math.max(0, Math.round(Number(teamValue) || 0));
+  const basePoints = normalizedTeamValue * normalizedWins;
+  const clinchingBonus = clinchedInGames ? getClinchingBonus(roundKey) : 0;
   return basePoints + clinchingBonus;
 }
 
@@ -86,6 +62,7 @@ export function buildScoringTable(sampleTeamValue = 16) {
       games,
       points: getSeriesWinPoints(sampleTeamValue, roundKey, games),
     })),
+    roundBonus: ROUND_BONUS[roundKey] ?? 0,
   }));
 }
 

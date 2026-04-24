@@ -6,7 +6,7 @@ import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
 import { useEspnTodayGames } from "../hooks/useEspnTodayGames";
 import {
-  buildTeamValueStandingsWithOdds,
+  buildTeamValueStandingsWithMonteCarlo,
   getRoundOneTeamsFromData,
 } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
@@ -268,7 +268,7 @@ export default function TeamValueDashboardView() {
     () => memberList.filter((member) => syncedUserIdSet.has(member.id)),
     [memberList, syncedUserIdSet]
   );
-  const standings = buildTeamValueStandingsWithOdds(trustedMembers, allAssignmentsByUser, series);
+  const standings = buildTeamValueStandingsWithMonteCarlo(trustedMembers, allAssignmentsByUser, series, playoffTeams);
   const currentStanding = standings.find((member) => member.id === currentUserId) ?? null;
   const reportState = buildTeamValueReports({
     profileId: currentUserId,
@@ -373,9 +373,9 @@ export default function TeamValueDashboardView() {
                     <div className="leaderboard-head nba-dashboard-leaderboard-head">
                       <span>Player</span>
                       <span>Pts</span>
-                      <span>Live</span>
-                      <span>Win%</span>
                       <span>Back</span>
+                      <span>Win%</span>
+                      <span>Top Team</span>
                     </div>
                     {dashboardStandingsRows.map((member) => (
                       <div
@@ -387,15 +387,19 @@ export default function TeamValueDashboardView() {
                           <span>{formatMemberLabel(member, currentUserId)}</span>
                         </div>
                         <span>{member.summary.totalPoints}</span>
-                        <span>{member.liveValueRemaining}</span>
-                        <span>{member.winProbability}%</span>
                         <span>{member.pointsBack}</span>
+                        <span>{member.winProbability}%</span>
+                        <span>
+                          {member.bestRemainingAsset
+                            ? `${playoffTeams.find((team) => team.id === member.bestRemainingAsset.teamId)?.abbreviation ?? member.bestRemainingAsset.teamId?.toUpperCase?.() ?? "Team"} (${member.bestRemainingAsset.value})`
+                            : "Out"}
+                        </span>
                       </div>
                     ))}
                   </div>
                   {currentStanding ? (
                     <p className="nba-dashboard-standings-note">
-                      You are currently in <strong>{currentStanding.place}</strong> with <strong>{currentStanding.winProbability}%</strong> win probability and <strong>{currentStanding.liveValueRemaining}</strong> live value still in play.
+                      You are currently in <strong>{currentStanding.place}</strong> with <strong>{currentStanding.winProbability}%</strong> win probability.
                     </p>
                   ) : null}
                 </>

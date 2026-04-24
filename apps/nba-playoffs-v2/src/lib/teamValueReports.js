@@ -1,7 +1,7 @@
 import {
   buildTeamExposureRows,
   buildTeamSelectionRows,
-  buildTeamValueStandingsWithOdds,
+  buildTeamValueStandingsWithMonteCarlo,
   getRoundOneTeamsFromData,
 } from "./teamValuePreview";
 
@@ -301,7 +301,7 @@ function buildOverweightRows(exposures, selectionRows) {
           : `${boothLine([
               `You assigned ${row.yourValue} while the room average is ${row.avgValue}. That means a longer ${row.abbreviation} stay in the bracket helps the room more than it helps you.`,
               `${row.abbreviation} is carrying less weight on your board than it is across the room, so every extra win is doing more collective good than personal good.`,
-              `With ${row.yourValue} against a room average of ${row.avgValue}, ${row.abbreviation} is one of the clearer spots where the field is holding more of the progressive scoring upside than you are.`,
+              `With ${row.yourValue} against a room average of ${row.avgValue}, ${row.abbreviation} is one of the clearer spots where the field is holding more of the win-by-win scoring upside than you are.`,
             ], row.abbreviation, row.leverage, "underweight-body")} ${colorLine([
               `If they go cold, you will feel smart. If they get hot, you will hear about it.`,
               `This is one of those spots where the room can start celebrating before you are ready to join in.`,
@@ -711,10 +711,10 @@ export function buildTeamValueReports({
 }) {
   const phase = getTeamValuePhase();
   const teams = getRoundOneTeamsFromData(seriesByRound, teamsById);
-  const standings = buildTeamValueStandingsWithOdds(memberList, allAssignmentsByUser, series);
+  const selectionRows = buildTeamSelectionRows(teams, seriesByRound, allAssignmentsByUser, profileId, memberList.length);
+  const standings = buildTeamValueStandingsWithMonteCarlo(memberList, allAssignmentsByUser, series, teams);
   const currentStanding = standings.find((member) => member.id === profileId) ?? null;
   const currentAssignments = getCurrentAssignments(profileId, allAssignmentsByUser);
-  const selectionRows = buildTeamSelectionRows(teams, seriesByRound, allAssignmentsByUser, profileId, memberList.length);
   const exposures = phase === "post_lock" ? buildTeamExposureRows(teams, allAssignmentsByUser, profileId) : [];
 
   const slotFits = buildSlotFitRows(selectionRows, currentAssignments);
@@ -738,7 +738,7 @@ export function buildTeamValueReports({
       key: "assets",
       label: "Biggest assets",
       title: "Which teams are really carrying your outcome?",
-      description: "These are the teams doing the most work on your current board, combining assigned value with expected scoring from here under the progressive win model.",
+      description: "These are the teams doing the most work on your current board, combining assigned value with expected scoring from game wins and round bonuses.",
       rows: biggestAssets,
       stage: "always",
     },

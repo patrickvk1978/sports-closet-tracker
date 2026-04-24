@@ -6,8 +6,9 @@ import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
 import { useEspnTodayGames } from "../hooks/useEspnTodayGames";
 import { getDisplayRankFromValue } from "../lib/teamValueGame";
-import { buildSeriesScoringPathMatrix, buildTeamSelectionRows, buildTeamValueStandingsWithOdds, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
+import { buildSeriesScoringPathMatrix, buildTeamSelectionRows, buildTeamValueBranchMonteCarlo, buildTeamValueScenarioMonteCarlo, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
+import { buildTeamValueStandings } from "../lib/teamValueStandings";
 import { getTeamPalette } from "../../../../packages/shared/src/themes/teamColorBanks.js";
 
 function hashSeed(...parts) {
@@ -215,7 +216,7 @@ function buildDecisionOptions(reportKey, row) {
               `Keep it in place if you like the case, but not enough to crowd out a steadier team nearby.`,
             ], row.id, reportKey, "decision-under-secondary")
           : chooseVariant([
-              `Hold it if you still trust the clinching ceiling enough to justify the slot.`,
+              `Hold it if you still trust the win volume and advancement upside enough to justify the slot.`,
               `Leave it where it is if you still think the top-end payoff is worth this rank.`,
               `Keep it here if you think the ceiling still supports a stronger slot than the nearby teams.`,
             ], row.id, reportKey, "decision-over-secondary"),
@@ -245,7 +246,7 @@ function buildDecisionOptions(reportKey, row) {
               `Hold it if the team is interesting, but not clearly better than the steadier names around it.`,
             ], row.id, reportKey, "strategic-up-secondary")
           : chooseVariant([
-              `Leave it if you still prefer the safer path and shorter route to the clincher.`,
+              `Leave it if you still prefer the safer path and cleaner route to the round bonus.`,
               `Keep it here if the steadier route still matters more to you than chasing a little extra flair.`,
               `Hold it if you still trust the cleaner path more than the flashier alternatives nearby.`,
             ], row.id, reportKey, "strategic-down-secondary"),
@@ -439,7 +440,7 @@ function ScoringPathMatrix({ row, seriesItem }) {
                 ?
               </button>
               <span className="tooltip-bubble">
-                Sort by outcome, points, or odds to see how this team behaves at Rank {rank}. Odds reflect the {label.toLowerCase()} view of each Round 1 path.
+                Sort by outcome, points, or odds to see how this team behaves at Rank {rank}. Points follow the team's value per win plus the Round 1 series bonus.
               </span>
             </span>
           </div>
@@ -601,10 +602,10 @@ function buildScenarioStandings(memberList, allAssignmentsByUser, series, winner
     const winnerId = winnersBySeriesId[seriesItem.id];
     return winnerId ? cloneSeriesWithSingleWinner(seriesItem, winnerId) : seriesItem;
   });
-  return buildTeamValueStandingsWithOdds(memberList, allAssignmentsByUser, simulatedSeries);
+  return buildTeamValueStandings(memberList, allAssignmentsByUser, simulatedSeries);
 }
 
-function buildTomorrowScenarioRows(todaySeries, memberList, allAssignmentsByUser, allSeries, currentUserId) {
+function buildTomorrowScenarioRows(todaySeries, memberList, allAssignmentsByUser, allSeries, currentUserId, selectionRows) {
   if (!todaySeries.length) return [];
   const options = todaySeries.map((seriesItem) => {
     const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
@@ -633,23 +634,114 @@ function buildTomorrowScenarioRows(todaySeries, memberList, allAssignmentsByUser
     const winnersBySeriesId = Object.fromEntries(combo.map((entry) => [entry.seriesId, entry.winnerId]));
     const standings = buildScenarioStandings(memberList, allAssignmentsByUser, allSeries, winnersBySeriesId);
     const currentMember = standings.find((entry) => entry.id === currentUserId) ?? null;
+    const simulatedMembers = buildTeamValueScenarioMonteCarlo(
+      memberList,
+      allAssignmentsByUser,
+      allSeries,
+      selectionRows,
+      winnersBySeriesId,
+      combo.map((entry) => `${entry.seriesId}:${entry.winnerId}`).join("|")
+    );
     const leaders = standings.slice(0, 3).map((entry) => `${formatMemberName(entry, currentUserId)} ${entry.summary.totalPoints}`);
     return {
       key: combo.map((entry) => entry.label).join("-"),
       label: combo.map((entry) => entry.label).join(", "),
       yourPlace: currentMember?.place ?? null,
       yourPoints: currentMember?.summary.totalPoints ?? 0,
-      yourWinProb: currentMember?.winProbability ?? 0,
+      yourWinProb: simulatedMembers?.[currentUserId]?.winProbability ?? currentMember?.winProbability ?? 0,
       leaders,
     };
   });
 }
 
-function buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUserId) {
+function buildBranchSimulationBySeries(todaySeries, memberList, allAssignmentsByUser, allSeries, selectionRows) {
+  return Object.fromEntries(
+    todaySeries.map((seriesItem) => {
+      const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+      const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+      return [
+        seriesItem.id,
+        {
+          [homeId]: {
+            winnerId: homeId,
+            members: buildTeamValueBranchMonteCarlo(memberList, allAssignmentsByUser, allSeries, selectionRows, seriesItem.id, homeId),
+          },
+          [awayId]: {
+            winnerId: awayId,
+            members: buildTeamValueBranchMonteCarlo(memberList, allAssignmentsByUser, allSeries, selectionRows, seriesItem.id, awayId),
+          },
+        },
+      ];
+    })
+  );
+}
+
+function buildSimulationSwingRows(seriesItem, branchSimulationBySeriesId, currentUserId) {
   const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
   const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
   const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
   const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+  const branchPair = branchSimulationBySeriesId?.[seriesItem.id] ?? null;
+  const homeBranch = branchPair?.[homeId]?.members?.[currentUserId] ?? null;
+  const awayBranch = branchPair?.[awayId]?.members?.[currentUserId] ?? null;
+
+  const rows = [
+    {
+      label: `${homeAbbr} win`,
+      expectedPlace: homeBranch?.expectedPlace ?? null,
+      expectedPoints: homeBranch?.expectedPoints ?? null,
+      winProbability: homeBranch?.winProbability ?? null,
+    },
+    {
+      label: `${awayAbbr} win`,
+      expectedPlace: awayBranch?.expectedPlace ?? null,
+      expectedPoints: awayBranch?.expectedPoints ?? null,
+      winProbability: awayBranch?.winProbability ?? null,
+    },
+  ];
+  const [homeRow, awayRow] = rows;
+  return rows.map((row) => {
+    const otherRow = row === homeRow ? awayRow : homeRow;
+    const swing = row.winProbability != null && otherRow.winProbability != null
+      ? Number((row.winProbability - otherRow.winProbability).toFixed(1))
+      : null;
+    return {
+      ...row,
+      winProbabilitySwing: swing,
+    };
+  });
+}
+
+function formatSwing(value) {
+  if (value == null) return "—";
+  if (value === 0) return "Even";
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)} pts`;
+}
+
+function buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUserId, series, selectionById, branchSimulationBySeriesId) {
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+  const standings = buildTeamValueStandings(memberList, allAssignmentsByUser, series);
+  const standingsById = Object.fromEntries(standings.map((member) => [member.id, member]));
+  const roomHomeAvg = averageAssignment(allAssignmentsByUser, homeId);
+  const roomAwayAvg = averageAssignment(allAssignmentsByUser, awayId);
+  const roomPreferred = roomHomeAvg === roomAwayAvg ? null : roomHomeAvg > roomAwayAvg ? homeAbbr : awayAbbr;
+  const roomGap = Math.abs(roomHomeAvg - roomAwayAvg);
+  const homeExpected = Number(selectionById?.[homeId]?.expectedPoints ?? 0);
+  const awayExpected = Number(selectionById?.[awayId]?.expectedPoints ?? 0);
+  const futureGap = Math.abs(homeExpected - awayExpected);
+  const leaderWins = Math.max(Number(seriesItem.wins?.home ?? 0), Number(seriesItem.wins?.away ?? 0));
+  const branchPair = branchSimulationBySeriesId?.[seriesItem.id] ?? null;
+  const homeBranch = branchPair?.[homeId]?.members ?? null;
+  const awayBranch = branchPair?.[awayId]?.members ?? null;
+  const seriesLeader =
+    Number(seriesItem.wins?.home ?? 0) === Number(seriesItem.wins?.away ?? 0)
+      ? null
+      : Number(seriesItem.wins?.home ?? 0) > Number(seriesItem.wins?.away ?? 0)
+        ? homeAbbr
+        : awayAbbr;
 
   return memberList
     .map((member) => {
@@ -658,18 +750,51 @@ function buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUser
       const awayValue = Number(assignments?.[awayId] ?? 0);
       const gap = Math.abs(homeValue - awayValue);
       const preferred = homeValue === awayValue ? "Balanced" : homeValue > awayValue ? homeAbbr : awayAbbr;
+      const standing = standingsById[member.id] ?? null;
+      const place = Number(standing?.place ?? 99);
+      const trailingPack = place > 3;
+      const preferredMatchesRoom = preferred !== "Balanced" && roomPreferred && preferred === roomPreferred;
+      const preferredOpposesRoom = preferred !== "Balanced" && roomPreferred && preferred !== roomPreferred;
+      const preferredIsLeader = preferred !== "Balanced" && seriesLeader && preferred === seriesLeader;
+      const preferredOutcome =
+        preferred === homeAbbr ? homeBranch?.[member.id] : preferred === awayAbbr ? awayBranch?.[member.id] : null;
+      const oppositeOutcome =
+        preferred === homeAbbr ? awayBranch?.[member.id] : preferred === awayAbbr ? homeBranch?.[member.id] : null;
+      const placeSwing = Number(oppositeOutcome?.expectedPlace ?? place) - Number(preferredOutcome?.expectedPlace ?? place);
+      const winSwing = Number(preferredOutcome?.winProbability ?? 0) - Number(oppositeOutcome?.winProbability ?? 0);
+      const pointsSwing = Number(preferredOutcome?.expectedPoints ?? 0) - Number(oppositeOutcome?.expectedPoints ?? 0);
+
+      let need = "Watch";
+      if (gap === 0 && futureGap <= 1 && Math.abs(winSwing) < 1.5 && Math.abs(placeSwing) < 0.5) {
+        need = "Watch";
+      } else if (Math.abs(winSwing) >= 6 || Math.abs(placeSwing) >= 1.5) {
+        need = "Major pivot";
+      } else if (leaderWins >= 3 && (gap >= 3 || Math.abs(winSwing) >= 3)) {
+        need = preferredIsLeader ? "Closing pressure" : "Comeback path";
+      } else if (preferredOpposesRoom && (gap >= 4 || winSwing >= 3 || placeSwing >= 0.8)) {
+        need = trailingPack ? "Differentiate" : "Leverage";
+      } else if (preferredMatchesRoom && (gap >= 4 || pointsSwing >= 2)) {
+        need = place === 1 ? "Protect lead" : "Hold serve";
+      } else if (futureGap >= 4 && (gap <= 3 || winSwing >= 2)) {
+        need = "Future setup";
+      } else if (gap >= 3 || Math.abs(winSwing) >= 2 || Math.abs(pointsSwing) >= 1.5) {
+        need = roomGap >= 4 ? "Room swing" : "Meaningful";
+      }
+
       return {
         id: member.id,
         name: formatMemberName(member, currentUserId),
         preferred,
         gap,
-        strength: gap >= 6 ? "Urgent" : gap >= 3 ? "Meaningful" : gap > 0 ? "Light" : "Balanced",
+        strength: need,
+        winSwing: Number(winSwing.toFixed(1)),
+        placeSwing: Number(placeSwing.toFixed(1)),
       };
     })
-    .sort((a, b) => b.gap - a.gap || a.name.localeCompare(b.name));
+    .sort((a, b) => b.winSwing - a.winSwing || b.gap - a.gap || a.name.localeCompare(b.name));
 }
 
-function buildFuturePathNote(seriesItem, selectionById, currentAssignments) {
+function buildFuturePathNote(seriesItem, selectionById, currentAssignments, branchSimulationBySeriesId, currentUserId) {
   const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
   const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
   const home = selectionById[homeId];
@@ -678,13 +803,19 @@ function buildFuturePathNote(seriesItem, selectionById, currentAssignments) {
   const awayValue = Number(currentAssignments?.[awayId] ?? 0);
   const preferred = homeValue >= awayValue ? home : away;
   const other = homeValue >= awayValue ? away : home;
+  const branchPair = branchSimulationBySeriesId?.[seriesItem.id] ?? null;
+  const preferredBranch =
+    preferred?.id === homeId ? branchPair?.[homeId]?.members?.[currentUserId] : branchPair?.[awayId]?.members?.[currentUserId];
+  const otherBranch =
+    preferred?.id === homeId ? branchPair?.[awayId]?.members?.[currentUserId] : branchPair?.[homeId]?.members?.[currentUserId];
+  const winSwing = Number(preferredBranch?.winProbability ?? 0) - Number(otherBranch?.winProbability ?? 0);
 
   return {
     title: preferred && other
       ? `${preferred.abbreviation} opens the stronger future path for your board`
       : "Future-round path still depends on tonight",
     body: preferred && other
-      ? `${preferred.abbreviation} is carrying ${preferred.expectedPoints} expected points from here versus ${other.expectedPoints} for ${other.abbreviation}. If tonight nudges this series toward ${preferred.abbreviation}, the future-round ceiling stays friendlier for you.`
+      ? `${preferred.abbreviation} is carrying ${preferred.expectedPoints} expected points from here versus ${other.expectedPoints} for ${other.abbreviation}. In the branch sim, a ${preferred.abbreviation} result shifts your pool win probability by ${Math.abs(winSwing).toFixed(1)} points relative to the other side, which is why this future path matters beyond the immediate standings.`
       : "The real future-round question is which side still leaves you with the stronger live expected-points path after tonight settles.",
   };
 }
@@ -697,7 +828,7 @@ function averageAssignment(allAssignmentsByUser, teamId) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId) {
+function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId, branchSimulationBySeriesId) {
   const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
   const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
   const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
@@ -714,6 +845,13 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
   const yourGap = Math.abs(yourHomeValue - yourAwayValue);
   const roomGap = Math.abs(roomHomeAvg - roomAwayAvg);
   const lighterSide = yourPreferred === homeAbbr ? awayAbbr : homeAbbr;
+  const branchPair = branchSimulationBySeriesId?.[seriesItem.id] ?? null;
+  const preferredBranch =
+    yourPreferred === homeAbbr ? branchPair?.[homeId]?.members?.[currentUserId] : yourPreferred === awayAbbr ? branchPair?.[awayId]?.members?.[currentUserId] : null;
+  const oppositeBranch =
+    yourPreferred === homeAbbr ? branchPair?.[awayId]?.members?.[currentUserId] : yourPreferred === awayAbbr ? branchPair?.[homeId]?.members?.[currentUserId] : null;
+  const placeSwing = Number(oppositeBranch?.expectedPlace ?? 0) - Number(preferredBranch?.expectedPlace ?? 0);
+  const winSwing = Number(preferredBranch?.winProbability ?? 0) - Number(oppositeBranch?.winProbability ?? 0);
 
   if (yourGap === 0 && roomGap === 0) {
     return {
@@ -746,7 +884,7 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
   if (yourPreferred && roomPreferred && yourPreferred !== roomPreferred) {
     return {
       title: `${yourPreferred} is a real leverage side for your board`,
-      body: `This is the kind of game where the obvious rooting interest is actually the right one: you are tilted toward ${yourPreferred}, while the room leans ${roomPreferred}. A ${yourPreferred} win creates separation for you immediately, and a ${roomPreferred} win helps the side the field is already carrying more confidently.`,
+      body: `This is the kind of game where the obvious rooting interest is actually the right one: you are tilted toward ${yourPreferred}, while the room leans ${roomPreferred}. In the branch sim, that outcome moves your expected place by ${Math.abs(placeSwing).toFixed(1)} spots and your pool win probability by ${Math.abs(winSwing).toFixed(1)} points, which is why this reads as real leverage rather than just a stylistic preference.`,
     };
   }
 
@@ -771,6 +909,7 @@ function TodayBoardImplicationsReport({
   allAssignmentsByUser,
   currentUserId,
   selectionRows,
+  simulationTeamEntries,
   expandedAnalysisId,
 }) {
   const now = useMemo(() => new Date(), []);
@@ -814,8 +953,12 @@ function TodayBoardImplicationsReport({
   }, [todayGames, series, implicationById, now]);
 
   const tomorrowScenarioRows = useMemo(
-    () => buildTomorrowScenarioRows(todaySeries.map((entry) => entry.seriesItem), memberList, allAssignmentsByUser, series, currentUserId),
-    [todaySeries, memberList, allAssignmentsByUser, series, currentUserId]
+    () => buildTomorrowScenarioRows(todaySeries.map((entry) => entry.seriesItem), memberList, allAssignmentsByUser, series, currentUserId, simulationTeamEntries),
+    [todaySeries, memberList, allAssignmentsByUser, series, currentUserId, simulationTeamEntries]
+  );
+  const branchSimulationBySeriesId = useMemo(
+    () => buildBranchSimulationBySeries(todaySeries.map((entry) => entry.seriesItem), memberList, allAssignmentsByUser, series, simulationTeamEntries),
+    [todaySeries, memberList, allAssignmentsByUser, series, simulationTeamEntries]
   );
 
   if (!todaySeries.length) {
@@ -841,9 +984,10 @@ function TodayBoardImplicationsReport({
       </section>
 
       {todaySeries.map(({ game, seriesItem, implication }) => {
-        const needRows = buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUserId);
-        const futureNote = buildFuturePathNote(seriesItem, selectionById, allAssignmentsByUser?.[currentUserId] ?? {});
-        const rootingContext = buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId);
+        const needRows = buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUserId, series, selectionById, branchSimulationBySeriesId);
+        const futureNote = buildFuturePathNote(seriesItem, selectionById, allAssignmentsByUser?.[currentUserId] ?? {}, branchSimulationBySeriesId, currentUserId);
+        const rootingContext = buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId, branchSimulationBySeriesId);
+        const simulationRows = buildSimulationSwingRows(seriesItem, branchSimulationBySeriesId, currentUserId);
         const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
         const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
         const analysisAnchorId = `analysis-${seriesItem.id}`;
@@ -890,11 +1034,13 @@ function TodayBoardImplicationsReport({
               </summary>
               <div className="nba-report-game-details-body">
                 <p className="nba-briefing-analysis-copy">
-                  {(() => {
-                    const headlineText = implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`;
-                    const bodyText = stripRepeatedLead(headlineText, implication?.body ?? "This game has direct point and leverage consequences across the room.");
-                    return [punctuateSentence(headlineText), bodyText].filter(Boolean).join(" ");
-                  })()}
+                  <span className="nba-briefing-analysis-text">
+                    {(() => {
+                      const headlineText = implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`;
+                      const bodyText = stripRepeatedLead(headlineText, implication?.body ?? "This game has direct point and leverage consequences across the room.");
+                      return [punctuateSentence(headlineText), bodyText].filter(Boolean).join(" ");
+                    })()}
+                  </span>
                 </p>
                 <article className="detail-card inset-card">
                   <span className="micro-label">Who needs what today</span>
@@ -920,6 +1066,28 @@ function TodayBoardImplicationsReport({
                   <span className="micro-label">Context that matters</span>
                   <strong>{rootingContext.title}</strong>
                   <p>{rootingContext.body}</p>
+                </article>
+
+                <article className="detail-card inset-card">
+                  <span className="micro-label">Simulation swing</span>
+                  <div className="leaderboard-table nba-dashboard-leaderboard-table">
+                    <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "1fr 0.75fr 0.75fr 0.75fr 0.75fr" }}>
+                      <span>Outcome</span>
+                      <span>Your place</span>
+                      <span>Final pts</span>
+                      <span>Pool win%</span>
+                      <span>Win% swing</span>
+                    </div>
+                    {simulationRows.map((row) => (
+                      <div className="leaderboard-row nba-dashboard-leaderboard-row" key={`${seriesItem.id}-${row.label}`} style={{ gridTemplateColumns: "1fr 0.75fr 0.75fr 0.75fr 0.75fr" }}>
+                        <span>{row.label}</span>
+                        <span>{row.expectedPlace ? ordinal(Math.round(row.expectedPlace)) : "—"}</span>
+                        <span>{row.expectedPoints ?? "—"}</span>
+                        <span>{row.winProbability != null ? `${row.winProbability}%` : "—"}</span>
+                        <span>{formatSwing(row.winProbabilitySwing)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </article>
 
                 <article className="detail-card inset-card">
@@ -1324,11 +1492,16 @@ export default function TeamValueReportDetailView() {
   const { memberList } = usePool();
   const { seriesByRound, teamsById, series } = usePlayoffData();
   const playoffTeams = getRoundOneTeamsFromData(seriesByRound, teamsById);
-  const { allAssignmentsByUser } = useTeamValueBoard(playoffTeams);
+  const { allAssignmentsByUser, syncedUserIds } = useTeamValueBoard(playoffTeams);
   const { games: todayGames } = useEspnTodayGames();
+  const syncedUserIdSet = useMemo(() => new Set(syncedUserIds), [syncedUserIds]);
+  const reportMembers = useMemo(
+    () => memberList.filter((member) => syncedUserIdSet.has(member.id)),
+    [memberList, syncedUserIdSet]
+  );
   const reportState = buildTeamValueReports({
     profileId: profile?.id,
-    memberList,
+    memberList: reportMembers,
     allAssignmentsByUser,
     seriesByRound,
     teamsById,
@@ -1386,8 +1559,8 @@ export default function TeamValueReportDetailView() {
   const groupedReport = ["slot-fits", "strategic-moves", "model-gaps"].includes(report.key);
   const customHeroReport = report.key === "board-implications";
   const selectionRows = useMemo(
-    () => buildTeamSelectionRows(playoffTeams, seriesByRound, allAssignmentsByUser, profile?.id, memberList.length),
-    [playoffTeams, seriesByRound, allAssignmentsByUser, profile?.id, memberList.length]
+    () => buildTeamSelectionRows(playoffTeams, seriesByRound, allAssignmentsByUser, profile?.id, reportMembers.length),
+    [playoffTeams, seriesByRound, allAssignmentsByUser, profile?.id, reportMembers.length]
   );
   const implicationRows = reportState.reports["board-implications"]?.rows ?? [];
   const expandedAnalysisId = location.hash?.replace(/^#/, "") ?? "";
@@ -1445,10 +1618,11 @@ export default function TeamValueReportDetailView() {
             todayGames={todayGames}
             series={series}
             implicationRows={implicationRows}
-            memberList={memberList}
+            memberList={reportMembers}
             allAssignmentsByUser={allAssignmentsByUser}
             currentUserId={profile?.id}
             selectionRows={selectionRows}
+            simulationTeamEntries={playoffTeams}
             expandedAnalysisId={expandedAnalysisId}
           />
         ) : (

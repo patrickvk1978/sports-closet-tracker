@@ -21,7 +21,7 @@ export default function TeamValueScoringView() {
 
         <div className="detail-card inset-card">
           <p>
-            Rank 1 is worth the most and rank 16 the least. Teams start scoring as soon as they begin winning playoff games, so points can appear before a series is over. Each win pays a little more than the one before it, and the fourth win carries the biggest jump.
+            Rank 1 earns 16 points for every playoff win, rank 2 earns 15, and so on down to rank 16 earning 1 point per win. When a team wins a series, it also earns the round bonus below.
           </p>
         </div>
 
@@ -30,10 +30,10 @@ export default function TeamValueScoringView() {
             <article className="detail-card inset-card" key={round.roundKey}>
               <span className="micro-label">{round.label}</span>
               <p>
-                {round.perWin.map((entry) => `Win ${entry.winNumber}: ${entry.points}`).join(" · ")}
+                Rank 1: {round.perWin[0]?.points ?? 16} per win
               </p>
               <p>
-                {round.byGames.map((entry) => `Win in ${entry.games}: ${entry.points}`).join(" · ")}
+                Series win bonus: +{round.roundBonus}
               </p>
             </article>
           ))}

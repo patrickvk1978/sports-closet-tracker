@@ -138,17 +138,17 @@ export default function PoolSettingsPage() {
         <div className="settings-form-grid">
           <div className="detail-card">
             <span className="micro-label">Contest scoring</span>
-            <p>The team-value game locks a unique 16-to-1 ranking before the playoffs begin. Teams score progressively for each playoff win, with the fourth win carrying the biggest bump plus the round and dominance bonuses.</p>
+            <p>The team-value game locks a unique 16-to-1 ranking before the playoffs begin. Rank 1 earns 16 points for every playoff win, rank 2 earns 15, and so on down to rank 16 earning 1 point per win. Series winners also earn a round bonus.</p>
           </div>
           <div className="settings-form-grid three-up">
             {scoringTable.map((row) => (
               <div className="detail-card" key={row.roundKey}>
                 <span className="micro-label">{row.label}</span>
                 <p>
-                  {row.perWin.map((entry) => `Win ${entry.winNumber}: ${entry.points}`).join(" · ")}
+                  Rank 1: {row.perWin[0]?.points ?? 16} per win
                 </p>
                 <p>
-                  {row.byGames.map((entry) => `Win in ${entry.games}: ${entry.points}`).join(" · ")}
+                  Series win bonus: +{row.roundBonus}
                 </p>
               </div>
             ))}
@@ -172,8 +172,8 @@ export default function PoolSettingsPage() {
             </select>
           </label>
           <div className="detail-card">
-            <span className="micro-label">Why shorter wins matter more</span>
-            <p>The format still rewards dominance. A sweep gets the biggest clinching bonus, then five, then six, then seven. Later rounds also carry bigger clinching bonuses by default.</p>
+            <span className="micro-label">Why every game matters</span>
+            <p>There is no series-length bonus now. A long series creates more scoring chances through individual game wins, while advancing still matters through the round bonus.</p>
           </div>
           <div className="detail-card">
             <span className="micro-label">Board lock</span>

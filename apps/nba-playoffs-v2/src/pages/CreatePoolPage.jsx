@@ -45,7 +45,7 @@ export default function CreatePoolPage() {
 
           <div className="detail-card spotlight">
             <span className="micro-label">Contest format</span>
-            <p>Rank the final 16 playoff teams from 16 down to 1. Every series win scores team value plus round and dominance bonuses, so the whole postseason becomes a live portfolio.</p>
+            <p>Rank the final 16 playoff teams from 16 down to 1. Every game win scores that team's value, and each series winner adds a round bonus.</p>
           </div>
 
           {error ? <div className="error-box">{error}</div> : null}
