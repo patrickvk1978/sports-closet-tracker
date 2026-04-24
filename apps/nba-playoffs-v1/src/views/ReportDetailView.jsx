@@ -883,6 +883,8 @@ export default function ReportDetailView() {
   const { games: todayGames } = useEspnTodayGames();
   const settings = settingsForPool(pool);
   const { picksBySeriesId, allPicksByUser } = useSeriesPickem(series);
+  const activeRoundSeries = seriesByRound[currentRound.key] ?? [];
+  const canViewPoolSignals = areRoundPicksPublic(activeRoundSeries, currentRound.key, settings);
   const activeSeriesByPair = Object.fromEntries(
     activeRoundSeries.map((seriesItem) => [
       buildPairKey(seriesItem.homeTeam?.abbreviation, seriesItem.awayTeam?.abbreviation),
@@ -1049,8 +1051,6 @@ export default function ReportDetailView() {
     );
   }
 
-  const activeRoundSeries = seriesByRound[currentRound.key] ?? [];
-  const canViewPoolSignals = areRoundPicksPublic(activeRoundSeries, currentRound.key, settings);
   const currentRoundWinOdds = buildCurrentRoundWinOdds(memberList, allPicksByUser, activeRoundSeries, series, settings);
   const standings = buildStandings(memberList, allPicksByUser, series, settings).map((member) => ({
     ...member,
