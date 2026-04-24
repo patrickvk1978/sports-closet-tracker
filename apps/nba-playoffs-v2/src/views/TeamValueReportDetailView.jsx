@@ -1071,17 +1071,15 @@ function TodayBoardImplicationsReport({
                 <article className="detail-card inset-card">
                   <span className="micro-label">Simulation swing</span>
                   <div className="leaderboard-table nba-dashboard-leaderboard-table">
-                    <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "1fr 0.75fr 0.75fr 0.75fr 0.75fr" }}>
+                    <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "1fr 0.75fr 0.75fr 0.75fr" }}>
                       <span>Outcome</span>
-                      <span>Your place</span>
                       <span>Final pts</span>
                       <span>Pool win%</span>
                       <span>Win% swing</span>
                     </div>
                     {simulationRows.map((row) => (
-                      <div className="leaderboard-row nba-dashboard-leaderboard-row" key={`${seriesItem.id}-${row.label}`} style={{ gridTemplateColumns: "1fr 0.75fr 0.75fr 0.75fr 0.75fr" }}>
+                      <div className="leaderboard-row nba-dashboard-leaderboard-row" key={`${seriesItem.id}-${row.label}`} style={{ gridTemplateColumns: "1fr 0.75fr 0.75fr 0.75fr" }}>
                         <span>{row.label}</span>
-                        <span>{row.expectedPlace ? ordinal(Math.round(row.expectedPlace)) : "—"}</span>
                         <span>{row.expectedPoints ?? "—"}</span>
                         <span>{row.winProbability != null ? `${row.winProbability}%` : "—"}</span>
                         <span>{formatSwing(row.winProbabilitySwing)}</span>
