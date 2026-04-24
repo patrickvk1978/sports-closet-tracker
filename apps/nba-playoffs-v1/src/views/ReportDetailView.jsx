@@ -128,7 +128,8 @@ function formatBriefingMemberName(member, currentUserId) {
 }
 
 function buildBriefingNeedRows(seriesItem, memberList, allPicksByUser, currentUserId) {
-  return memberList
+  const safeMembers = Array.isArray(memberList) ? memberList : [];
+  return safeMembers
     .map((member) => {
       const pick = allPicksByUser[member.id]?.[seriesItem.id] ?? null;
       if (!pick?.winnerTeamId) {
@@ -155,10 +156,11 @@ function buildBriefingNeedRows(seriesItem, memberList, allPicksByUser, currentUs
 }
 
 function buildBriefingNarrative(seriesItem, marketSummary, yourPick, memberList, allPicksByUser, currentUserId, canViewPoolSignals) {
+  const safeMembers = Array.isArray(memberList) ? memberList : [];
   const homeTeam = seriesItem.homeTeam;
   const awayTeam = seriesItem.awayTeam;
-  const homeCount = memberList.filter((member) => allPicksByUser[member.id]?.[seriesItem.id]?.winnerTeamId === homeTeam.id).length;
-  const awayCount = memberList.filter((member) => allPicksByUser[member.id]?.[seriesItem.id]?.winnerTeamId === awayTeam.id).length;
+  const homeCount = safeMembers.filter((member) => allPicksByUser[member.id]?.[seriesItem.id]?.winnerTeamId === homeTeam.id).length;
+  const awayCount = safeMembers.filter((member) => allPicksByUser[member.id]?.[seriesItem.id]?.winnerTeamId === awayTeam.id).length;
   const total = homeCount + awayCount;
 
   if (!canViewPoolSignals || total === 0) {
@@ -172,7 +174,7 @@ function buildBriefingNarrative(seriesItem, marketSummary, yourPick, memberList,
   const consensusWinnerTeam = homeCount >= awayCount ? homeTeam : awayTeam;
   const minorityWinnerTeam = consensusWinnerTeam.id === homeTeam.id ? awayTeam : homeTeam;
   const consensusPct = Math.round((Math.max(homeCount, awayCount) / total) * 100);
-  const minorityMembers = memberList
+  const minorityMembers = safeMembers
     .filter((member) => allPicksByUser[member.id]?.[seriesItem.id]?.winnerTeamId === minorityWinnerTeam.id)
     .map((member) => ({
       member,
@@ -883,8 +885,10 @@ export default function ReportDetailView() {
   const { games: todayGames } = useEspnTodayGames();
   const settings = settingsForPool(pool);
   const { picksBySeriesId, allPicksByUser } = useSeriesPickem(series);
-  const activeRoundSeries = seriesByRound[currentRound.key] ?? [];
-  const canViewPoolSignals = areRoundPicksPublic(activeRoundSeries, currentRound.key, settings);
+  const activeRoundKey = currentRound?.key ?? "round_1";
+  const activeRoundLabel = currentRound?.label ?? "Round 1";
+  const activeRoundSeries = seriesByRound?.[activeRoundKey] ?? [];
+  const canViewPoolSignals = areRoundPicksPublic(activeRoundSeries, activeRoundKey, settings);
   const activeSeriesByPair = Object.fromEntries(
     activeRoundSeries.map((seriesItem) => [
       buildPairKey(seriesItem.homeTeam?.abbreviation, seriesItem.awayTeam?.abbreviation),
@@ -993,7 +997,7 @@ export default function ReportDetailView() {
                   <div>
                     <span className="micro-label">Today at {formatBriefingTime(row.game.tipAt)}</span>
                     <strong>{row.game.awayAbbreviation} at {row.game.homeAbbreviation}</strong>
-                    <p>{row.seriesItem ? formatBriefingSeriesStatus(row.seriesItem, currentRound.label) : (row.game.seriesHeadline && row.game.seriesSummary ? `${row.game.seriesHeadline.replace(" - ", " · ")} · ${row.game.seriesSummary}` : "Playoff game today")}</p>
+                    <p>{row.seriesItem ? formatBriefingSeriesStatus(row.seriesItem, activeRoundLabel) : (row.game.seriesHeadline && row.game.seriesSummary ? `${row.game.seriesHeadline.replace(" - ", " · ")} · ${row.game.seriesSummary}` : "Playoff game today")}</p>
                     <ReportMetricsTable
                       ariaLabel="Today's briefing metrics"
                       metrics={[
