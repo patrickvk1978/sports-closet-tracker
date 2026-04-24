@@ -517,18 +517,16 @@ export default function LiveStage({
                     </div>
                   </div>
                   <div className="ls-rpc-player-row">
-                    <ProspectAvatar prospect={stage === "awaiting_reveal" && !m.isCurrentUser ? null : m.prospect} size="sm" />
+                    <ProspectAvatar prospect={m.prospect} size="sm" />
                     <div className="ls-rpc-player-body">
                       <div className={`ls-rpc-player ${stage === "awaiting_reveal" ? "awaiting" : ""}`}>
                         {stage === "awaiting_reveal"
-                          ? (m.isCurrentUser ? (m.prospect?.name ?? "Your locked pick") : "Locked selection hidden")
+                          ? (m.prospect?.name ?? "Locked selection")
                           : m.prospect?.name ?? "—"}
                       </div>
                       <div className="ls-rpc-meta">
                         {stage === "awaiting_reveal"
-                          ? (m.isCurrentUser
-                              ? (m.prospect ? `${m.prospect.position} · ${m.prospect.school}` : "Waiting for reveal")
-                              : "Will flip when the pick is official")
+                          ? (m.prospect ? `${m.prospect.position} · ${m.prospect.school}` : "Waiting for reveal")
                           : m.prospect
                             ? `${m.prospect.position} · ${m.prospect.school}`
                             : ""}
