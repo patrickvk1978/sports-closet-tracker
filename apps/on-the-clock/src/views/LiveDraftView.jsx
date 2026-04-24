@@ -122,13 +122,8 @@ export default function LiveDraftView() {
     const actualMap = isPreviewMode
       ? { ...(draftFeed.actual_picks ?? {}), ...previewReveals }
       : draftFeed.actual_picks ?? {};
-    const liveCardMap = isPreviewMode ? previewCards : liveCards;
-    const blocked = new Set(Object.values(actualMap));
-    Object.entries(liveCardMap).forEach(([pickNum, prospectId]) => {
-      if (Number(pickNum) < currentPickNumber) blocked.add(prospectId);
-    });
-    return blocked;
-  }, [draftFeed.actual_picks, liveCards, currentPickNumber, isPreviewMode, previewCards, previewReveals]);
+    return new Set(Object.values(actualMap));
+  }, [draftFeed.actual_picks, isPreviewMode, previewReveals]);
 
   const currentPick = picks.find((p) => p.number === currentPickNumber) ?? picks[0] ?? { number: 1, currentTeam: "" };
   const currentTeam = teams[teamForPick(currentPick)] ?? {};
