@@ -3,6 +3,7 @@ import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useSeriesPickem } from "../hooks/useSeriesPickem";
+import { useEspnTodayGames } from "../hooks/useEspnTodayGames";
 import { summarizeSeriesMarket } from "../lib/seriesPickem";
 import { buildCurrentRoundWinOdds, buildStandings } from "../lib/standings";
 import { formatLean, getSeasonPhase } from "../lib/insights";
@@ -74,6 +75,134 @@ function boothLine(seedParts, variants) {
 
 function colorLine(seedParts, variants) {
   return chooseVariant(["color", ...seedParts], variants);
+}
+
+function normalizeAbbreviation(value) {
+  if (value === "SA") return "SAS";
+  if (value === "GS") return "GSW";
+  if (value === "NY") return "NYK";
+  if (value === "NO") return "NOP";
+  return value;
+}
+
+function buildPairKey(left, right) {
+  return [normalizeAbbreviation(left), normalizeAbbreviation(right)].sort().join("|");
+}
+
+function formatBriefingTime(value) {
+  if (!value) return "Time TBD";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Time TBD";
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(parsed);
+}
+
+function formatBriefingSeriesStatus(seriesItem, currentRoundLabel) {
+  const conference = seriesItem.conference === "west" ? "West" : "East";
+  const roundLabel = currentRoundLabel ?? "Round 1";
+  const homeWins = Number(seriesItem.wins?.home ?? 0);
+  const awayWins = Number(seriesItem.wins?.away ?? 0);
+  const nextGameNumber = Math.min(homeWins + awayWins + 1, 7);
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? "HOME";
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? "AWAY";
+
+  if (!homeWins && !awayWins) {
+    return `${conference} ${roundLabel} · Game 1`;
+  }
+
+  if (homeWins === awayWins) {
+    return `${conference} ${roundLabel} · Game ${nextGameNumber} · Series tied ${homeWins}-${awayWins}`;
+  }
+
+  const leader = homeWins > awayWins ? homeAbbr : awayAbbr;
+  const leaderWins = Math.max(homeWins, awayWins);
+  const trailingWins = Math.min(homeWins, awayWins);
+  return `${conference} ${roundLabel} · Game ${nextGameNumber} · ${leader} leads series ${leaderWins}-${trailingWins}`;
+}
+
+function formatBriefingMemberName(member, currentUserId) {
+  if (!member) return "Someone";
+  return member.id === currentUserId ? "You" : member.name;
+}
+
+function buildBriefingNeedRows(seriesItem, memberList, allPicksByUser, currentUserId) {
+  return memberList
+    .map((member) => {
+      const pick = allPicksByUser[member.id]?.[seriesItem.id] ?? null;
+      if (!pick?.winnerTeamId) {
+        return {
+          id: member.id,
+          name: formatBriefingMemberName(member, currentUserId),
+          side: "No pick",
+          need: "Open",
+          games: 7,
+        };
+      }
+
+      const pickedTeam = pick.winnerTeamId === seriesItem.homeTeam.id ? seriesItem.homeTeam : seriesItem.awayTeam;
+      return {
+        id: member.id,
+        name: formatBriefingMemberName(member, currentUserId),
+        side: pickedTeam.city,
+        need: `${pickedTeam.abbreviation} in ${pick.games}`,
+        games: pick.games,
+        winnerTeamId: pick.winnerTeamId,
+      };
+    })
+    .sort((left, right) => left.games - right.games || left.name.localeCompare(right.name));
+}
+
+function buildBriefingNarrative(seriesItem, marketSummary, yourPick, memberList, allPicksByUser, currentUserId, canViewPoolSignals) {
+  const homeTeam = seriesItem.homeTeam;
+  const awayTeam = seriesItem.awayTeam;
+  const homeCount = memberList.filter((member) => allPicksByUser[member.id]?.[seriesItem.id]?.winnerTeamId === homeTeam.id).length;
+  const awayCount = memberList.filter((member) => allPicksByUser[member.id]?.[seriesItem.id]?.winnerTeamId === awayTeam.id).length;
+  const total = homeCount + awayCount;
+
+  if (!canViewPoolSignals || total === 0) {
+    const leanLabel = formatLean(seriesItem, seriesItem.market, (team, pct) => `${team.city} ${pct}%`);
+    return {
+      title: `${homeTeam.city} and ${awayTeam.city} are still mostly a price-and-projection story.`,
+      body: `Before the room is fully readable, the best desk read is still outside the pool: market says ${leanLabel}, and your own card is doing more of the storytelling than room consensus is.`,
+    };
+  }
+
+  const consensusWinnerTeam = homeCount >= awayCount ? homeTeam : awayTeam;
+  const minorityWinnerTeam = consensusWinnerTeam.id === homeTeam.id ? awayTeam : homeTeam;
+  const consensusPct = Math.round((Math.max(homeCount, awayCount) / total) * 100);
+  const minorityMembers = memberList
+    .filter((member) => allPicksByUser[member.id]?.[seriesItem.id]?.winnerTeamId === minorityWinnerTeam.id)
+    .map((member) => ({
+      member,
+      pick: allPicksByUser[member.id]?.[seriesItem.id],
+    }))
+    .sort((left, right) => (left.pick?.games ?? 7) - (right.pick?.games ?? 7));
+  const standoutMinority = minorityMembers[0] ?? null;
+  const yourWinnerTeamId = yourPick?.winnerTeamId ?? null;
+  const youAreMinority = yourWinnerTeamId === minorityWinnerTeam.id;
+
+  let title;
+  if (consensusPct >= 80) {
+    title = `The room is pretty consistent across the board on ${consensusWinnerTeam.city}.`;
+  } else if (consensusPct >= 65) {
+    title = `The room leans ${consensusWinnerTeam.city}, but not as one-note as the louder series.`;
+  } else {
+    title = `${homeTeam.city}-${awayTeam.city} is still open enough to bend the room tonight.`;
+  }
+
+  let body;
+  if (standoutMinority) {
+    const standoutName = formatBriefingMemberName(standoutMinority.member, currentUserId);
+    body = `${standoutName} needs ${minorityWinnerTeam.city} wins more than everyone else and should be rooting for that tonight.`;
+  } else if (youAreMinority) {
+    body = `You are carrying more of the ${minorityWinnerTeam.city} path than the room is, so this is one of the cleaner places for your bracket to separate if it breaks your way.`;
+  } else {
+    body = `For your card, this is more about whether ${consensusWinnerTeam.city} keeps the room steady than about finding a dramatic solo swing.`;
+  }
+
+  return { title, body };
 }
 
 function buildRootingNote(series, pick, marketSummary, canViewPoolSignals) {
@@ -715,6 +844,10 @@ function buildReportHeroState(reportKey, context) {
 }
 
 const REPORT_CONFIG = {
+  briefing: {
+    label: "Today's Briefing",
+    title: "What matters on today's slate?",
+  },
   rooting: {
     label: "Rooting guide",
     title: "What should you care about most?",
@@ -747,13 +880,14 @@ export default function ReportDetailView() {
   const { profile } = useAuth();
   const { pool, memberList, settingsForPool } = usePool();
   const { series, currentRound, seriesByRound } = usePlayoffData();
+  const { games: todayGames } = useEspnTodayGames();
   const settings = settingsForPool(pool);
   const { picksBySeriesId, allPicksByUser } = useSeriesPickem(series);
 
   if (!reportConfig) {
     return (
       <div className="report-back-shell">
-        <Link className="back-link" to="/reports">← Back to Reports</Link>
+        <Link className="back-link" to={reportKey === "briefing" ? "/dashboard" : "/reports"}>← Back to {reportKey === "briefing" ? "Dashboard" : "Reports"}</Link>
         <div className="panel">
           <h2>Report not found</h2>
         </div>
@@ -1033,6 +1167,56 @@ export default function ReportDetailView() {
     })
     .sort((a, b) => b.leverage - a.leverage);
 
+  const activeSeriesByPair = Object.fromEntries(
+    activeRoundSeries.map((seriesItem) => [
+      buildPairKey(seriesItem.homeTeam?.abbreviation, seriesItem.awayTeam?.abbreviation),
+      seriesItem,
+    ])
+  );
+
+  const briefingRows = todayGames
+    .map((game) => {
+      const pairKey = buildPairKey(game.homeAbbreviation, game.awayAbbreviation);
+      const seriesItem = activeSeriesByPair[pairKey] ?? null;
+      if (!seriesItem) {
+        return {
+          id: game.id,
+          game,
+          seriesItem: null,
+          yourPick: null,
+          marketSummary: null,
+          needRows: [],
+          analysis: {
+            title: "Series context is syncing.",
+            body: "This game is on today’s live slate, but the bracket-side series mapping has not caught up yet. The live game intel is still real; the room-specific read will fill in once the pairing resolves.",
+          },
+        };
+      }
+
+      const marketSummary = summarizeSeriesMarket(allPicksByUser, memberList, seriesItem);
+      const yourPick = picksBySeriesId[seriesItem.id] ?? null;
+
+      return {
+        id: seriesItem.id,
+        game,
+        seriesItem,
+        yourPick,
+        marketSummary,
+        needRows: buildBriefingNeedRows(seriesItem, memberList, allPicksByUser, profile?.id),
+        analysis: buildBriefingNarrative(
+          seriesItem,
+          marketSummary,
+          yourPick,
+          memberList,
+          allPicksByUser,
+          profile?.id,
+          canViewPoolSignals
+        ),
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => new Date(left.game.tipAt ?? 0).getTime() - new Date(right.game.tipAt ?? 0).getTime());
+
   const contrarianCount = canViewPoolSignals
     ? rootingRows.filter((row) => row.pickedShare <= 35 && row.status !== "No pick entered").length
     : 0;
@@ -1069,21 +1253,32 @@ export default function ReportDetailView() {
     probabilityRows,
     showScenarioCard,
   });
+  const briefingHeroBody = briefingRows.length
+    ? `A day-specific read of the ${briefingRows.length} game${briefingRows.length === 1 ? "" : "s"} on tap: where the room agrees, where it can still bend, and whose rooting interest is louder than it first appears.`
+    : "Nothing tips today. Once the playoff slate populates, this page becomes the daily desk for room-aware rooting context.";
+  const effectiveHeroBody = reportKey === "briefing" ? briefingHeroBody : heroState.body;
+  const effectiveHeroStats = reportKey === "briefing"
+    ? [
+        { label: "Games today", value: briefingRows.length },
+        { label: "Top room read", value: briefingRows[0]?.seriesItem ? `${briefingRows[0].seriesItem.homeTeam.abbreviation} vs ${briefingRows[0].seriesItem.awayTeam.abbreviation}` : "No slate" },
+        { label: "Mode", value: canViewPoolSignals ? "Room live" : "Signals first" },
+      ]
+    : heroState.stats;
 
   return (
     <div className="nba-shell">
       <div className="report-back-shell">
-        <Link className="back-link" to="/reports">← Back to Reports</Link>
+        <Link className="back-link" to={reportKey === "briefing" ? "/dashboard" : "/reports"}>← Back to {reportKey === "briefing" ? "Dashboard" : "Reports"}</Link>
       </div>
 
       <section className="panel nba-reports-hero">
         <div>
           <span className="label">{reportConfig.label}</span>
           <h2>{reportConfig.title}</h2>
-          <p className="subtle">{heroState.body}</p>
+          <p className="subtle">{effectiveHeroBody}</p>
         </div>
         <div className="nba-stat-grid">
-          {heroState.stats.map((stat) => (
+          {effectiveHeroStats.map((stat) => (
             <div className="nba-stat-card" key={stat.label}>
               <span className="micro-label">{stat.label}</span>
               <strong>{stat.value}</strong>
@@ -1091,6 +1286,77 @@ export default function ReportDetailView() {
           ))}
         </div>
       </section>
+
+      {reportKey === "briefing" ? (
+        <section className="panel">
+          <div className="panel-header">
+            <div>
+              <span className="label">Today&apos;s Briefing</span>
+              <h2>Every game on today&apos;s board, with room context</h2>
+            </div>
+          </div>
+          <div className="nba-dashboard-list">
+            {briefingRows.length ? (
+              briefingRows.map((row) => (
+                <article className="nba-dashboard-row nba-dashboard-row-stacked" key={row.id}>
+                  <div>
+                    <span className="micro-label">Today at {formatBriefingTime(row.game.tipAt)}</span>
+                    <strong>{row.game.awayAbbreviation} at {row.game.homeAbbreviation}</strong>
+                    <p>{row.seriesItem ? formatBriefingSeriesStatus(row.seriesItem, currentRound.label) : (row.game.seriesHeadline && row.game.seriesSummary ? `${row.game.seriesHeadline.replace(" - ", " · ")} · ${row.game.seriesSummary}` : "Playoff game today")}</p>
+                    <ReportMetricsTable
+                      ariaLabel="Today's briefing metrics"
+                      metrics={[
+                        { label: "Current line", value: row.game.currentLineLabel ?? "Line TBD" },
+                        { label: "Predictor", value: row.game.marketFavoriteLabel?.replace("Matchup Predictor: ", "") ?? "Predictor soon" },
+                        { label: "Your pick", value: row.seriesItem && row.yourPick ? winnerLabel(row.seriesItem, row.yourPick.winnerTeamId, row.yourPick.games) : "Not mapped yet" },
+                        {
+                          label: "Room lean",
+                          value: row.seriesItem && canViewPoolSignals && row.marketSummary?.consensusWinnerTeamId
+                            ? `${row.marketSummary.consensusWinnerTeamId === row.seriesItem.homeTeam.id ? row.seriesItem.homeTeam.abbreviation : row.seriesItem.awayTeam.abbreviation} ${formatPct(Math.max(row.marketSummary.homePct, row.marketSummary.awayPct))}`
+                            : row.seriesItem
+                              ? "Private until tip"
+                              : "Not mapped yet",
+                        },
+                      ]}
+                    />
+                    <p><strong>{row.analysis.title}</strong> {row.analysis.body}</p>
+                    {row.seriesItem ? (
+                      <>
+                        <div className="nba-report-actions">
+                          <span className="label">Who needs what today</span>
+                        </div>
+                        <div className="nba-report-metric-wrap">
+                          <div className="nba-report-metric-table" role="table" aria-label="Who needs what today">
+                            <div className="nba-report-metric-row nba-report-metric-row-head" role="row" style={{ gridTemplateColumns: "minmax(0,1.2fr) 1fr 1fr" }}>
+                              <span className="nba-report-metric-cell" role="columnheader">Player</span>
+                              <span className="nba-report-metric-cell" role="columnheader">Side</span>
+                              <span className="nba-report-metric-cell" role="columnheader">Need</span>
+                            </div>
+                            {row.needRows.slice(0, 6).map((needRow) => (
+                              <div className="nba-report-metric-row" role="row" key={`${row.id}-${needRow.id}`} style={{ gridTemplateColumns: "minmax(0,1.2fr) 1fr 1fr" }}>
+                                <span className="nba-report-metric-cell" role="cell">{needRow.name}</span>
+                                <span className="nba-report-metric-cell" role="cell">{needRow.side}</span>
+                                <span className="nba-report-metric-cell" role="cell">{needRow.need}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="nba-dashboard-row nba-dashboard-row-stacked">
+                <div>
+                  <strong>Nothing tips today</strong>
+                  <p>When the slate fills in, this page becomes the room-aware daily read for those games.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       {reportKey === "rooting" ? (
         <section className="panel">

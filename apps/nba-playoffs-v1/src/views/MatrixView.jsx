@@ -70,6 +70,8 @@ export default function MatrixView() {
     ? [currentMember, ...memberList.filter((member) => member.id !== currentMember.id)]
     : memberList;
 
+  const formatMemberHeader = (member) => (member?.isCurrentUser ? "You" : member?.name ?? "Pool");
+
   return (
     <div className="nba-shell">
       <section className="panel nba-matrix-panel">
@@ -117,7 +119,7 @@ export default function MatrixView() {
                   <th>Series</th>
                   {orderedMembers.map((member) => (
                     <th key={member.id} className={member.isCurrentUser ? "is-current-member" : ""}>
-                      {member.name}
+                      {formatMemberHeader(member)}
                     </th>
                   ))}
                 </tr>
@@ -136,16 +138,16 @@ export default function MatrixView() {
                         }}
                       >
                         <strong>{seriesItem.homeTeam.abbreviation} vs {seriesItem.awayTeam.abbreviation}</strong>
-                        <span className="tooltip-wrap">
-                          <em className={`nba-matrix-visibility-pill ${isSeriesPickPublic(seriesItem, settings) ? "is-public" : "is-hidden"}`}>
-                            {isSeriesPickPublic(seriesItem, settings) ? "Public now" : "Hidden until tip"}
-                          </em>
-                          <span className="tooltip-bubble">
-                            {isSeriesPickPublic(seriesItem, settings)
-                              ? `Opened ${formatVisibilityTime(seriesItem.schedule?.lockAt)}.`
-                              : `Opens ${formatVisibilityTime(seriesItem.schedule?.lockAt)}.`}
+                        {!isSeriesPickPublic(seriesItem, settings) ? (
+                          <span className="tooltip-wrap">
+                            <em className="nba-matrix-visibility-pill is-hidden">
+                              Hidden until tip
+                            </em>
+                            <span className="tooltip-bubble">
+                              {`Opens ${formatVisibilityTime(seriesItem.schedule?.lockAt)}.`}
+                            </span>
                           </span>
-                        </span>
+                        ) : null}
                       </div>
                     </td>
                     {orderedMembers.map((member) => {

@@ -6,7 +6,8 @@ import { useSeriesPickem } from "../hooks/useSeriesPickem";
 import { useEspnTodayGames } from "../hooks/useEspnTodayGames";
 import { buildStandings } from "../lib/standings";
 import { formatLean } from "../lib/insights";
-import { areRoundPicksPublic } from "../lib/pickVisibility";
+import { areRoundPicksPublic, isSeriesPickPublic } from "../lib/pickVisibility";
+import { getTeamPalette } from "../../../../packages/shared/src/themes/teamColorBanks.js";
 
 function sameCalendarDay(left, right) {
   return (
@@ -27,6 +28,24 @@ function formatPlace(value) {
 function formatPct(value) {
   const safe = Number.isFinite(value) ? value : 0;
   return `${Math.round(safe)}%`;
+}
+
+function formatDashboardMatrixName(member) {
+  if (member?.isCurrentUser) return "You";
+  const raw = member?.name ?? member?.displayName ?? "POOL";
+  return raw.toUpperCase().replace(/\s+/g, "").slice(0, 8);
+}
+
+function normalizeAbbreviation(value) {
+  if (value === "SA") return "SAS";
+  if (value === "GS") return "GSW";
+  if (value === "NY") return "NYK";
+  if (value === "NO") return "NOP";
+  return value;
+}
+
+function buildPairKey(left, right) {
+  return [normalizeAbbreviation(left), normalizeAbbreviation(right)].sort().join("|");
 }
 
 function formatGameTime(seriesItem, now) {
@@ -110,16 +129,37 @@ function buildUpdatedSeriesStatus(seriesItem, currentRoundLabel, game) {
 function buildOnTapRows(todayGames, activeRoundSeries, currentRoundLabel, now, picksBySeriesId, allPicksByUser, memberList, canViewPoolSignals, isTodayGamesLoading) {
   const seriesByPair = Object.fromEntries(
     activeRoundSeries.map((seriesItem) => [
-      [seriesItem.homeTeam.abbreviation, seriesItem.awayTeam.abbreviation].sort().join("|"),
+      buildPairKey(seriesItem.homeTeam.abbreviation, seriesItem.awayTeam.abbreviation),
       seriesItem,
     ])
   );
 
   const liveRows = todayGames
     .map((game) => {
-      const pairKey = [game.homeAbbreviation, game.awayAbbreviation].sort().join("|");
+      const pairKey = buildPairKey(game.homeAbbreviation, game.awayAbbreviation);
       const seriesItem = seriesByPair[pairKey] ?? null;
-      if (!seriesItem) return null;
+      if (!seriesItem) {
+        return {
+          id: game.id,
+          seriesItem: null,
+          tipAt: game.tipAt,
+          matchupLabel: `${game.awayAbbreviation} at ${game.homeAbbreviation}`,
+          timeLabel: game.status === "in_progress" ? "Live now" : formatGameTime({ status: game.status, schedule: { nextGame: { tipAt: game.tipAt }, lockAt: game.tipAt } }, now),
+          statusLabel: game.seriesHeadline && game.seriesSummary
+            ? `${game.seriesHeadline.replace(" - ", " · ")} · ${game.seriesSummary}`
+            : game.status === "completed"
+              ? "Final"
+              : "Playoff game today",
+          status: game.status,
+          statusNote: game.statusNote,
+          homeScore: game.homeScore,
+          awayScore: game.awayScore,
+          scoreLabel: `${game.awayAbbreviation} ${game.awayScore} - ${game.homeAbbreviation} ${game.homeScore}`,
+          marketLabel: game.marketFavoriteLabel ?? "Matchup Predictor soon",
+          modelLabel: game.currentLineLabel ?? "Line TBD",
+          publicLean: null,
+        };
+      }
 
       const marketSummary = summarizeSeriesMarketSafe(allPicksByUser, memberList, seriesItem);
       const pick = picksBySeriesId[seriesItem.id] ?? null;
@@ -153,7 +193,6 @@ function buildOnTapRows(todayGames, activeRoundSeries, currentRoundLabel, now, p
             : null,
       };
     })
-    .filter(Boolean)
     .sort((left, right) => {
       const leftTip = new Date(left.tipAt ?? 0).getTime();
       const rightTip = new Date(right.tipAt ?? 0).getTime();
@@ -161,30 +200,6 @@ function buildOnTapRows(todayGames, activeRoundSeries, currentRoundLabel, now, p
     });
 
   if (liveRows.length) return liveRows;
-
-  if (todayGames.length) {
-    return todayGames
-      .map((game) => ({
-        id: game.id,
-        seriesItem: null,
-        tipAt: game.tipAt,
-        matchupLabel: `${game.awayAbbreviation} at ${game.homeAbbreviation}`,
-        timeLabel:
-          game.status === "in_progress"
-            ? "Live now"
-            : formatGameTime({ status: game.status, schedule: { nextGame: { tipAt: game.tipAt }, lockAt: game.tipAt } }, now),
-        statusLabel: game.status === "completed" ? "Final" : "Playoff game today",
-        status: game.status,
-        statusNote: game.statusNote,
-        homeScore: game.homeScore,
-        awayScore: game.awayScore,
-        scoreLabel: `${game.awayAbbreviation} ${game.awayScore} - ${game.homeAbbreviation} ${game.homeScore}`,
-        marketLabel: game.marketFavoriteLabel ?? "Matchup Predictor soon",
-        modelLabel: game.currentLineLabel ?? "Line TBD",
-        publicLean: null,
-      }))
-      .sort((left, right) => new Date(left.tipAt ?? 0).getTime() - new Date(right.tipAt ?? 0).getTime());
-  }
 
   if (isTodayGamesLoading) {
     return [];
@@ -242,6 +257,17 @@ function summarizeSeriesMarketSafe(allPicksByUser, memberList, seriesItem) {
   }
 }
 
+function getPickedTeam(seriesItem, pick) {
+  if (!pick?.winnerTeamId) return null;
+  return pick.winnerTeamId === seriesItem.homeTeam.id ? seriesItem.homeTeam : seriesItem.awayTeam;
+}
+
+function formatPick(seriesItem, pick) {
+  if (!pick?.winnerTeamId) return "No pick";
+  const team = getPickedTeam(seriesItem, pick);
+  return `${team.abbreviation} in ${pick.games}`;
+}
+
 export default function DashboardView() {
   const { profile } = useAuth();
   const { pool, memberList, settingsForPool } = usePool();
@@ -254,6 +280,10 @@ export default function DashboardView() {
   const standings = buildStandings(memberList, allPicksByUser, series, settings);
   const currentStanding = standings.find((member) => member.isCurrentUser) ?? null;
   const now = new Date();
+  const currentMember = memberList.find((member) => member.isCurrentUser) ?? memberList[0] ?? null;
+  const orderedMembers = currentMember
+    ? [currentMember, ...memberList.filter((member) => member.id !== currentMember.id)]
+    : memberList;
 
   const onTapRows = buildOnTapRows(
     todayGames,
@@ -266,6 +296,11 @@ export default function DashboardView() {
     canViewPoolSignals,
     todayGamesLoading
   );
+
+  const todayMatrixRows = onTapRows
+    .map((row) => row.seriesItem)
+    .filter(Boolean)
+    .filter((seriesItem, index, items) => items.findIndex((entry) => entry.id === seriesItem.id) === index);
 
   const poolExposureFocus = [...activeRoundSeries]
     .map((seriesItem) => {
@@ -317,6 +352,9 @@ export default function DashboardView() {
               <div>
                 <h1>What&apos;s On Tap</h1>
               </div>
+              <Link className="secondary-button" to="/reports/briefing">
+                Open Today&apos;s Briefing
+              </Link>
             </div>
 
             <div className="nba-v1-on-tap-list">
@@ -373,34 +411,89 @@ export default function DashboardView() {
             </div>
           </article>
 
-          <article className="panel">
+          <article className="panel nba-v1-dashboard-matrix-card">
             <div className="panel-header">
               <div>
-                <span className="label">Room right now</span>
-                <h2>Live standings snapshot</h2>
+                <span className="label">Today&apos;s room read</span>
+                <h2>Picks Matrix snapshot</h2>
               </div>
-              <Link className="secondary-button" to="/standings">
-                Full standings
+              <Link className="secondary-button" to="/matrix">
+                Full Picks Matrix
               </Link>
             </div>
 
-            <div className="nba-dashboard-list">
-              {standings.map((member) => (
-                <div
-                  className={`nba-dashboard-row ${member.isCurrentUser ? "nba-dashboard-row-current" : ""}`}
-                  key={member.id}
-                >
-                  <span className="nba-dashboard-rank">{member.place}</span>
-                  <div>
-                    <strong>{member.isCurrentUser ? "You" : member.name ?? "Pool member"}</strong>
-                    <p>
-                      {member.summary.totalPoints} pts · {member.summary.exact} exact · {member.pointsBack} back
-                    </p>
-                  </div>
-                </div>
-              ))}
-              {!standings.length ? <p className="subtle">No pool members yet.</p> : null}
-            </div>
+            {todayMatrixRows.length ? (
+              <div className="nba-standings-table-shell nba-v1-dashboard-matrix-shell">
+                <table className="nba-standings-table-expanded nba-matrix-table nba-v1-dashboard-matrix-table">
+                  <thead>
+                    <tr>
+                      <th>Series</th>
+                      {orderedMembers.map((member) => (
+                        <th key={member.id} className={member.isCurrentUser ? "is-current-member" : ""} title={member.name ?? member.displayName ?? "Pool member"}>
+                          {formatDashboardMatrixName(member)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todayMatrixRows.map((seriesItem) => (
+                      <tr key={seriesItem.id} className={isSeriesPickPublic(seriesItem, settings) ? "is-public-series" : "is-hidden-series"}>
+                        <td>
+                          <div
+                            className="nba-standings-name-cell nba-matrix-series-cell has-matchup-palette"
+                            style={{
+                              "--matchup-primary": getTeamPalette("nba", seriesItem.homeTeam)?.primary ?? "#efe1c9",
+                              "--matchup-secondary": getTeamPalette("nba", seriesItem.awayTeam)?.primary ?? "#d8c2a1",
+                              "--matchup-home-accent": getTeamPalette("nba", seriesItem.homeTeam)?.secondary ?? "#f7e9cf",
+                              "--matchup-away-accent": getTeamPalette("nba", seriesItem.awayTeam)?.secondary ?? "#f0dcc0",
+                            }}
+                          >
+                            <strong>{seriesItem.homeTeam.abbreviation} vs {seriesItem.awayTeam.abbreviation}</strong>
+                          </div>
+                        </td>
+                        {orderedMembers.map((member) => {
+                          const pick = allPicksByUser[member.id]?.[seriesItem.id] ?? null;
+                          const isPublic = isSeriesPickPublic(seriesItem, settings);
+                          const showPick = member.isCurrentUser || isPublic;
+                          const pickedTeam = showPick ? getPickedTeam(seriesItem, pick) : null;
+                          const palette = pickedTeam ? getTeamPalette("nba", pickedTeam) : null;
+                          return (
+                            <td key={`${seriesItem.id}-${member.id}`} className={member.isCurrentUser ? "is-current-member" : ""}>
+                              <div
+                                className={`nba-matrix-cell ${showPick ? "is-public" : "is-hidden"} ${
+                                  showPick && palette
+                                    ? "has-team-palette"
+                                    : showPick && pick?.winnerTeamId
+                                      ? "nba-matrix-cell-no-pick"
+                                      : "nba-matrix-cell-neutral"
+                                } ${member.isCurrentUser && palette ? "is-self-palette" : ""}`}
+                                style={palette ? {
+                                  "--cell-primary": palette.primary,
+                                  "--cell-primary-dark": palette.primaryDark,
+                                  "--cell-secondary": palette.secondary,
+                                  "--cell-text": palette.text,
+                                  "--cell-border": palette.border,
+                                } : undefined}
+                              >
+                                <strong>{showPick ? formatPick(seriesItem, pick) : "Hidden"}</strong>
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="detail-card inset-card nba-matrix-empty-state">
+                <p>
+                  {todayGamesLoading
+                    ? "Loading today’s matrix snapshot."
+                    : "Once today’s playoff games are identified, the room’s picks for those matchups will show here."}
+                </p>
+              </div>
+            )}
           </article>
         </div>
 

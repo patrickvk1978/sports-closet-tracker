@@ -15,9 +15,8 @@ export default function NavBar() {
   const isAdmin     = location.pathname === "/admin";
   const isSettings  = location.pathname === "/pool-settings";
   const isDashboard = location.pathname === "/dashboard";
-  const isStandings = location.pathname === "/standings";
+  const isMatrix = location.pathname === "/matrix";
   const isBracket = location.pathname === "/bracket";
-  const isReports = location.pathname === "/reports" || location.pathname.startsWith("/reports/");
   const isPoolCreator = pool?.admin_id === profile?.id;
   const canSettings   = isPoolCreator || Boolean(profile?.is_admin);
 
@@ -65,11 +64,11 @@ export default function NavBar() {
         </button>
 
         <button
-          className={buttonClass(isStandings)}
-          onClick={() => navigate("/standings")}
-          aria-label="Standings"
+          className={buttonClass(isMatrix)}
+          onClick={() => navigate("/matrix")}
+          aria-label="Picks Matrix"
         >
-          Standings
+          Matrix
         </button>
 
         <button
@@ -78,14 +77,6 @@ export default function NavBar() {
           aria-label="Bracket workspace"
         >
           Bracket
-        </button>
-
-        <button
-          className={buttonClass(isReports)}
-          onClick={() => navigate("/reports")}
-          aria-label="Reports"
-        >
-          Reports
         </button>
 
         {canSettings ? (
