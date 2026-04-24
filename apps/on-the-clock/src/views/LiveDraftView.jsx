@@ -15,6 +15,7 @@ import { useBigBoard } from "../hooks/useBigBoard";
 import { useLiveDraft } from "../hooks/useLiveDraft";
 import { useReferenceData } from "../hooks/useReferenceData";
 import { useWatchlists } from "../hooks/useWatchlists";
+import { clampDraftPickNumber, getDraftPickRange } from "../lib/draftRange";
 
 const MOBILE_POSITION_OPTIONS = ["ALL", "QB", "WR", "OT", "EDGE", "CB", "DT", "RB", "LB", "S", "TE", "WATCHLIST"];
 
@@ -44,6 +45,7 @@ export default function LiveDraftView() {
   } = useLiveDraft({ draftFeed, teamCodeForPick });
   const { watchlistsByTeam, addToWatchlist, removeFromWatchlist } = useWatchlists();
   const countdown = useCountdown();
+  const { start: firstPickNumber } = getDraftPickRange(picks);
 
   const [selectedPick, setSelectedPick] = useState(1);
   const [liveTab, setLiveTab] = useState("draft");
@@ -63,9 +65,11 @@ export default function LiveDraftView() {
   const isPreDraft = effectivePhase === "pre_draft";
   const isPreviewMode = searchParams.get("preview") === "1";
   const previewStatus = searchParams.get("status") ?? draftFeed.current_status;
-  const previewPickNumber = Number(searchParams.get("pick") ?? draftFeed.current_pick_number);
+  const previewPickNumber = clampDraftPickNumber(searchParams.get("pick") ?? draftFeed.current_pick_number, picks);
 
-  const currentPickNumber = isPreviewMode ? previewPickNumber : draftFeed.current_pick_number;
+  const currentPickNumber = isPreviewMode
+    ? previewPickNumber
+    : clampDraftPickNumber(draftFeed.current_pick_number, picks);
 
   // When the live draft advances to a new pick, snap the left column focus
   useEffect(() => {
@@ -74,6 +78,13 @@ export default function LiveDraftView() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftFeed.current_pick_number, draftFeed.phase]);
+
+  useEffect(() => {
+    if (!picks.length) return;
+    if (!picks.some((pick) => pick.number === selectedPick)) {
+      setSelectedPick(firstPickNumber);
+    }
+  }, [firstPickNumber, picks, selectedPick]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -127,7 +138,7 @@ export default function LiveDraftView() {
     return new Set(Object.values(actualMap));
   }, [draftFeed.actual_picks, isPreviewMode, previewReveals]);
 
-  const currentPick = picks.find((p) => p.number === currentPickNumber) ?? picks[0] ?? { number: 1, currentTeam: "" };
+  const currentPick = picks.find((p) => p.number === currentPickNumber) ?? picks[0] ?? { number: firstPickNumber, currentTeam: "" };
   const currentTeam = teams[teamForPick(currentPick)] ?? {};
   const userId = session?.user?.id ?? profile?.id ?? null;
   const currentUserFinalized = userId ? allFinalizedPicks?.[`${userId}:${currentPickNumber}`] ?? null : null;
@@ -371,7 +382,7 @@ export default function LiveDraftView() {
   }
 
   function setPreviewPickNumberValue(pickNumber) {
-    const clamped = Math.max(1, Math.min(pickNumber, totalPicks));
+    const clamped = clampDraftPickNumber(pickNumber, picks);
     updatePreviewParams({ preview: "1", pick: clamped, status: previewStatus });
   }
 

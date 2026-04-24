@@ -1,5 +1,6 @@
 import { createElement, createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { getDraftPickRange } from "../lib/draftRange";
 import prospectsData from "../data/prospects2026.json";
 
 const ReferenceDataContext = createContext(null);
@@ -38,12 +39,14 @@ export function ReferenceDataProvider({ children }) {
       );
     }
     if (picksResult.data) {
-      setPicks(
-        picksResult.data.map((p) => ({
+      const mappedPicks = picksResult.data.map((p) => ({
           number: p.pick_number,
           originalTeam: p.original_team,
           currentTeam: p.current_team,
-        }))
+        }));
+      const range = getDraftPickRange(mappedPicks);
+      setPicks(
+        mappedPicks.filter((pick) => pick.number >= range.start && pick.number <= range.end)
       );
     }
 

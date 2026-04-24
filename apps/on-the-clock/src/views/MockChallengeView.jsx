@@ -9,6 +9,7 @@ import { useDraftFeed } from "../hooks/useDraftFeed";
 import { useBigBoard } from "../hooks/useBigBoard";
 import { useMockChallenge } from "../hooks/useMockChallenge";
 import { useReferenceData } from "../hooks/useReferenceData";
+import { clampDraftPickNumber, getDraftPickRange } from "../lib/draftRange";
 
 function stateLabel(state) {
   if (state === "exact") return "Exact hit (+3)";
@@ -26,6 +27,7 @@ export default function MockChallengeView() {
   const { draftFeed } = useDraftFeed();
   const { bigBoardIds, moveBigBoardItem, saveBigBoard } = useBigBoard();
   const { picks, teams, getPickLabel, getProspectById, defaultBigBoardIds, loading: refLoading } = useReferenceData();
+  const { start: firstPickNumber, end: lastPickNumber } = getDraftPickRange(picks);
   const {
     mockPredictions,
     hasSubmittedMock,
@@ -42,6 +44,13 @@ export default function MockChallengeView() {
     () => localStorage.getItem("otc_mock_instructions_dismissed") !== "true"
   );
 
+  useEffect(() => {
+    if (!picks.length) return;
+    if (!picks.some((pick) => pick.number === selectedPick)) {
+      setSelectedPick(firstPickNumber);
+    }
+  }, [firstPickNumber, picks, selectedPick]);
+
   function dismissInstructions() {
     localStorage.setItem("otc_mock_instructions_dismissed", "true");
     setShowInstructions(false);
@@ -53,7 +62,7 @@ export default function MockChallengeView() {
 
   const draftedIds = useMemo(() => new Set(Object.values(draftFeed.actual_picks ?? {})), [draftFeed.actual_picks]);
   const trackingMode = isAdmin && ((hasSubmittedMock && draftFeed.phase === "live") || devMode === "tracking");
-  const currentPickNumber = draftFeed.current_pick_number;
+  const currentPickNumber = clampDraftPickNumber(draftFeed.current_pick_number, picks);
   const opponentMembers = memberList.filter((member) => !member.isCurrentUser);
 
   const mappedPickByProspectId = Object.entries(mockPredictions).reduce((accumulator, [pickNumber, prospectId]) => {
@@ -72,8 +81,8 @@ export default function MockChallengeView() {
   }, [trackingMode, currentPickNumber]);
   const selectedPrediction = getProspectById(mockPredictions[selectedPick]);
   const currentTrackingRow = mockTrackingRows.find((row) => row.pick.number === currentPickNumber);
-  const inPlayRangeStart = Math.max(1, currentPickNumber - 2);
-  const inPlayRangeEnd = Math.min(picks.length, currentPickNumber + 2);
+  const inPlayRangeStart = Math.max(firstPickNumber, currentPickNumber - 2);
+  const inPlayRangeEnd = Math.min(lastPickNumber, currentPickNumber + 2);
 
   if (refLoading) {
     return (

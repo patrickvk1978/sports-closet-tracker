@@ -7,6 +7,8 @@ import { takeSnapshot } from "./espnDraftcastProbe.mjs";
 const DEFAULT_DRAFT_URL = "https://www.espn.com/nfl/draft/live";
 const DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "tmp/espn-draft-sync");
 const DEFAULT_POLL_MS = 2000;
+const DEFAULT_PICK_START = 1;
+const DEFAULT_PICK_END = 32;
 
 const TEAM_ALIASES = {
   ARZ: "ARI",
@@ -49,11 +51,20 @@ const TEAM_ALIASES = {
   WSH: "WAS",
 };
 
+function parsePickBoundary(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function parseArgs(argv) {
+  const envPickStart = parsePickBoundary(process.env.DRAFT_PICK_START, DEFAULT_PICK_START);
+  const envPickEnd = parsePickBoundary(process.env.DRAFT_PICK_END, DEFAULT_PICK_END);
   const options = {
     url: process.env.DRAFT_URL || DEFAULT_DRAFT_URL,
     outDir: process.env.OUTPUT_DIR ? path.resolve(process.cwd(), process.env.OUTPUT_DIR) : DEFAULT_OUTPUT_DIR,
     pollMs: Number(process.env.POLL_MS || DEFAULT_POLL_MS),
+    pickStart: Math.min(envPickStart, envPickEnd),
+    pickEnd: Math.max(envPickStart, envPickEnd),
     once: false,
     dryRun: false,
   };
@@ -75,6 +86,16 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === "--pick-start" && argv[index + 1]) {
+      options.pickStart = parsePickBoundary(argv[index + 1], DEFAULT_PICK_START);
+      index += 1;
+      continue;
+    }
+    if (arg === "--pick-end" && argv[index + 1]) {
+      options.pickEnd = parsePickBoundary(argv[index + 1], DEFAULT_PICK_END);
+      index += 1;
+      continue;
+    }
     if (arg === "--once") {
       options.once = true;
       continue;
@@ -83,6 +104,11 @@ function parseArgs(argv) {
       options.dryRun = true;
     }
   }
+
+  const start = Math.min(options.pickStart, options.pickEnd);
+  const end = Math.max(options.pickStart, options.pickEnd);
+  options.pickStart = start;
+  options.pickEnd = end;
 
   return options;
 }
@@ -135,7 +161,7 @@ function buildProspectMatchers(rows) {
   };
 }
 
-function buildProviderBoard(snapshot, roundOneBaseTeams) {
+function buildProviderBoard(snapshot, roundOneBaseTeams, pickRange) {
   const rawTeams = Array.isArray(snapshot.raw?.teams) ? snapshot.raw.teams : [];
   const teamsById = Object.fromEntries(
     rawTeams.map((team) => [
@@ -145,7 +171,7 @@ function buildProviderBoard(snapshot, roundOneBaseTeams) {
   );
   const rawPicks = Array.isArray(snapshot.raw?.picks) ? snapshot.raw.picks : [];
   const picks = rawPicks
-    .filter((pick) => Number(pick.overall) >= 1 && Number(pick.overall) <= 32)
+    .filter((pick) => Number(pick.overall) >= pickRange.start && Number(pick.overall) <= pickRange.end)
     .map((pick) => {
       const selection = pick.selection ?? pick.athlete ?? null;
       const pickNumber = Number(pick.overall);
@@ -162,7 +188,10 @@ function buildProviderBoard(snapshot, roundOneBaseTeams) {
       };
     });
 
-  const currentPickNumber = Math.min(Math.max(Number(snapshot.summary.current?.pickId ?? 1), 1), 32);
+  const currentPickNumber = Math.min(
+    Math.max(Number(snapshot.summary.current?.pickId ?? pickRange.start), pickRange.start),
+    pickRange.end
+  );
   const currentPick = picks.find((pick) => pick.pickNumber === currentPickNumber) ?? null;
   const phase = snapshot.summary.counts?.selected ? "live" : "pre_draft";
 
@@ -378,7 +407,10 @@ async function main() {
       previousSummary = snapshot.summary;
 
       const dbState = await loadDbState(publicDb, draftDb);
-      const providerBoard = buildProviderBoard(snapshot, dbState.roundOneBaseTeams);
+      const providerBoard = buildProviderBoard(snapshot, dbState.roundOneBaseTeams, {
+        start: options.pickStart,
+        end: options.pickEnd,
+      });
       const appliedState = await readJson(stateFile, { actualPicks: {}, teamOverrides: {} });
       const { nextAppliedState, appliedOps, skippedOps } = await applyProviderBoard({
         publicDb,
@@ -394,7 +426,7 @@ async function main() {
       }
 
       console.log(
-        `[sync] ${snapshot.summary.fetchedAt} pick ${providerBoard.currentPickNumber} ${providerBoard.currentStatus} applied=${appliedOps.length} skipped=${skippedOps.length}`
+        `[sync] ${snapshot.summary.fetchedAt} picks ${options.pickStart}-${options.pickEnd} current ${providerBoard.currentPickNumber} ${providerBoard.currentStatus} applied=${appliedOps.length} skipped=${skippedOps.length}`
       );
       appliedOps.forEach((line) => console.log(`[sync:apply] ${line}`));
       skippedOps.forEach((line) => console.log(`[sync:skip] ${line}`));
@@ -408,7 +440,7 @@ async function main() {
   await runOnce();
   if (options.once) return;
 
-  console.log(`[sync] polling ${options.url} every ${Math.round(options.pollMs / 1000)}s`);
+  console.log(`[sync] polling ${options.url} for picks ${options.pickStart}-${options.pickEnd} every ${Math.round(options.pollMs / 1000)}s`);
   setInterval(() => {
     runOnce().catch((error) => {
       console.error(`[sync] ${new Date().toISOString()} ${error.message}`);

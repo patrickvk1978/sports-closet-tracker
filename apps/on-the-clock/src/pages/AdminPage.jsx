@@ -4,6 +4,7 @@ import { usePool } from "../hooks/usePool";
 import { useDraftFeed } from "../hooks/useDraftFeed";
 import { useReferenceData } from "../hooks/useReferenceData";
 import { supabase } from "../lib/supabase";
+import { clampDraftPickNumber } from "../lib/draftRange";
 import prospectsData from "../data/prospects2026.json";
 
 export default function AdminPage() {
@@ -40,9 +41,9 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (managedPickNumber == null && draftFeed.current_pick_number) {
-      setManagedPickNumber(draftFeed.current_pick_number);
+      setManagedPickNumber(clampDraftPickNumber(draftFeed.current_pick_number, picks));
     }
-  }, [draftFeed.current_pick_number, managedPickNumber]);
+  }, [draftFeed.current_pick_number, managedPickNumber, picks]);
 
   const sc = scoringDraft ?? { tier_1: 100, tier_2: 120, tier_3: 150, tier_4: 180, streak_threshold: 5, streak_multiplier: 1.5 };
 
@@ -145,9 +146,10 @@ export default function AdminPage() {
   }
 
   const managedPick = useMemo(
-    () => picks.find((item) => item.number === Number(managedPickNumber ?? draftFeed.current_pick_number)) ?? picks[0] ?? { number: 1, currentTeam: "" },
+    () => picks.find((item) => item.number === Number(managedPickNumber ?? clampDraftPickNumber(draftFeed.current_pick_number, picks))) ?? picks[0] ?? { number: 1, currentTeam: "" },
     [draftFeed.current_pick_number, managedPickNumber, picks]
   );
+  const clampedCurrentPickNumber = clampDraftPickNumber(draftFeed.current_pick_number, picks);
   const effectiveTeamCode = draftFeed.team_overrides?.[managedPick.number] ?? managedPick.currentTeam;
 
   if (!profile?.is_admin) {
@@ -220,7 +222,7 @@ export default function AdminPage() {
           </label>
           <label className="field">
             <span>Current pick</span>
-            <select value={draftFeed.current_pick_number} onChange={(event) => setCurrentPickNumber(Number(event.target.value))}>
+            <select value={clampedCurrentPickNumber} onChange={(event) => setCurrentPickNumber(Number(event.target.value))}>
               {picks.map((item) => (
                 <option key={item.number} value={item.number}>{`${item.number} · ${teams[item.currentTeam]?.name ?? item.currentTeam}`}</option>
               ))}

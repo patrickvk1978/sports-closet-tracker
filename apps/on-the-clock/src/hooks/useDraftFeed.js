@@ -1,6 +1,7 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase, draftDb } from '../lib/supabase'
 import { useReferenceData } from './useReferenceData'
+import { clampDraftPickNumber, getDraftPickRange } from '../lib/draftRange'
 
 const DraftFeedContext = createContext(null)
 
@@ -101,7 +102,7 @@ export function DraftFeedProvider({ children }) {
     team_overrides: teamOverrides,
   }
 
-  const totalPicks = picks.length || 32
+  const { start: firstPickNumber, end: lastPickNumber } = getDraftPickRange(picks)
 
   async function clearPickStateArtifacts(pickNumber) {
     const operations = [
@@ -129,7 +130,7 @@ export function DraftFeedProvider({ children }) {
   }
 
   async function setCurrentPickNumber(pickNumber) {
-    const clamped = Math.max(1, Math.min(Number(pickNumber), totalPicks))
+    const clamped = clampDraftPickNumber(pickNumber, picks)
     await draftDb.from('feed').update({
       current_pick_number: clamped,
       current_status: 'on_clock',
@@ -161,7 +162,7 @@ export function DraftFeedProvider({ children }) {
   async function startDraftNight() {
     await draftDb.from('feed').update({
       phase: 'live',
-      current_pick_number: 1,
+      current_pick_number: firstPickNumber,
       current_status: 'on_clock',
       pick_is_in_at: null,
       provider_expires_at: null,
@@ -229,7 +230,7 @@ export function DraftFeedProvider({ children }) {
 
   async function advanceDraft() {
     const from = draftFeed.current_pick_number
-    const next = Math.min(from + 1, totalPicks)
+    const next = Math.min(from + 1, lastPickNumber)
     const { data, error } = await draftDb.from('feed').update({
       phase: 'live',
       current_pick_number: next,
@@ -250,14 +251,14 @@ export function DraftFeedProvider({ children }) {
   }
 
   async function resetDraftFeed() {
-    await draftDb.from('actual_picks').delete().gte('pick_number', 1)
-    await draftDb.from('team_overrides').delete().gte('pick_number', 1)
-    await draftDb.from('live_cards').delete().gte('pick_number', 1)
-    await draftDb.from('queues').delete().gte('pick_number', 1)
-    await draftDb.from('finalized_picks').delete().gte('pick_number', 1)
+    await draftDb.from('actual_picks').delete().gte('pick_number', firstPickNumber).lte('pick_number', lastPickNumber)
+    await draftDb.from('team_overrides').delete().gte('pick_number', firstPickNumber).lte('pick_number', lastPickNumber)
+    await draftDb.from('live_cards').delete().gte('pick_number', firstPickNumber).lte('pick_number', lastPickNumber)
+    await draftDb.from('queues').delete().gte('pick_number', firstPickNumber).lte('pick_number', lastPickNumber)
+    await draftDb.from('finalized_picks').delete().gte('pick_number', firstPickNumber).lte('pick_number', lastPickNumber)
     await draftDb.from('feed').update({
       phase: 'pre_draft',
-      current_pick_number: 1,
+      current_pick_number: firstPickNumber,
       current_status: 'on_clock',
       pick_is_in_at: null,
       provider_expires_at: null,
