@@ -417,8 +417,13 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     if (!pool || !memberList.length) return []
 
     const sc = draftFeed?.scoring_config ?? DEFAULT_SCORING
+    const currentPickNum = draftFeed?.current_pick_number ?? 1
+    const currentStatus = draftFeed?.current_status ?? 'on_clock'
+    // Only score picks the draft has moved past, or the current pick once revealed.
+    // This prevents scores from flashing before the reveal animation plays.
     const sortedPickNums = Object.keys(draftFeed?.actual_picks ?? {})
       .map(Number)
+      .filter(n => n < currentPickNum || (n === currentPickNum && currentStatus === 'revealed'))
       .sort((a, b) => a - b)
 
     return memberList
