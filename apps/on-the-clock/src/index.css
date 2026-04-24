@@ -3974,7 +3974,7 @@ select:focus {
 
 .dn-pr-pick {
   font-size: 10px;
-  color: #3a3a3a;
+  color: #9c9c9c;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3983,7 +3983,7 @@ select:focus {
 }
 
 .dn-pr-pick.prediction {
-  color: #71717a;
+  color: #b8b8bc;
 }
 
 .dn-pr-result {
@@ -3993,7 +3993,7 @@ select:focus {
 }
 
 .dn-pr-result.hit { color: var(--dn-green); }
-.dn-pr-result.miss { color: #3a3a3a; }
+.dn-pr-result.miss { color: #9c9c9c; }
 
 /* Center: live stage area */
 .dn-center {
@@ -6886,21 +6886,21 @@ select:focus {
 
 /* ── A5: stronger dim on completed picks so current pick dominates ── */
 .dn-pick-row.done-hit {
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 .dn-pick-row.done-hit .dn-pr-team,
 .dn-pick-row.done-hit .dn-pr-pick {
-  color: #52525b;
+  color: #a8a8ad;
 }
 
 .dn-pick-row.done-miss {
-  opacity: 0.45;
+  opacity: 0.7;
 }
 
 .dn-pick-row.done-miss .dn-pr-team,
 .dn-pick-row.done-miss .dn-pr-pick {
-  color: #3f3f46;
+  color: #9f9fa2;
 }
 
 .dn-pick-row.done-hit:hover,
