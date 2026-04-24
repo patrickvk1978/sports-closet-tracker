@@ -6,7 +6,7 @@ import { takeSnapshot } from "./espnDraftcastProbe.mjs";
 
 const DEFAULT_DRAFT_URL = "https://www.espn.com/nfl/draft/live";
 const DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "tmp/espn-draft-sync");
-const DEFAULT_POLL_MS = 5000;
+const DEFAULT_POLL_MS = 2000;
 
 const TEAM_ALIASES = {
   ARZ: "ARI",
