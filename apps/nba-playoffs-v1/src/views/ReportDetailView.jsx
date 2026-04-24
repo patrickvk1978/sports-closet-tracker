@@ -122,6 +122,17 @@ function formatBriefingSeriesStatus(seriesItem, currentRoundLabel) {
   return `${conference} ${roundLabel} · Game ${nextGameNumber} · ${leader} leads series ${leaderWins}-${trailingWins}`;
 }
 
+function winnerLabel(seriesItem, winnerTeamId, games) {
+  if (!seriesItem || !winnerTeamId) return "No pick";
+  const winner =
+    winnerTeamId === seriesItem.homeTeam?.id
+      ? seriesItem.homeTeam
+      : winnerTeamId === seriesItem.awayTeam?.id
+        ? seriesItem.awayTeam
+        : null;
+  return winner ? `${winner.abbreviation} in ${games}` : "No pick";
+}
+
 function formatBriefingMemberName(member, currentUserId) {
   if (!member) return "Someone";
   return member.id === currentUserId ? "You" : member.name;
