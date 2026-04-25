@@ -6,7 +6,7 @@ import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
 import { useEspnTodayGames } from "../hooks/useEspnTodayGames";
 import { getDisplayRankFromValue } from "../lib/teamValueGame";
-import { buildSeriesScoringPathMatrix, buildTeamSelectionRows, buildTeamValueBranchMonteCarlo, buildTeamValueScenarioMonteCarlo, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
+import { buildExactResultProbabilities, buildSeriesScoringPathMatrix, buildTeamSelectionRows, buildTeamValueBranchMonteCarlo, buildTeamValueScenarioMonteCarlo, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
 import { buildTeamValueStandings } from "../lib/teamValueStandings";
 import { getTeamPalette } from "../../../../packages/shared/src/themes/teamColorBanks.js";
@@ -341,21 +341,6 @@ function ordinal(value) {
   if (value === 2) return "2nd";
   if (value === 3) return "3rd";
   return `${value}th`;
-}
-
-function punctuateSentence(value) {
-  if (!value) return "";
-  return /[.!?]$/.test(value.trim()) ? value.trim() : `${value.trim()}.`;
-}
-
-function stripRepeatedLead(headline, body) {
-  const cleanHeadline = punctuateSentence(headline).trim();
-  const cleanBody = (body ?? "").trim();
-  if (!cleanHeadline || !cleanBody) return cleanBody;
-
-  const normalizedHeadline = cleanHeadline.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const repeatedLead = new RegExp(`^${normalizedHeadline}\\s*`, "i");
-  return cleanBody.replace(repeatedLead, "").trim();
 }
 
 function ScoringPathMatrix({ row, seriesItem }) {
@@ -712,10 +697,297 @@ function buildSimulationSwingRows(seriesItem, branchSimulationBySeriesId, curren
   });
 }
 
+function getBranchMember(seriesItem, branchSimulationBySeriesId, teamId, memberId) {
+  return branchSimulationBySeriesId?.[seriesItem.id]?.[teamId]?.members?.[memberId] ?? null;
+}
+
+function impactLabel(value) {
+  const magnitude = Math.abs(Number(value ?? 0));
+  if (magnitude >= 8) return "Huge";
+  if (magnitude >= 5) return "Major";
+  if (magnitude >= 2.5) return "Meaningful";
+  if (magnitude >= 1) return "Light";
+  return "Low";
+}
+
+function buildPoolImpactStats(seriesItem, memberList, branchSimulationBySeriesId, currentUserId) {
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  const deltas = memberList
+    .map((member) => {
+      const homeBranch = getBranchMember(seriesItem, branchSimulationBySeriesId, homeId, member.id);
+      const awayBranch = getBranchMember(seriesItem, branchSimulationBySeriesId, awayId, member.id);
+      if (!homeBranch || !awayBranch) return null;
+      const delta = Number((Number(homeBranch.winProbability ?? 0) - Number(awayBranch.winProbability ?? 0)).toFixed(1));
+      return {
+        id: member.id,
+        name: formatMemberName(member, currentUserId),
+        delta,
+        absDelta: Math.abs(delta),
+        side: delta >= 0
+          ? seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId
+          : seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId,
+      };
+    })
+    .filter(Boolean);
+  const averageSwing = deltas.length
+    ? Number((deltas.reduce((sum, row) => sum + row.absDelta, 0) / deltas.length).toFixed(1))
+    : 0;
+  const maxSwing = deltas.length ? Math.max(...deltas.map((row) => row.absDelta)) : 0;
+  const topRows = [...deltas].sort((a, b) => b.absDelta - a.absDelta || a.name.localeCompare(b.name)).slice(0, 3);
+  const sideCounts = deltas.reduce((acc, row) => {
+    acc[row.side] = (acc[row.side] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    averageSwing,
+    maxSwing: Number(maxSwing.toFixed(1)),
+    topRows,
+    sideCounts,
+  };
+}
+
+function buildSeriesWinLabel(seriesItem, forcedWinnerId = null) {
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  const currentHomeSeriesPct = Math.max(0, Math.min(100, Number(seriesItem.market?.homeWinPct ?? 50)));
+  const wins = {
+    home: Number(seriesItem.wins?.home ?? 0),
+    away: Number(seriesItem.wins?.away ?? 0),
+  };
+
+  if (!forcedWinnerId) {
+    const awaySeriesPct = 100 - currentHomeSeriesPct;
+    const leaderAbbr = currentHomeSeriesPct >= awaySeriesPct ? homeAbbr : awayAbbr;
+    const leaderPct = currentHomeSeriesPct >= awaySeriesPct ? currentHomeSeriesPct : awaySeriesPct;
+    return `${leaderAbbr} ${Math.round(leaderPct)}%`;
+  }
+
+  if (forcedWinnerId === homeId) wins.home = Math.min(wins.home + 1, 4);
+  if (forcedWinnerId === awayId) wins.away = Math.min(wins.away + 1, 4);
+  if (wins.home >= 4) return `${homeAbbr} 100%`;
+  if (wins.away >= 4) return `${awayAbbr} 100%`;
+
+  const perGameHomeWinPct = inferPerGameHomeWinPct(seriesItem, currentHomeSeriesPct);
+  const exactResults = buildExactResultProbabilities(perGameHomeWinPct, wins);
+  const homeSeriesPct = Object.entries(exactResults)
+    .filter(([key]) => key.startsWith("home_"))
+    .reduce((sum, [, value]) => sum + Number(value ?? 0), 0);
+  const awaySeriesPct = Math.max(0, 100 - homeSeriesPct);
+  const leaderAbbr = homeSeriesPct >= awaySeriesPct ? homeAbbr : awayAbbr;
+  const leaderPct = homeSeriesPct >= awaySeriesPct ? homeSeriesPct : awaySeriesPct;
+  return `${leaderAbbr} ${Math.round(leaderPct)}%`;
+}
+
+function inferPerGameHomeWinPct(seriesItem, targetHomeSeriesPct) {
+  const wins = {
+    home: Number(seriesItem.wins?.home ?? 0),
+    away: Number(seriesItem.wins?.away ?? 0),
+  };
+  let low = 1;
+  let high = 99;
+
+  for (let index = 0; index < 28; index += 1) {
+    const mid = (low + high) / 2;
+    const exactResults = buildExactResultProbabilities(mid, wins);
+    const homeSeriesPct = Object.entries(exactResults)
+      .filter(([key]) => key.startsWith("home_"))
+      .reduce((sum, [, value]) => sum + Number(value ?? 0), 0);
+    if (homeSeriesPct < targetHomeSeriesPct) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  return Number(((low + high) / 2).toFixed(2));
+}
+
+function buildGameOverviewRows(seriesItem, simulationRows, poolImpactStats, poolImpactRank, totalTodaySeries) {
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  const homeRow = simulationRows.find((row) => row.label.startsWith(homeAbbr)) ?? null;
+  const awayRow = simulationRows.find((row) => row.label.startsWith(awayAbbr)) ?? null;
+  const userSwing = homeRow?.winProbability != null && awayRow?.winProbability != null
+    ? Math.abs(Number(homeRow.winProbability) - Number(awayRow.winProbability))
+    : 0;
+
+  return [
+    { label: "Current series", value: buildSeriesWinLabel(seriesItem) },
+    { label: `${homeAbbr} wins game`, value: buildSeriesWinLabel(seriesItem, homeId) },
+    { label: `${awayAbbr} wins game`, value: buildSeriesWinLabel(seriesItem, awayId) },
+    { label: "Your impact", value: `${impactLabel(userSwing)} · ${userSwing.toFixed(1)} pts` },
+    {
+      label: "Pool impact",
+      value: `${impactLabel(poolImpactStats.averageSwing)} · #${poolImpactRank} of ${Math.max(totalTodaySeries, 1)}`,
+    },
+  ];
+}
+
+function buildPoolImpactNote(seriesItem, needRows, poolImpactStats, poolImpactRank, totalTodaySeries) {
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+  const homeCity = teamNarrativeName(homeAbbr, seriesItem, "city");
+  const awayCity = teamNarrativeName(awayAbbr, seriesItem, "city");
+  const topRows = poolImpactStats.topRows ?? [];
+  const majorRows = (needRows ?? []).filter((row) => Math.abs(Number(row.winSwing ?? 0)) >= 10);
+  const significantRows = (needRows ?? []).filter((row) => Math.abs(Number(row.winSwing ?? 0)) >= 5);
+  const topNames = topRows.map((row) => row.name).join(", ");
+  const sideCounts = poolImpactStats.sideCounts ?? {};
+  const homeCount = sideCounts[homeAbbr] ?? 0;
+  const awayCount = sideCounts[awayAbbr] ?? 0;
+  const leadingSide = homeCount === awayCount ? null : homeCount > awayCount ? homeAbbr : awayAbbr;
+  const leadingCity = leadingSide ? teamNarrativeName(leadingSide, seriesItem, "city") : null;
+  const leadingCount = leadingSide ? sideCounts[leadingSide] : 0;
+  const rankPhrase = totalTodaySeries > 1
+    ? `It ranks #${poolImpactRank} among today's ${totalTodaySeries} games by average room swing.`
+    : "It is today's only room-wide swing point.";
+
+  if (!topRows.length) {
+    return {
+      title: `${homeAbbr}-${awayAbbr} has a light room-wide read right now`,
+      body: `The simulator is not finding much separation across the room yet. ${rankPhrase}`,
+    };
+  }
+
+  if (poolImpactStats.averageSwing < 1.5 && significantRows.length === 0) {
+    return {
+      title: `${homeAbbr}-${awayAbbr} is mostly background noise for the room`,
+      body: `${rankPhrase} The simulator is not finding a meaningful pool-wide swing here yet: the average visible board moves only ${poolImpactStats.averageSwing} points, and no entry clears a 5-point swing. This can still matter for basketball, but in the pool it is more watchlist than pressure point.`,
+    };
+  }
+
+  const title = chooseVariant([
+    `${homeAbbr}-${awayAbbr} matters most to ${topRows[0].name}`,
+    `${homeAbbr}-${awayAbbr} has its loudest room pressure near ${topRows[0].name}`,
+    `${homeAbbr}-${awayAbbr} is not evenly weighted across the room`,
+  ], ...narrativeSeed(seriesItem, "pool-impact-title"));
+
+  const alignmentSentence = leadingSide
+    ? `${leadingCount} of ${needRows.length} visible boards have their stronger simulator side on ${leadingCity}.`
+    : `The room is split almost evenly between ${homeCity} and ${awayCity}, which makes the matchup more divisive than directional.`;
+
+  const swingSentence = majorRows.length
+    ? `${majorRows.length} ${majorRows.length === 1 ? "entry has" : "entries have"} a very significant 10-plus-point swing, led by ${majorRows.slice(0, 2).map((row) => row.name).join(" and ")}.`
+    : significantRows.length
+      ? `${significantRows.length} ${significantRows.length === 1 ? "entry has" : "entries have"} a significant 5-plus-point swing, led by ${significantRows.slice(0, 2).map((row) => row.name).join(" and ")}.`
+      : `The swings are present but not especially sharp; nobody clears a 5-point pool-win move.`;
+  const sideSentence = [homeAbbr, awayAbbr].map((side) => {
+    const rows = significantRows.filter((row) => row.preferred === side);
+    if (!rows.length) return null;
+    return `${rows.length} significant ${side} ${rows.length === 1 ? "need" : "needs"}`;
+  }).filter(Boolean).join("; ");
+
+  return {
+    title,
+    body: `${rankPhrase} ${swingSentence} ${alignmentSentence}${sideSentence ? ` In side terms: ${sideSentence}.` : ""} The table below shows who is actually exposed, not just who has a team ranked higher.`,
+  };
+}
+
 function formatSwing(value) {
   if (value == null) return "—";
   if (value === 0) return "Even";
   return `${value > 0 ? "+" : ""}${value.toFixed(1)} pts`;
+}
+
+const TEAM_NARRATIVE_NICKNAMES = {
+  BOS: "the Cs",
+  CLE: "the Cavs",
+  DET: "the Pistons",
+  NYK: "the Knicks",
+  ORL: "the Magic",
+  PHI: "the Sixers",
+  TOR: "the Raptors",
+  ATL: "the Hawks",
+  OKC: "the Thunder",
+  LAL: "the Lakers",
+  HOU: "the Rockets",
+  SAS: "the Spurs",
+  DEN: "the Nuggets",
+  MIN: "the Wolves",
+  POR: "the Blazers",
+  PHX: "the Suns",
+};
+
+function articleForWord(word) {
+  if (!word) return "a";
+  return /^[AEIOU]/i.test(word) ? "an" : "a";
+}
+
+function teamFromAbbr(abbreviation, seriesItem) {
+  const home = seriesItem?.homeTeam;
+  const away = seriesItem?.awayTeam;
+  if (home?.abbreviation === abbreviation) return home;
+  if (away?.abbreviation === abbreviation) return away;
+  return { abbreviation, city: abbreviation, name: abbreviation };
+}
+
+function teamNarrativeName(teamOrAbbr, seriesItem, variant = "club") {
+  const team = typeof teamOrAbbr === "string" ? teamFromAbbr(teamOrAbbr, seriesItem) : teamOrAbbr;
+  if (!team) return "that side";
+  if (variant === "city") return team.city ?? team.abbreviation ?? "that side";
+  if (variant === "nickname") return TEAM_NARRATIVE_NICKNAMES[team.abbreviation] ?? `the ${team.name ?? team.abbreviation}`;
+  if (variant === "full") return `${team.city ?? ""} ${team.name ?? team.abbreviation}`.trim();
+  return team.name ? `the ${team.name}` : team.abbreviation ?? "that side";
+}
+
+function teamResultPhrase(teamOrAbbr, seriesItem) {
+  const team = typeof teamOrAbbr === "string" ? teamFromAbbr(teamOrAbbr, seriesItem) : teamOrAbbr;
+  const city = team?.city ?? team?.abbreviation ?? "that team";
+  return `${articleForWord(city)} ${city} result`;
+}
+
+function narrativeSeed(seriesItem, ...parts) {
+  return [seriesItem?.id, seriesItem?.homeTeamId, seriesItem?.awayTeamId, ...parts].filter(Boolean);
+}
+
+function getBranchOutcomePreference(seriesItem, branchSimulationBySeriesId, memberId, fallbackAssignments = {}) {
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+  const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+  const branchPair = branchSimulationBySeriesId?.[seriesItem.id] ?? null;
+  const homeBranch = branchPair?.[homeId]?.members?.[memberId] ?? null;
+  const awayBranch = branchPair?.[awayId]?.members?.[memberId] ?? null;
+  const homeValue = Number(fallbackAssignments?.[homeId] ?? 0);
+  const awayValue = Number(fallbackAssignments?.[awayId] ?? 0);
+  const rawPreferred = homeValue === awayValue ? null : homeValue > awayValue ? homeAbbr : awayAbbr;
+  const homeWin = Number(homeBranch?.winProbability ?? 0);
+  const awayWin = Number(awayBranch?.winProbability ?? 0);
+  const winGap = Math.abs(homeWin - awayWin);
+  const simulationPreferred = winGap >= 0.2 ? homeWin > awayWin ? homeAbbr : awayAbbr : null;
+  const preferred = simulationPreferred ?? rawPreferred;
+  const preferredBranch = preferred === homeAbbr ? homeBranch : preferred === awayAbbr ? awayBranch : null;
+  const oppositeBranch = preferred === homeAbbr ? awayBranch : preferred === awayAbbr ? homeBranch : null;
+
+  return {
+    homeAbbr,
+    awayAbbr,
+    homeBranch,
+    awayBranch,
+    homeValue,
+    awayValue,
+    rawPreferred,
+    simulationPreferred,
+    preferred,
+    preferredBranch,
+    oppositeBranch,
+    conflict: Boolean(rawPreferred && simulationPreferred && rawPreferred !== simulationPreferred),
+    winSwing: preferredBranch && oppositeBranch
+      ? Number((Number(preferredBranch.winProbability ?? 0) - Number(oppositeBranch.winProbability ?? 0)).toFixed(1))
+      : 0,
+    pointsSwing: preferredBranch && oppositeBranch
+      ? Number((Number(preferredBranch.expectedPoints ?? 0) - Number(oppositeBranch.expectedPoints ?? 0)).toFixed(1))
+      : 0,
+    placeSwing: preferredBranch && oppositeBranch
+      ? Number((Number(oppositeBranch.expectedPlace ?? 0) - Number(preferredBranch.expectedPlace ?? 0)).toFixed(1))
+      : 0,
+  };
 }
 
 function buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUserId, series, selectionById, branchSimulationBySeriesId) {
@@ -733,9 +1005,6 @@ function buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUser
   const awayExpected = Number(selectionById?.[awayId]?.expectedPoints ?? 0);
   const futureGap = Math.abs(homeExpected - awayExpected);
   const leaderWins = Math.max(Number(seriesItem.wins?.home ?? 0), Number(seriesItem.wins?.away ?? 0));
-  const branchPair = branchSimulationBySeriesId?.[seriesItem.id] ?? null;
-  const homeBranch = branchPair?.[homeId]?.members ?? null;
-  const awayBranch = branchPair?.[awayId]?.members ?? null;
   const seriesLeader =
     Number(seriesItem.wins?.home ?? 0) === Number(seriesItem.wins?.away ?? 0)
       ? null
@@ -749,24 +1018,23 @@ function buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUser
       const homeValue = Number(assignments?.[homeId] ?? 0);
       const awayValue = Number(assignments?.[awayId] ?? 0);
       const gap = Math.abs(homeValue - awayValue);
-      const preferred = homeValue === awayValue ? "Balanced" : homeValue > awayValue ? homeAbbr : awayAbbr;
+      const branchPreference = getBranchOutcomePreference(seriesItem, branchSimulationBySeriesId, member.id, assignments);
+      const preferred = branchPreference.preferred ?? (homeValue === awayValue ? "Balanced" : homeValue > awayValue ? homeAbbr : awayAbbr);
       const standing = standingsById[member.id] ?? null;
       const place = Number(standing?.place ?? 99);
       const trailingPack = place > 3;
       const preferredMatchesRoom = preferred !== "Balanced" && roomPreferred && preferred === roomPreferred;
       const preferredOpposesRoom = preferred !== "Balanced" && roomPreferred && preferred !== roomPreferred;
       const preferredIsLeader = preferred !== "Balanced" && seriesLeader && preferred === seriesLeader;
-      const preferredOutcome =
-        preferred === homeAbbr ? homeBranch?.[member.id] : preferred === awayAbbr ? awayBranch?.[member.id] : null;
-      const oppositeOutcome =
-        preferred === homeAbbr ? awayBranch?.[member.id] : preferred === awayAbbr ? homeBranch?.[member.id] : null;
-      const placeSwing = Number(oppositeOutcome?.expectedPlace ?? place) - Number(preferredOutcome?.expectedPlace ?? place);
-      const winSwing = Number(preferredOutcome?.winProbability ?? 0) - Number(oppositeOutcome?.winProbability ?? 0);
-      const pointsSwing = Number(preferredOutcome?.expectedPoints ?? 0) - Number(oppositeOutcome?.expectedPoints ?? 0);
+      const placeSwing = branchPreference.placeSwing;
+      const winSwing = branchPreference.winSwing;
+      const pointsSwing = branchPreference.pointsSwing;
 
       let need = "Watch";
       if (gap === 0 && futureGap <= 1 && Math.abs(winSwing) < 1.5 && Math.abs(placeSwing) < 0.5) {
         need = "Watch";
+      } else if (branchPreference.conflict && Math.abs(winSwing) >= 3) {
+        need = "Major pivot";
       } else if (Math.abs(winSwing) >= 6 || Math.abs(placeSwing) >= 1.5) {
         need = "Major pivot";
       } else if (leaderWins >= 3 && (gap >= 3 || Math.abs(winSwing) >= 3)) {
@@ -787,37 +1055,13 @@ function buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUser
         preferred,
         gap,
         strength: need,
+        rawPreferred: branchPreference.rawPreferred,
+        simulationPreferred: branchPreference.simulationPreferred,
         winSwing: Number(winSwing.toFixed(1)),
         placeSwing: Number(placeSwing.toFixed(1)),
       };
     })
     .sort((a, b) => b.winSwing - a.winSwing || b.gap - a.gap || a.name.localeCompare(b.name));
-}
-
-function buildFuturePathNote(seriesItem, selectionById, currentAssignments, branchSimulationBySeriesId, currentUserId) {
-  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
-  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
-  const home = selectionById[homeId];
-  const away = selectionById[awayId];
-  const homeValue = Number(currentAssignments?.[homeId] ?? 0);
-  const awayValue = Number(currentAssignments?.[awayId] ?? 0);
-  const preferred = homeValue >= awayValue ? home : away;
-  const other = homeValue >= awayValue ? away : home;
-  const branchPair = branchSimulationBySeriesId?.[seriesItem.id] ?? null;
-  const preferredBranch =
-    preferred?.id === homeId ? branchPair?.[homeId]?.members?.[currentUserId] : branchPair?.[awayId]?.members?.[currentUserId];
-  const otherBranch =
-    preferred?.id === homeId ? branchPair?.[awayId]?.members?.[currentUserId] : branchPair?.[homeId]?.members?.[currentUserId];
-  const winSwing = Number(preferredBranch?.winProbability ?? 0) - Number(otherBranch?.winProbability ?? 0);
-
-  return {
-    title: preferred && other
-      ? `${preferred.abbreviation} opens the stronger future path for your board`
-      : "Future-round path still depends on tonight",
-    body: preferred && other
-      ? `${preferred.abbreviation} is carrying ${preferred.expectedPoints} expected points from here versus ${other.expectedPoints} for ${other.abbreviation}. In the branch sim, a ${preferred.abbreviation} result shifts your pool win probability by ${Math.abs(winSwing).toFixed(1)} points relative to the other side, which is why this future path matters beyond the immediate standings.`
-      : "The real future-round question is which side still leaves you with the stronger live expected-points path after tonight settles.",
-  };
 }
 
 function averageAssignment(allAssignmentsByUser, teamId) {
@@ -844,60 +1088,132 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
   const roomPreferred = roomHomeAvg === roomAwayAvg ? null : roomHomeAvg > roomAwayAvg ? homeAbbr : awayAbbr;
   const yourGap = Math.abs(yourHomeValue - yourAwayValue);
   const roomGap = Math.abs(roomHomeAvg - roomAwayAvg);
+  const branchPreference = getBranchOutcomePreference(seriesItem, branchSimulationBySeriesId, currentUserId, currentAssignments);
+  const rootSide = branchPreference.preferred ?? yourPreferred;
   const lighterSide = yourPreferred === homeAbbr ? awayAbbr : homeAbbr;
-  const branchPair = branchSimulationBySeriesId?.[seriesItem.id] ?? null;
-  const preferredBranch =
-    yourPreferred === homeAbbr ? branchPair?.[homeId]?.members?.[currentUserId] : yourPreferred === awayAbbr ? branchPair?.[awayId]?.members?.[currentUserId] : null;
-  const oppositeBranch =
-    yourPreferred === homeAbbr ? branchPair?.[awayId]?.members?.[currentUserId] : yourPreferred === awayAbbr ? branchPair?.[homeId]?.members?.[currentUserId] : null;
-  const placeSwing = Number(oppositeBranch?.expectedPlace ?? 0) - Number(preferredBranch?.expectedPlace ?? 0);
-  const winSwing = Number(preferredBranch?.winProbability ?? 0) - Number(oppositeBranch?.winProbability ?? 0);
+  const placeSwing = branchPreference.placeSwing;
+  const winSwing = branchPreference.winSwing;
 
   if (yourGap === 0 && roomGap === 0) {
     return {
-      title: `${homeAbbr}-${awayAbbr} is mostly a watchlist game for the room`,
-      body: `Neither your board nor the average room board is leaning hard here, so this matchup is more about keeping track of the bracket than about protecting one major exposure. The useful question is whether tonight creates a stronger future-round path than it creates a same-night swing.`,
+      title: chooseVariant([
+        `${homeAbbr}-${awayAbbr} is mostly a watchlist game for the room`,
+        `${homeAbbr}-${awayAbbr} is more texture than pressure right now`,
+        `${homeAbbr}-${awayAbbr} is not carrying a hard room lean yet`,
+      ], ...narrativeSeed(seriesItem, currentUserId, "balanced-title")),
+      body: chooseVariant([
+        `Neither your board nor the average room board is leaning hard here, so this matchup is more about keeping track of the bracket than about protecting one major exposure. The useful question is whether today creates a stronger future-round path than it creates a same-day swing.`,
+        `This is a lower-temperature spot. Your board is close to balanced, the room is close to balanced, and the real value is watching whether one branch starts to matter more after the result lands.`,
+        `There is not a giant same-day rooting signal here. The better read is to treat this as a bracket-shape game: useful to watch, but not one where your board is obviously begging for one side.`,
+      ], ...narrativeSeed(seriesItem, currentUserId, "balanced-body")),
+    };
+  }
+
+  if (branchPreference.conflict) {
+    const rootClub = teamNarrativeName(rootSide, seriesItem, "club");
+    const rootNickname = teamNarrativeName(rootSide, seriesItem, "nickname");
+    const rootCity = teamNarrativeName(rootSide, seriesItem, "city");
+    const rawClub = teamNarrativeName(yourPreferred, seriesItem, "club");
+    const rawCity = teamNarrativeName(yourPreferred, seriesItem, "city");
+    const swingMagnitude = Math.abs(winSwing);
+    return {
+      title: chooseVariant([
+        `${rootCity} is the room-relative rooting side, even though you ranked ${rawCity} higher`,
+        `${rootCity} is the leverage answer, even with ${rawCity} higher on your board`,
+        `Your raw board says ${rawCity}, but the pool-equity read says ${rootCity}`,
+      ], ...narrativeSeed(seriesItem, currentUserId, "context-conflict-title")),
+      body: swingMagnitude >= 8
+        ? chooseVariant([
+          `${rawClub} are the cleaner immediate-points side because you ranked them above ${rootClub}. But this is not only a points question. The room is heavier on ${rawCity} than you are, and your unusual leverage is on ${rootNickname}; the branch sim says ${teamResultPhrase(rootSide, seriesItem)} improves your pool win probability by ${Math.abs(winSwing).toFixed(1)} points versus the other side. For you in this matchup, that is ${rootCity}.`,
+          `This is the big-pivot version of the tension. ${rawCity} is the better instant-points side, but the field is more exposed there than you are. Your cleaner separation is tied to ${rootNickname}, and the branch sim makes that loud: ${Math.abs(winSwing).toFixed(1)} pool-win points toward ${rootCity}.`,
+        ], ...narrativeSeed(seriesItem, currentUserId, "context-conflict-large-body"))
+        : chooseVariant([
+          `${rawClub} are the cleaner immediate-points side because you ranked them above ${rootClub}. The longer-view edge is thinner, but it points the other way: your best room-relative separation is on ${rootNickname}. For you in this matchup, that is ${rootCity}.`,
+          `The immediate-points read starts with ${rawCity}; the leverage read does not. Because your board is less exposed to ${rawCity} than the room is, ${rootCity} becomes the sharper pool-equity side even if the margin is not overwhelming.`,
+        ], ...narrativeSeed(seriesItem, currentUserId, "context-conflict-modest-body")),
     };
   }
 
   if (yourPreferred && roomPreferred && yourPreferred === roomPreferred) {
+    const preferredClub = teamNarrativeName(yourPreferred, seriesItem, "club");
+    const preferredCity = teamNarrativeName(yourPreferred, seriesItem, "city");
+    const lighterClub = teamNarrativeName(lighterSide, seriesItem, "club");
     if (yourGap > roomGap + 1) {
       return {
-        title: `${yourPreferred} helps you, but it is still a relative game`,
-        body: `The room wants ${yourPreferred} too, so the interesting question is not just “does ${yourPreferred} help?” It does. The more useful read is that you are heavier on ${yourPreferred} than the average board is, which means a ${yourPreferred} win helps you a little more than it helps most people. The flip side is that an upset would cut more directly against your board than it would against the room.`,
+        title: chooseVariant([
+          `${preferredCity} helps you, but it is still a relative game`,
+          `${preferredCity} is consensus-friendly, with a little extra juice for you`,
+          `${preferredCity} helps the room, but your board is louder there`,
+        ], ...narrativeSeed(seriesItem, currentUserId, "aligned-user-heavy-title")),
+        body: chooseVariant([
+          `The room wants ${preferredCity} too, so the interesting question is not just “do ${preferredClub} help?” They do. The more useful read is that you are heavier on ${yourPreferred} than the average board is, which means a win by ${preferredClub} helps you a little more than it helps most people. The flip side is that a win by ${lighterClub} would cut more directly against your board than it would against the room.`,
+          `This is not contrarian, but it is not neutral either. The field is with ${preferredCity}, and you are even more invested than the field. That makes a win by ${preferredClub} useful, while a ${teamResultPhrase(lighterSide, seriesItem)} stings your board more than it stings the average entry.`,
+          `${preferredCity} is a shared rooting side, but your board has more weight there than the room average. That means this result is partly protection and partly upside; not a full breakaway, but not empty chalk either.`,
+        ], ...narrativeSeed(seriesItem, currentUserId, "aligned-user-heavy-body")),
       };
     }
 
     if (roomGap > yourGap + 1) {
       return {
-        title: `${yourPreferred} is more defensive than explosive for you`,
-        body: `You and the room are on the same side, but the room is leaning harder into ${yourPreferred} than you are. That means a ${yourPreferred} win is more about staying in line with the field than creating separation, while the other side winning would damage the room a little more than it damages your board.`,
+        title: chooseVariant([
+          `${preferredCity} is more defensive than explosive for you`,
+          `${preferredCity} is mostly a hold-serve result for your board`,
+          `${preferredCity} keeps you aligned, but does not create much daylight`,
+        ], ...narrativeSeed(seriesItem, currentUserId, "aligned-room-heavy-title")),
+        body: chooseVariant([
+          `You and the room are on the same side, but the room is leaning harder into ${preferredCity} than you are. That means a win by ${preferredClub} is more about staying in line with the field than creating separation, while ${lighterClub} winning would damage the room a little more than it damages your board.`,
+          `The room is carrying more ${preferredCity} exposure than you are. So while a win by ${preferredClub} is still good for your points, it is not the cleanest separation result. The upset path would hit the field a little harder than it hits you.`,
+          `This is a defensive lean. You do want ${preferredCity}, but mostly because the room wants them too. The more interesting twist is that ${lighterClub} winning would be messier for the field than for your specific board.`,
+        ], ...narrativeSeed(seriesItem, currentUserId, "aligned-room-heavy-body")),
       };
     }
 
     return {
-      title: `${yourPreferred} is the room lean, but not a big separation game`,
-      body: `You and the room are mostly aligned here, and your exposure is close to the room average. That means the main value of tonight is not a giant standings swing; it is avoiding an upset that would scramble the next layer of the bracket and create new pressure elsewhere.`,
+      title: chooseVariant([
+        `${preferredCity} is the room lean, but not a big separation game`,
+        `${preferredCity} is the clean side, not the loud side`,
+        `${preferredCity} keeps the board orderly more than it breaks it open`,
+      ], ...narrativeSeed(seriesItem, currentUserId, "aligned-even-title")),
+      body: chooseVariant([
+        `You and the room are mostly aligned here, and your exposure is close to the room average. That means the main value today is not a giant standings swing; it is avoiding an upset that would scramble the next layer of the bracket and create new pressure elsewhere.`,
+        `This is one of those games where the correct side can still be a quiet side. ${preferredCity} helps you, but it helps enough of the room that the bigger value is keeping the board from getting weird.`,
+        `There is not much hidden leverage in the current read. Your board and the field are priced similarly, so this is more about stability than a dramatic move up the room.`,
+      ], ...narrativeSeed(seriesItem, currentUserId, "aligned-even-body")),
     };
   }
 
   if (yourPreferred && roomPreferred && yourPreferred !== roomPreferred) {
+    const preferredClub = teamNarrativeName(yourPreferred, seriesItem, "club");
+    const roomClub = teamNarrativeName(roomPreferred, seriesItem, "club");
+    const preferredCity = teamNarrativeName(yourPreferred, seriesItem, "city");
+    const roomCity = teamNarrativeName(roomPreferred, seriesItem, "city");
     return {
-      title: `${yourPreferred} is a real leverage side for your board`,
-      body: `This is the kind of game where the obvious rooting interest is actually the right one: you are tilted toward ${yourPreferred}, while the room leans ${roomPreferred}. In the branch sim, that outcome moves your expected place by ${Math.abs(placeSwing).toFixed(1)} spots and your pool win probability by ${Math.abs(winSwing).toFixed(1)} points, which is why this reads as real leverage rather than just a stylistic preference.`,
+      title: chooseVariant([
+        `${preferredCity} is a real leverage side for your board`,
+        `${preferredCity} is where your board splits from the room`,
+        `${preferredCity} gives you a cleaner contrarian lane`,
+      ], ...narrativeSeed(seriesItem, currentUserId, "opposed-title")),
+      body: chooseVariant([
+        `This is the kind of game where the obvious rooting interest is actually the right one: you are tilted toward ${preferredClub}, while the room leans toward ${roomClub}. In the branch sim, that outcome moves your expected place by ${Math.abs(placeSwing).toFixed(1)} spots and your pool win probability by ${Math.abs(winSwing).toFixed(1)} points, which is why this reads as real leverage rather than just a stylistic preference.`,
+        `Your board and the field are not telling the same story. You have more reason to want ${preferredCity}; the room is more comfortable with ${roomCity}. That gives this game real separation value if ${preferredClub} come through.`,
+        `This is a true split read. ${preferredCity} is not just your favorite side; it is the side that pushes against the room's lean toward ${roomCity}. That is why the branch sim treats it as leverage rather than ordinary rooting.`,
+      ], ...narrativeSeed(seriesItem, currentUserId, "opposed-body")),
     };
   }
 
   if (yourPreferred && !roomPreferred) {
+    const preferredClub = teamNarrativeName(yourPreferred, seriesItem, "club");
+    const lighterClub = teamNarrativeName(lighterSide, seriesItem, "club");
     return {
       title: `${yourPreferred} matters more to you than it does to the room`,
-      body: `The field is relatively balanced, but your board is not. That makes ${yourPreferred} less of a public consensus result and more of a private board result for you. If ${lighterSide} wins instead, it does not necessarily wreck the room, but it hits your own construction more directly than it hits most other boards.`,
+      body: `The field is relatively balanced, but your board is not. That makes ${preferredClub} less of a public consensus result and more of a private board result for you. If ${lighterClub} win instead, it does not necessarily wreck the room, but it hits your own construction more directly than it hits most other boards.`,
     };
   }
 
+  const roomClub = teamNarrativeName(roomPreferred ?? homeAbbr, seriesItem, "club");
   return {
     title: `${roomPreferred ?? homeAbbr} is the room's clearer side, but you are more balanced`,
-    body: `Your board is relatively even here, which means this matchup is less about cashing your own heavy exposure and more about understanding what helps the field. If the room-favored side wins, the average board benefits more than yours does. If the other side wins, it does more to disrupt the field than to damage your own setup.`,
+    body: `Your board is relatively even here, which means this matchup is less about cashing your own heavy exposure and more about understanding what helps the field. If ${roomClub} win, the average board benefits more than yours does. If the other side wins, it does more to disrupt the field than to damage your own setup.`,
   };
 }
 
@@ -960,6 +1276,20 @@ function TodayBoardImplicationsReport({
     () => buildBranchSimulationBySeries(todaySeries.map((entry) => entry.seriesItem), memberList, allAssignmentsByUser, series, simulationTeamEntries),
     [todaySeries, memberList, allAssignmentsByUser, series, simulationTeamEntries]
   );
+  const poolImpactBySeriesId = useMemo(
+    () => Object.fromEntries(
+      todaySeries.map(({ seriesItem }) => [
+        seriesItem.id,
+        buildPoolImpactStats(seriesItem, memberList, branchSimulationBySeriesId, currentUserId),
+      ])
+    ),
+    [todaySeries, memberList, branchSimulationBySeriesId, currentUserId]
+  );
+  const poolImpactRankBySeriesId = useMemo(() => {
+    const sorted = Object.entries(poolImpactBySeriesId)
+      .sort(([, left], [, right]) => right.averageSwing - left.averageSwing);
+    return Object.fromEntries(sorted.map(([seriesId], index) => [seriesId, index + 1]));
+  }, [poolImpactBySeriesId]);
 
   if (!todaySeries.length) {
     return (
@@ -985,9 +1315,18 @@ function TodayBoardImplicationsReport({
 
       {todaySeries.map(({ game, seriesItem, implication }) => {
         const needRows = buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUserId, series, selectionById, branchSimulationBySeriesId);
-        const futureNote = buildFuturePathNote(seriesItem, selectionById, allAssignmentsByUser?.[currentUserId] ?? {}, branchSimulationBySeriesId, currentUserId);
         const rootingContext = buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId, branchSimulationBySeriesId);
         const simulationRows = buildSimulationSwingRows(seriesItem, branchSimulationBySeriesId, currentUserId);
+        const poolImpactStats = poolImpactBySeriesId[seriesItem.id] ?? buildPoolImpactStats(seriesItem, memberList, branchSimulationBySeriesId, currentUserId);
+        const poolImpactRank = poolImpactRankBySeriesId[seriesItem.id] ?? todaySeries.length;
+        const overviewRows = buildGameOverviewRows(
+          seriesItem,
+          simulationRows,
+          poolImpactStats,
+          poolImpactRank,
+          todaySeries.length
+        );
+        const poolImpactNote = buildPoolImpactNote(seriesItem, needRows, poolImpactStats, poolImpactRank, todaySeries.length);
         const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
         const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
         const analysisAnchorId = `analysis-${seriesItem.id}`;
@@ -1033,42 +1372,29 @@ function TodayBoardImplicationsReport({
                 </span>
               </summary>
               <div className="nba-report-game-details-body">
-                <p className="nba-briefing-analysis-copy">
-                  <span className="nba-briefing-analysis-text">
-                    {(() => {
-                      const headlineText = implication?.headline ?? `${homeAbbr}-${awayAbbr} is on tap today.`;
-                      const bodyText = stripRepeatedLead(headlineText, implication?.body ?? "This game has direct point and leverage consequences across the room.");
-                      return [punctuateSentence(headlineText), bodyText].filter(Boolean).join(" ");
-                    })()}
-                  </span>
-                </p>
-                <article className="detail-card inset-card">
-                  <span className="micro-label">Who needs what today</span>
+                <article className="detail-card inset-card nba-briefing-table-card">
+                  <span className="micro-label">Game importance</span>
                   <div className="leaderboard-table nba-dashboard-leaderboard-table">
-                    <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "minmax(0,1.2fr) 0.8fr 0.6fr 0.8fr" }}>
-                      <span>Player</span>
-                      <span>Side</span>
-                      <span>Gap</span>
-                      <span>Need</span>
+                    <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}>
+                      {overviewRows.map((row) => (
+                        <span key={row.label}>{row.label}</span>
+                      ))}
                     </div>
-                    {needRows.map((row) => (
-                      <div className={`leaderboard-row nba-dashboard-leaderboard-row ${row.id === currentUserId ? "is-current" : ""}`} key={`${seriesItem.id}-${row.id}`} style={{ gridTemplateColumns: "minmax(0,1.2fr) 0.8fr 0.6fr 0.8fr" }}>
-                        <span>{row.name}</span>
-                        <span>{row.preferred}</span>
-                        <span>{row.gap}</span>
-                        <span>{row.strength}</span>
-                      </div>
-                    ))}
+                    <div className="leaderboard-row nba-dashboard-leaderboard-row" style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}>
+                      {overviewRows.map((row) => (
+                        <span key={row.label}>{row.value}</span>
+                      ))}
+                    </div>
                   </div>
                 </article>
 
-                <article className="detail-card inset-card">
-                  <span className="micro-label">Context that matters</span>
+                <article className="detail-card inset-card nba-briefing-narrative-card">
+                  <span className="micro-label">Your board read</span>
                   <strong>{rootingContext.title}</strong>
                   <p>{rootingContext.body}</p>
                 </article>
 
-                <article className="detail-card inset-card">
+                <article className="detail-card inset-card nba-briefing-table-card">
                   <span className="micro-label">Simulation swing</span>
                   <div className="leaderboard-table nba-dashboard-leaderboard-table">
                     <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "1fr 0.75fr 0.75fr 0.75fr" }}>
@@ -1088,10 +1414,32 @@ function TodayBoardImplicationsReport({
                   </div>
                 </article>
 
-                <article className="detail-card inset-card">
-                  <span className="micro-label">Future-round pressure</span>
-                  <strong>{futureNote.title}</strong>
-                  <p>{futureNote.body}</p>
+                <article className="detail-card inset-card nba-briefing-narrative-card">
+                  <span className="micro-label">Pool-wide pressure</span>
+                  <strong>{poolImpactNote.title}</strong>
+                  <p>{poolImpactNote.body}</p>
+                </article>
+
+                <article className="detail-card inset-card nba-briefing-table-card">
+                  <span className="micro-label">Who needs what today</span>
+                  <div className="leaderboard-table nba-dashboard-leaderboard-table">
+                    <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "minmax(0,1.2fr) 0.7fr 0.5fr 0.7fr 0.7fr" }}>
+                      <span>Player</span>
+                      <span>Side</span>
+                      <span>Gap</span>
+                      <span>Swing</span>
+                      <span>Need</span>
+                    </div>
+                    {needRows.map((row) => (
+                      <div className={`leaderboard-row nba-dashboard-leaderboard-row ${row.id === currentUserId ? "is-current" : ""}`} key={`${seriesItem.id}-${row.id}`} style={{ gridTemplateColumns: "minmax(0,1.2fr) 0.7fr 0.5fr 0.7fr 0.7fr" }}>
+                        <span>{row.name}</span>
+                        <span>{row.preferred}</span>
+                        <span>{row.gap}</span>
+                        <span>{formatSwing(row.winSwing)}</span>
+                        <span>{row.strength}</span>
+                      </div>
+                    ))}
+                  </div>
                 </article>
               </div>
             </details>
@@ -1103,7 +1451,7 @@ function TodayBoardImplicationsReport({
         <div className="panel-header">
           <div>
             <span className="micro-label">Tomorrow morning scenarios</span>
-            <h3>How the room looks if tonight breaks different ways</h3>
+            <h3>How the room looks if today breaks different ways</h3>
           </div>
         </div>
         <div className="leaderboard-table nba-dashboard-leaderboard-table">

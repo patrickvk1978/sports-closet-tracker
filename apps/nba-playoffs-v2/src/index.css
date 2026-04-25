@@ -3072,6 +3072,11 @@ select:focus {
   border-color: rgba(95, 105, 119, 0.42);
 }
 
+.nba-briefing-deep-card .nba-briefing-table-card {
+  background: #090b0f !important;
+  border-color: rgba(95, 105, 119, 0.42);
+}
+
 .nba-briefing-deep-card .micro-label,
 .nba-briefing-deep-card p,
 .nba-briefing-deep-card strong,
@@ -3155,6 +3160,25 @@ select:focus {
 
 .nba-briefing-deep-card .leaderboard-table {
   background: #090b0f !important;
+}
+
+.nba-briefing-deep-card article.detail-card.nba-briefing-narrative-card,
+.nba-briefing-deep-card article.detail-card.inset-card.nba-briefing-narrative-card {
+  background: #f8fafc !important;
+  border-color: rgba(88, 110, 148, 0.22);
+  color: #1f2937;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.nba-briefing-deep-card article.detail-card.nba-briefing-narrative-card .micro-label {
+  color: #6b778a;
+}
+
+.nba-briefing-deep-card article.detail-card.nba-briefing-narrative-card strong,
+.nba-briefing-deep-card article.detail-card.nba-briefing-narrative-card p,
+.nba-briefing-deep-card article.detail-card.nba-briefing-narrative-card .nba-briefing-analysis-text,
+.nba-briefing-deep-card article.detail-card.nba-briefing-narrative-card .nba-briefing-analysis-text * {
+  color: #1f2937 !important;
 }
 
 .nba-briefing-deep-card .leaderboard-row {
@@ -5591,7 +5615,7 @@ select:focus {
 
 .nba-board-matrix-table th,
 .nba-board-matrix-table td {
-  width: 74px;
+  width: 124px;
   padding: 6px 6px;
 }
 
@@ -5652,7 +5676,7 @@ select:focus {
   color: inherit;
   text-decoration: none;
   display: block;
-  max-width: 62px;
+  max-width: 112px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
