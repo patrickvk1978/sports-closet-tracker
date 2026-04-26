@@ -738,7 +738,7 @@ export function buildTeamValueReports({
       key: "assets",
       label: "Biggest assets",
       title: "Which teams are really carrying your outcome?",
-      description: "These are the teams doing the most work on your current board, combining assigned value with expected scoring from game wins and round bonuses.",
+      description: "These are the teams doing the most work on your current board, combining assigned value with expected scoring from game wins and rank-scaled advancement bonuses.",
       rows: biggestAssets,
       stage: "always",
     },

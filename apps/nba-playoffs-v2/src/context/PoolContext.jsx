@@ -16,15 +16,15 @@ function generateInviteCode() {
 }
 
 const TEAM_VALUE_SETTINGS_DEFAULTS = {
-  scoring_model: 'team_value_v1',
+  scoring_model: 'team_value_rank_scaled_advancement_v1',
   allow_edits_until_tipoff: true,
   lock_mode: 'global_playoff_lock',
   lock_at: '2026-04-18T12:00:00-04:00',
-  round_bonus: {
-    round_1: 0,
-    semifinals: 4,
-    finals: 8,
-    nba_finals: 12,
+  round_bonus_multiplier: {
+    round_1: 1,
+    semifinals: 2,
+    finals: 3,
+    nba_finals: 4,
   },
   dominance_bonus: {
     4: 3,

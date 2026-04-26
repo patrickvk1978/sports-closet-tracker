@@ -16,6 +16,7 @@ const ESPN_ABBR_TO_TEAM_ID = {
   LAL: "lal",
   MIA: "mia",
   MIN: "min",
+  NY: "nyk",
   NYK: "nyk",
   OKC: "okc",
   ORL: "orl",

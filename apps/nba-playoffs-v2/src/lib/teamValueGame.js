@@ -1,11 +1,11 @@
 export const TEAM_VALUE_SLOTS = Array.from({ length: 16 }, (_, index) => 16 - index);
 export const TEAM_VALUE_DISPLAY_RANKS = Array.from({ length: 16 }, (_, index) => index + 1);
 
-export const ROUND_BONUS = {
-  round_1: 5,
-  semifinals: 10,
-  finals: 15,
-  nba_finals: 25,
+export const ROUND_BONUS_MULTIPLIER = {
+  round_1: 1,
+  semifinals: 2,
+  finals: 3,
+  nba_finals: 4,
 };
 
 export const ROUND_LABELS = {
@@ -32,8 +32,9 @@ export function getWinStepPoints(teamValue, winNumber) {
   return progression[Math.max(0, Number(winNumber) - 1)] ?? 0;
 }
 
-export function getClinchingBonus(roundKey) {
-  return ROUND_BONUS[roundKey] ?? 0;
+export function getClinchingBonus(teamValue, roundKey) {
+  const normalizedTeamValue = Math.max(0, Math.round(Number(teamValue) || 0));
+  return normalizedTeamValue * (ROUND_BONUS_MULTIPLIER[roundKey] ?? 0);
 }
 
 export function getTeamPointsForSeriesProgress(teamValue, wins, roundKey, clinchedInGames = null) {
@@ -42,7 +43,7 @@ export function getTeamPointsForSeriesProgress(teamValue, wins, roundKey, clinch
 
   const normalizedTeamValue = Math.max(0, Math.round(Number(teamValue) || 0));
   const basePoints = normalizedTeamValue * normalizedWins;
-  const clinchingBonus = clinchedInGames ? getClinchingBonus(roundKey) : 0;
+  const clinchingBonus = clinchedInGames ? getClinchingBonus(normalizedTeamValue, roundKey) : 0;
   return basePoints + clinchingBonus;
 }
 
@@ -51,7 +52,7 @@ export function getSeriesWinPoints(teamValue, roundKey, games) {
 }
 
 export function buildScoringTable(sampleTeamValue = 16) {
-  return Object.keys(ROUND_BONUS).map((roundKey) => ({
+  return Object.keys(ROUND_BONUS_MULTIPLIER).map((roundKey) => ({
     roundKey,
     label: ROUND_LABELS[roundKey] ?? roundKey,
     perWin: [1, 2, 3, 4].map((winNumber) => ({
@@ -62,7 +63,8 @@ export function buildScoringTable(sampleTeamValue = 16) {
       games,
       points: getSeriesWinPoints(sampleTeamValue, roundKey, games),
     })),
-    roundBonus: ROUND_BONUS[roundKey] ?? 0,
+    roundBonus: getClinchingBonus(sampleTeamValue, roundKey),
+    roundBonusMultiplier: ROUND_BONUS_MULTIPLIER[roundKey] ?? 0,
   }));
 }
 

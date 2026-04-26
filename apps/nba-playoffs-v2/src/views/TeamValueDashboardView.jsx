@@ -182,8 +182,11 @@ function buildOnTapRows(todayGames, boardImplicationRows, series, now) {
       return {
         id: matchingSeries?.id ?? game.id,
         analysisPath: matchingSeries
-          ? `/reports/board-implications#analysis-${matchingSeries.id}`
+          ? game.status === "completed"
+            ? `/reports/yesterday-recap?day=today#game-recap-${game.id}`
+            : `/reports/board-implications#analysis-${matchingSeries.id}`
           : "/reports/board-implications",
+        analysisLabel: game.status === "completed" ? "Game Recap" : "Detailed Analysis",
         teamIds: [game.homeTeamId, game.awayTeamId],
         matchupLabel: `${game.awayAbbreviation} at ${game.homeAbbreviation}`,
         timeLabel: formatGameTime(pseudoSeries, now),
@@ -305,7 +308,7 @@ export default function TeamValueDashboardView() {
                   <h3>What’s On Tap</h3>
                 </div>
                 <Link className="secondary-button" to={implicationReportPath}>
-                  Open Today&apos;s Briefing
+                  Open Today's Briefing
                 </Link>
               </div>
 
@@ -338,7 +341,7 @@ export default function TeamValueDashboardView() {
                       </div>
                       <div className="nba-dashboard-on-tap-action">
                         <Link className="secondary-button full" to={row.analysisPath}>
-                          Detailed Analysis
+                          {row.analysisLabel}
                         </Link>
                       </div>
                     </article>
@@ -413,6 +416,14 @@ export default function TeamValueDashboardView() {
           </div>
 
           <aside className="nba-dashboard-side-rail">
+            <article className="detail-card inset-card nba-dashboard-link-card nba-dashboard-yesterday-card">
+              <span className="micro-label">Yesterday's Recap</span>
+              <strong>See how the room moved</strong>
+              <Link className="secondary-button full" to="/reports/yesterday-recap">
+                Yesterday's Recap
+              </Link>
+            </article>
+
             <article className="detail-card inset-card nba-dashboard-link-card is-primary-link">
               <span className="micro-label">{currentRoundLabel}</span>
               <strong>Where today can help you fastest</strong>

@@ -56,7 +56,7 @@ const SORT_OPTIONS = {
 
 const TERM_HELP = {
   market: "Round 1 market is the outside expectation for who advances from the first series. It still matters most, but teams can now bank points along the way too.",
-  expectedPoints: "Expected points is the first-pass estimate of how many points this team-slot pairing could return from game wins and round bonuses.",
+  expectedPoints: "Expected points is the first-pass estimate of how many points this team-slot pairing could return from game wins and rank-scaled advancement bonuses.",
   poolEv: "Pool EV is the rough value score for this team at this rank after blending expected points, path, and how well the slot captures both win volume and advancement upside.",
   title: "Championship is the long-run ceiling view. It matters more in the top ranks than the bottom ones.",
   model: "Model is the internal forecast read for this team’s first-round path. It helps you compare our projection with the outside market.",

@@ -347,11 +347,14 @@ export default function TeamValueBoardCompareView() {
             </div>
 
             <div className="nba-report-actions nba-board-compare-actions nba-board-compare-bottom-actions">
+              <Link className="secondary-button" to="/dashboard">
+                Dashboard
+              </Link>
               <Link className="secondary-button" to="/board-matrix">
                 Board Matrix
               </Link>
-              <Link className="secondary-button" to="/reports">
-                Reports
+              <Link className="secondary-button" to="/reports/board-implications">
+                Today's Briefing
               </Link>
             </div>
           </div>

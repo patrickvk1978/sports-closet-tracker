@@ -224,6 +224,7 @@ export default function TeamValueStandingsView() {
 
   return (
     <div className="nba-shell">
+      <Link className="back-link" to="/dashboard">← Back to Dashboard</Link>
       {phase === "pre_lock" ? (
         <section className="panel">
           <div className="panel-header">
@@ -233,13 +234,13 @@ export default function TeamValueStandingsView() {
             </div>
             <div className="nba-report-actions">
               <Link className="secondary-button" to="/dashboard">
-                Open dashboard
+                Dashboard
               </Link>
               <Link className="secondary-button" to="/teams">
-                Open my board
+                My Board
               </Link>
-              <Link className="secondary-button" to="/reports">
-                Open reports
+              <Link className="secondary-button" to="/board-matrix">
+                Picks Matrix
               </Link>
             </div>
           </div>
@@ -299,14 +300,11 @@ export default function TeamValueStandingsView() {
               <h2>Live standings after lock</h2>
             </div>
             <div className="nba-report-actions">
-              <Link className="secondary-button" to="/dashboard">
-                Open dashboard
+              <Link className="secondary-button" to="/board-matrix">
+                Picks Matrix
               </Link>
-              <Link className="secondary-button" to="/teams">
-                Open my board
-              </Link>
-              <Link className="secondary-button" to="/reports">
-                Open reports
+              <Link className="secondary-button" to="/reports/board-implications">
+                Today's Briefing
               </Link>
             </div>
           </div>
@@ -427,7 +425,7 @@ export default function TeamValueStandingsView() {
 
               <div className="detail-card inset-card">
                 <span className="micro-label">How points are showing up already</span>
-                <p>Teams score their board value for every playoff win, then add a bonus when they win a series. That means every game can move the standings, and later rounds still carry bigger advancement swings.</p>
+                <p>Teams score their board value for every playoff win, then add a rank-scaled bonus when they win a series. That means every game can move the standings, and later rounds still carry bigger advancement swings.</p>
               </div>
             </>
           ) : (

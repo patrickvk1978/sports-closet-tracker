@@ -276,7 +276,16 @@ async function loadGamePredictor(gameId) {
 }
 
 export function useEspnTodayGames() {
+  return useEspnGamesForDateOffset(0, { refreshMs: 60_000 });
+}
+
+export function useEspnYesterdayGames() {
+  return useEspnGamesForDateOffset(-1, { refreshMs: 5 * 60_000 });
+}
+
+export function useEspnGamesForDateOffset(dayOffset = 0, options = {}) {
   const [games, setGames] = useState([]);
+  const refreshMs = options.refreshMs ?? 60_000;
 
   useEffect(() => {
     let active = true;
@@ -284,8 +293,9 @@ export function useEspnTodayGames() {
 
     async function load() {
       try {
-        const today = new Date();
-        const url = `${SCOREBOARD_URL}?seasontype=3&dates=${formatScoreboardDate(today)}&limit=50`;
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + dayOffset);
+        const url = `${SCOREBOARD_URL}?seasontype=3&dates=${formatScoreboardDate(targetDate)}&limit=50`;
         const response = await fetch(url);
         if (!response.ok) {
           if (active) setGames([]);
@@ -331,13 +341,13 @@ export function useEspnTodayGames() {
     }
 
     load();
-    timerId = window.setInterval(load, 60_000);
+    timerId = window.setInterval(load, refreshMs);
 
     return () => {
       active = false;
       if (timerId) window.clearInterval(timerId);
     };
-  }, []);
+  }, [dayOffset, refreshMs]);
 
   return { games };
 }

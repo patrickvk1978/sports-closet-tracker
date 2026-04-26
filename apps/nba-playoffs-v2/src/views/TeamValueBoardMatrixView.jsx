@@ -65,11 +65,14 @@ export default function TeamValueBoardMatrixView() {
             <h2>See every board in one space</h2>
           </div>
           <div className="nba-report-actions">
+            <Link className="secondary-button" to="/dashboard">
+              Dashboard
+            </Link>
+            <Link className="secondary-button" to="/standings">
+              Standings
+            </Link>
             <Link className="secondary-button" to="/board-compare">
               Open Compare
-            </Link>
-            <Link className="secondary-button" to="/teams">
-              Back to Board
             </Link>
           </div>
         </div>

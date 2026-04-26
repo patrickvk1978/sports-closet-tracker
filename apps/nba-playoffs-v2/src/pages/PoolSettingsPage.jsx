@@ -45,6 +45,9 @@ export default function PoolSettingsPage() {
       <div className="panel">
         <h2>Pool Settings</h2>
         <p className="subtle">Only the commissioner or a site admin can edit NBA playoff rules and invite settings.</p>
+        <Link className="secondary-button" to="/dashboard">
+          Back to Dashboard
+        </Link>
       </div>
     );
   }
@@ -138,7 +141,7 @@ export default function PoolSettingsPage() {
         <div className="settings-form-grid">
           <div className="detail-card">
             <span className="micro-label">Contest scoring</span>
-            <p>The team-value game locks a unique 16-to-1 ranking before the playoffs begin. Rank 1 earns 16 points for every playoff win, rank 2 earns 15, and so on down to rank 16 earning 1 point per win. Series winners also earn a round bonus.</p>
+            <p>The team-value game locks a unique 16-to-1 ranking before the playoffs begin. Rank 1 earns 16 points for every playoff win, rank 2 earns 15, and so on down to rank 16 earning 1 point per win. Series winners also earn an advancement bonus that scales with that team&apos;s rank value.</p>
           </div>
           <div className="settings-form-grid three-up">
             {scoringTable.map((row) => (
@@ -148,7 +151,7 @@ export default function PoolSettingsPage() {
                   Rank 1: {row.perWin[0]?.points ?? 16} per win
                 </p>
                 <p>
-                  Series win bonus: +{row.roundBonus}
+                  Series win bonus: +{row.roundBonusMultiplier}x rank value
                 </p>
               </div>
             ))}
@@ -173,7 +176,7 @@ export default function PoolSettingsPage() {
           </label>
           <div className="detail-card">
             <span className="micro-label">Why every game matters</span>
-            <p>There is no series-length bonus now. A long series creates more scoring chances through individual game wins, while advancing still matters through the round bonus.</p>
+            <p>There is no series-length bonus now. A long series creates more scoring chances through individual game wins, while advancing still matters because later-round series bonuses multiply each board&apos;s rank value.</p>
           </div>
           <div className="detail-card">
             <span className="micro-label">Board lock</span>

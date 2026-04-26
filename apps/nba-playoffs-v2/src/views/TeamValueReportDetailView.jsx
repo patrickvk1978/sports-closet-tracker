@@ -246,7 +246,7 @@ function buildDecisionOptions(reportKey, row) {
               `Hold it if the team is interesting, but not clearly better than the steadier names around it.`,
             ], row.id, reportKey, "strategic-up-secondary")
           : chooseVariant([
-              `Leave it if you still prefer the safer path and cleaner route to the round bonus.`,
+              `Leave it if you still prefer the safer path and cleaner route to advancement value.`,
               `Keep it here if the steadier route still matters more to you than chasing a little extra flair.`,
               `Hold it if you still trust the cleaner path more than the flashier alternatives nearby.`,
             ], row.id, reportKey, "strategic-down-secondary"),
@@ -425,7 +425,7 @@ function ScoringPathMatrix({ row, seriesItem }) {
                 ?
               </button>
               <span className="tooltip-bubble">
-                Sort by outcome, points, or odds to see how this team behaves at Rank {rank}. Points follow the team's value per win plus the Round 1 series bonus.
+                Sort by outcome, points, or odds to see how this team behaves at Rank {rank}. Points follow the team&apos;s value per win plus the rank-scaled Round 1 advancement bonus.
               </span>
             </span>
           </div>

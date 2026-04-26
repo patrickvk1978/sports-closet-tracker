@@ -21,6 +21,7 @@ import TeamValueReportDetailView from "./views/TeamValueReportDetailView";
 import TeamValueScoringView from "./views/TeamValueScoringView";
 import TeamValueBoardMatrixView from "./views/TeamValueBoardMatrixView";
 import TeamValueBoardCompareView from "./views/TeamValueBoardCompareView";
+import TeamValueYesterdayRecapView from "./views/TeamValueYesterdayRecapView";
 import { usePool } from "./hooks/usePool";
 
 function AppChrome() {
@@ -69,6 +70,7 @@ export default function App() {
                       <Route path="/teams" element={<TeamsBoardView />} />
                       <Route path="/standings" element={<TeamValueStandingsView />} />
                       <Route path="/reports" element={<TeamValueReportsView />} />
+                      <Route path="/reports/yesterday-recap" element={<TeamValueYesterdayRecapView />} />
                       <Route path="/reports/:reportKey" element={<TeamValueReportDetailView />} />
                       <Route path="/board-matrix" element={<TeamValueBoardMatrixView />} />
                       <Route path="/board-compare" element={<TeamValueBoardCompareView />} />
