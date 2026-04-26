@@ -24,9 +24,10 @@ Output: same assignments, enriched with creative_notes and entry_order
 from __future__ import annotations
 
 import json
-import os
 import time
 from datetime import datetime
+
+from llm_client import generate_structured_json
 
 
 PLANNER_SYSTEM_PROMPT = """You are the broadcast director for a March Madness bracket pool commentary feed.
@@ -71,6 +72,33 @@ Output: JSON only. No markdown.
 }
 """
 
+PLANNER_RESPONSE_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'entries': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'player': {'type': 'string'},
+                    'creative_notes': {'type': 'string'},
+                    'tone': {
+                        'type': 'string',
+                        'enum': ['tense', 'casual', 'excited', 'analytical', 'empathetic', 'anticipation', 'somber'],
+                    },
+                    'entry_order': {'type': 'integer'},
+                    'redundancy_flag': {'type': 'boolean'},
+                },
+                'required': ['player', 'creative_notes', 'tone', 'entry_order', 'redundancy_flag'],
+                'additionalProperties': False,
+            },
+        },
+        'cycle_note': {'type': 'string'},
+    },
+    'required': ['entries', 'cycle_note'],
+    'additionalProperties': False,
+}
+
 
 def run_planner(
     assignments:    list[dict],
@@ -78,7 +106,7 @@ def run_planner(
     recent_feed:    list,
     narrative_type: str,
     cycle_time:     str,
-    model:          str = 'claude-sonnet-4-20250514',
+    model:          str = 'gpt-5.5',
     supabase_client=None,
     pool_id:        str | None = None,
 ) -> dict:
@@ -95,57 +123,30 @@ def run_planner(
     if not assignments:
         return {'assignments': [], 'cycle_note': '', 'usage': {}}
 
-    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-    if not api_key:
-        print('  [v3] No ANTHROPIC_API_KEY — skipping planner, using raw assignments')
-        return {
-            'assignments': _default_enrich(assignments),
-            'cycle_note':  '',
-            'usage': {},
-        }
-
-    try:
-        import anthropic
-    except ImportError:
-        print('  [v3] anthropic not installed — skipping planner')
-        return {
-            'assignments': _default_enrich(assignments),
-            'cycle_note':  '',
-            'usage': {},
-        }
-
-    client = anthropic.Anthropic(api_key=api_key)
     user_message = _build_planner_message(
         assignments, game_map, recent_feed, narrative_type, cycle_time,
     )
 
     t0 = time.time()
     try:
-        resp = client.messages.create(
+        result = generate_structured_json(
             model=model,
-            max_tokens=1024,
-            system=[{
-                'type': 'text',
-                'text': PLANNER_SYSTEM_PROMPT,
-                'cache_control': {'type': 'ephemeral'},
-            }],
-            messages=[{'role': 'user', 'content': user_message}],
+            instructions=PLANNER_SYSTEM_PROMPT,
+            input_text=user_message,
+            json_schema=PLANNER_RESPONSE_SCHEMA,
+            schema_name='narrative_v3_planner_response',
+            max_output_tokens=1024,
         )
-        raw = resp.content[0].text.strip()
         latency_ms = round((time.time() - t0) * 1000)
-
-        if raw.startswith('```'):
-            raw = raw.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
-
-        plan = json.loads(raw)
+        plan = result['parsed']
         enriched = _apply_plan(assignments, plan)
 
         return {
             'assignments': enriched,
             'cycle_note':  plan.get('cycle_note', ''),
             'usage': {
-                'input_tokens':  getattr(resp.usage, 'input_tokens', 0),
-                'output_tokens': getattr(resp.usage, 'output_tokens', 0),
+                'input_tokens':  result['usage'].get('input_tokens', 0),
+                'output_tokens': result['usage'].get('output_tokens', 0),
                 'latency_ms':    latency_ms,
             },
         }

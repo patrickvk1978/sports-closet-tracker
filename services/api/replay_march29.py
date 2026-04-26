@@ -397,8 +397,8 @@ if __name__ == '__main__':
                         help='Planner only — skip writer calls.')
     args = parser.parse_args()
 
-    if not os.environ.get('ANTHROPIC_API_KEY'):
-        print('ERROR: ANTHROPIC_API_KEY not set', file=sys.stderr)
+    if not (os.environ.get('OPENAI_API_KEY') or os.environ.get('ANTHROPIC_API_KEY')):
+        print('ERROR: OPENAI_API_KEY or ANTHROPIC_API_KEY not set', file=sys.stderr)
         sys.exit(1)
 
     ids = [args.id] if args.id else REPLAY_IDS

@@ -30,8 +30,8 @@ def run_narrative_v3(
     recent_feed:      list | None = None,
     supabase_client=None,
     pool_id:          str | None = None,
-    writer_model:     str = 'claude-sonnet-4-20250514',
-    planner_model:    str = 'claude-sonnet-4-20250514',
+    writer_model:     str = 'gpt-5.5',
+    planner_model:    str = 'gpt-5.5',
     dry_run:          bool = False,
 ) -> tuple[list[dict], dict]:
     """

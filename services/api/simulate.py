@@ -113,6 +113,22 @@ SLOT_ROUND[62] = 'Champ'
 ROUND_POINTS = {'R64': 10, 'R32': 20, 'S16': 40, 'E8': 80, 'F4': 160, 'Champ': 320}
 LEVERAGE_THRESHOLD = 5   # min max-swing % to surface a game
 
+FEED_ENTRIES_SCHEMA = {
+    'type': 'array',
+    'items': {
+        'type': 'object',
+        'properties': {
+            'player_name': {'type': 'string'},
+            'entry_type': {'type': 'string'},
+            'persona': {'type': 'string'},
+            'content': {'type': 'string'},
+            'leverage_pct': {'type': ['number', 'null']},
+        },
+        'required': ['player_name', 'entry_type', 'persona', 'content', 'leverage_pct'],
+        'additionalProperties': False,
+    },
+}
+
 # ─── Seed-round win rate table ────────────────────────────────────────────────
 #
 # Key: (round, lower_seed, higher_seed)  — lower number = better team
@@ -1334,7 +1350,7 @@ def _build_review_metadata(entries, enriched, ctx, narrative_type, just_finished
 
 def generate_feed_entries(player_probs, prev_probs, best_paths, players,
                           games_by_slot, leverage_games=None,
-                          model='claude-haiku-4-5-20251001',
+                          model='gpt-5.5',
                           narrative_type='game_end',
                           just_finished='',
                           enriched_stats=None,
@@ -1358,16 +1374,7 @@ def generate_feed_entries(player_probs, prev_probs, best_paths, players,
 
     Also returns legacy narratives dict for backward compatibility with sim_results.
     """
-    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-    if not api_key:
-        print('  Skipping narratives (no ANTHROPIC_API_KEY)')
-        return [], {}
-
-    try:
-        import anthropic
-    except ImportError:
-        print('  Skipping narratives (anthropic package not installed)')
-        return [], {}
+    from llm_client import generate_structured_json
 
     pool_size = len(players)
     ctx = build_tournament_context(games_by_slot)
@@ -1560,22 +1567,16 @@ For alert entries include a "leverage_pct" field with the numeric swing value.""
 
     _t0 = time.time()
     try:
-        anthropic_client = anthropic.Anthropic(api_key=api_key)
-        resp = anthropic_client.messages.create(
+        result = generate_structured_json(
             model=model,
-            max_tokens=4096,
-            system=[{
-                'type': 'text',
-                'text': static_prompt,
-                'cache_control': {'type': 'ephemeral'},
-            }],
-            messages=[{'role': 'user', 'content': dynamic_context}],
+            instructions=static_prompt,
+            input_text=dynamic_context,
+            json_schema=FEED_ENTRIES_SCHEMA,
+            schema_name='simulate_feed_entries',
+            max_output_tokens=4096,
         )
-        raw = resp.content[0].text.strip()
-        # Strip markdown code fences if model ignores the instruction
-        if raw.startswith('```'):
-            raw = raw.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
-        entries = json.loads(raw)
+        raw = result['raw']
+        entries = result['parsed']
 
         if not isinstance(entries, list):
             # Legacy format fallback: old-style {player: text} dict
@@ -1615,17 +1616,17 @@ For alert entries include a "leverage_pct" field with the numeric swing value.""
             )
             log_event(supabase_client, pool_id, 'simulate', 'info', 'narrative_call',
                       f'{narrative_type}: {n_player} player + {n_pool} pool entries',
-                      metadata={
-                          'model': model,
-                          'narrative_type': narrative_type,
-                          'latency_ms': round((time.time() - _t0) * 1000),
-                          'input_tokens': getattr(resp.usage, 'input_tokens', 0),
-                          'output_tokens': getattr(resp.usage, 'output_tokens', 0),
-                          'cache_read_tokens': getattr(resp.usage, 'cache_read_input_tokens', 0),
-                          'cache_creation_tokens': getattr(resp.usage, 'cache_creation_input_tokens', 0),
-                          'entries_generated': len(entries),
-                          'prompt': dynamic_context,
-                          'response': raw,
+                          metadata={
+                              'model': model,
+                              'narrative_type': narrative_type,
+                              'latency_ms': round((time.time() - _t0) * 1000),
+                              'input_tokens': result['usage'].get('input_tokens', 0),
+                              'output_tokens': result['usage'].get('output_tokens', 0),
+                              'cache_read_tokens': result['usage'].get('cache_read_tokens', 0),
+                              'cache_creation_tokens': result['usage'].get('cache_creation_tokens', 0),
+                              'entries_generated': len(entries),
+                              'prompt': dynamic_context,
+                              'response': raw,
                           'review': review,
                           'planner': {
                               'assignments': [{
@@ -1702,7 +1703,7 @@ def insert_feed_entries(client, pool_id, entries, clear_previous=False):
 
 def generate_narratives(player_probs, prev_probs, best_paths, players,
                         games_by_slot, leverage_games=None,
-                        model='claude-haiku-4-5-20251001',
+                        model='gpt-5.5',
                         prev_narratives=None,
                         narrative_type='game_end',
                         just_finished='',
@@ -1912,8 +1913,8 @@ def main():
     parser.add_argument('--dry-run',        action='store_true')
     parser.add_argument('--no-narratives',  action='store_true',
                         help='Skip narrative generation; preserve existing narratives in DB')
-    parser.add_argument('--narrative-model', default='claude-haiku-4-5-20251001',
-                        help='Claude model for narrative generation (e.g. claude-opus-4-6)')
+    parser.add_argument('--narrative-model', default='gpt-5.5',
+                        help='LLM model for narrative generation (default: gpt-5.5)')
     parser.add_argument('--narrative-type', default='game_end',
                         choices=['overnight', 'game_end', 'deep_dive', 'alert'],
                         help='Type of narrative to generate')

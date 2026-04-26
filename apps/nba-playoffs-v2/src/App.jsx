@@ -1,37 +1,53 @@
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { Suspense, lazy } from "react";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { PoolProvider } from "./context/PoolContext";
 import { PlayoffDataProvider } from "./hooks/usePlayoffData.jsx";
-import LoginPage from "./pages/LoginPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import JoinPoolPage from "./pages/JoinPoolPage";
-import CreatePoolPage from "./pages/CreatePoolPage";
-import PoolSettingsPage from "./pages/PoolSettingsPage";
-import AdminPage from "./pages/AdminPage";
-import PoolMembersPage from "./pages/PoolMembersPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PoolGuard from "./components/PoolGuard";
 import NavBar from "./components/NavBar";
 import ScrollToTop from "./components/ScrollToTop";
-import TeamsBoardView from "./views/TeamsBoardView";
-import TeamValueStandingsView from "./views/TeamValueStandingsView";
-import TeamValueDashboardView from "./views/TeamValueDashboardView";
-import TeamValueReportsView from "./views/TeamValueReportsView";
-import TeamValueReportDetailView from "./views/TeamValueReportDetailView";
-import TeamValueScoringView from "./views/TeamValueScoringView";
-import TeamValueBoardMatrixView from "./views/TeamValueBoardMatrixView";
-import TeamValueBoardCompareView from "./views/TeamValueBoardCompareView";
-import TeamValueYesterdayRecapView from "./views/TeamValueYesterdayRecapView";
 import { usePool } from "./hooks/usePool";
 
-function AppChrome() {
-  const location = useLocation();
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const JoinPoolPage = lazy(() => import("./pages/JoinPoolPage"));
+const CreatePoolPage = lazy(() => import("./pages/CreatePoolPage"));
+const PoolSettingsPage = lazy(() => import("./pages/PoolSettingsPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
+const PoolMembersPage = lazy(() => import("./pages/PoolMembersPage"));
+const TeamsBoardView = lazy(() => import("./views/TeamsBoardView"));
+const TeamValueStandingsView = lazy(() => import("./views/TeamValueStandingsView"));
+const TeamValueDashboardView = lazy(() => import("./views/TeamValueDashboardView"));
+const TeamValueReportsView = lazy(() => import("./views/TeamValueReportsView"));
+const TeamValueReportDetailView = lazy(() => import("./views/TeamValueReportDetailView"));
+const TeamValueScoringView = lazy(() => import("./views/TeamValueScoringView"));
+const TeamValueBoardMatrixView = lazy(() => import("./views/TeamValueBoardMatrixView"));
+const TeamValueBoardCompareView = lazy(() => import("./views/TeamValueBoardCompareView"));
+const TeamValueYesterdayRecapView = lazy(() => import("./views/TeamValueYesterdayRecapView"));
 
+function RouteLoadingFallback() {
+  return (
+    <section className="panel">
+      <div className="panel-header">
+        <div>
+          <span className="label">Loading</span>
+          <h2>Bringing the page in</h2>
+        </div>
+      </div>
+      <p className="subtle">Pulling in the next view now.</p>
+    </section>
+  );
+}
+
+function AppChrome() {
   return (
     <>
       <NavBar />
       <main className="screen-stack">
-        <Outlet key={location.pathname} />
+        <Suspense fallback={<RouteLoadingFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
     </>
   );

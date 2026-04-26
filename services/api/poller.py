@@ -207,9 +207,9 @@ ROUND_ORDER = ['R64', 'R32', 'S16', 'E8', 'F4', 'Champ']
 #   2. Overnight 3 AM ET → 60-word day-ahead summaries (--narrative-type overnight)
 # Hourly sim runs for odds refresh only (no narrative).
 
-NARRATIVE_MODEL            = 'claude-opus-4-6'
-HOURLY_NARRATIVE_MODEL     = 'claude-opus-4-6'
-DEEP_DIVE_MODEL            = 'claude-sonnet-4-6'  # faster model for frequent deep dives
+NARRATIVE_MODEL            = 'gpt-5.5'
+HOURLY_NARRATIVE_MODEL     = 'gpt-5.5'
+DEEP_DIVE_MODEL            = 'gpt-5.5'
 SIM_INTERVAL_SECS          = 3600  # hourly odds refresh (no narrative)
 DEEP_DIVE_INTERVAL_SECS   = 900   # ~15 min between deep-dive commentaries during live games
 ALERT_SWING_THRESHOLD      = 5.0   # leverage% × |wp_now - wp_at_start| must exceed this

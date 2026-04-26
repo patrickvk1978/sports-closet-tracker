@@ -354,7 +354,7 @@ export default function TeamValueStandingsView() {
                     <span>{member.baselineRank}</span>
                     <strong>{member.isCurrentUser ? "You" : member.displayName ?? member.name}</strong>
                     <span>{member.baselineWinProbability}%</span>
-                    <span>
+                    <span className="nba-baseline-audit-now">
                       {member.winProbability}% ({member.winProbabilityDelta > 0 ? "+" : ""}
                       {member.winProbabilityDelta} pts)
                     </span>

@@ -88,8 +88,8 @@ def run(label, scenario_fn, **kwargs):
         valid_player_names=players,
         supabase_client=None,
         pool_id=None,
-        planner_model=kwargs.get('planner_model', 'claude-opus-4-6'),
-        writer_model=kwargs.get('writer_model', 'claude-sonnet-4-20250514'),
+        planner_model=kwargs.get('planner_model', 'gpt-5.5'),
+        writer_model=kwargs.get('writer_model', 'gpt-5.5'),
         dry_run=True,
     )
 
@@ -394,10 +394,10 @@ if __name__ == '__main__':
                         help='Skip writer calls (faster, cheaper)')
     args = parser.parse_args()
 
-    writer_model = None if args.planner_only else 'claude-sonnet-4-20250514'
+    writer_model = None if args.planner_only else 'gpt-5.5'
 
-    if not os.environ.get('ANTHROPIC_API_KEY'):
-        print('ERROR: ANTHROPIC_API_KEY not set', file=sys.stderr)
+    if not (os.environ.get('OPENAI_API_KEY') or os.environ.get('ANTHROPIC_API_KEY')):
+        print('ERROR: OPENAI_API_KEY or ANTHROPIC_API_KEY not set', file=sys.stderr)
         sys.exit(1)
 
     to_run = [(label, fn) for label, fn in SCENARIOS
@@ -410,8 +410,8 @@ if __name__ == '__main__':
     results = []
     for label, fn in to_run:
         entries, usage = run(label, fn,
-                             planner_model='claude-opus-4-6',
-                             writer_model=writer_model or 'claude-sonnet-4-20250514')
+                             planner_model='gpt-5.5',
+                             writer_model=writer_model or 'gpt-5.5')
         results.append({
             'scenario': label,
             'posted': len(entries) > 0,

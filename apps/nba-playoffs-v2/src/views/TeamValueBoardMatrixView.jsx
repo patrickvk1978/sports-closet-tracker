@@ -98,7 +98,7 @@ export default function TeamValueBoardMatrixView() {
                           className="nba-board-matrix-member-link"
                           to={isCurrentUser ? "/board-compare" : `/board-compare?left=${currentUserId}&right=${member.id}`}
                         >
-                          {member.displayName ?? member.name}
+                          {isCurrentUser ? "You" : member.displayName ?? member.name}
                         </Link>
                       </div>
                     </th>

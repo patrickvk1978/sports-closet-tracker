@@ -47,8 +47,8 @@ def run_narrative_v2(
     valid_player_names: list[str],
     supabase_client=None,
     pool_id: str | None = None,
-    planner_model: str = 'claude-opus-4-6',
-    writer_model: str = 'claude-sonnet-4-20250514',
+    planner_model: str = 'gpt-5.5',
+    writer_model: str = 'gpt-5.5',
     dry_run: bool = False,
 ) -> tuple[list[dict], dict]:
     """

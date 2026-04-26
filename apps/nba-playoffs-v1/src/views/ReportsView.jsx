@@ -471,48 +471,53 @@ function buildReportsSummary({
   };
 }
 
-function buildReportsHeroState(reportsSummary, { showScenarioCard, scenarioRows, currentRound, currentStanding }) {
+function buildReportsHeroState({
+  showScenarioCard,
+  scenarioRows,
+  currentRound,
+  incompleteCount,
+  canViewPoolSignals,
+}) {
   if (showScenarioCard) {
     return {
-      headline: chooseVariant(
-        [currentRound.key, "hero-scenario-headline"],
-        [
-          "This is the pre-lock decision desk for the board that is still settling.",
-          "The reports are in coaching mode until the bracket stops moving.",
-          "Pre-lock, this page should narrow your attention, not widen it.",
-        ]
-      ),
+      headline: "Use Reports to narrow your pre-lock decisions",
       body: scenarioRows[0]
-        ? chooseVariant(
-            [scenarioRows[0].title, currentRound.key, "hero-scenario-body"],
-            [
-              `${scenarioRows[0].title} is one of the clearest bracket-moving developments right now. The useful job here is not reading every report evenly. It is figuring out which seeding and Play-In outcomes actually change what you need to pick in ${currentRound.label}.`,
-              `${scenarioRows[0].title} is the kind of development that deserves a second look because it can change the shape of ${currentRound.label}. This page is here to help you sort signal from noise before lock.`,
-              `${scenarioRows[0].title} is one of the better examples of what matters right now: not everything that moves the bracket deserves a reaction, only the shifts that actually alter your card for ${currentRound.label}.`,
-            ]
-          )
-        : chooseVariant(
-            [currentRound.key, "hero-scenario-fallback"],
-            [
-              `The board is still moving before ${currentRound.label} locks, so the most useful reports right now are the ones that help you react to seeding and probability changes rather than final scored outcomes.`,
-              `Before ${currentRound.label} locks, the real job is reacting to the bracket honestly. These reports are most useful when they help you revisit the few things that actually changed.`,
-              `This page should behave like a sideline headset before lock: tell you what changed, what matters, and what can safely be ignored until the bracket is final.`,
-            ]
-          ),
+        ? `Start with Scenario watch while the bracket is still settling. Then use Win odds and Swing spots to see which late changes actually matter before ${currentRound.label} locks.`
+        : `Start with the report that matches the decision in front of you, then pressure-test it with one more angle before ${currentRound.label} locks.`,
       stats: [
-        { label: "First report", value: "Scenario watch" },
-        { label: "High-signal check", value: "Win odds" },
-        { label: "Decision window", value: "Pre-lock" },
+        { label: "Start with", value: "Scenario watch" },
+        { label: "Then check", value: "Win odds" },
+        { label: "Window", value: "Pre-lock" },
       ],
     };
   }
 
-  return reportsSummary;
+  if (incompleteCount > 0) {
+    return {
+      headline: "Use Reports to finish the round cleanly",
+      body: `You still have ${incompleteCount} open ${incompleteCount === 1 ? "series" : "series"}. Finish those first, then use Rooting guide, Swing spots, and ${canViewPoolSignals ? "Pool exposure" : "Win odds"} to pressure-test the calls that are left.`,
+      stats: [
+        { label: "Start with", value: "Rooting guide" },
+        { label: "Then check", value: "Swing spots" },
+        { label: "Need attention", value: `${incompleteCount} open` },
+      ],
+    };
+  }
+
+  return {
+    headline: "Use Reports to review the round from a few angles",
+    body: `Start with Rooting guide for the clearest live spots, then use Swing spots and ${canViewPoolSignals ? "Pool exposure" : "Win odds"} to see where the same round looks different.`,
+    stats: [
+      { label: "Start with", value: "Rooting guide" },
+      { label: "Then check", value: "Swing spots" },
+      { label: "Status", value: "Ready to review" },
+    ],
+  };
 }
 
-function ReportPreviewPanel({ heading, title, children, to, ctaLabel = "Open full report", control }) {
+function ReportPreviewPanel({ heading, title, children, to, ctaLabel = "Open full report", control, actionTone = "navy" }) {
   return (
-    <article className="panel">
+    <article className={`panel nba-report-preview-panel nba-report-preview-panel-${actionTone}`}>
       <div className="panel-header">
         <div>
           <span className="label">{heading}</span>
@@ -523,7 +528,7 @@ function ReportPreviewPanel({ heading, title, children, to, ctaLabel = "Open ful
       <div className="nba-dashboard-list">
         {children}
         <div className="nba-report-actions">
-          <Link className="secondary-button" to={to}>
+          <Link className={`secondary-button nba-report-action-button nba-report-action-button-${actionTone}`} to={to}>
             {ctaLabel}
           </Link>
         </div>
@@ -767,20 +772,12 @@ export default function ReportsView() {
     seasonPhase === "play_in_week" ||
     isQuietPrePlayoffBoard
   );
-  const reportsSummary = buildReportsSummary({
-    currentRound,
-    currentStanding,
-    currentStandingIndex,
-    pointsBack,
-    incompleteCount,
-    contrarianCount,
-    showScenarioCard,
-  });
-  const heroState = buildReportsHeroState(reportsSummary, {
+  const heroState = buildReportsHeroState({
     showScenarioCard,
     scenarioRows,
     currentRound,
-    currentStanding,
+    incompleteCount,
+    canViewPoolSignals,
   });
 
   const swingRows = useMemo(() => {
@@ -910,6 +907,7 @@ export default function ReportsView() {
         label: "Scenario watch",
         title: "What can still move before Round 1 locks?",
         to: "/reports/scenarios",
+        actionTone: "mustard",
         children: (
           <>
             {scenarioRows.map((item) => (
@@ -932,6 +930,7 @@ export default function ReportsView() {
       label: "Rooting guide",
       title: "What should you care about most?",
       to: "/reports/rooting",
+      actionTone: "walnut",
       children: (
         <>
           {rootingRows.slice(0, 2).map((row) => (
@@ -952,6 +951,7 @@ export default function ReportsView() {
       label: "Win odds",
       title: "What is driving your current-round probability?",
       to: "/reports/win-odds",
+      actionTone: "navy",
       children: (
         <>
           <div className="nba-dashboard-row nba-dashboard-row-stacked">
@@ -981,6 +981,7 @@ export default function ReportsView() {
       label: "Swing spots",
       title: "Which series can move your standing?",
       to: "/reports/swing",
+      actionTone: "orange",
       children: (
         <>
           {swingRows.slice(0, 2).map((row) => (
@@ -1003,6 +1004,7 @@ export default function ReportsView() {
         title: "How do you differ from one opponent?",
         to: selectedOpponent ? `/reports/opponent/${selectedOpponent.id}` : "/reports",
         ctaLabel: selectedOpponent ? "Open matchup report" : "Need another entry first",
+        actionTone: "navy",
         control: selectedOpponent ? (
           <select
             className="nav-select"
@@ -1049,6 +1051,7 @@ export default function ReportsView() {
         label: "Pool exposure",
         title: "Where is the room concentrated?",
         to: "/reports/exposure",
+        actionTone: "mustard",
         children: (
           <>
             {exposureRows.slice(0, 2).map((row) => (
@@ -1072,6 +1075,7 @@ export default function ReportsView() {
         label: "Position outlook",
         title: "What does your standing mean?",
         to: "/reports/outlook",
+        actionTone: "walnut",
         children: (
           <div className="nba-dashboard-row nba-dashboard-row-stacked">
             <div>
@@ -1186,6 +1190,7 @@ export default function ReportsView() {
               to={activeReport.to}
               ctaLabel={activeReport.ctaLabel}
               control={activeReport.control}
+              actionTone={activeReport.actionTone}
             >
               {activeReport.children}
             </ReportPreviewPanel>

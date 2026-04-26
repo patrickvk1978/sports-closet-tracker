@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PLAYOFF_SERIES } from "../data/playoffData";
 import { useAuth } from "../hooks/useAuth";
@@ -136,6 +136,16 @@ function buildConflictCopy(item, leftMember, rightMember, seriesLabel, displayTe
   };
 }
 
+function comparePrimitiveValues(left, right) {
+  if (left == null && right == null) return 0;
+  if (left == null) return 1;
+  if (right == null) return -1;
+  if (typeof left === "number" && typeof right === "number") {
+    return left - right;
+  }
+  return String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" });
+}
+
 export default function TeamValueBoardCompareView() {
   const { profile, session } = useAuth();
   const { memberList, settingsForPool, pool } = usePool();
@@ -147,6 +157,7 @@ export default function TeamValueBoardCompareView() {
   const phase = getTeamValuePhase(settingsForPool(pool));
   const canViewRoom = phase === "post_lock" || Boolean(profile?.is_admin);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [sortState, setSortState] = useState({ key: "gap", direction: "desc" });
 
   const leftParam = searchParams.get("left") ?? currentUserId ?? "";
   const rightParam = searchParams.get("right") ?? memberList.find((member) => member.id !== currentUserId)?.id ?? "";
@@ -241,8 +252,45 @@ export default function TeamValueBoardCompareView() {
       { key: "gap", label: "Gap", valueFor: (row) => row.gap },
     ];
   }, [currentUserId, leftMember, rightMember]);
+  const sortedRows = useMemo(() => {
+    const direction = sortState.direction === "asc" ? 1 : -1;
+    return [...rows].sort((left, right) => {
+      if (sortState.key === "team") {
+        const teamResult = comparePrimitiveValues(left.abbreviation, right.abbreviation);
+        return teamResult * direction;
+      }
+
+      const activeColumn = compareColumns.find((column) => column.key === sortState.key) ?? compareColumns[compareColumns.length - 1];
+      const compareResult = comparePrimitiveValues(activeColumn?.valueFor(left), activeColumn?.valueFor(right));
+      if (compareResult !== 0) {
+        return compareResult * direction;
+      }
+
+      return comparePrimitiveValues(left.abbreviation, right.abbreviation);
+    });
+  }, [compareColumns, rows, sortState.direction, sortState.key]);
 
   const compareTitle = `${formatCompareName(leftMember, currentUserId)} vs ${formatCompareName(rightMember, currentUserId)}`;
+
+  function updateSort(key) {
+    setSortState((current) => {
+      if (current.key === key) {
+        return {
+          key,
+          direction: current.direction === "asc" ? "desc" : "asc",
+        };
+      }
+      return {
+        key,
+        direction: key === "team" ? "asc" : "desc",
+      };
+    });
+  }
+
+  function renderSortLabel(label, key) {
+    if (sortState.key !== key) return `${label} ↕`;
+    return `${label} ${sortState.direction === "asc" ? "↑" : "↓"}`;
+  }
 
   function updateSide(side, value) {
     const nextLeft = side === "left" ? value : leftMember?.id ?? "";
@@ -281,6 +329,9 @@ export default function TeamValueBoardCompareView() {
   return (
     <div className="nba-shell">
       <section className="panel">
+        <Link className="back-link" to="/board-matrix">
+          ← Back to Picks Matrix
+        </Link>
         <div className="nba-board-compare-overview">
           <div className="nba-board-compare-leftstack">
             <article className="detail-card inset-card nba-board-compare-controls-card">
@@ -351,7 +402,7 @@ export default function TeamValueBoardCompareView() {
                 Dashboard
               </Link>
               <Link className="secondary-button" to="/board-matrix">
-                Board Matrix
+                Picks Matrix
               </Link>
               <Link className="secondary-button" to="/reports/board-implications">
                 Today's Briefing
@@ -370,14 +421,30 @@ export default function TeamValueBoardCompareView() {
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>Team</th>
+                    <th>
+                      <button
+                        className="nba-standings-sort"
+                        type="button"
+                        onClick={() => updateSort("team")}
+                      >
+                        {renderSortLabel("Team", "team")}
+                      </button>
+                    </th>
                     {compareColumns.map((column) => (
-                      <th key={column.key}>{column.label}</th>
+                      <th key={column.key}>
+                        <button
+                          className="nba-standings-sort"
+                          type="button"
+                          onClick={() => updateSort(column.key)}
+                        >
+                          {renderSortLabel(column.label, column.key)}
+                        </button>
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => {
+                  {sortedRows.map((row) => {
                     const palette = getTeamPalette("nba", row);
                     return (
                       <tr key={row.id}>

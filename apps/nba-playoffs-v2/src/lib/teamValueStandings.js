@@ -23,7 +23,7 @@ function getBestRemainingAsset(assignmentsByTeamId, eliminatedTeamIds) {
 export function buildTeamValueStandings(memberList, allAssignmentsByUser, series) {
   const eliminatedTeamIds = buildEliminatedTeamIds(series);
 
-  return memberList
+  const sortedMembers = memberList
     .map((member) => {
       const assignments = allAssignmentsByUser?.[member.id] ?? {};
       const summary = summarizeBoardPoints(assignments, series);
@@ -43,10 +43,20 @@ export function buildTeamValueStandings(memberList, allAssignmentsByUser, series
         b.liveValueRemaining - a.liveValueRemaining ||
         (b.bestRemainingAsset?.value ?? 0) - (a.bestRemainingAsset?.value ?? 0) ||
         a.name.localeCompare(b.name)
-    )
-    .map((member, index, array) => ({
+    );
+
+  let previousPoints = null;
+  let previousPlace = 0;
+  return sortedMembers.map((member, index, array) => {
+    const currentPoints = Number(member.summary.totalPoints ?? 0);
+    const place = previousPoints !== null && currentPoints === previousPoints ? previousPlace : index + 1;
+    previousPoints = currentPoints;
+    previousPlace = place;
+
+    return {
       ...member,
-      place: index + 1,
-      pointsBack: Math.max((array[0]?.summary.totalPoints ?? 0) - member.summary.totalPoints, 0),
-    }));
+      place,
+      pointsBack: Math.max((array[0]?.summary.totalPoints ?? 0) - currentPoints, 0),
+    };
+  });
 }

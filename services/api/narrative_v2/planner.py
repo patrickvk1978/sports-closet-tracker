@@ -14,8 +14,9 @@ goes to selection, not prose.
 from __future__ import annotations
 
 import json
-import os
 import time
+
+from llm_client import generate_structured_json
 
 PLANNER_SYSTEM_PROMPT = """You are the editorial planner for a March Madness bracket pool commentary feed. Your job is to decide WHETHER to post and WHAT to post. You do NOT write the commentary — a separate writer handles that.
 
@@ -105,10 +106,76 @@ Return ONLY valid JSON (no markdown, no explanation). Schema:
 
 Keep output under 400 tokens. Be decisive. Every assignment must have a clear reason to exist."""
 
+PLANNER_RESPONSE_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'should_post': {'type': 'boolean'},
+        'suppression_reason': {'type': 'string'},
+        'assignments': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'player_name': {'type': 'string'},
+                    'persona': {'type': 'string', 'enum': ['stat_nerd', 'color_commentator', 'barkley']},
+                    'angle': {'type': 'string'},
+                    'storyline_id': {'type': 'string'},
+                    'storyline_action': {
+                        'type': 'string',
+                        'enum': ['create', 'escalate', 'maintain', 'resolve', 'suppress'],
+                    },
+                    'established_frame': {'type': 'string'},
+                    'escalation_threshold': {'type': 'string'},
+                    'headline_fact': {'type': 'string'},
+                    'supporting_facts': {'type': 'array', 'items': {'type': 'string'}},
+                    'must_avoid': {'type': 'array', 'items': {'type': 'string'}},
+                    'max_words': {'type': 'integer'},
+                    'cluster_id': {'type': ['string', 'null']},
+                },
+                'required': [
+                    'player_name', 'persona', 'angle', 'storyline_id', 'storyline_action',
+                    'established_frame', 'escalation_threshold', 'headline_fact',
+                    'supporting_facts', 'must_avoid', 'max_words', 'cluster_id',
+                ],
+                'additionalProperties': False,
+            },
+        },
+        'storyline_actions': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'storyline_id': {'type': 'string'},
+                    'action': {
+                        'type': 'string',
+                        'enum': ['create', 'escalate', 'maintain', 'resolve', 'suppress'],
+                    },
+                    'affected_players': {'type': 'array', 'items': {'type': 'string'}},
+                    'teams_involved': {'type': 'array', 'items': {'type': 'string'}},
+                    'angle_type': {'type': 'string'},
+                    'established_frame': {'type': 'string'},
+                    'escalation_threshold': {'type': 'string'},
+                    'headline_fact': {'type': 'string'},
+                    'suppression_note': {'type': 'string'},
+                    'cluster_id': {'type': ['string', 'null']},
+                },
+                'required': [
+                    'storyline_id', 'action', 'affected_players', 'teams_involved', 'angle_type',
+                    'established_frame', 'escalation_threshold', 'headline_fact',
+                    'suppression_note', 'cluster_id',
+                ],
+                'additionalProperties': False,
+            },
+        },
+    },
+    'required': ['should_post', 'suppression_reason', 'assignments', 'storyline_actions'],
+    'additionalProperties': False,
+}
+
 
 def run_planner(
     planner_packet: str,
-    model: str = 'claude-opus-4-6',
+    model: str = 'gpt-5.5',
     supabase_client=None,
     pool_id: str | None = None,
 ) -> dict:
@@ -125,38 +192,19 @@ def run_planner(
         'usage': { 'input_tokens', 'output_tokens', 'latency_ms' },
     }
     """
-    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-    if not api_key:
-        print('  Skipping planner (no ANTHROPIC_API_KEY)')
-        return _empty_plan('no API key')
-
-    try:
-        import anthropic
-    except ImportError:
-        print('  Skipping planner (anthropic not installed)')
-        return _empty_plan('anthropic not installed')
-
     t0 = time.time()
     try:
-        client = anthropic.Anthropic(api_key=api_key)
-        resp = client.messages.create(
+        result = generate_structured_json(
             model=model,
-            max_tokens=4096,
-            system=[{
-                'type': 'text',
-                'text': PLANNER_SYSTEM_PROMPT,
-                'cache_control': {'type': 'ephemeral'},
-            }],
-            messages=[{'role': 'user', 'content': planner_packet}],
+            instructions=PLANNER_SYSTEM_PROMPT,
+            input_text=planner_packet,
+            json_schema=PLANNER_RESPONSE_SCHEMA,
+            schema_name='narrative_v2_planner_response',
+            max_output_tokens=4096,
         )
-        raw = resp.content[0].text.strip()
+        raw = result['raw']
         latency_ms = round((time.time() - t0) * 1000)
-
-        # Strip markdown fences if present
-        if raw.startswith('```'):
-            raw = raw.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
-
-        plan = json.loads(raw)
+        plan = result['parsed']
 
         # Normalize
         plan.setdefault('should_post', False)
@@ -165,10 +213,10 @@ def run_planner(
         plan.setdefault('storyline_actions', [])
         plan['raw_response'] = raw
         plan['usage'] = {
-            'input_tokens': getattr(resp.usage, 'input_tokens', 0),
-            'output_tokens': getattr(resp.usage, 'output_tokens', 0),
-            'cache_read_tokens': getattr(resp.usage, 'cache_read_input_tokens', 0),
-            'cache_creation_tokens': getattr(resp.usage, 'cache_creation_input_tokens', 0),
+            'input_tokens': result['usage'].get('input_tokens', 0),
+            'output_tokens': result['usage'].get('output_tokens', 0),
+            'cache_read_tokens': result['usage'].get('cache_read_tokens', 0),
+            'cache_creation_tokens': result['usage'].get('cache_creation_tokens', 0),
             'latency_ms': latency_ms,
         }
 

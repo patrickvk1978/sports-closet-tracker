@@ -26,6 +26,8 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from llm_client import generate_structured_json
+
 # ── Slot/Round helpers ────────────────────────────────────────────────────────
 
 SLOT_ROUND: dict[int, str] = {}
@@ -70,6 +72,18 @@ REPORT_SYSTEM_PROMPT = """You are a sportswriter crafting a post-game report for
 Return ONLY a JSON object (no markdown, no explanation):
 {"thesis": "...", "what_you_got_right": "...", "the_turn": "...", "champion_pick_story": "..."}
 """
+
+REPORT_RESPONSE_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'thesis': {'type': 'string'},
+        'what_you_got_right': {'type': 'string'},
+        'the_turn': {'type': 'string'},
+        'champion_pick_story': {'type': 'string'},
+    },
+    'required': ['thesis', 'what_you_got_right', 'the_turn', 'champion_pick_story'],
+    'additionalProperties': False,
+}
 
 
 # ── Computation Functions ─────────────────────────────────────────────────────
@@ -454,13 +468,13 @@ def run(pool_id: str, dry_run: bool = False):
 
     url     = os.environ.get('SUPABASE_URL', '')
     key     = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
-    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+    api_key = os.environ.get('OPENAI_API_KEY', '') or os.environ.get('ANTHROPIC_API_KEY', '')
 
     if not url or not key:
         print('ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required', file=sys.stderr)
         sys.exit(1)
     if not api_key:
-        print('ERROR: ANTHROPIC_API_KEY required', file=sys.stderr)
+        print('ERROR: OPENAI_API_KEY or ANTHROPIC_API_KEY required', file=sys.stderr)
         sys.exit(1)
 
     client = create_client(url, key)
@@ -531,10 +545,6 @@ def run(pool_id: str, dry_run: bool = False):
     if final_count < 63:
         print(f'Warning: {final_count}/63 games are final — reports based on current state.')
 
-    # Generate reports
-    import anthropic
-    anthropic_client = anthropic.Anthropic(api_key=api_key)
-
     reports: dict[str, dict | str] = {}
     total_tokens = 0
 
@@ -574,27 +584,20 @@ def run(pool_id: str, dry_run: bool = False):
 
         t0 = time.time()
         try:
-            resp = anthropic_client.messages.create(
-                model='claude-opus-4-6',
-                max_tokens=512,
-                system=[{
-                    'type': 'text',
-                    'text': REPORT_SYSTEM_PROMPT,
-                    'cache_control': {'type': 'ephemeral'},
-                }],
-                messages=[{'role': 'user', 'content': brief}],
+            result = generate_structured_json(
+                model='gpt-5.5',
+                instructions=REPORT_SYSTEM_PROMPT,
+                input_text=brief,
+                json_schema=REPORT_RESPONSE_SCHEMA,
+                schema_name='biography_writer_report',
+                max_output_tokens=512,
             )
-            raw       = resp.content[0].text.strip()
             latency   = round((time.time() - t0) * 1000)
-            in_tok    = getattr(resp.usage, 'input_tokens', 0)
-            out_tok   = getattr(resp.usage, 'output_tokens', 0)
+            in_tok    = result['usage'].get('input_tokens', 0)
+            out_tok   = result['usage'].get('output_tokens', 0)
             tokens    = in_tok + out_tok
             total_tokens += tokens
-
-            if raw.startswith('```'):
-                raw = raw.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
-
-            parsed = json.loads(raw)
+            parsed = result['parsed']
             reports[name] = {
                 'thesis':             parsed.get('thesis', ''),
                 'what_you_got_right': parsed.get('what_you_got_right', ''),

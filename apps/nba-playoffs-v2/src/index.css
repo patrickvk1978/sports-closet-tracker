@@ -1816,6 +1816,11 @@ p { margin: 0; }
   color: #f8fafc;
 }
 
+.nba-baseline-audit-now {
+  font-weight: 800;
+  color: #f8fafc;
+}
+
 .nba-baseline-audit-row.is-current-user {
   background: rgba(223, 112, 49, 0.18);
 }
@@ -3259,6 +3264,26 @@ select:focus {
 .nba-briefing-scenarios-card .leaderboard-row {
   background: #090b0f !important;
   border-bottom-color: rgba(214, 222, 235, 0.1);
+}
+
+.nba-inline-sort {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.nba-inline-sort:hover {
+  color: #f8b56b;
 }
 
 .nba-yesterday-hero-card {

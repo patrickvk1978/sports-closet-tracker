@@ -10,8 +10,9 @@ No editorial decisions. The planner already decided what to say and whether to s
 from __future__ import annotations
 
 import json
-import os
 import time
+
+from llm_client import generate_structured_json
 
 # ── Persona guides (inline, compact) ─────────────────────────────────────────
 
@@ -60,10 +61,20 @@ Return ONLY a JSON object (no markdown, no explanation):
 {{"content": "the written text", "word_count": integer}}
 """
 
+WRITER_RESPONSE_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'content': {'type': 'string'},
+        'word_count': {'type': 'integer'},
+    },
+    'required': ['content', 'word_count'],
+    'additionalProperties': False,
+}
+
 
 def run_writer(
     assignments: list[dict],
-    model: str = 'claude-sonnet-4-20250514',
+    model: str = 'gpt-5.5',
     supabase_client=None,
     pool_id: str | None = None,
 ) -> list[dict]:
@@ -87,18 +98,6 @@ def run_writer(
         }
     ]
     """
-    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-    if not api_key:
-        print('  Skipping writer (no ANTHROPIC_API_KEY)')
-        return []
-
-    try:
-        import anthropic
-    except ImportError:
-        print('  Skipping writer (anthropic not installed)')
-        return []
-
-    client = anthropic.Anthropic(api_key=api_key)
     results = []
 
     for assignment in assignments:
@@ -111,24 +110,16 @@ def run_writer(
 
         t0 = time.time()
         try:
-            resp = client.messages.create(
+            result = generate_structured_json(
                 model=model,
-                max_tokens=256,
-                system=[{
-                    'type': 'text',
-                    'text': system_prompt,
-                    'cache_control': {'type': 'ephemeral'},
-                }],
-                messages=[{'role': 'user', 'content': user_message}],
+                instructions=system_prompt,
+                input_text=user_message,
+                json_schema=WRITER_RESPONSE_SCHEMA,
+                schema_name='narrative_v2_writer_response',
+                max_output_tokens=256,
             )
-            raw = resp.content[0].text.strip()
             latency_ms = round((time.time() - t0) * 1000)
-
-            # Strip markdown fences if present
-            if raw.startswith('```'):
-                raw = raw.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
-
-            parsed = json.loads(raw)
+            parsed = result['parsed']
             content = parsed.get('content', '')
             word_count = parsed.get('word_count', len(content.split()))
 
@@ -141,8 +132,8 @@ def run_writer(
                 'established_frame': assignment.get('established_frame', ''),
                 'assignment': assignment,
                 'usage': {
-                    'input_tokens': getattr(resp.usage, 'input_tokens', 0),
-                    'output_tokens': getattr(resp.usage, 'output_tokens', 0),
+                    'input_tokens': result['usage'].get('input_tokens', 0),
+                    'output_tokens': result['usage'].get('output_tokens', 0),
                     'latency_ms': latency_ms,
                 },
             })

@@ -65,6 +65,22 @@ function normalizePct(value) {
 function parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation) {
   const odds = competition?.odds?.[0] ?? null;
   const predictor = competition?.predictor ?? competition?.situation?.lastPlay?.probability ?? null;
+  const homeMoneyline =
+    odds?.moneyline?.home?.close?.odds ??
+    odds?.moneyline?.home?.open?.odds ??
+    odds?.homeTeamOdds?.moneyLine ??
+    odds?.homeTeamOdds?.american ??
+    odds?.homeMoneyLine ??
+    null;
+  const awayMoneyline =
+    odds?.moneyline?.away?.close?.odds ??
+    odds?.moneyline?.away?.open?.odds ??
+    odds?.awayTeamOdds?.moneyLine ??
+    odds?.awayTeamOdds?.american ??
+    odds?.awayMoneyLine ??
+    null;
+  const homeMoneylinePct = americanToImpliedPct(homeMoneyline);
+  const awayMoneylinePct = americanToImpliedPct(awayMoneyline);
 
   const predictorHomePct =
     predictor?.homeTeam?.gameProjection ??
@@ -88,6 +104,8 @@ function parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation) {
           label: `Matchup Predictor: ${homeAbbreviation} ${homePct}%`,
           homePct,
           awayPct,
+          marketHomePct: Number.isFinite(homeMoneylinePct) ? homeMoneylinePct : null,
+          marketAwayPct: Number.isFinite(awayMoneylinePct) ? awayMoneylinePct : null,
           favoriteAbbreviation: homeAbbreviation,
           favoritePct: homePct,
           source: "predictor",
@@ -96,35 +114,24 @@ function parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation) {
           label: `Matchup Predictor: ${awayAbbreviation} ${awayPct}%`,
           homePct,
           awayPct,
+          marketHomePct: Number.isFinite(homeMoneylinePct) ? homeMoneylinePct : null,
+          marketAwayPct: Number.isFinite(awayMoneylinePct) ? awayMoneylinePct : null,
           favoriteAbbreviation: awayAbbreviation,
           favoritePct: awayPct,
           source: "predictor",
         };
   }
 
-  const homeMoneyline =
-    odds?.moneyline?.home?.close?.odds ??
-    odds?.moneyline?.home?.open?.odds ??
-    odds?.homeTeamOdds?.moneyLine ??
-    odds?.homeTeamOdds?.american ??
-    odds?.homeMoneyLine ??
-    null;
-  const awayMoneyline =
-    odds?.moneyline?.away?.close?.odds ??
-    odds?.moneyline?.away?.open?.odds ??
-    odds?.awayTeamOdds?.moneyLine ??
-    odds?.awayTeamOdds?.american ??
-    odds?.awayMoneyLine ??
-    null;
-
-  const homePct = americanToImpliedPct(homeMoneyline);
-  const awayPct = americanToImpliedPct(awayMoneyline);
+  const homePct = homeMoneylinePct;
+  const awayPct = awayMoneylinePct;
   if (Number.isFinite(homePct) && Number.isFinite(awayPct) && homePct > 0 && awayPct > 0) {
     return homePct >= awayPct
       ? {
           label: `Game odds: ${homeAbbreviation} ${homePct}%`,
           homePct,
           awayPct,
+          marketHomePct: homePct,
+          marketAwayPct: awayPct,
           favoriteAbbreviation: homeAbbreviation,
           favoritePct: homePct,
           source: "moneyline",
@@ -133,6 +140,8 @@ function parseEspnGameOdds(competition, homeAbbreviation, awayAbbreviation) {
           label: `Game odds: ${awayAbbreviation} ${awayPct}%`,
           homePct,
           awayPct,
+          marketHomePct: homePct,
+          marketAwayPct: awayPct,
           favoriteAbbreviation: awayAbbreviation,
           favoritePct: awayPct,
           source: "moneyline",
@@ -234,6 +243,8 @@ function parseTodayGame(event) {
     currentLineLabel: currentLine?.label ?? null,
     homeWinPct: parsedOdds?.homePct ?? null,
     awayWinPct: parsedOdds?.awayPct ?? null,
+    marketHomeWinPct: parsedOdds?.marketHomePct ?? null,
+    marketAwayWinPct: parsedOdds?.marketAwayPct ?? null,
     favoriteAbbreviation: parsedOdds?.favoriteAbbreviation ?? null,
     favoritePct: parsedOdds?.favoritePct ?? null,
     oddsSource: parsedOdds?.source ?? null,

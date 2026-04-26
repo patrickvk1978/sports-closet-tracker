@@ -11,6 +11,18 @@ import { buildTeamValueReports } from "../lib/teamValueReports";
 import { buildTeamValueStandings } from "../lib/teamValueStandings";
 import { getTeamPalette } from "../../../../packages/shared/src/themes/teamColorBanks.js";
 
+function combination(n, k) {
+  if (k < 0 || k > n) return 0;
+  const edge = Math.min(k, n - k);
+  let numerator = 1;
+  let denominator = 1;
+  for (let index = 1; index <= edge; index += 1) {
+    numerator *= n - edge + index;
+    denominator *= index;
+  }
+  return numerator / denominator;
+}
+
 function hashSeed(...parts) {
   return parts
     .filter(Boolean)
@@ -518,7 +530,8 @@ function formatTipTime(value) {
 }
 
 function formatSeriesStatus(seriesItem) {
-  const conference = seriesItem.conference === "west" ? "West" : "East";
+  const conferenceKey = String(seriesItem.conference ?? "").toLowerCase();
+  const conference = conferenceKey === "west" ? "West" : conferenceKey === "league" ? "League" : "East";
   const roundLabel = seriesItem.roundKey === "round_1" ? "1st Round" : "Playoff";
   const homeWins = Number(seriesItem.wins?.home ?? 0);
   const awayWins = Number(seriesItem.wins?.away ?? 0);
@@ -629,7 +642,70 @@ function buildScenarioSeries(series, winnersBySeriesId) {
   });
 }
 
-function buildTomorrowScenarioRows(todayEntries, memberList, allAssignmentsByUser, allSeries, currentUserId, simulationTeamEntries) {
+function buildPerspectiveName(member, currentUserId) {
+  return formatMemberName(member, currentUserId);
+}
+
+function compareScenarioValues(left, right, direction = "desc") {
+  if (left == null && right == null) return 0;
+  if (left == null) return 1;
+  if (right == null) return -1;
+  if (typeof left === "string" && typeof right === "string") {
+    return direction === "asc" ? left.localeCompare(right) : right.localeCompare(left);
+  }
+  return direction === "asc" ? left - right : right - left;
+}
+
+function sortScenarioRows(rows, sortState) {
+  const { key, direction } = sortState;
+  return [...rows].sort((left, right) => {
+    if (key === "label") return compareScenarioValues(left.label, right.label, direction);
+    if (key === "place") return compareScenarioValues(left.perspectivePlace, right.perspectivePlace, direction);
+    if (key === "points") return compareScenarioValues(left.perspectivePoints, right.perspectivePoints, direction);
+    if (key === "winProb") return compareScenarioValues(left.perspectiveWinProb, right.perspectiveWinProb, direction);
+    return 0;
+  });
+}
+
+function nextScenarioSortState(current, key, initialDirection = "desc") {
+  if (current.key === key) {
+    return {
+      key,
+      direction: current.direction === "desc" ? "asc" : "desc",
+    };
+  }
+
+  return { key, direction: initialDirection };
+}
+
+function renderScenarioSortLabel(activeSort, key, label) {
+  if (activeSort.key !== key) return `${label} ↕`;
+  return `${label} ${activeSort.direction === "asc" ? "↑" : "↓"}`;
+}
+
+function sortNeedRows(rows, sortState) {
+  const { key, direction } = sortState;
+  const multiplier = direction === "asc" ? 1 : -1;
+
+  return [...rows].sort((left, right) => {
+    if (key === "preferred") {
+      const preferredResult = left.preferred.localeCompare(right.preferred);
+      if (preferredResult !== 0) return preferredResult * multiplier;
+    }
+
+    if (key === "winSwing") {
+      const swingResult = (Number(left.winSwing ?? 0) - Number(right.winSwing ?? 0)) * multiplier;
+      if (swingResult !== 0) return swingResult;
+    }
+
+    const gapResult = Number(right.gap ?? 0) - Number(left.gap ?? 0);
+    if (gapResult !== 0) return gapResult;
+
+    return left.name.localeCompare(right.name);
+  });
+}
+
+function buildTomorrowScenarioRows(todayEntries, memberList, allAssignmentsByUser, allSeries, currentUserId, simulationTeamEntries, perspectiveUserId = currentUserId) {
   if (!todayEntries.length) return [];
   const options = todayEntries.map(({ game, seriesItem }) => {
     const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
@@ -665,14 +741,14 @@ function buildTomorrowScenarioRows(todayEntries, memberList, allAssignmentsByUse
       scenarioSeries,
       simulationTeamEntries
     );
-    const currentMember = standings.find((entry) => entry.id === currentUserId) ?? null;
+    const perspectiveMember = standings.find((entry) => entry.id === perspectiveUserId) ?? null;
     const leaders = standings.slice(0, 3).map((entry) => `${formatMemberName(entry, currentUserId)} ${entry.summary.totalPoints}`);
     return {
       key: combo.map((entry) => entry.label).join("-"),
       label: combo.map((entry) => entry.label).join(", "),
-      yourPlace: currentMember?.place ?? null,
-      yourPoints: currentMember?.summary.totalPoints ?? 0,
-      yourWinProb: currentMember?.winProbability ?? 0,
+      perspectivePlace: perspectiveMember?.place ?? null,
+      perspectivePoints: perspectiveMember?.summary.totalPoints ?? 0,
+      perspectiveWinProb: perspectiveMember?.winProbability ?? 0,
       leaders,
     };
   });
@@ -787,65 +863,171 @@ function buildPoolImpactStats(seriesItem, memberList, branchSimulationBySeriesId
   };
 }
 
-function buildSeriesWinLabel(seriesItem, forcedWinnerId = null) {
+function buildSeriesWinLabel(seriesItem, forcedWinnerId = null, referenceGame = null) {
   const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
   const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
   const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
   const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
-  const currentHomeSeriesPct = Math.max(0, Math.min(100, Number(seriesItem.market?.homeWinPct ?? 50)));
   const wins = {
     home: Number(seriesItem.wins?.home ?? 0),
     away: Number(seriesItem.wins?.away ?? 0),
   };
-
-  if (!forcedWinnerId) {
-    const awaySeriesPct = 100 - currentHomeSeriesPct;
-    const leaderAbbr = currentHomeSeriesPct >= awaySeriesPct ? homeAbbr : awayAbbr;
-    const leaderPct = currentHomeSeriesPct >= awaySeriesPct ? currentHomeSeriesPct : awaySeriesPct;
-    return `${leaderAbbr} ${Math.round(leaderPct)}%`;
-  }
 
   if (forcedWinnerId === homeId) wins.home = Math.min(wins.home + 1, 4);
   if (forcedWinnerId === awayId) wins.away = Math.min(wins.away + 1, 4);
   if (wins.home >= 4) return `${homeAbbr} 100%`;
   if (wins.away >= 4) return `${awayAbbr} 100%`;
 
-  const perGameHomeWinPct = inferPerGameHomeWinPct(seriesItem, currentHomeSeriesPct);
-  const exactResults = buildExactResultProbabilities(perGameHomeWinPct, wins);
-  const homeSeriesPct = Object.entries(exactResults)
-    .filter(([key]) => key.startsWith("home_"))
-    .reduce((sum, [, value]) => sum + Number(value ?? 0), 0);
-  const awaySeriesPct = Math.max(0, 100 - homeSeriesPct);
+  const scheduledHomeSeriesPct = computeSeriesWinProbabilityFromSchedule(seriesItem, wins.home, wins.away, referenceGame);
+  if (Number.isFinite(scheduledHomeSeriesPct)) {
+    const scheduledAwaySeriesPct = Math.max(1, Math.min(99, Math.round(100 - scheduledHomeSeriesPct)));
+    const leaderAbbr = scheduledHomeSeriesPct >= scheduledAwaySeriesPct ? homeAbbr : awayAbbr;
+    const leaderPct = scheduledHomeSeriesPct >= scheduledAwaySeriesPct ? scheduledHomeSeriesPct : scheduledAwaySeriesPct;
+    return `${leaderAbbr} ${Math.round(leaderPct)}%`;
+  }
+
+  const baselineHomeSeriesPct = resolveSeriesMarketPct(seriesItem, homeId);
+  const inferredHomeGamePct = inferGameWinPctFromSeriesOdds(
+    Number(seriesItem.wins?.home ?? 0),
+    Number(seriesItem.wins?.away ?? 0),
+    baselineHomeSeriesPct
+  );
+  const fallbackHomeGamePct = resolveTeamGameWinPct(seriesItem, homeId, referenceGame);
+  const homeGamePct = inferredHomeGamePct ?? fallbackHomeGamePct;
+
+  const homeSeriesPct = forcedWinnerId == null && Number.isFinite(baselineHomeSeriesPct)
+    ? Math.max(1, Math.min(99, Math.round(baselineHomeSeriesPct)))
+    : computeSeriesWinProbabilityFromGamePct(wins.home, wins.away, homeGamePct);
+  const awaySeriesPct = forcedWinnerId == null && Number.isFinite(baselineHomeSeriesPct)
+    ? Math.max(1, Math.min(99, Math.round(100 - baselineHomeSeriesPct)))
+    : computeSeriesWinProbabilityFromGamePct(wins.away, wins.home, homeGamePct != null ? 100 - homeGamePct : null);
   const leaderAbbr = homeSeriesPct >= awaySeriesPct ? homeAbbr : awayAbbr;
   const leaderPct = homeSeriesPct >= awaySeriesPct ? homeSeriesPct : awaySeriesPct;
   return `${leaderAbbr} ${Math.round(leaderPct)}%`;
 }
 
-function inferPerGameHomeWinPct(seriesItem, targetHomeSeriesPct) {
-  const wins = {
-    home: Number(seriesItem.wins?.home ?? 0),
-    away: Number(seriesItem.wins?.away ?? 0),
-  };
-  let low = 1;
-  let high = 99;
+function resolveSeriesMarketPct(seriesItem, teamId) {
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  if (teamId === homeId) return Number(seriesItem.market?.homeWinPct ?? null);
+  if (teamId === awayId) return Number(seriesItem.market?.awayWinPct ?? null);
+  return null;
+}
 
-  for (let index = 0; index < 28; index += 1) {
+function resolveTeamGameWinPct(seriesItem, teamId, referenceGame = null) {
+  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+  if (referenceGame) {
+    if (teamId === referenceGame.homeTeamId) return Number(referenceGame.marketHomeWinPct ?? referenceGame.homeWinPct ?? null);
+    if (teamId === referenceGame.awayTeamId) return Number(referenceGame.marketAwayWinPct ?? referenceGame.awayWinPct ?? null);
+  }
+  if (teamId === homeId) return Number(seriesItem.market?.homeWinPct ?? null);
+  if (teamId === awayId) return Number(seriesItem.market?.awayWinPct ?? null);
+  return null;
+}
+
+function computeSeriesWinProbabilityFromGamePct(teamWins, opponentWins, teamGamePct) {
+  if (!Number.isFinite(teamWins) || !Number.isFinite(opponentWins)) return null;
+  if (teamWins >= 4) return 100;
+  if (opponentWins >= 4) return 0;
+
+  const probability = Math.max(0.05, Math.min(0.95, Number(teamGamePct ?? 50) / 100));
+  const teamNeeded = 4 - teamWins;
+  const opponentNeeded = 4 - opponentWins;
+  let seriesWinProbability = 0;
+
+  for (let remainingGames = teamNeeded; remainingGames <= teamNeeded + opponentNeeded - 1; remainingGames += 1) {
+    const opponentWinsBeforeClincher = remainingGames - teamNeeded;
+    if (opponentWinsBeforeClincher < 0 || opponentWinsBeforeClincher >= opponentNeeded) continue;
+    seriesWinProbability +=
+      combination(remainingGames - 1, teamNeeded - 1) *
+      probability ** teamNeeded *
+      (1 - probability) ** opponentWinsBeforeClincher;
+  }
+
+  return Math.max(1, Math.min(99, Math.round(seriesWinProbability * 100)));
+}
+
+function inferGameWinPctFromSeriesOdds(teamWins, opponentWins, targetSeriesPct) {
+  const target = Number(targetSeriesPct);
+  if (!Number.isFinite(target)) return null;
+  const normalizedTarget = Math.max(0.01, Math.min(0.99, target / 100));
+  let low = 0.05;
+  let high = 0.95;
+
+  for (let index = 0; index < 30; index += 1) {
     const mid = (low + high) / 2;
-    const exactResults = buildExactResultProbabilities(mid, wins);
-    const homeSeriesPct = Object.entries(exactResults)
-      .filter(([key]) => key.startsWith("home_"))
-      .reduce((sum, [, value]) => sum + Number(value ?? 0), 0);
-    if (homeSeriesPct < targetHomeSeriesPct) {
+    const midSeriesPct = computeSeriesWinProbabilityFromGamePct(teamWins, opponentWins, mid * 100) / 100;
+    if (midSeriesPct < normalizedTarget) {
       low = mid;
     } else {
       high = mid;
     }
   }
 
-  return Number(((low + high) / 2).toFixed(2));
+  return ((low + high) / 2) * 100;
 }
 
-function buildGameOverviewRows(seriesItem, simulationRows, poolImpactStats, poolImpactRank, totalTodaySeries) {
+function probabilityToLogit(probabilityPct) {
+  const probability = Math.max(0.01, Math.min(0.99, Number(probabilityPct ?? 50) / 100));
+  return Math.log(probability / (1 - probability));
+}
+
+function logitToProbability(logit) {
+  const odds = Math.exp(logit);
+  return (odds / (1 + odds)) * 100;
+}
+
+function buildRemainingVenueSequence(homeWins, awayWins) {
+  const schedule = [true, true, false, false, true, false, true];
+  const nextGameIndex = Math.max(0, Math.min(schedule.length, homeWins + awayWins));
+  return schedule.slice(nextGameIndex);
+}
+
+function computeSeriesWinProbabilityWithSchedule(homeWins, awayWins, homeGameProbabilities, index = 0) {
+  if (homeWins >= 4) return 1;
+  if (awayWins >= 4) return 0;
+  if (index >= homeGameProbabilities.length) return 0;
+
+  const probability = Math.max(0.01, Math.min(0.99, Number(homeGameProbabilities[index] ?? 50) / 100));
+  return (
+    probability * computeSeriesWinProbabilityWithSchedule(homeWins + 1, awayWins, homeGameProbabilities, index + 1) +
+    (1 - probability) * computeSeriesWinProbabilityWithSchedule(homeWins, awayWins + 1, homeGameProbabilities, index + 1)
+  );
+}
+
+function computeSeriesWinProbabilityFromSchedule(seriesItem, homeWins, awayWins, referenceGame = null) {
+  if (!referenceGame) return null;
+
+  const seriesHomeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const marketSeriesHomePct =
+    seriesHomeId === referenceGame.homeTeamId
+      ? Number(referenceGame.marketHomeWinPct ?? null)
+      : seriesHomeId === referenceGame.awayTeamId
+        ? Number(referenceGame.marketAwayWinPct ?? null)
+        : null;
+
+  if (!Number.isFinite(marketSeriesHomePct)) return null;
+
+  const seriesHomeIsCurrentVenueHome = seriesHomeId === referenceGame.homeTeamId;
+  const homeCourtLogitEdge = 0.28;
+  const currentLogit = probabilityToLogit(marketSeriesHomePct);
+  const neutralLogit = currentLogit - (seriesHomeIsCurrentVenueHome ? homeCourtLogitEdge : -homeCourtLogitEdge);
+  const remainingVenueSequence = buildRemainingVenueSequence(homeWins, awayWins);
+  const homeGameProbabilities = remainingVenueSequence.map((seriesHomeVenue) =>
+    logitToProbability(neutralLogit + (seriesHomeVenue ? homeCourtLogitEdge : -homeCourtLogitEdge))
+  );
+
+  return Math.max(
+    1,
+    Math.min(
+      99,
+      Math.round(computeSeriesWinProbabilityWithSchedule(homeWins, awayWins, homeGameProbabilities) * 100)
+    )
+  );
+}
+
+function buildGameOverviewRows(seriesItem, game, simulationRows, poolImpactStats, poolImpactRank, totalTodaySeries) {
   const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
   const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
   const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
@@ -857,9 +1039,9 @@ function buildGameOverviewRows(seriesItem, simulationRows, poolImpactStats, pool
     : 0;
 
   return [
-    { label: "Current series", value: buildSeriesWinLabel(seriesItem) },
-    { label: `${homeAbbr} wins game`, value: buildSeriesWinLabel(seriesItem, homeId) },
-    { label: `${awayAbbr} wins game`, value: buildSeriesWinLabel(seriesItem, awayId) },
+    { label: "Current series", value: buildSeriesWinLabel(seriesItem, null, game) },
+    { label: `${homeAbbr} wins game`, value: buildSeriesWinLabel(seriesItem, homeId, game) },
+    { label: `${awayAbbr} wins game`, value: buildSeriesWinLabel(seriesItem, awayId, game) },
     { label: "Your impact", value: `${impactLabel(userSwing)} · ${userSwing.toFixed(1)} pts` },
     {
       label: "Pool impact",
@@ -883,21 +1065,38 @@ function buildPoolImpactNote(seriesItem, needRows, poolImpactStats, poolImpactRa
   const leadingSide = homeCount === awayCount ? null : homeCount > awayCount ? homeAbbr : awayAbbr;
   const leadingCity = leadingSide ? teamNarrativeName(leadingSide, seriesItem, "city") : null;
   const leadingCount = leadingSide ? sideCounts[leadingSide] : 0;
+  const narrativeState = buildSeriesNarrativeState(seriesItem, 0, Number(poolImpactStats.averageSwing ?? 0));
   const rankPhrase = totalTodaySeries > 1
     ? `It ranks #${poolImpactRank} among today's ${totalTodaySeries} games by average room swing.`
     : "It is today's only room-wide swing point.";
 
   if (!topRows.length) {
     return {
-      title: `${homeAbbr}-${awayAbbr} has a light room-wide read right now`,
-      body: `The simulator is not finding much separation across the room yet. ${rankPhrase}`,
+      title: chooseVariant([
+        `${homeAbbr}-${awayAbbr} has a light room-wide read right now`,
+        `${homeAbbr}-${awayAbbr} is still quiet at the pool level`,
+        `${homeAbbr}-${awayAbbr} is not pulling the room hard yet`,
+      ], ...narrativeSeed(seriesItem, "pool-impact-empty-title")),
+      body: chooseVariant([
+        `The simulator is not finding much separation across the room yet. ${rankPhrase}`,
+        `${rankPhrase} At the moment, the room is not splitting sharply enough here for this matchup to create a strong public pressure point.`,
+        `${rankPhrase} The current simulator read is still relatively soft, which makes this more of a watch item than a room-shaping result right now.`,
+      ], ...narrativeSeed(seriesItem, "pool-impact-empty-body")),
     };
   }
 
   if (poolImpactStats.averageSwing < 1.5 && significantRows.length === 0) {
     return {
-      title: `${homeAbbr}-${awayAbbr} is mostly background noise for the room`,
-      body: `${rankPhrase} The simulator is not finding a meaningful pool-wide swing here yet: the average visible board moves only ${poolImpactStats.averageSwing} points, and no entry clears a 5-point swing. This can still matter for basketball, but in the pool it is more watchlist than pressure point.`,
+      title: chooseVariant([
+        `${homeAbbr}-${awayAbbr} is mostly background noise for the room`,
+        `${homeAbbr}-${awayAbbr} is more watchlist than pressure point`,
+        `${homeAbbr}-${awayAbbr} is not bending the pool very hard`,
+      ], ...narrativeSeed(seriesItem, "pool-impact-light-title")),
+      body: chooseVariant([
+        `${rankPhrase} The simulator is not finding a meaningful pool-wide swing here yet: the average visible board moves only ${poolImpactStats.averageSwing} points, and no entry clears a 5-point swing. This can still matter for basketball, but in the pool it is more watchlist than pressure point.`,
+        `${rankPhrase} The average visible board moves only ${poolImpactStats.averageSwing} points here, and nobody clears a 5-point swing. In pool terms, that keeps this matchup in the background tier for now.`,
+        `${rankPhrase} There is still basketball intrigue here, but the simulator is not seeing real room-wide heat yet. With an average swing of only ${poolImpactStats.averageSwing} points, this remains a fairly quiet pool result.`,
+      ], ...narrativeSeed(seriesItem, "pool-impact-light-body")),
     };
   }
 
@@ -924,7 +1123,7 @@ function buildPoolImpactNote(seriesItem, needRows, poolImpactStats, poolImpactRa
 
   return {
     title,
-    body: `${rankPhrase} ${swingSentence} ${alignmentSentence}${sideSentence ? ` In side terms: ${sideSentence}.` : ""} The table below shows who is actually exposed, not just who has a team ranked higher.`,
+    body: `${rankPhrase} ${narrativeState.stageSentence} ${swingSentence} ${alignmentSentence}${sideSentence ? ` In side terms: ${sideSentence}.` : ""} The table below shows who is actually exposed, not just who has a team ranked higher.`,
   };
 }
 
@@ -983,6 +1182,26 @@ function teamResultPhrase(teamOrAbbr, seriesItem) {
 
 function narrativeSeed(seriesItem, ...parts) {
   return [seriesItem?.id, seriesItem?.homeTeamId, seriesItem?.awayTeamId, ...parts].filter(Boolean);
+}
+
+function buildSeriesNarrativeState(seriesItem, userSwing = 0, poolSwing = 0) {
+  const homeWins = Number(seriesItem?.wins?.home ?? 0);
+  const awayWins = Number(seriesItem?.wins?.away ?? 0);
+  const leaderWins = Math.max(homeWins, awayWins);
+  const gamesPlayed = homeWins + awayWins;
+  const leverageTier = userSwing >= 8 || poolSwing >= 8 ? "high" : userSwing >= 4 || poolSwing >= 4 ? "medium" : "low";
+  const seriesStage = leaderWins >= 3 ? "late" : gamesPlayed >= 3 ? "middle" : "early";
+  const stageSentence = seriesStage === "late"
+    ? "The series is deep enough now that every result starts to close off one path and amplify another."
+    : seriesStage === "middle"
+      ? "This is the stretch where the series stops feeling abstract and starts bending the pool in visible ways."
+      : "It is still early enough for this to feel more like shape-setting than final sorting.";
+
+  return {
+    leverageTier,
+    seriesStage,
+    stageSentence,
+  };
 }
 
 function getBranchOutcomePreference(seriesItem, branchSimulationBySeriesId, memberId, fallbackAssignments = {}) {
@@ -1132,6 +1351,7 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
   const lighterSide = yourPreferred === homeAbbr ? awayAbbr : homeAbbr;
   const placeSwing = branchPreference.placeSwing;
   const winSwing = branchPreference.winSwing;
+  const narrativeState = buildSeriesNarrativeState(seriesItem, Math.abs(winSwing), Math.abs(placeSwing));
 
   if (yourGap === 0 && roomGap === 0) {
     return {
@@ -1141,9 +1361,9 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
         `${homeAbbr}-${awayAbbr} is not carrying a hard room lean yet`,
       ], ...narrativeSeed(seriesItem, currentUserId, "balanced-title")),
       body: chooseVariant([
-        `Neither your board nor the average room board is leaning hard here, so this matchup is more about keeping track of the bracket than about protecting one major exposure. The useful question is whether today creates a stronger future-round path than it creates a same-day swing.`,
-        `This is a lower-temperature spot. Your board is close to balanced, the room is close to balanced, and the real value is watching whether one branch starts to matter more after the result lands.`,
-        `There is not a giant same-day rooting signal here. The better read is to treat this as a bracket-shape game: useful to watch, but not one where your board is obviously begging for one side.`,
+        `Neither your board nor the average room board is leaning hard here, so this matchup is more about keeping track of the bracket than about protecting one major exposure. ${narrativeState.stageSentence} The useful question is whether today creates a stronger future-round path than it creates a same-day swing.`,
+        `This is a lower-temperature spot. Your board is close to balanced, the room is close to balanced, and the real value is watching whether one branch starts to matter more after the result lands. ${narrativeState.stageSentence}`,
+        `There is not a giant same-day rooting signal here. The better read is to treat this as a bracket-shape game: useful to watch, but not one where your board is obviously begging for one side. ${narrativeState.stageSentence}`,
       ], ...narrativeSeed(seriesItem, currentUserId, "balanced-body")),
     };
   }
@@ -1160,15 +1380,18 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
         `${rootCity} is the room-relative rooting side, even though you ranked ${rawCity} higher`,
         `${rootCity} is the leverage answer, even with ${rawCity} higher on your board`,
         `Your raw board says ${rawCity}, but the pool-equity read says ${rootCity}`,
+        `${rootCity} is the sharper result once the room is part of the equation`,
       ], ...narrativeSeed(seriesItem, currentUserId, "context-conflict-title")),
       body: swingMagnitude >= 8
         ? chooseVariant([
-          `${rawClub} are the cleaner immediate-points side because you ranked them above ${rootClub}. But this is not only a points question. The room is heavier on ${rawCity} than you are, and your unusual leverage is on ${rootNickname}; the branch sim says ${teamResultPhrase(rootSide, seriesItem)} improves your pool win probability by ${Math.abs(winSwing).toFixed(1)} points versus the other side. For you in this matchup, that is ${rootCity}.`,
-          `This is the big-pivot version of the tension. ${rawCity} is the better instant-points side, but the field is more exposed there than you are. Your cleaner separation is tied to ${rootNickname}, and the branch sim makes that loud: ${Math.abs(winSwing).toFixed(1)} pool-win points toward ${rootCity}.`,
+          `${rawClub} are the cleaner immediate-points side because you ranked them above ${rootClub}. But this is not only a points question. ${narrativeState.stageSentence} The room is heavier on ${rawCity} than you are, and your unusual leverage is on ${rootNickname}; the branch sim says ${teamResultPhrase(rootSide, seriesItem)} improves your pool win probability by ${Math.abs(winSwing).toFixed(1)} points versus the other side. For you in this matchup, that is ${rootCity}.`,
+          `This is the big-pivot version of the tension. ${rawCity} is the better instant-points side, but the field is more exposed there than you are. ${narrativeState.seriesStage === "late" ? "At this point in the series, that divergence gets louder." : narrativeState.stageSentence} Your cleaner separation is tied to ${rootNickname}, and the branch sim makes that loud: ${Math.abs(winSwing).toFixed(1)} pool-win points toward ${rootCity}.`,
+          `On the surface, ${rawCity} look like the easy answer because you ranked them higher. Underneath, the room dynamics bend it the other way. ${narrativeState.stageSentence} The field has more to lose on ${rawCity} than your board does, while your cleaner leverage sits with ${rootNickname}; the branch sim prices that edge at ${Math.abs(winSwing).toFixed(1)} pool-win points. For you in this matchup, that is ${rootCity}.`,
         ], ...narrativeSeed(seriesItem, currentUserId, "context-conflict-large-body"))
         : chooseVariant([
-          `${rawClub} are the cleaner immediate-points side because you ranked them above ${rootClub}. The longer-view edge is thinner, but it points the other way: your best room-relative separation is on ${rootNickname}. For you in this matchup, that is ${rootCity}.`,
-          `The immediate-points read starts with ${rawCity}; the leverage read does not. Because your board is less exposed to ${rawCity} than the room is, ${rootCity} becomes the sharper pool-equity side even if the margin is not overwhelming.`,
+          `${rawClub} are the cleaner immediate-points side because you ranked them above ${rootClub}. The longer-view edge is thinner, but it points the other way: your best room-relative separation is on ${rootNickname}. ${narrativeState.stageSentence} For you in this matchup, that is ${rootCity}.`,
+          `On pure points, the first answer is ${rawCity}. On pool equity, it is not. Because your board is less exposed to ${rawCity} than the room is, ${rootCity} becomes the sharper separation side even if the margin is not huge. ${narrativeState.stageSentence} For you in this matchup, that is ${rootCity}.`,
+          `${rawCity} still win the quick points argument on your board. The broader pool argument is different. Because the room is more concentrated there than you are, the cleaner upside sits with ${rootNickname}. ${narrativeState.stageSentence} For you in this matchup, that is ${rootCity}.`,
         ], ...narrativeSeed(seriesItem, currentUserId, "context-conflict-modest-body")),
     };
   }
@@ -1183,11 +1406,13 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
           `${preferredCity} helps you, but it is still a relative game`,
           `${preferredCity} is consensus-friendly, with a little extra juice for you`,
           `${preferredCity} helps the room, but your board is louder there`,
+          `${preferredCity} is a shared side, but you are carrying the bigger version`,
         ], ...narrativeSeed(seriesItem, currentUserId, "aligned-user-heavy-title")),
         body: chooseVariant([
-          `The room wants ${preferredCity} too, so the interesting question is not just “do ${preferredClub} help?” They do. The more useful read is that you are heavier on ${yourPreferred} than the average board is, which means a win by ${preferredClub} helps you a little more than it helps most people. The flip side is that a win by ${lighterClub} would cut more directly against your board than it would against the room.`,
+          `${preferredCity} is not a secret side for the room, but your board is carrying more of it than the average entry. ${narrativeState.stageSentence} That means a win by ${preferredClub} helps you a little more than it helps most people, while a win by ${lighterClub} cuts more directly against your board than it does against the field.`,
           `This is not contrarian, but it is not neutral either. The field is with ${preferredCity}, and you are even more invested than the field. That makes a win by ${preferredClub} useful, while a ${teamResultPhrase(lighterSide, seriesItem)} stings your board more than it stings the average entry.`,
           `${preferredCity} is a shared rooting side, but your board has more weight there than the room average. That means this result is partly protection and partly upside; not a full breakaway, but not empty chalk either.`,
+          `The room and your board are lined up on ${preferredCity}, but you are leaning further into it than most entries are. That makes the result helpful in two ways: it protects a side you already like, and it nudges you a bit ahead of the people who are lighter there.`,
         ], ...narrativeSeed(seriesItem, currentUserId, "aligned-user-heavy-body")),
       };
     }
@@ -1198,11 +1423,13 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
           `${preferredCity} is more defensive than explosive for you`,
           `${preferredCity} is mostly a hold-serve result for your board`,
           `${preferredCity} keeps you aligned, but does not create much daylight`,
+          `${preferredCity} is good for you, just not especially loud for you`,
         ], ...narrativeSeed(seriesItem, currentUserId, "aligned-room-heavy-title")),
         body: chooseVariant([
-          `You and the room are on the same side, but the room is leaning harder into ${preferredCity} than you are. That means a win by ${preferredClub} is more about staying in line with the field than creating separation, while ${lighterClub} winning would damage the room a little more than it damages your board.`,
-          `The room is carrying more ${preferredCity} exposure than you are. So while a win by ${preferredClub} is still good for your points, it is not the cleanest separation result. The upset path would hit the field a little harder than it hits you.`,
+          `You and the room are on the same side, but the room is leaning harder into ${preferredCity} than you are. ${narrativeState.stageSentence} That means a win by ${preferredClub} is more about staying in line with the field than creating separation, while ${lighterClub} winning would damage the room a little more than it damages your board.`,
+          `The field has more riding on ${preferredCity} than you do. So while a win by ${preferredClub} still helps your points, it is not the cleanest way to gain ground. The upset path would clip the room a bit harder than it clips your board.`,
           `This is a defensive lean. You do want ${preferredCity}, but mostly because the room wants them too. The more interesting twist is that ${lighterClub} winning would be messier for the field than for your specific board.`,
+          `${preferredCity} still cashes for you, but it is doing more public work than private work. The room has the heavier exposure there, so your real edge is that the wrong result would bruise the field a little more than it bruises you.`,
         ], ...narrativeSeed(seriesItem, currentUserId, "aligned-room-heavy-body")),
       };
     }
@@ -1212,11 +1439,13 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
         `${preferredCity} is the room lean, but not a big separation game`,
         `${preferredCity} is the clean side, not the loud side`,
         `${preferredCity} keeps the board orderly more than it breaks it open`,
+        `${preferredCity} matters here more as maintenance than as leverage`,
       ], ...narrativeSeed(seriesItem, currentUserId, "aligned-even-title")),
       body: chooseVariant([
-        `You and the room are mostly aligned here, and your exposure is close to the room average. That means the main value today is not a giant standings swing; it is avoiding an upset that would scramble the next layer of the bracket and create new pressure elsewhere.`,
+        `You and the room are mostly aligned here, and your exposure is close to the room average. ${narrativeState.stageSentence} That means the main value today is not a giant standings swing; it is avoiding an upset that would scramble the next layer of the bracket and create new pressure elsewhere.`,
         `This is one of those games where the correct side can still be a quiet side. ${preferredCity} helps you, but it helps enough of the room that the bigger value is keeping the board from getting weird.`,
-        `There is not much hidden leverage in the current read. Your board and the field are priced similarly, so this is more about stability than a dramatic move up the room.`,
+        `There is not much hidden leverage here. Your board and the field are priced similarly, so this matchup is more about keeping the bracket stable than springing a surprise in the standings.`,
+        `Nothing about this setup screams separation. Your board and the room are carrying nearly the same shape, so the practical value is preserving bracket order more than inventing a jump in the standings.`,
       ], ...narrativeSeed(seriesItem, currentUserId, "aligned-even-body")),
     };
   }
@@ -1231,11 +1460,13 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
         `${preferredCity} is a real leverage side for your board`,
         `${preferredCity} is where your board splits from the room`,
         `${preferredCity} gives you a cleaner contrarian lane`,
+        `${preferredCity} is the result that actually creates daylight for you`,
       ], ...narrativeSeed(seriesItem, currentUserId, "opposed-title")),
       body: chooseVariant([
-        `This is the kind of game where the obvious rooting interest is actually the right one: you are tilted toward ${preferredClub}, while the room leans toward ${roomClub}. In the branch sim, that outcome moves your expected place by ${Math.abs(placeSwing).toFixed(1)} spots and your pool win probability by ${Math.abs(winSwing).toFixed(1)} points, which is why this reads as real leverage rather than just a stylistic preference.`,
+        `Your board and the room are pointed in different directions here, and the branch sim treats that as real leverage rather than a cosmetic disagreement. ${narrativeState.stageSentence} If ${preferredClub} come through, the result moves your expected place by ${Math.abs(placeSwing).toFixed(1)} spots and your pool win probability by ${Math.abs(winSwing).toFixed(1)} points.`,
         `Your board and the field are not telling the same story. You have more reason to want ${preferredCity}; the room is more comfortable with ${roomCity}. That gives this game real separation value if ${preferredClub} come through.`,
         `This is a true split read. ${preferredCity} is not just your favorite side; it is the side that pushes against the room's lean toward ${roomCity}. That is why the branch sim treats it as leverage rather than ordinary rooting.`,
+        `There is an actual board split here, not just a stylistic one. The room is tilted toward ${roomCity}, while your cleaner equity path runs through ${preferredCity}. That is why this matchup feels live even before the game starts moving.`,
       ], ...narrativeSeed(seriesItem, currentUserId, "opposed-body")),
     };
   }
@@ -1244,15 +1475,31 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
     const preferredClub = teamNarrativeName(yourPreferred, seriesItem, "club");
     const lighterClub = teamNarrativeName(lighterSide, seriesItem, "club");
     return {
-      title: `${yourPreferred} matters more to you than it does to the room`,
-      body: `The field is relatively balanced, but your board is not. That makes ${preferredClub} less of a public consensus result and more of a private board result for you. If ${lighterClub} win instead, it does not necessarily wreck the room, but it hits your own construction more directly than it hits most other boards.`,
+      title: chooseVariant([
+        `${yourPreferred} matters more to you than it does to the room`,
+        `${yourPreferred} is mostly your story, not the room's`,
+        `${yourPreferred} is a private board swing more than a public one`,
+      ], ...narrativeSeed(seriesItem, currentUserId, "user-only-title")),
+      body: chooseVariant([
+        `The field is relatively balanced, but your board is not. That makes ${preferredClub} less of a public consensus result and more of a private board result for you. If ${lighterClub} win instead, it does not necessarily wreck the room, but it hits your own construction more directly than it hits most other boards.`,
+        `This is one of the cleaner examples of a result that matters more inside your board than across the whole pool. The room is fairly split, but your own setup has more riding on ${preferredClub} than the average entry does.`,
+        `${preferredClub} are doing more personal work than room-wide work here. If they win, your board benefits in a way the pool at large does not fully share. If ${lighterClub} win, the damage is more concentrated on you than on the field.`,
+      ], ...narrativeSeed(seriesItem, currentUserId, "user-only-body")),
     };
   }
 
   const roomClub = teamNarrativeName(roomPreferred ?? homeAbbr, seriesItem, "club");
   return {
-    title: `${roomPreferred ?? homeAbbr} is the room's clearer side, but you are more balanced`,
-    body: `Your board is relatively even here, which means this matchup is less about cashing your own heavy exposure and more about understanding what helps the field. If ${roomClub} win, the average board benefits more than yours does. If the other side wins, it does more to disrupt the field than to damage your own setup.`,
+    title: chooseVariant([
+      `${roomPreferred ?? homeAbbr} is the room's clearer side, but you are more balanced`,
+      `${roomPreferred ?? homeAbbr} matters more to the field than it does to you`,
+      `${roomPreferred ?? homeAbbr} is the public side, while your board stays lighter`,
+    ], ...narrativeSeed(seriesItem, currentUserId, "room-only-title")),
+    body: chooseVariant([
+      `Your board is relatively even here, which means this matchup is less about cashing your own heavy exposure and more about understanding what helps the field. If ${roomClub} win, the average board benefits more than yours does. If the other side wins, it does more to disrupt the field than to damage your own setup.`,
+      `This is more of a room-reading game than a personal rooting game. The field has a clearer preference than your board does, so the important question is not what you are protecting, but what outcome pushes the average entry around.`,
+      `You are relatively balanced in a matchup where the pool is not. That makes ${roomClub} the public side and leaves you in the more observational seat: the wrong result does not hammer your card first, but it can still reshape the room around you.`,
+    ], ...narrativeSeed(seriesItem, currentUserId, "room-only-body")),
   };
 }
 
@@ -1268,6 +1515,9 @@ function TodayBoardImplicationsReport({
   expandedAnalysisId,
 }) {
   const now = useMemo(() => new Date(), []);
+  const [scenarioPerspectiveId, setScenarioPerspectiveId] = useState(currentUserId ?? memberList[0]?.id ?? "");
+  const [scenarioSort, setScenarioSort] = useState({ key: "winProb", direction: "desc" });
+  const [needSortBySeriesId, setNeedSortBySeriesId] = useState({});
   const implicationById = useMemo(
     () => Object.fromEntries(implicationRows.map((row) => [row.id, row])),
     [implicationRows]
@@ -1307,9 +1557,30 @@ function TodayBoardImplicationsReport({
       .filter(Boolean);
   }, [todayGames, series, implicationById, now]);
 
+  useEffect(() => {
+    if (scenarioPerspectiveId) return;
+    if (currentUserId) {
+      setScenarioPerspectiveId(currentUserId);
+      return;
+    }
+    if (memberList[0]?.id) {
+      setScenarioPerspectiveId(memberList[0].id);
+    }
+  }, [currentUserId, memberList, scenarioPerspectiveId]);
+
+  const scenarioPerspectiveMember = useMemo(
+    () => memberList.find((member) => member.id === scenarioPerspectiveId) ?? memberList.find((member) => member.id === currentUserId) ?? memberList[0] ?? null,
+    [currentUserId, memberList, scenarioPerspectiveId]
+  );
+  const scenarioPerspectiveLabel = scenarioPerspectiveMember ? buildPerspectiveName(scenarioPerspectiveMember, currentUserId) : "You";
+
   const tomorrowScenarioRows = useMemo(
-    () => buildTomorrowScenarioRows(todaySeries, memberList, allAssignmentsByUser, series, currentUserId, simulationTeamEntries),
-    [todaySeries, memberList, allAssignmentsByUser, series, currentUserId, simulationTeamEntries]
+    () => buildTomorrowScenarioRows(todaySeries, memberList, allAssignmentsByUser, series, currentUserId, simulationTeamEntries, scenarioPerspectiveMember?.id ?? currentUserId),
+    [todaySeries, memberList, allAssignmentsByUser, series, currentUserId, simulationTeamEntries, scenarioPerspectiveMember]
+  );
+  const sortedTomorrowScenarioRows = useMemo(
+    () => sortScenarioRows(tomorrowScenarioRows, scenarioSort),
+    [tomorrowScenarioRows, scenarioSort]
   );
   const branchSimulationBySeriesId = useMemo(
     () => buildBranchSimulationBySeries(todaySeries.map((entry) => entry.seriesItem), memberList, allAssignmentsByUser, series, simulationTeamEntries),
@@ -1354,20 +1625,23 @@ function TodayBoardImplicationsReport({
 
       {todaySeries.map(({ game, seriesItem, implication }) => {
         const needRows = buildNeedRows(seriesItem, memberList, allAssignmentsByUser, currentUserId, series, selectionById, branchSimulationBySeriesId);
+        const activeNeedSort = needSortBySeriesId[seriesItem.id] ?? { key: "winSwing", direction: "desc" };
+        const sortedNeedRows = sortNeedRows(needRows, activeNeedSort);
         const rootingContext = buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId, branchSimulationBySeriesId);
         const simulationRows = buildSimulationSwingRows(seriesItem, branchSimulationBySeriesId, currentUserId);
         const poolImpactStats = poolImpactBySeriesId[seriesItem.id] ?? buildPoolImpactStats(seriesItem, memberList, branchSimulationBySeriesId, currentUserId);
         const poolImpactRank = poolImpactRankBySeriesId[seriesItem.id] ?? todaySeries.length;
         const overviewRows = buildGameOverviewRows(
           seriesItem,
+          game,
           simulationRows,
           poolImpactStats,
           poolImpactRank,
           todaySeries.length
         );
         const poolImpactNote = buildPoolImpactNote(seriesItem, needRows, poolImpactStats, poolImpactRank, todaySeries.length);
-        const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
-        const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
+        const gameHomeAbbr = game.homeAbbreviation ?? seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
+        const gameAwayAbbr = game.awayAbbreviation ?? seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
         const analysisAnchorId = `analysis-${seriesItem.id}`;
 
         return (
@@ -1380,7 +1654,7 @@ function TodayBoardImplicationsReport({
             <div className="panel-header">
               <div>
                 <span className="micro-label">Today at {formatTipTime(game.tipAt)}</span>
-                <h3>{awayAbbr} at {homeAbbr}</h3>
+                <h3>{gameAwayAbbr} at {gameHomeAbbr}</h3>
                 <p className="subtle">{formatSeriesStatus(seriesItem)}</p>
               </div>
             </div>
@@ -1464,12 +1738,30 @@ function TodayBoardImplicationsReport({
                   <div className="leaderboard-table nba-dashboard-leaderboard-table">
                     <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "minmax(0,1.2fr) 0.7fr 0.5fr 0.7fr 0.7fr" }}>
                       <span>Player</span>
-                      <span>Side</span>
+                      <button
+                        type="button"
+                        className="nba-inline-sort"
+                        onClick={() => setNeedSortBySeriesId((current) => ({
+                          ...current,
+                          [seriesItem.id]: nextScenarioSortState(current[seriesItem.id] ?? { key: "winSwing", direction: "desc" }, "preferred", "asc"),
+                        }))}
+                      >
+                        {renderScenarioSortLabel(activeNeedSort, "preferred", "Side")}
+                      </button>
                       <span>Gap</span>
-                      <span>Swing</span>
+                      <button
+                        type="button"
+                        className="nba-inline-sort"
+                        onClick={() => setNeedSortBySeriesId((current) => ({
+                          ...current,
+                          [seriesItem.id]: nextScenarioSortState(current[seriesItem.id] ?? { key: "winSwing", direction: "desc" }, "winSwing", "desc"),
+                        }))}
+                      >
+                        {renderScenarioSortLabel(activeNeedSort, "winSwing", "Swing")}
+                      </button>
                       <span>Need</span>
                     </div>
-                    {needRows.map((row) => (
+                    {sortedNeedRows.map((row) => (
                       <div className={`leaderboard-row nba-dashboard-leaderboard-row ${row.id === currentUserId ? "is-current" : ""}`} key={`${seriesItem.id}-${row.id}`} style={{ gridTemplateColumns: "minmax(0,1.2fr) 0.7fr 0.5fr 0.7fr 0.7fr" }}>
                         <span>{row.name}</span>
                         <span>{row.preferred}</span>
@@ -1492,21 +1784,44 @@ function TodayBoardImplicationsReport({
             <span className="micro-label">Tomorrow morning scenarios</span>
             <h3>How the room looks if today breaks different ways</h3>
           </div>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+            <label className="micro-label" htmlFor="scenario-perspective-select">Perspective</label>
+            <select
+              id="scenario-perspective-select"
+              className="input"
+              value={scenarioPerspectiveMember?.id ?? ""}
+              onChange={(event) => setScenarioPerspectiveId(event.target.value)}
+            >
+              {memberList.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {buildPerspectiveName(member, currentUserId)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="leaderboard-table nba-dashboard-leaderboard-table">
           <div className="leaderboard-head nba-dashboard-leaderboard-head" style={{ gridTemplateColumns: "1.4fr 0.5fr 0.5fr 0.6fr 1.6fr" }}>
-            <span>Winners</span>
-            <span>Your place</span>
-            <span>Your pts</span>
-            <span>Win%</span>
+            <button type="button" className="nba-inline-sort" onClick={() => setScenarioSort((current) => nextScenarioSortState(current, "label", "asc"))}>
+              {renderScenarioSortLabel(scenarioSort, "label", "Winners")}
+            </button>
+            <button type="button" className="nba-inline-sort" onClick={() => setScenarioSort((current) => nextScenarioSortState(current, "place", "asc"))}>
+              {renderScenarioSortLabel(scenarioSort, "place", `${scenarioPerspectiveLabel} place`)}
+            </button>
+            <button type="button" className="nba-inline-sort" onClick={() => setScenarioSort((current) => nextScenarioSortState(current, "points", "desc"))}>
+              {renderScenarioSortLabel(scenarioSort, "points", `${scenarioPerspectiveLabel} pts`)}
+            </button>
+            <button type="button" className="nba-inline-sort" onClick={() => setScenarioSort((current) => nextScenarioSortState(current, "winProb", "desc"))}>
+              {renderScenarioSortLabel(scenarioSort, "winProb", `${scenarioPerspectiveLabel} win%`)}
+            </button>
             <span>Projected top three</span>
           </div>
-          {tomorrowScenarioRows.map((row) => (
+          {sortedTomorrowScenarioRows.map((row) => (
             <div className="leaderboard-row nba-dashboard-leaderboard-row" key={row.key} style={{ gridTemplateColumns: "1.4fr 0.5fr 0.5fr 0.6fr 1.6fr" }}>
               <span>{row.label}</span>
-              <span>{row.yourPlace ? ordinal(row.yourPlace) : "—"}</span>
-              <span>{row.yourPoints}</span>
-              <span>{row.yourWinProb}%</span>
+              <span>{row.perspectivePlace ? ordinal(row.perspectivePlace) : "—"}</span>
+              <span>{row.perspectivePoints}</span>
+              <span>{row.perspectiveWinProb}%</span>
               <span>{row.leaders.join(" · ")}</span>
             </div>
           ))}

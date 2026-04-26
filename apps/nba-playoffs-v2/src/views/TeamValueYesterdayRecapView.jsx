@@ -12,6 +12,27 @@ import {
 } from "../lib/teamValuePreview";
 import { buildTeamValueStandings } from "../lib/teamValueStandings";
 
+function hashSeed(...parts) {
+  return parts
+    .filter(Boolean)
+    .join("|")
+    .split("")
+    .reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 1), 0);
+}
+
+function chooseVariant(options, ...seedParts) {
+  if (!options.length) return "";
+  return options[hashSeed(...seedParts) % options.length];
+}
+
+function subjectPronoun(name) {
+  return name === "You" ? "you" : name;
+}
+
+function subjectHas(name) {
+  return name === "You" ? "have" : "has";
+}
+
 function samePair(seriesItem, game) {
   const seriesTeams = [seriesItem.homeTeam?.id ?? seriesItem.homeTeamId, seriesItem.awayTeam?.id ?? seriesItem.awayTeamId].sort().join("|");
   const gameTeams = [game.homeTeamId, game.awayTeamId].sort().join("|");
@@ -50,7 +71,8 @@ function formatTipTime(tipAt) {
 
 function formatSeriesStatus(seriesItem) {
   const { homeId, awayId, homeAbbr, awayAbbr } = getSeriesTeamIds(seriesItem);
-  const conference = seriesItem.conference === "west" ? "West" : "East";
+  const conferenceKey = String(seriesItem.conference ?? "").toLowerCase();
+  const conference = conferenceKey === "west" ? "West" : conferenceKey === "league" ? "League" : "East";
   const roundLabel = seriesItem.roundKey === "round_1" ? "1st Round" : "Playoff";
   const homeWins = Number(seriesItem.wins?.home ?? 0);
   const awayWins = Number(seriesItem.wins?.away ?? 0);
@@ -177,7 +199,125 @@ function teamShortName(team, fallback) {
   return team?.city ?? team?.abbreviation ?? fallback ?? "that team";
 }
 
-function getSeriesChance(seriesItem, teamId, nextGame = null) {
+function resolveTeamGameWinPct(seriesItem, teamId, referenceGame = null) {
+  const { homeId, awayId } = getSeriesTeamIds(seriesItem);
+  if (referenceGame) {
+    if (teamId === referenceGame.homeTeamId) return Number(referenceGame.marketHomeWinPct ?? referenceGame.homeWinPct ?? null);
+    if (teamId === referenceGame.awayTeamId) return Number(referenceGame.marketAwayWinPct ?? referenceGame.awayWinPct ?? null);
+  }
+  if (teamId === homeId) return Number(seriesItem.market?.homeWinPct ?? null);
+  if (teamId === awayId) return Number(seriesItem.market?.awayWinPct ?? null);
+  return null;
+}
+
+function resolveSeriesMarketPct(seriesItem, teamId) {
+  const { homeId, awayId } = getSeriesTeamIds(seriesItem);
+  if (teamId === homeId) return Number(seriesItem.market?.homeWinPct ?? null);
+  if (teamId === awayId) return Number(seriesItem.market?.awayWinPct ?? null);
+  return null;
+}
+
+function computeSeriesWinProbabilityFromGamePct(teamWins, opponentWins, teamGamePct) {
+  if (!Number.isFinite(teamWins) || !Number.isFinite(opponentWins)) return null;
+  if (teamWins >= 4) return 100;
+  if (opponentWins >= 4) return 0;
+
+  const probability = Math.max(0.05, Math.min(0.95, Number(teamGamePct ?? 50) / 100));
+  const teamNeeded = 4 - teamWins;
+  const opponentNeeded = 4 - opponentWins;
+  let seriesWinProbability = 0;
+
+  for (let remainingGames = teamNeeded; remainingGames <= teamNeeded + opponentNeeded - 1; remainingGames += 1) {
+    const opponentWinsBeforeClincher = remainingGames - teamNeeded;
+    if (opponentWinsBeforeClincher < 0 || opponentWinsBeforeClincher >= opponentNeeded) continue;
+    seriesWinProbability +=
+      combination(remainingGames - 1, teamNeeded - 1) *
+      probability ** teamNeeded *
+      (1 - probability) ** opponentWinsBeforeClincher;
+  }
+
+  return Math.max(1, Math.min(99, Math.round(seriesWinProbability * 100)));
+}
+
+function inferGameWinPctFromSeriesOdds(teamWins, opponentWins, targetSeriesPct) {
+  const target = Number(targetSeriesPct);
+  if (!Number.isFinite(target)) return null;
+  const normalizedTarget = Math.max(0.01, Math.min(0.99, target / 100));
+  let low = 0.05;
+  let high = 0.95;
+
+  for (let index = 0; index < 30; index += 1) {
+    const mid = (low + high) / 2;
+    const midSeriesPct = computeSeriesWinProbabilityFromGamePct(teamWins, opponentWins, mid * 100) / 100;
+    if (midSeriesPct < normalizedTarget) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  return ((low + high) / 2) * 100;
+}
+
+function probabilityToLogit(probabilityPct) {
+  const probability = Math.max(0.01, Math.min(0.99, Number(probabilityPct ?? 50) / 100));
+  return Math.log(probability / (1 - probability));
+}
+
+function logitToProbability(logit) {
+  const odds = Math.exp(logit);
+  return (odds / (1 + odds)) * 100;
+}
+
+function buildRemainingVenueSequence(homeWins, awayWins) {
+  const schedule = [true, true, false, false, true, false, true];
+  const nextGameIndex = Math.max(0, Math.min(schedule.length, homeWins + awayWins));
+  return schedule.slice(nextGameIndex);
+}
+
+function computeSeriesWinProbabilityWithSchedule(homeWins, awayWins, homeGameProbabilities, index = 0) {
+  if (homeWins >= 4) return 1;
+  if (awayWins >= 4) return 0;
+  if (index >= homeGameProbabilities.length) return 0;
+
+  const probability = Math.max(0.01, Math.min(0.99, Number(homeGameProbabilities[index] ?? 50) / 100));
+  return (
+    probability * computeSeriesWinProbabilityWithSchedule(homeWins + 1, awayWins, homeGameProbabilities, index + 1) +
+    (1 - probability) * computeSeriesWinProbabilityWithSchedule(homeWins, awayWins + 1, homeGameProbabilities, index + 1)
+  );
+}
+
+function computeSeriesWinProbabilityFromSchedule(seriesItem, homeWins, awayWins, referenceGame = null) {
+  if (!referenceGame) return null;
+
+  const { homeId } = getSeriesTeamIds(seriesItem);
+  const marketSeriesHomePct =
+    homeId === referenceGame.homeTeamId
+      ? Number(referenceGame.marketHomeWinPct ?? null)
+      : homeId === referenceGame.awayTeamId
+        ? Number(referenceGame.marketAwayWinPct ?? null)
+        : null;
+  if (!Number.isFinite(marketSeriesHomePct)) return null;
+
+  const seriesHomeIsCurrentVenueHome = homeId === referenceGame.homeTeamId;
+  const homeCourtLogitEdge = 0.28;
+  const currentLogit = probabilityToLogit(marketSeriesHomePct);
+  const neutralLogit = currentLogit - (seriesHomeIsCurrentVenueHome ? homeCourtLogitEdge : -homeCourtLogitEdge);
+  const remainingVenueSequence = buildRemainingVenueSequence(homeWins, awayWins);
+  const homeGameProbabilities = remainingVenueSequence.map((seriesHomeVenue) =>
+    logitToProbability(neutralLogit + (seriesHomeVenue ? homeCourtLogitEdge : -homeCourtLogitEdge))
+  );
+
+  return Math.max(
+    1,
+    Math.min(
+      99,
+      Math.round(computeSeriesWinProbabilityWithSchedule(homeWins, awayWins, homeGameProbabilities) * 100)
+    )
+  );
+}
+
+function getSeriesChance(seriesItem, teamId, referenceGame = null) {
   const { homeId, awayId } = getSeriesTeamIds(seriesItem);
   const wins = {
     home: Number(seriesItem.wins?.home ?? 0),
@@ -189,31 +329,15 @@ function getSeriesChance(seriesItem, teamId, nextGame = null) {
   if (teamWins >= 4) return 100;
   if (opponentWins >= 4) return 0;
 
-  const nextGameTeamPct = nextGame
-    ? teamId === nextGame.homeTeamId
-      ? nextGame.homeWinPct
-      : teamId === nextGame.awayTeamId
-        ? nextGame.awayWinPct
-        : null
-    : null;
-  const marketTeamPct = teamId === homeId
-    ? Number(seriesItem.market?.homeTeamPct ?? seriesItem.market?.homeWinPct ?? 50)
-    : Number(seriesItem.market?.awayTeamPct ?? (100 - Number(seriesItem.market?.homeWinPct ?? 50)));
-  const perGamePct = Math.max(5, Math.min(95, Number(nextGameTeamPct ?? marketTeamPct ?? 50))) / 100;
-  const teamNeeded = 4 - teamWins;
-  const opponentNeeded = 4 - opponentWins;
-  let seriesWinProbability = 0;
-
-  for (let remainingGames = teamNeeded; remainingGames <= teamNeeded + opponentNeeded - 1; remainingGames += 1) {
-    const opponentWinsBeforeClincher = remainingGames - teamNeeded;
-    if (opponentWinsBeforeClincher < 0 || opponentWinsBeforeClincher >= opponentNeeded) continue;
-    seriesWinProbability +=
-      combination(remainingGames - 1, teamNeeded - 1) *
-      perGamePct ** teamNeeded *
-      (1 - perGamePct) ** opponentWinsBeforeClincher;
+  const scheduledHomeSeriesPct = computeSeriesWinProbabilityFromSchedule(seriesItem, wins.home, wins.away, referenceGame);
+  if (Number.isFinite(scheduledHomeSeriesPct)) {
+    return teamId === homeId ? scheduledHomeSeriesPct : Math.max(1, Math.min(99, Math.round(100 - scheduledHomeSeriesPct)));
   }
 
-  return Math.round(seriesWinProbability * 100);
+  const baselineSeriesPct = resolveSeriesMarketPct(seriesItem, teamId);
+  const inferredTeamGamePct = inferGameWinPctFromSeriesOdds(teamWins, opponentWins, baselineSeriesPct);
+  const teamGamePct = inferredTeamGamePct ?? resolveTeamGameWinPct(seriesItem, teamId, referenceGame);
+  return computeSeriesWinProbabilityFromGamePct(teamWins, opponentWins, teamGamePct);
 }
 
 function combination(n, k) {
@@ -224,6 +348,78 @@ function combination(n, k) {
     result = (result * (n - (k - index))) / index;
   }
   return result;
+}
+
+function buildRecapNarrativeState(pair, impactRows, userRow, userWinnerValue, averagePoints) {
+  const totalGames = Number(pair.seriesItem.wins?.home ?? 0) + Number(pair.seriesItem.wins?.away ?? 0);
+  const winnerId = getGameWinnerId(pair.game);
+  const { homeId, awayId } = getSeriesTeamIds(pair.seriesItem);
+  const winnerWins = winnerId === homeId
+    ? Number(pair.seriesItem.wins?.home ?? 0)
+    : winnerId === awayId
+      ? Number(pair.seriesItem.wins?.away ?? 0)
+      : 0;
+  const loserWins = winnerId === homeId
+    ? Number(pair.seriesItem.wins?.away ?? 0)
+    : winnerId === awayId
+      ? Number(pair.seriesItem.wins?.home ?? 0)
+      : 0;
+
+  const stage = winnerWins >= 4
+    ? "closed"
+    : winnerWins === 3 && loserWins <= 1
+      ? "door-slam"
+      : winnerWins === 3 && loserWins === 2
+        ? "brink"
+        : totalGames >= 4
+          ? "hinge"
+          : totalGames >= 2
+            ? "shape"
+            : "opening";
+
+  const roomHeat = averagePoints >= 12
+    ? "heavy"
+    : averagePoints >= 7
+      ? "meaningful"
+      : averagePoints >= 3
+        ? "moderate"
+        : "quiet";
+
+  const userEquityTier = Math.abs(Number(userRow?.placeDelta ?? 0)) >= 2 || Number(userWinnerValue ?? 0) >= 14
+    ? "major"
+    : Math.abs(Number(userRow?.placeDelta ?? 0)) === 1 || Number(userWinnerValue ?? 0) >= 8
+      ? "material"
+      : Number(userWinnerValue ?? 0) > 0
+        ? "light"
+        : "indirect";
+
+  const stageSentence = stage === "closed"
+    ? "This one did more than move a nightly scoreboard; it locked a full series result onto the board."
+    : stage === "door-slam"
+      ? "This result put one side right on top of the series, which is where the future-value part starts to matter more."
+      : stage === "brink"
+        ? "This result did not end the series, but it pushed the pressure hard onto the next tip."
+        : stage === "hinge"
+          ? "This is the part of a series where a single result starts bending both the room and the future path."
+          : stage === "shape"
+            ? "It is still early enough that one game does not decide everything, but late enough that the room starts taking shape around it."
+            : "This was still an opening read more than a definitive turn, so the value sits as much in what it set up as in what it finished.";
+
+  const roomSentence = roomHeat === "heavy"
+    ? "The room felt this one in a real way."
+    : roomHeat === "meaningful"
+      ? "This was a meaningful room mover, not just a quiet result on the ticker."
+      : roomHeat === "moderate"
+        ? "This landed as a moderate room nudge more than a full reshuffle."
+        : "This result was lighter at the pool level, with more texture than chaos.";
+
+  return {
+    stage,
+    roomHeat,
+    userEquityTier,
+    stageSentence,
+    roomSentence,
+  };
 }
 
 function buildMovementRows(previousStandings, currentStandings, currentUserId) {
@@ -295,6 +491,7 @@ function buildGameResultNarratives(pair, impactRows, currentUserId, allAssignmen
   const maxWinnerValue = winnerValues.length ? Math.max(...winnerValues) : 0;
   const usersAtMax = memberList.filter((member) => Number(allAssignmentsByUser?.[member.id]?.[winnerId] ?? 0) === maxWinnerValue);
   const userHasUniqueTopWinner = userWinnerValue > 0 && userWinnerValue === maxWinnerValue && usersAtMax.length === 1;
+  const narrativeState = buildRecapNarrativeState(pair, impactRows, userRow, userWinnerValue, averagePoints);
   const futureValueSentence = userHasUniqueTopWinner
     ? `You are the only synced board with ${winnerName} in the top slot, so the bigger value is not just yesterday's points; it is that every ${winnerShort} win protects a long-term advantage only you currently have.`
     : userWinnerValue >= 13
@@ -305,12 +502,24 @@ function buildGameResultNarratives(pair, impactRows, currentUserId, allAssignmen
 
   const userNarrative = userRow
     ? userRow.resultPoints > 0
-      ? `${winnerName} gave you ${userRow.resultPoints} points from this result. ${userRow.placeDelta > 0 ? `That was enough to move you up ${userRow.placeDelta} spot${userRow.placeDelta === 1 ? "" : "s"}.` : userRow.placeDelta < 0 ? `Even with those points, other boards got more from the same result and you slid ${Math.abs(userRow.placeDelta)} spot${Math.abs(userRow.placeDelta) === 1 ? "" : "s"}.` : "It did not change your place, but it did keep your board on pace in this series."} ${futureValueSentence}`
-      : `${winnerName} did not give your board direct points, so this result was mostly about damage control and field movement. ${userRow.placeDelta < 0 ? `You lost ${Math.abs(userRow.placeDelta)} spot${Math.abs(userRow.placeDelta) === 1 ? "" : "s"} because other boards had more tied to the winner.` : userRow.placeDelta > 0 ? `You still moved up ${userRow.placeDelta} spot${userRow.placeDelta === 1 ? "" : "s"}, which means the result hurt nearby boards even more than it hurt yours.` : "Your place held, which means the room did not create much separation from this one result."} ${futureValueSentence}`
+      ? chooseVariant([
+        `${winnerName} gave you ${userRow.resultPoints} points from this result. ${userRow.placeDelta > 0 ? `That was enough to move you up ${userRow.placeDelta} spot${userRow.placeDelta === 1 ? "" : "s"}.` : userRow.placeDelta < 0 ? `Even with those points, other boards got more from the same result and you slid ${Math.abs(userRow.placeDelta)} spot${Math.abs(userRow.placeDelta) === 1 ? "" : "s"}.` : "It did not change your place, but it did keep your board moving with the right side of the series."} ${narrativeState.stageSentence} ${futureValueSentence}`,
+        `You banked ${userRow.resultPoints} points when ${winnerShort} got home. ${userRow.placeDelta > 0 ? `That lifted you ${userRow.placeDelta} place${userRow.placeDelta === 1 ? "" : "s"} in the room.` : userRow.placeDelta < 0 ? `The catch is that the field collected even more, so you still dropped ${Math.abs(userRow.placeDelta)} place${Math.abs(userRow.placeDelta) === 1 ? "" : "s"}.` : "The standings line barely moved for you, but the asset still paid off."} ${narrativeState.stage === "closed" ? "Because the series result is now locked in, those points carry full weight immediately." : narrativeState.stageSentence} ${futureValueSentence}`,
+        `${winnerName} came through for your board to the tune of ${userRow.resultPoints} points. ${userRow.placeDelta > 0 ? `It translated directly into a ${userRow.placeDelta}-spot climb.` : userRow.placeDelta < 0 ? `It still was not enough to keep you from giving back ${Math.abs(userRow.placeDelta)} place${Math.abs(userRow.placeDelta) === 1 ? "" : "s"} to boards that were even heavier there.` : "Your place stayed put, which tells you this result mattered more for pace than for immediate separation."} ${narrativeState.userEquityTier === "major" ? "For your board, this was one of the higher-leverage results on the slate." : narrativeState.stageSentence} ${futureValueSentence}`,
+      ], pair.game.id, currentUserId, "recap-user-positive", narrativeState.stage, narrativeState.userEquityTier)
+      : chooseVariant([
+        `${winnerName} did not hand you direct points, so this result was more about room equity than scoreboard gain. ${userRow.placeDelta < 0 ? `You lost ${Math.abs(userRow.placeDelta)} spot${Math.abs(userRow.placeDelta) === 1 ? "" : "s"} because other boards had more tied to the winner.` : userRow.placeDelta > 0 ? `You still moved up ${userRow.placeDelta} spot${userRow.placeDelta === 1 ? "" : "s"}, which means the result clipped the boards around you even more than it clipped yours.` : "Your place held, which means the damage stayed contained."} ${narrativeState.stageSentence} ${futureValueSentence}`,
+        `There were no direct result points for you here, so the cleaner read is about who absorbed the outcome best. ${userRow.placeDelta < 0 ? `Nearby boards converted ${winnerShort} into enough leverage to push you back ${Math.abs(userRow.placeDelta)} place${Math.abs(userRow.placeDelta) === 1 ? "" : "s"}.` : userRow.placeDelta > 0 ? `You quietly gained ${userRow.placeDelta} place${userRow.placeDelta === 1 ? "" : "s"} anyway, which tells you the loss landed harder on the competition than on you.` : "The board stayed mostly level for you, which is a decent defensive result when you had no direct points on the winner."} ${futureValueSentence}`,
+        `${winnerName} was not sitting in a direct scoring slot for you. That made this one a leverage read first and a standings read second. ${userRow.placeDelta < 0 ? `The leverage broke against you, costing ${Math.abs(userRow.placeDelta)} place${Math.abs(userRow.placeDelta) === 1 ? "" : "s"}.` : userRow.placeDelta > 0 ? `The indirect impact still helped you climb ${userRow.placeDelta} place${userRow.placeDelta === 1 ? "" : "s"}.` : "The indirect room movement was mild enough that your place stayed unchanged."} ${narrativeState.stageSentence} ${futureValueSentence}`,
+      ], pair.game.id, currentUserId, "recap-user-zero", narrativeState.stage, narrativeState.userEquityTier)
     : `This result is readable at the pool level, but your board is not available in the synced movement rows.`;
 
   const poolNarrative = topPoints
-    ? `${winnerAbbr}-${loserAbbr} moved the room through ${winnerAbbr} exposure. ${topPoints.name} banked the biggest direct gain at ${topPoints.resultPoints} points, while ${climbers.length ? `${climbers.length} board${climbers.length === 1 ? "" : "s"} moved up the standings` : "the standings order mostly held"}. The average visible board gained ${averagePoints} points here, so this was ${averagePoints >= 10 ? "a real scoring event for the pool" : averagePoints >= 5 ? "a moderate room mover" : "more texture than earthquake"}${harmed.length ? `, with ${harmed.length} board${harmed.length === 1 ? "" : "s"} losing position despite the final.` : "."}`
+    ? chooseVariant([
+      `${winnerAbbr}-${loserAbbr} moved the room through ${winnerAbbr} exposure. ${topPoints.name} banked the biggest direct gain at ${topPoints.resultPoints} points, while ${climbers.length ? `${climbers.length} board${climbers.length === 1 ? "" : "s"} moved up the standings` : "the standings order mostly held"}. The average visible board gained ${averagePoints} points here. ${narrativeState.roomSentence}${harmed.length ? ` ${harmed.length} board${harmed.length === 1 ? "" : "s"} gave back position on the same final.` : ""}`,
+      `The room read on ${winnerAbbr}-${loserAbbr} was straightforward: boards carrying ${winnerAbbr} got paid. ${topPoints.name} saw the biggest single bump at ${topPoints.resultPoints} points, and ${climbers.length ? `${climbers.length} entry${climbers.length === 1 ? "" : "ies"} turned that into upward movement` : "the main order did not budge much"}. At ${averagePoints} points per visible board on average, this landed as ${narrativeState.roomHeat === "heavy" ? "one of the real movers on the slate" : narrativeState.roomHeat === "meaningful" ? "a meaningful room shift" : narrativeState.roomHeat === "moderate" ? "a moderate board shaper" : "a lighter result with selective fallout"}.`,
+      `${winnerAbbr} exposure was the story of this final. ${topPoints.name} took the biggest direct step at ${topPoints.resultPoints} points, while ${harmed.length ? `${harmed.length} board${harmed.length === 1 ? "" : "s"} lost standing ground` : "very few boards were meaningfully knocked back"}. ${narrativeState.roomSentence} ${narrativeState.stageSentence}`,
+    ], pair.game.id, topPoints.id, "recap-pool", narrativeState.stage, narrativeState.roomHeat)
     : `${homeAbbr}-${awayAbbr} did not create a clear direct-points separation across the room.`;
 
   return {
@@ -367,10 +576,22 @@ function buildNextGamePreview(pair, memberList, allAssignmentsByUser, series, pl
   return {
     title: `Next Game Preview`,
     userText: userDelta === 0
-      ? `With the victory, ${teamShortName(winnerTeam, winnerAbbrForTeam(winnerId, homeId, homeAbbr, awayAbbr))} now has ${formatPercentPhrase(seriesChance)} of taking the series. The next game looks close to neutral for your pool equity right now, so the more interesting read may be which other boards are exposed.`
-      : `With the victory, ${teamShortName(winnerTeam, winnerAbbrForTeam(winnerId, homeId, homeAbbr, awayAbbr))} now has ${formatPercentPhrase(seriesChance)} of taking the series. ${nextGamePct != null ? `The early ESPN read gives ${teamShortName(userSideTeam, userSide)} a ${nextGamePct}% chance in the next game.` : "The next-game market is not fully posted yet."} A ${userSide} result would have a ${userImpactLabel} impact on your pool path, moving you about ${Math.abs(userDelta).toFixed(1)} win-probability points compared with ${otherSide}.`,
+      ? chooseVariant([
+        `With the victory, ${teamShortName(winnerTeam, winnerAbbrForTeam(winnerId, homeId, homeAbbr, awayAbbr))} now has a ${formatPercentPhrase(seriesChance)} chance to take the series. The next game looks fairly neutral for your pool equity, so the better read is simply which boards are most exposed when the series turns back on.`,
+        `${teamShortName(winnerTeam, winnerAbbrForTeam(winnerId, homeId, homeAbbr, awayAbbr))} now sit at a ${formatPercentPhrase(seriesChance)} series outlook after the win. For your board, the next game still reads closer to room exposure than to a sharp personal swing.`,
+        `The win pushes ${teamShortName(winnerTeam, winnerAbbrForTeam(winnerId, homeId, homeAbbr, awayAbbr))} to a ${formatPercentPhrase(seriesChance)} chance to finish the series. From your angle, the next turn looks more watchful than decisive unless the room starts clustering harder on one side.`,
+      ], pair.seriesItem.id, currentUserId, "next-preview-neutral")
+      : chooseVariant([
+        `With the victory, ${teamShortName(winnerTeam, winnerAbbrForTeam(winnerId, homeId, homeAbbr, awayAbbr))} now has a ${formatPercentPhrase(seriesChance)} chance to take the series. ${nextGamePct != null ? `The early ESPN read gives ${teamShortName(userSideTeam, userSide)} a ${nextGamePct}% chance in the next game.` : `The next turn still looks more like an exposure game than a market game for your board.`} A ${userSide} result would have a ${userImpactLabel} impact on your pool path, moving you about ${Math.abs(userDelta).toFixed(1)} win-probability points compared with ${otherSide}.`,
+        `${teamShortName(winnerTeam, winnerAbbrForTeam(winnerId, homeId, homeAbbr, awayAbbr))} now carry a ${formatPercentPhrase(seriesChance)} chance to close the series after this result. ${nextGamePct != null ? `${teamShortName(userSideTeam, userSide)} open the next game at ${nextGamePct}% on the ESPN read.` : `The next game still looks more exposure-driven than market-driven for your board.`} If ${userSide} take the next one, your pool path gets a ${userImpactLabel} bump of roughly ${Math.abs(userDelta).toFixed(1)} win-probability points compared with ${otherSide}.`,
+        `The result leaves ${teamShortName(winnerTeam, winnerAbbrForTeam(winnerId, homeId, homeAbbr, awayAbbr))} at a ${formatPercentPhrase(seriesChance)} chance to win the series. ${nextGamePct != null ? `ESPN's early read makes ${teamShortName(userSideTeam, userSide)} a ${nextGamePct}% side in the next game.` : `For now, the next read is still more about who is exposed than about a fresh market edge.`} For your board, a ${userSide} win next time would shift the pool picture by about ${Math.abs(userDelta).toFixed(1)} win-probability points versus ${otherSide}.`,
+      ], pair.seriesItem.id, currentUserId, "next-preview-leaning"),
     poolText: bestRows.length
-      ? `${topName} would see the single biggest bump if ${topRow.side} wins, with a ${topRow.swing.toFixed(1)}-point swing. The broader pressure cluster is ${bestRows.map((row) => `${row.name} toward ${row.side}`).join(" · ")}, which is the lane tomorrow's Briefing should unpack.`
+      ? chooseVariant([
+        `${subjectPronoun(topName)} would see the single biggest bump if ${topRow.side} wins, with a ${topRow.swing.toFixed(1)}-point swing. The broader pressure cluster is ${bestRows.map((row) => `${row.name} toward ${row.side}`).join(" · ")}, which is the lane tomorrow's Briefing should unpack.`,
+        `The strongest room reaction belongs to ${subjectPronoun(topName)}, who would gain ${topRow.swing.toFixed(1)} points of pool equity if ${topRow.side} land. Behind that, the live pressure map is ${bestRows.map((row) => `${row.name} on ${row.side}`).join(" · ")}.`,
+        `At the pool level, ${subjectPronoun(topName)} ${subjectHas(topName)} the cleanest next-game upside on ${topRow.side}, worth ${topRow.swing.toFixed(1)} points. The broader room shape is ${bestRows.map((row) => `${row.name} toward ${row.side}`).join(" · ")}, which is where tomorrow's briefing should start.`,
+      ], pair.seriesItem.id, currentUserId, "next-preview-pool")
       : "The next game is not showing a clear room pressure point yet.",
   };
 }
@@ -388,10 +609,18 @@ function buildRecapNarratives(movementRows, currentUserId, isTodayRecap = false)
 
   return {
     user: userRow
-      ? `You ${isTodayRecap ? "are sitting" : "finished the day"} ${ordinal(userRow.currentPlace)}, with ${signedNumber(userRow.pointsDelta, " pts")} from ${dayLabel}'s completed games and ${signedNumber(userRow.winDelta, " pts")} of pool-win movement. The clean read: ${finishedLabel} ${userRow.placeDelta > 0 ? "moved you up the board" : userRow.placeDelta < 0 ? "cost you position" : "mostly held your position"}, but the simulation movement matters more than the raw place line.`
+      ? chooseVariant([
+        `You ${isTodayRecap ? "are sitting" : "finished the day"} ${ordinal(userRow.currentPlace)}, with ${signedNumber(userRow.pointsDelta, " pts")} from ${dayLabel}'s completed games and ${signedNumber(userRow.winDelta, " pts")} of pool-win movement. The simpler read: ${finishedLabel} ${userRow.placeDelta > 0 ? "moved you up the board" : userRow.placeDelta < 0 ? "cost you position" : "mostly held your position"}, though the simulation shift still says more than the raw place line does.`,
+        `${isTodayRecap ? "Right now you sit" : "You closed the day"} ${ordinal(userRow.currentPlace)}, after ${signedNumber(userRow.pointsDelta, " pts")} from ${dayLabel}'s finals and ${signedNumber(userRow.winDelta, " pts")} of pool-equity movement. In plain terms, ${finishedLabel} ${userRow.placeDelta > 0 ? "helped you climb" : userRow.placeDelta < 0 ? "nudged you backward" : "left your spot mostly unchanged"}, even if the deeper simulation signal matters more than the raw standings line.`,
+        `${isTodayRecap ? "At the moment you are" : "You ended the slate"} ${ordinal(userRow.currentPlace)}, with ${signedNumber(userRow.pointsDelta, " pts")} on the board and ${signedNumber(userRow.winDelta, " pts")} of win-probability movement. The scoreboard view says ${finishedLabel} ${userRow.placeDelta > 0 ? "was a gain" : userRow.placeDelta < 0 ? "cost you ground" : "was mostly steady"}; the simulation view explains whether that movement really changed your outlook.`,
+      ], currentUserId, dayLabel, "recap-user")
       : "Your board is not synced into this pool read yet, so the recap can summarize the room but cannot give a reliable personal movement read.",
     pool: biggestClimber
-      ? `${biggestClimber.name} had the clearest standings move, while ${biggestWinProb?.name ?? biggestClimber.name} gained the most pool equity. The room shifted less like a simple leaderboard shuffle and more like a leverage map: the same final scores helped some boards bank points while opening or closing future paths for others.`
+      ? chooseVariant([
+        `${biggestClimber.name} had the clearest standings move, while ${biggestWinProb?.name ?? biggestClimber.name} gained the most pool equity. The room shifted less like a simple leaderboard shuffle and more like a leverage map: the same final scores helped some boards bank points while opening or closing future paths for others.`,
+        `${biggestClimber.name} made the clearest visible climb, and ${biggestWinProb?.name ?? biggestClimber.name} picked up the biggest win-probability bump. The broader room story was not just points; it was which boards turned those finals into future leverage.`,
+        `The cleanest room mover was ${biggestClimber.name}, while ${biggestWinProb?.name ?? biggestClimber.name} saw the strongest equity gain. More than anything, ${dayLabel}'s results reshaped the pool unevenly: some entries banked safe points, others quietly improved their long-range paths.`,
+      ], biggestClimber.id, biggestWinProb?.id, dayLabel, "recap-pool")
       : "Yesterday did not create enough movement to separate the room in a meaningful way.",
   };
 }

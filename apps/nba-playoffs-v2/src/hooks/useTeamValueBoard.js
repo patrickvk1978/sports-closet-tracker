@@ -225,7 +225,7 @@ export function useTeamValueBoard(teamEntries) {
         channelRef.current = null;
       }
     };
-  }, [aliasMap, currentUserId, memberList, pool?.id, teamEntries, teamIds, teamKey]);
+  }, [aliasMap, currentUserId, memberList, pool?.id, teamKey]);
 
   const currentAssignments = currentUserId ? assignmentsByUser[currentUserId] ?? {} : {};
 
