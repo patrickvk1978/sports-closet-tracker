@@ -6,7 +6,7 @@ import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
 import { useEspnTodayGames } from "../hooks/useEspnTodayGames";
 import { getDisplayRankFromValue } from "../lib/teamValueGame";
-import { buildExactResultProbabilities, buildSeriesScoringPathMatrix, buildTeamSelectionRows, buildTeamValueBranchMonteCarlo, buildTeamValueScenarioMonteCarlo, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
+import { buildExactResultProbabilities, buildSeriesScoringPathMatrix, buildTeamSelectionRows, buildTeamValueBranchMonteCarlo, buildTeamValueScenarioMonteCarlo, buildTeamValueStandingsWithMonteCarlo, getRoundOneTeamsFromData } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
 import { buildTeamValueStandings } from "../lib/teamValueStandings";
 import { getTeamPalette } from "../../../../packages/shared/src/themes/teamColorBanks.js";
@@ -582,17 +582,56 @@ function cloneSeriesWithSingleWinner(series, winnerId) {
   };
 }
 
-function buildScenarioStandings(memberList, allAssignmentsByUser, series, winnersBySeriesId) {
-  const simulatedSeries = series.map((seriesItem) => {
+function getGameWinnerId(game) {
+  const homeScore = Number(game?.homeScore ?? 0);
+  const awayScore = Number(game?.awayScore ?? 0);
+  if (!game || homeScore === awayScore) return null;
+  return homeScore > awayScore ? game.homeTeamId : game.awayTeamId;
+}
+
+function buildStartOfDaySeries(series, todayEntries) {
+  const completedWinnersBySeriesId = Object.fromEntries(
+    todayEntries
+      .filter(({ game }) => game?.status === "completed")
+      .map(({ game, seriesItem }) => [seriesItem.id, getGameWinnerId(game)])
+      .filter(([, winnerId]) => winnerId)
+  );
+
+  return series.map((seriesItem) => {
+    const winnerId = completedWinnersBySeriesId[seriesItem.id];
+    if (!winnerId) return seriesItem;
+
+    const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+    const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+    const wins = {
+      home: Number(seriesItem.wins?.home ?? 0),
+      away: Number(seriesItem.wins?.away ?? 0),
+    };
+
+    if (winnerId === homeId) wins.home = Math.max(0, wins.home - 1);
+    if (winnerId === awayId) wins.away = Math.max(0, wins.away - 1);
+
+    return {
+      ...seriesItem,
+      wins,
+      homeWins: wins.home,
+      awayWins: wins.away,
+      status: "scheduled",
+      winnerTeamId: null,
+    };
+  });
+}
+
+function buildScenarioSeries(series, winnersBySeriesId) {
+  return series.map((seriesItem) => {
     const winnerId = winnersBySeriesId[seriesItem.id];
     return winnerId ? cloneSeriesWithSingleWinner(seriesItem, winnerId) : seriesItem;
   });
-  return buildTeamValueStandings(memberList, allAssignmentsByUser, simulatedSeries);
 }
 
-function buildTomorrowScenarioRows(todaySeries, memberList, allAssignmentsByUser, allSeries, currentUserId, selectionRows) {
-  if (!todaySeries.length) return [];
-  const options = todaySeries.map((seriesItem) => {
+function buildTomorrowScenarioRows(todayEntries, memberList, allAssignmentsByUser, allSeries, currentUserId, simulationTeamEntries) {
+  if (!todayEntries.length) return [];
+  const options = todayEntries.map(({ game, seriesItem }) => {
     const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
     const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
     return [
@@ -615,25 +654,25 @@ function buildTomorrowScenarioRows(todaySeries, memberList, allAssignmentsByUser
   }
   walk(0, []);
 
+  const startOfDaySeries = buildStartOfDaySeries(allSeries, todayEntries);
+
   return combinations.map((combo) => {
-    const winnersBySeriesId = Object.fromEntries(combo.map((entry) => [entry.seriesId, entry.winnerId]));
-    const standings = buildScenarioStandings(memberList, allAssignmentsByUser, allSeries, winnersBySeriesId);
-    const currentMember = standings.find((entry) => entry.id === currentUserId) ?? null;
-    const simulatedMembers = buildTeamValueScenarioMonteCarlo(
+    const winnersBySeriesId = Object.fromEntries(combo.filter((entry) => entry.winnerId).map((entry) => [entry.seriesId, entry.winnerId]));
+    const scenarioSeries = buildScenarioSeries(startOfDaySeries, winnersBySeriesId);
+    const standings = buildTeamValueStandingsWithMonteCarlo(
       memberList,
       allAssignmentsByUser,
-      allSeries,
-      selectionRows,
-      winnersBySeriesId,
-      combo.map((entry) => `${entry.seriesId}:${entry.winnerId}`).join("|")
+      scenarioSeries,
+      simulationTeamEntries
     );
+    const currentMember = standings.find((entry) => entry.id === currentUserId) ?? null;
     const leaders = standings.slice(0, 3).map((entry) => `${formatMemberName(entry, currentUserId)} ${entry.summary.totalPoints}`);
     return {
       key: combo.map((entry) => entry.label).join("-"),
       label: combo.map((entry) => entry.label).join(", "),
       yourPlace: currentMember?.place ?? null,
       yourPoints: currentMember?.summary.totalPoints ?? 0,
-      yourWinProb: simulatedMembers?.[currentUserId]?.winProbability ?? currentMember?.winProbability ?? 0,
+      yourWinProb: currentMember?.winProbability ?? 0,
       leaders,
     };
   });
@@ -1269,7 +1308,7 @@ function TodayBoardImplicationsReport({
   }, [todayGames, series, implicationById, now]);
 
   const tomorrowScenarioRows = useMemo(
-    () => buildTomorrowScenarioRows(todaySeries.map((entry) => entry.seriesItem), memberList, allAssignmentsByUser, series, currentUserId, simulationTeamEntries),
+    () => buildTomorrowScenarioRows(todaySeries, memberList, allAssignmentsByUser, series, currentUserId, simulationTeamEntries),
     [todaySeries, memberList, allAssignmentsByUser, series, currentUserId, simulationTeamEntries]
   );
   const branchSimulationBySeriesId = useMemo(
