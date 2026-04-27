@@ -1010,7 +1010,7 @@ function computeSeriesWinProbabilityFromSchedule(seriesItem, homeWins, awayWins,
   if (!Number.isFinite(marketSeriesHomePct)) return null;
 
   const seriesHomeIsCurrentVenueHome = seriesHomeId === referenceGame.homeTeamId;
-  const homeCourtLogitEdge = 0.28;
+  const homeCourtLogitEdge = 0.68;
   const currentLogit = probabilityToLogit(marketSeriesHomePct);
   const neutralLogit = currentLogit - (seriesHomeIsCurrentVenueHome ? homeCourtLogitEdge : -homeCourtLogitEdge);
   const remainingVenueSequence = buildRemainingVenueSequence(homeWins, awayWins);
