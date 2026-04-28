@@ -883,7 +883,9 @@ function buildSeriesWinLabel(seriesItem, forcedWinnerId = null, referenceGame = 
     const scheduledAwaySeriesPct = Math.max(1, Math.min(99, Math.round(100 - scheduledHomeSeriesPct)));
     const leaderAbbr = scheduledHomeSeriesPct >= scheduledAwaySeriesPct ? homeAbbr : awayAbbr;
     const leaderPct = scheduledHomeSeriesPct >= scheduledAwaySeriesPct ? scheduledHomeSeriesPct : scheduledAwaySeriesPct;
-    return `${leaderAbbr} ${Math.round(leaderPct)}%`;
+    if (forcedWinnerId !== null || !hasLiveSeriesMarket(seriesItem)) {
+      return `${leaderAbbr} ${Math.round(leaderPct)}%`;
+    }
   }
 
   const baselineHomeSeriesPct = resolveSeriesMarketPct(seriesItem, homeId);
@@ -912,6 +914,18 @@ function resolveSeriesMarketPct(seriesItem, teamId) {
   if (teamId === homeId) return Number(seriesItem.market?.homeWinPct ?? null);
   if (teamId === awayId) return Number(seriesItem.market?.awayWinPct ?? null);
   return null;
+}
+
+function hasLiveSeriesMarket(seriesItem) {
+  const sourceName = String(seriesItem?.market?.sourceName ?? "").toLowerCase();
+  if (!sourceName) return false;
+  return !(
+    sourceName.includes("static") ||
+    sourceName.includes("provisional") ||
+    sourceName.includes("future_round_estimate") ||
+    sourceName.includes("post_playin_estimate") ||
+    sourceName.includes("completed_playin")
+  );
 }
 
 function resolveTeamGameWinPct(seriesItem, teamId, referenceGame = null) {
@@ -1037,9 +1051,10 @@ function buildGameOverviewRows(seriesItem, game, simulationRows, poolImpactStats
   const userSwing = homeRow?.winProbability != null && awayRow?.winProbability != null
     ? Math.abs(Number(homeRow.winProbability) - Number(awayRow.winProbability))
     : 0;
+  const currentSeriesLabel = hasLiveSeriesMarket(seriesItem) ? "Current series" : "Estimated series";
 
   return [
-    { label: "Current series", value: buildSeriesWinLabel(seriesItem, null, game) },
+    { label: currentSeriesLabel, value: buildSeriesWinLabel(seriesItem, null, game) },
     { label: `${homeAbbr} wins game`, value: buildSeriesWinLabel(seriesItem, homeId, game) },
     { label: `${awayAbbr} wins game`, value: buildSeriesWinLabel(seriesItem, awayId, game) },
     { label: "Your impact", value: `${impactLabel(userSwing)} · ${userSwing.toFixed(1)} pts` },
