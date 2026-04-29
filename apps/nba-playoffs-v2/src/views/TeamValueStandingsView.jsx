@@ -224,7 +224,19 @@ export default function TeamValueStandingsView() {
 
   return (
     <div className="nba-shell">
-      <Link className="back-link" to="/dashboard">← Back to Dashboard</Link>
+      <div className="nba-standings-top-rail">
+        <Link className="back-link" to="/dashboard">← Back to Dashboard</Link>
+        {phase === "post_lock" ? (
+          <div className="nba-standings-nav-actions">
+            <Link className="secondary-button standings-nav-button standings-nav-button-dark" to="/board-matrix">
+              Picks Matrix
+            </Link>
+            <Link className="secondary-button standings-nav-button standings-nav-button-orange" to="/reports/board-implications">
+              Today's Briefing
+            </Link>
+          </div>
+        ) : null}
+      </div>
       {phase === "pre_lock" ? (
         <section className="panel">
           <div className="panel-header">
@@ -294,75 +306,8 @@ export default function TeamValueStandingsView() {
         </section>
       ) : (
         <section className="panel">
-          <div className="panel-header">
-            <div>
-              <span className="label">Leaderboard</span>
-              <h2>Live standings after lock</h2>
-            </div>
-            <div className="nba-report-actions">
-              <Link className="secondary-button" to="/board-matrix">
-                Picks Matrix
-              </Link>
-              <Link className="secondary-button" to="/reports/board-implications">
-                Today's Briefing
-              </Link>
-            </div>
-          </div>
-
           {hasSyncedBoards ? (
             <>
-              {currentUserAudit ? (
-                <div className="nba-baseline-audit-card">
-                  <div>
-                    <span className="micro-label">Model check</span>
-                    <h3>
-                      You started at {currentUserAudit.baselineWinProbability}% and are now at{" "}
-                      {currentUserAudit.winProbability}%.
-                    </h3>
-                    <p>
-                      The model had you {currentUserAudit.baselineRank ? ordinal(currentUserAudit.baselineRank) : "in the room"} at lock.
-                      Your top slots were {currentUserAudit.topSlots || "N/A"}. {currentUserAudit.reasonBody}
-                    </p>
-                  </div>
-                  <div className="nba-baseline-audit-metrics">
-                    <div>
-                      <span>Title core vs room</span>
-                      <strong>{formatSigned(currentUserAudit.titleCoreDelta)}</strong>
-                    </div>
-                    <div>
-                      <span>Best leverage</span>
-                      <strong>
-                        {currentUserAudit.bestLeverage
-                          ? `${currentUserAudit.bestLeverage.abbreviation} ${formatSigned(currentUserAudit.bestLeverage.roomGap)}`
-                          : "N/A"}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="nba-baseline-audit-table-shell">
-                <div className="nba-baseline-audit-table-head">
-                  <span>Start</span>
-                  <span>Player</span>
-                  <span>Start Win%</span>
-                  <span>Now</span>
-                  <span>Model read</span>
-                </div>
-                {baselineAuditRows.map((member) => (
-                  <div className={member.isCurrentUser ? "nba-baseline-audit-row is-current-user" : "nba-baseline-audit-row"} key={member.id}>
-                    <span>{member.baselineRank}</span>
-                    <strong>{member.isCurrentUser ? "You" : member.displayName ?? member.name}</strong>
-                    <span>{member.baselineWinProbability}%</span>
-                    <span className="nba-baseline-audit-now">
-                      {member.winProbability}% ({member.winProbabilityDelta > 0 ? "+" : ""}
-                      {member.winProbabilityDelta} pts)
-                    </span>
-                    <span>{member.reason}</span>
-                  </div>
-                ))}
-              </div>
-
               <div className="nba-standings-table-shell">
                 <table className="nba-standings-table-expanded">
                   <thead>
@@ -396,7 +341,6 @@ export default function TeamValueStandingsView() {
                                 <span className="tooltip-bubble">Boards unlock for everyone after {lockAtDisplay}</span>
                               </span>
                             )}
-                            <span>{member.isCurrentUser ? "You" : "Pool entry"}</span>
                           </div>
                         </td>
                         <td>{member.summary.totalPoints}</td>
@@ -423,9 +367,61 @@ export default function TeamValueStandingsView() {
                 </table>
               </div>
 
+              {currentUserAudit ? (
+                <div className="nba-baseline-audit-card">
+                  <div>
+                    <span className="micro-label">Model check</span>
+                    <h3>
+                      You started at {currentUserAudit.baselineWinProbability}% and are now at{" "}
+                      {currentUserAudit.winProbability}%.
+                    </h3>
+                    <p>
+                      The model had you {currentUserAudit.baselineRank ? ordinal(currentUserAudit.baselineRank) : "in the room"} at lock.
+                      Your top slots were {currentUserAudit.topSlots || "N/A"}. {currentUserAudit.reasonBody}
+                    </p>
+                  </div>
+                  <div className="nba-baseline-audit-metrics">
+                    <div>
+                      <span>Title core vs room</span>
+                      <strong>{formatSigned(currentUserAudit.titleCoreDelta)}</strong>
+                    </div>
+                    <div>
+                      <span>Best leverage</span>
+                      <strong>
+                        {currentUserAudit.bestLeverage
+                          ? `${currentUserAudit.bestLeverage.abbreviation} ${formatSigned(currentUserAudit.bestLeverage.roomGap)}`
+                          : "N/A"}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="detail-card inset-card">
                 <span className="micro-label">How points are showing up already</span>
                 <p>Teams score their board value for every playoff win, then add a rank-scaled bonus when they win a series. That means every game can move the standings, and later rounds still carry bigger advancement swings.</p>
+              </div>
+
+              <div className="nba-baseline-audit-table-shell">
+                <div className="nba-baseline-audit-table-head">
+                  <span>Start</span>
+                  <span>Player</span>
+                  <span>Start Win%</span>
+                  <span>Now</span>
+                  <span>Model read</span>
+                </div>
+                {baselineAuditRows.map((member) => (
+                  <div className={member.isCurrentUser ? "nba-baseline-audit-row is-current-user" : "nba-baseline-audit-row"} key={member.id}>
+                    <span>{member.baselineRank}</span>
+                    <strong>{member.isCurrentUser ? "You" : member.displayName ?? member.name}</strong>
+                    <span>{member.baselineWinProbability}%</span>
+                    <span className="nba-baseline-audit-now">
+                      {member.winProbability}% ({member.winProbabilityDelta > 0 ? "+" : ""}
+                      {member.winProbabilityDelta} pts)
+                    </span>
+                    <span>{member.reason}</span>
+                  </div>
+                ))}
               </div>
             </>
           ) : (
