@@ -347,6 +347,19 @@ function formatPct(value) {
   return `${Math.round(Number(value ?? 0))}%`;
 }
 
+function readPct(value) {
+  if (value == null || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function normalizeSeriesModelGamePct(value) {
+  const numeric = readPct(value);
+  if (!Number.isFinite(numeric)) return null;
+  const shrunk = 50 + (numeric - 50) * 0.65;
+  return Math.max(20, Math.min(80, shrunk));
+}
+
 function ordinal(value) {
   if (!Number.isFinite(value)) return "TBD";
   if (value === 1) return "1st";
@@ -863,7 +876,28 @@ function buildPoolImpactStats(seriesItem, memberList, branchSimulationBySeriesId
   };
 }
 
-function buildSeriesWinLabel(seriesItem, forcedWinnerId = null, referenceGame = null) {
+function formatSeriesLeaderLabel(homePct, homeAbbr, awayAbbr) {
+  if (!Number.isFinite(homePct)) return "Estimate TBD";
+  const clampedHomePct = Math.max(0, Math.min(100, homePct));
+  const awayPct = 100 - clampedHomePct;
+  const leaderAbbr = clampedHomePct >= awayPct ? homeAbbr : awayAbbr;
+  const leaderPct = clampedHomePct >= awayPct ? clampedHomePct : awayPct;
+  return `${leaderAbbr} ${Math.round(leaderPct)}%`;
+}
+
+function computeSeriesWinProbabilityWithScheduleRaw(homeWins, awayWins, homeGameProbabilities, index = 0) {
+  if (homeWins >= 4) return 1;
+  if (awayWins >= 4) return 0;
+  if (index >= homeGameProbabilities.length) return 0;
+
+  const probability = Math.max(0.01, Math.min(0.99, Number(homeGameProbabilities[index] ?? 50) / 100));
+  return (
+    probability * computeSeriesWinProbabilityWithScheduleRaw(homeWins + 1, awayWins, homeGameProbabilities, index + 1) +
+    (1 - probability) * computeSeriesWinProbabilityWithScheduleRaw(homeWins, awayWins + 1, homeGameProbabilities, index + 1)
+  );
+}
+
+function buildSeriesOutlook(seriesItem, referenceGame = null) {
   const homeAbbr = seriesItem.homeTeam?.abbreviation ?? seriesItem.homeTeamId;
   const awayAbbr = seriesItem.awayTeam?.abbreviation ?? seriesItem.awayTeamId;
   const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
@@ -872,47 +906,87 @@ function buildSeriesWinLabel(seriesItem, forcedWinnerId = null, referenceGame = 
     home: Number(seriesItem.wins?.home ?? 0),
     away: Number(seriesItem.wins?.away ?? 0),
   };
+  const liveSeriesMarket = hasLiveSeriesMarket(seriesItem);
+  const marketHomeSeriesPct = liveSeriesMarket ? resolveSeriesMarketPct(seriesItem, homeId) : null;
 
-  if (forcedWinnerId === homeId) wins.home = Math.min(wins.home + 1, 4);
-  if (forcedWinnerId === awayId) wins.away = Math.min(wins.away + 1, 4);
-  if (wins.home >= 4) return `${homeAbbr} 100%`;
-  if (wins.away >= 4) return `${awayAbbr} 100%`;
-
-  const scheduledHomeSeriesPct = computeSeriesWinProbabilityFromSchedule(seriesItem, wins.home, wins.away, referenceGame);
-  if (Number.isFinite(scheduledHomeSeriesPct)) {
-    const scheduledAwaySeriesPct = Math.max(1, Math.min(99, Math.round(100 - scheduledHomeSeriesPct)));
-    const leaderAbbr = scheduledHomeSeriesPct >= scheduledAwaySeriesPct ? homeAbbr : awayAbbr;
-    const leaderPct = scheduledHomeSeriesPct >= scheduledAwaySeriesPct ? scheduledHomeSeriesPct : scheduledAwaySeriesPct;
-    if (forcedWinnerId !== null || !hasLiveSeriesMarket(seriesItem)) {
-      return `${leaderAbbr} ${Math.round(leaderPct)}%`;
-    }
+  if (!referenceGame) {
+    return {
+      currentLabel: "Estimate TBD",
+      homeWinLabel: "Estimate TBD",
+      awayWinLabel: "Estimate TBD",
+      marketLabel: Number.isFinite(marketHomeSeriesPct)
+        ? formatSeriesLeaderLabel(marketHomeSeriesPct, homeAbbr, awayAbbr)
+        : null,
+    };
   }
 
-  const baselineHomeSeriesPct = resolveSeriesMarketPct(seriesItem, homeId);
-  const inferredHomeGamePct = inferGameWinPctFromSeriesOdds(
-    Number(seriesItem.wins?.home ?? 0),
-    Number(seriesItem.wins?.away ?? 0),
-    baselineHomeSeriesPct
-  );
-  const fallbackHomeGamePct = resolveTeamGameWinPct(seriesItem, homeId, referenceGame);
-  const homeGamePct = inferredHomeGamePct ?? fallbackHomeGamePct;
+  const referenceHomePct = readPct(referenceGame.marketHomeWinPct);
+  const referenceAwayPct = readPct(referenceGame.marketAwayWinPct);
+  const homeGamePct =
+    homeId === referenceGame.homeTeamId
+      ? normalizeSeriesModelGamePct(referenceHomePct)
+      : homeId === referenceGame.awayTeamId
+        ? normalizeSeriesModelGamePct(referenceAwayPct)
+        : null;
 
-  const homeSeriesPct = forcedWinnerId == null && Number.isFinite(baselineHomeSeriesPct)
-    ? Math.max(1, Math.min(99, Math.round(baselineHomeSeriesPct)))
-    : computeSeriesWinProbabilityFromGamePct(wins.home, wins.away, homeGamePct);
-  const awaySeriesPct = forcedWinnerId == null && Number.isFinite(baselineHomeSeriesPct)
-    ? Math.max(1, Math.min(99, Math.round(100 - baselineHomeSeriesPct)))
-    : computeSeriesWinProbabilityFromGamePct(wins.away, wins.home, homeGamePct != null ? 100 - homeGamePct : null);
-  const leaderAbbr = homeSeriesPct >= awaySeriesPct ? homeAbbr : awayAbbr;
-  const leaderPct = homeSeriesPct >= awaySeriesPct ? homeSeriesPct : awaySeriesPct;
-  return `${leaderAbbr} ${Math.round(leaderPct)}%`;
+  if (!Number.isFinite(homeGamePct)) {
+    return {
+      currentLabel: "Estimate TBD",
+      homeWinLabel: "Estimate TBD",
+      awayWinLabel: "Estimate TBD",
+      marketLabel: Number.isFinite(marketHomeSeriesPct)
+        ? formatSeriesLeaderLabel(marketHomeSeriesPct, homeAbbr, awayAbbr)
+        : null,
+    };
+  }
+
+  const homeWinsIfHomeWins = Math.min(wins.home + 1, 4);
+  const awayWinsIfAwayWins = Math.min(wins.away + 1, 4);
+  const homeIfHomeWinsRaw = computeSeriesWinProbabilityFromSchedule(
+    seriesItem,
+    homeWinsIfHomeWins,
+    wins.away,
+    referenceGame
+  ) / 100;
+  const homeIfAwayWinsRaw = computeSeriesWinProbabilityFromSchedule(
+    seriesItem,
+    wins.home,
+    awayWinsIfAwayWins,
+    referenceGame
+  ) / 100;
+
+  if (!Number.isFinite(homeIfHomeWinsRaw) || !Number.isFinite(homeIfAwayWinsRaw)) {
+    return {
+      currentLabel: "Estimate TBD",
+      homeWinLabel: "Estimate TBD",
+      awayWinLabel: "Estimate TBD",
+      marketLabel: Number.isFinite(marketHomeSeriesPct)
+        ? formatSeriesLeaderLabel(marketHomeSeriesPct, homeAbbr, awayAbbr)
+        : null,
+    };
+  }
+
+  const currentHomeSeriesRaw = (homeGamePct / 100) * homeIfHomeWinsRaw + ((100 - homeGamePct) / 100) * homeIfAwayWinsRaw;
+  const currentHomeSeriesPct = currentHomeSeriesRaw * 100;
+  const homeIfHomeWinsPct = homeIfHomeWinsRaw * 100;
+  const homeIfAwayWinsPct = homeIfAwayWinsRaw * 100;
+
+  return {
+    currentLabel: formatSeriesLeaderLabel(currentHomeSeriesPct, homeAbbr, awayAbbr),
+    homeWinLabel: formatSeriesLeaderLabel(homeIfHomeWinsPct, homeAbbr, awayAbbr),
+    awayWinLabel: formatSeriesLeaderLabel(homeIfAwayWinsPct, homeAbbr, awayAbbr),
+    marketLabel: Number.isFinite(marketHomeSeriesPct)
+      ? formatSeriesLeaderLabel(marketHomeSeriesPct, homeAbbr, awayAbbr)
+      : null,
+  };
 }
 
 function resolveSeriesMarketPct(seriesItem, teamId) {
+  if (!hasLiveSeriesMarket(seriesItem)) return null;
   const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
   const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
-  if (teamId === homeId) return Number(seriesItem.market?.homeWinPct ?? null);
-  if (teamId === awayId) return Number(seriesItem.market?.awayWinPct ?? null);
+  if (teamId === homeId) return readPct(seriesItem.market?.homeWinPct);
+  if (teamId === awayId) return readPct(seriesItem.market?.awayWinPct);
   return null;
 }
 
@@ -928,15 +1002,11 @@ function hasLiveSeriesMarket(seriesItem) {
   );
 }
 
-function resolveTeamGameWinPct(seriesItem, teamId, referenceGame = null) {
-  const homeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
-  const awayId = seriesItem.awayTeam?.id ?? seriesItem.awayTeamId;
+function resolveTeamGameMarketPct(seriesItem, teamId, referenceGame = null) {
   if (referenceGame) {
-    if (teamId === referenceGame.homeTeamId) return Number(referenceGame.marketHomeWinPct ?? referenceGame.homeWinPct ?? null);
-    if (teamId === referenceGame.awayTeamId) return Number(referenceGame.marketAwayWinPct ?? referenceGame.awayWinPct ?? null);
+    if (teamId === referenceGame.homeTeamId) return readPct(referenceGame.marketHomeWinPct);
+    if (teamId === referenceGame.awayTeamId) return readPct(referenceGame.marketAwayWinPct);
   }
-  if (teamId === homeId) return Number(seriesItem.market?.homeWinPct ?? null);
-  if (teamId === awayId) return Number(seriesItem.market?.awayWinPct ?? null);
   return null;
 }
 
@@ -979,7 +1049,7 @@ function inferGameWinPctFromSeriesOdds(teamWins, opponentWins, targetSeriesPct) 
     }
   }
 
-  return ((low + high) / 2) * 100;
+  return normalizeSeriesModelGamePct(((low + high) / 2) * 100);
 }
 
 function probabilityToLogit(probabilityPct) {
@@ -998,33 +1068,23 @@ function buildRemainingVenueSequence(homeWins, awayWins) {
   return schedule.slice(nextGameIndex);
 }
 
-function computeSeriesWinProbabilityWithSchedule(homeWins, awayWins, homeGameProbabilities, index = 0) {
-  if (homeWins >= 4) return 1;
-  if (awayWins >= 4) return 0;
-  if (index >= homeGameProbabilities.length) return 0;
-
-  const probability = Math.max(0.01, Math.min(0.99, Number(homeGameProbabilities[index] ?? 50) / 100));
-  return (
-    probability * computeSeriesWinProbabilityWithSchedule(homeWins + 1, awayWins, homeGameProbabilities, index + 1) +
-    (1 - probability) * computeSeriesWinProbabilityWithSchedule(homeWins, awayWins + 1, homeGameProbabilities, index + 1)
-  );
-}
-
 function computeSeriesWinProbabilityFromSchedule(seriesItem, homeWins, awayWins, referenceGame = null) {
+  if (homeWins >= 4) return 100;
+  if (awayWins >= 4) return 0;
   if (!referenceGame) return null;
 
   const seriesHomeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
   const marketSeriesHomePct =
     seriesHomeId === referenceGame.homeTeamId
-      ? Number(referenceGame.marketHomeWinPct ?? null)
+      ? normalizeSeriesModelGamePct(referenceGame.marketHomeWinPct)
       : seriesHomeId === referenceGame.awayTeamId
-        ? Number(referenceGame.marketAwayWinPct ?? null)
+        ? normalizeSeriesModelGamePct(referenceGame.marketAwayWinPct)
         : null;
 
   if (!Number.isFinite(marketSeriesHomePct)) return null;
 
   const seriesHomeIsCurrentVenueHome = seriesHomeId === referenceGame.homeTeamId;
-  const homeCourtLogitEdge = 0.68;
+  const homeCourtLogitEdge = 0.4;
   const currentLogit = probabilityToLogit(marketSeriesHomePct);
   const neutralLogit = currentLogit - (seriesHomeIsCurrentVenueHome ? homeCourtLogitEdge : -homeCourtLogitEdge);
   const remainingVenueSequence = buildRemainingVenueSequence(homeWins, awayWins);
@@ -1033,10 +1093,10 @@ function computeSeriesWinProbabilityFromSchedule(seriesItem, homeWins, awayWins,
   );
 
   return Math.max(
-    1,
+    0,
     Math.min(
-      99,
-      Math.round(computeSeriesWinProbabilityWithSchedule(homeWins, awayWins, homeGameProbabilities) * 100)
+      100,
+      Math.round(computeSeriesWinProbabilityWithScheduleRaw(homeWins, awayWins, homeGameProbabilities) * 100)
     )
   );
 }
@@ -1051,12 +1111,19 @@ function buildGameOverviewRows(seriesItem, game, simulationRows, poolImpactStats
   const userSwing = homeRow?.winProbability != null && awayRow?.winProbability != null
     ? Math.abs(Number(homeRow.winProbability) - Number(awayRow.winProbability))
     : 0;
-  const currentSeriesLabel = hasLiveSeriesMarket(seriesItem) ? "Current series" : "Estimated series";
+  const seriesOutlook = buildSeriesOutlook(seriesItem, game);
+  const overviewRows = [
+    { label: "Series estimate", value: seriesOutlook.currentLabel },
+    { label: `${homeAbbr} wins game`, value: seriesOutlook.homeWinLabel },
+    { label: `${awayAbbr} wins game`, value: seriesOutlook.awayWinLabel },
+  ];
+
+  if (seriesOutlook.marketLabel) {
+    overviewRows.push({ label: "Market series", value: seriesOutlook.marketLabel });
+  }
 
   return [
-    { label: currentSeriesLabel, value: buildSeriesWinLabel(seriesItem, null, game) },
-    { label: `${homeAbbr} wins game`, value: buildSeriesWinLabel(seriesItem, homeId, game) },
-    { label: `${awayAbbr} wins game`, value: buildSeriesWinLabel(seriesItem, awayId, game) },
+    ...overviewRows,
     { label: "Your impact", value: `${impactLabel(userSwing)} · ${userSwing.toFixed(1)} pts` },
     {
       label: "Pool impact",

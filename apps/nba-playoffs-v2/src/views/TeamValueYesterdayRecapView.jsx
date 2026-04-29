@@ -199,22 +199,45 @@ function teamShortName(team, fallback) {
   return team?.city ?? team?.abbreviation ?? fallback ?? "that team";
 }
 
-function resolveTeamGameWinPct(seriesItem, teamId, referenceGame = null) {
-  const { homeId, awayId } = getSeriesTeamIds(seriesItem);
+function readPct(value) {
+  if (value == null || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function normalizeSeriesModelGamePct(value) {
+  const numeric = readPct(value);
+  if (!Number.isFinite(numeric)) return null;
+  const shrunk = 50 + (numeric - 50) * 0.65;
+  return Math.max(20, Math.min(80, shrunk));
+}
+
+function resolveTeamGameMarketPct(seriesItem, teamId, referenceGame = null) {
   if (referenceGame) {
-    if (teamId === referenceGame.homeTeamId) return Number(referenceGame.marketHomeWinPct ?? referenceGame.homeWinPct ?? null);
-    if (teamId === referenceGame.awayTeamId) return Number(referenceGame.marketAwayWinPct ?? referenceGame.awayWinPct ?? null);
+    if (teamId === referenceGame.homeTeamId) return readPct(referenceGame.marketHomeWinPct);
+    if (teamId === referenceGame.awayTeamId) return readPct(referenceGame.marketAwayWinPct);
   }
-  if (teamId === homeId) return Number(seriesItem.market?.homeWinPct ?? null);
-  if (teamId === awayId) return Number(seriesItem.market?.awayWinPct ?? null);
   return null;
 }
 
 function resolveSeriesMarketPct(seriesItem, teamId) {
+  if (!hasLiveSeriesMarket(seriesItem)) return null;
   const { homeId, awayId } = getSeriesTeamIds(seriesItem);
-  if (teamId === homeId) return Number(seriesItem.market?.homeWinPct ?? null);
-  if (teamId === awayId) return Number(seriesItem.market?.awayWinPct ?? null);
+  if (teamId === homeId) return readPct(seriesItem.market?.homeWinPct);
+  if (teamId === awayId) return readPct(seriesItem.market?.awayWinPct);
   return null;
+}
+
+function hasLiveSeriesMarket(seriesItem) {
+  const sourceName = String(seriesItem?.market?.sourceName ?? "").toLowerCase();
+  if (!sourceName) return false;
+  return !(
+    sourceName.includes("static") ||
+    sourceName.includes("provisional") ||
+    sourceName.includes("future_round_estimate") ||
+    sourceName.includes("post_playin_estimate") ||
+    sourceName.includes("completed_playin")
+  );
 }
 
 function computeSeriesWinProbabilityFromGamePct(teamWins, opponentWins, teamGamePct) {
@@ -256,7 +279,7 @@ function inferGameWinPctFromSeriesOdds(teamWins, opponentWins, targetSeriesPct) 
     }
   }
 
-  return ((low + high) / 2) * 100;
+  return normalizeSeriesModelGamePct(((low + high) / 2) * 100);
 }
 
 function probabilityToLogit(probabilityPct) {
@@ -275,32 +298,34 @@ function buildRemainingVenueSequence(homeWins, awayWins) {
   return schedule.slice(nextGameIndex);
 }
 
-function computeSeriesWinProbabilityWithSchedule(homeWins, awayWins, homeGameProbabilities, index = 0) {
+function computeSeriesWinProbabilityWithScheduleRaw(homeWins, awayWins, homeGameProbabilities, index = 0) {
   if (homeWins >= 4) return 1;
   if (awayWins >= 4) return 0;
   if (index >= homeGameProbabilities.length) return 0;
 
   const probability = Math.max(0.01, Math.min(0.99, Number(homeGameProbabilities[index] ?? 50) / 100));
   return (
-    probability * computeSeriesWinProbabilityWithSchedule(homeWins + 1, awayWins, homeGameProbabilities, index + 1) +
-    (1 - probability) * computeSeriesWinProbabilityWithSchedule(homeWins, awayWins + 1, homeGameProbabilities, index + 1)
+    probability * computeSeriesWinProbabilityWithScheduleRaw(homeWins + 1, awayWins, homeGameProbabilities, index + 1) +
+    (1 - probability) * computeSeriesWinProbabilityWithScheduleRaw(homeWins, awayWins + 1, homeGameProbabilities, index + 1)
   );
 }
 
 function computeSeriesWinProbabilityFromSchedule(seriesItem, homeWins, awayWins, referenceGame = null) {
+  if (homeWins >= 4) return 100;
+  if (awayWins >= 4) return 0;
   if (!referenceGame) return null;
 
   const { homeId } = getSeriesTeamIds(seriesItem);
   const marketSeriesHomePct =
     homeId === referenceGame.homeTeamId
-      ? Number(referenceGame.marketHomeWinPct ?? null)
+      ? normalizeSeriesModelGamePct(referenceGame.marketHomeWinPct)
       : homeId === referenceGame.awayTeamId
-        ? Number(referenceGame.marketAwayWinPct ?? null)
+        ? normalizeSeriesModelGamePct(referenceGame.marketAwayWinPct)
         : null;
   if (!Number.isFinite(marketSeriesHomePct)) return null;
 
   const seriesHomeIsCurrentVenueHome = homeId === referenceGame.homeTeamId;
-  const homeCourtLogitEdge = 0.68;
+  const homeCourtLogitEdge = 0.4;
   const currentLogit = probabilityToLogit(marketSeriesHomePct);
   const neutralLogit = currentLogit - (seriesHomeIsCurrentVenueHome ? homeCourtLogitEdge : -homeCourtLogitEdge);
   const remainingVenueSequence = buildRemainingVenueSequence(homeWins, awayWins);
@@ -309,10 +334,10 @@ function computeSeriesWinProbabilityFromSchedule(seriesItem, homeWins, awayWins,
   );
 
   return Math.max(
-    1,
+    0,
     Math.min(
-      99,
-      Math.round(computeSeriesWinProbabilityWithSchedule(homeWins, awayWins, homeGameProbabilities) * 100)
+      100,
+      Math.round(computeSeriesWinProbabilityWithScheduleRaw(homeWins, awayWins, homeGameProbabilities) * 100)
     )
   );
 }
@@ -329,15 +354,35 @@ function getSeriesChance(seriesItem, teamId, referenceGame = null) {
   if (teamWins >= 4) return 100;
   if (opponentWins >= 4) return 0;
 
+  if (!referenceGame) {
+    return hasLiveSeriesMarket(seriesItem) ? resolveSeriesMarketPct(seriesItem, teamId) : null;
+  }
+
+  const referenceHomePct = readPct(referenceGame.marketHomeWinPct);
+  const referenceAwayPct = readPct(referenceGame.marketAwayWinPct);
+  const homeGamePct =
+    homeId === referenceGame.homeTeamId
+      ? normalizeSeriesModelGamePct(referenceHomePct)
+      : homeId === referenceGame.awayTeamId
+        ? normalizeSeriesModelGamePct(referenceAwayPct)
+        : null;
+  if (!Number.isFinite(homeGamePct)) return hasLiveSeriesMarket(seriesItem) ? resolveSeriesMarketPct(seriesItem, teamId) : null;
+
   const scheduledHomeSeriesPct = computeSeriesWinProbabilityFromSchedule(seriesItem, wins.home, wins.away, referenceGame);
-  if (Number.isFinite(scheduledHomeSeriesPct)) {
+  if (!Number.isFinite(scheduledHomeSeriesPct)) return hasLiveSeriesMarket(seriesItem) ? resolveSeriesMarketPct(seriesItem, teamId) : null;
+
+  const homeIfHomeWinsPct = computeSeriesWinProbabilityFromSchedule(seriesItem, Math.min(wins.home + 1, 4), wins.away, referenceGame);
+  const homeIfAwayWinsPct = computeSeriesWinProbabilityFromSchedule(seriesItem, wins.home, Math.min(wins.away + 1, 4), referenceGame);
+  if (!Number.isFinite(homeIfHomeWinsPct) || !Number.isFinite(homeIfAwayWinsPct)) {
     return teamId === homeId ? scheduledHomeSeriesPct : Math.max(1, Math.min(99, Math.round(100 - scheduledHomeSeriesPct)));
   }
 
-  const baselineSeriesPct = resolveSeriesMarketPct(seriesItem, teamId);
-  const inferredTeamGamePct = inferGameWinPctFromSeriesOdds(teamWins, opponentWins, baselineSeriesPct);
-  const teamGamePct = inferredTeamGamePct ?? resolveTeamGameWinPct(seriesItem, teamId, referenceGame);
-  return computeSeriesWinProbabilityFromGamePct(teamWins, opponentWins, teamGamePct);
+  const currentHomePct =
+    (homeGamePct / 100) * homeIfHomeWinsPct +
+    ((100 - homeGamePct) / 100) * homeIfAwayWinsPct;
+  return teamId === homeId
+    ? Math.max(1, Math.min(99, Math.round(currentHomePct)))
+    : Math.max(1, Math.min(99, Math.round(100 - currentHomePct)));
 }
 
 function combination(n, k) {
