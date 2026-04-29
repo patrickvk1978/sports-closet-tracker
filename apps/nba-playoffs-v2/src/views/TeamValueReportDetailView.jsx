@@ -831,11 +831,27 @@ function getBranchMember(seriesItem, branchSimulationBySeriesId, teamId, memberI
 
 function impactLabel(value) {
   const magnitude = Math.abs(Number(value ?? 0));
+  if (magnitude >= 20) return "Seismic";
+  if (magnitude >= 12) return "Massive";
   if (magnitude >= 8) return "Huge";
   if (magnitude >= 5) return "Major";
   if (magnitude >= 2.5) return "Meaningful";
   if (magnitude >= 1) return "Light";
   return "Low";
+}
+
+function buildSwingNarrativeTag(value) {
+  const magnitude = Math.abs(Number(value ?? 0));
+  if (magnitude >= 20) {
+    return "This is a watershed result: the kind that can bury a meaningful slice of the pool and open real daylight for the few boards holding the right side.";
+  }
+  if (magnitude >= 12) {
+    return "This is not a routine swing. It is big enough to create real separation and leave a cluster of boards scrambling to recover.";
+  }
+  if (magnitude >= 8) {
+    return "This is a loud result in pool terms, not just a normal nudge in the standings.";
+  }
+  return "";
 }
 
 function buildPoolImpactStats(seriesItem, memberList, branchSimulationBySeriesId, currentUserId) {
@@ -1202,10 +1218,11 @@ function buildPoolImpactNote(seriesItem, needRows, poolImpactStats, poolImpactRa
     if (!rows.length) return null;
     return `${rows.length} significant ${side} ${rows.length === 1 ? "need" : "needs"}`;
   }).filter(Boolean).join("; ");
+  const poolTag = buildSwingNarrativeTag(poolImpactStats.maxSwing ?? poolImpactStats.averageSwing);
 
   return {
     title,
-    body: `${rankPhrase} ${narrativeState.stageSentence} ${swingSentence} ${alignmentSentence}${sideSentence ? ` In side terms: ${sideSentence}.` : ""} The table below shows who is actually exposed, not just who has a team ranked higher.`,
+    body: `${rankPhrase} ${narrativeState.stageSentence} ${swingSentence} ${poolTag ? `${poolTag} ` : ""}${alignmentSentence}${sideSentence ? ` In side terms: ${sideSentence}.` : ""} The table below shows who is actually exposed, not just who has a team ranked higher.`,
   };
 }
 
@@ -1457,6 +1474,7 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
     const rawClub = teamNarrativeName(yourPreferred, seriesItem, "club");
     const rawCity = teamNarrativeName(yourPreferred, seriesItem, "city");
     const swingMagnitude = Math.abs(winSwing);
+    const swingTag = buildSwingNarrativeTag(swingMagnitude);
     return {
       title: chooseVariant([
         `${rootCity} is the room-relative rooting side, even though you ranked ${rawCity} higher`,
@@ -1466,9 +1484,9 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
       ], ...narrativeSeed(seriesItem, currentUserId, "context-conflict-title")),
       body: swingMagnitude >= 8
         ? chooseVariant([
-          `${rawClub} are the cleaner immediate-points side because you ranked them above ${rootClub}. But this is not only a points question. ${narrativeState.stageSentence} The room is heavier on ${rawCity} than you are, and your unusual leverage is on ${rootNickname}; the branch sim says ${teamResultPhrase(rootSide, seriesItem)} improves your pool win probability by ${Math.abs(winSwing).toFixed(1)} points versus the other side. For you in this matchup, that is ${rootCity}.`,
-          `This is the big-pivot version of the tension. ${rawCity} is the better instant-points side, but the field is more exposed there than you are. ${narrativeState.seriesStage === "late" ? "At this point in the series, that divergence gets louder." : narrativeState.stageSentence} Your cleaner separation is tied to ${rootNickname}, and the branch sim makes that loud: ${Math.abs(winSwing).toFixed(1)} pool-win points toward ${rootCity}.`,
-          `On the surface, ${rawCity} look like the easy answer because you ranked them higher. Underneath, the room dynamics bend it the other way. ${narrativeState.stageSentence} The field has more to lose on ${rawCity} than your board does, while your cleaner leverage sits with ${rootNickname}; the branch sim prices that edge at ${Math.abs(winSwing).toFixed(1)} pool-win points. For you in this matchup, that is ${rootCity}.`,
+          `${rawClub} are the cleaner immediate-points side because you ranked them above ${rootClub}. But this is not only a points question. ${narrativeState.stageSentence} The room is heavier on ${rawCity} than you are, and your unusual leverage is on ${rootNickname}; the branch sim says ${teamResultPhrase(rootSide, seriesItem)} improves your pool win probability by ${Math.abs(winSwing).toFixed(1)} points versus the other side. ${swingTag ? `${swingTag} ` : ""}For you in this matchup, that is ${rootCity}.`,
+          `This is the big-pivot version of the tension. ${rawCity} is the better instant-points side, but the field is more exposed there than you are. ${narrativeState.seriesStage === "late" ? "At this point in the series, that divergence gets louder." : narrativeState.stageSentence} Your cleaner separation is tied to ${rootNickname}, and the branch sim makes that loud: ${Math.abs(winSwing).toFixed(1)} pool-win points toward ${rootCity}. ${swingTag ? `${swingTag} ` : ""}For you in this matchup, that is ${rootCity}.`,
+          `On the surface, ${rawCity} look like the easy answer because you ranked them higher. Underneath, the room dynamics bend it the other way. ${narrativeState.stageSentence} The field has more to lose on ${rawCity} than your board does, while your cleaner leverage sits with ${rootNickname}; the branch sim prices that edge at ${Math.abs(winSwing).toFixed(1)} pool-win points. ${swingTag ? `${swingTag} ` : ""}For you in this matchup, that is ${rootCity}.`,
         ], ...narrativeSeed(seriesItem, currentUserId, "context-conflict-large-body"))
         : chooseVariant([
           `${rawClub} are the cleaner immediate-points side because you ranked them above ${rootClub}. The longer-view edge is thinner, but it points the other way: your best room-relative separation is on ${rootNickname}. ${narrativeState.stageSentence} For you in this matchup, that is ${rootCity}.`,
@@ -1483,6 +1501,7 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
     const preferredCity = teamNarrativeName(yourPreferred, seriesItem, "city");
     const lighterClub = teamNarrativeName(lighterSide, seriesItem, "club");
     if (yourGap > roomGap + 1) {
+      const swingTag = buildSwingNarrativeTag(Math.abs(winSwing));
       return {
         title: chooseVariant([
           `${preferredCity} helps you, but it is still a relative game`,
@@ -1491,10 +1510,10 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
           `${preferredCity} is a shared side, but you are carrying the bigger version`,
         ], ...narrativeSeed(seriesItem, currentUserId, "aligned-user-heavy-title")),
         body: chooseVariant([
-          `${preferredCity} is not a secret side for the room, but your board is carrying more of it than the average entry. ${narrativeState.stageSentence} That means a win by ${preferredClub} helps you a little more than it helps most people, while a win by ${lighterClub} cuts more directly against your board than it does against the field.`,
-          `This is not contrarian, but it is not neutral either. The field is with ${preferredCity}, and you are even more invested than the field. That makes a win by ${preferredClub} useful, while a ${teamResultPhrase(lighterSide, seriesItem)} stings your board more than it stings the average entry.`,
-          `${preferredCity} is a shared rooting side, but your board has more weight there than the room average. That means this result is partly protection and partly upside; not a full breakaway, but not empty chalk either.`,
-          `The room and your board are lined up on ${preferredCity}, but you are leaning further into it than most entries are. That makes the result helpful in two ways: it protects a side you already like, and it nudges you a bit ahead of the people who are lighter there.`,
+          `${preferredCity} is not a secret side for the room, but your board is carrying more of it than the average entry. ${narrativeState.stageSentence} That means a win by ${preferredClub} helps you a little more than it helps most people, while a win by ${lighterClub} cuts more directly against your board than it does against the field.${swingTag ? ` ${swingTag}` : ""}`,
+          `This is not contrarian, but it is not neutral either. The field is with ${preferredCity}, and you are even more invested than the field. That makes a win by ${preferredClub} useful, while a ${teamResultPhrase(lighterSide, seriesItem)} stings your board more than it stings the average entry.${swingTag ? ` ${swingTag}` : ""}`,
+          `${preferredCity} is a shared rooting side, but your board has more weight there than the room average. That means this result is partly protection and partly upside; not a full breakaway, but not empty chalk either.${swingTag ? ` ${swingTag}` : ""}`,
+          `The room and your board are lined up on ${preferredCity}, but you are leaning further into it than most entries are. That makes the result helpful in two ways: it protects a side you already like, and it nudges you a bit ahead of the people who are lighter there.${swingTag ? ` ${swingTag}` : ""}`,
         ], ...narrativeSeed(seriesItem, currentUserId, "aligned-user-heavy-body")),
       };
     }
@@ -1537,6 +1556,7 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
     const roomClub = teamNarrativeName(roomPreferred, seriesItem, "club");
     const preferredCity = teamNarrativeName(yourPreferred, seriesItem, "city");
     const roomCity = teamNarrativeName(roomPreferred, seriesItem, "city");
+    const swingTag = buildSwingNarrativeTag(Math.abs(winSwing));
     return {
       title: chooseVariant([
         `${preferredCity} is a real leverage side for your board`,
@@ -1544,11 +1564,11 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
         `${preferredCity} gives you a cleaner contrarian lane`,
         `${preferredCity} is the result that actually creates daylight for you`,
       ], ...narrativeSeed(seriesItem, currentUserId, "opposed-title")),
-      body: chooseVariant([
-        `Your board and the room are pointed in different directions here, and the branch sim treats that as real leverage rather than a cosmetic disagreement. ${narrativeState.stageSentence} If ${preferredClub} come through, the result moves your expected place by ${Math.abs(placeSwing).toFixed(1)} spots and your pool win probability by ${Math.abs(winSwing).toFixed(1)} points.`,
-        `Your board and the field are not telling the same story. You have more reason to want ${preferredCity}; the room is more comfortable with ${roomCity}. That gives this game real separation value if ${preferredClub} come through.`,
-        `This is a true split read. ${preferredCity} is not just your favorite side; it is the side that pushes against the room's lean toward ${roomCity}. That is why the branch sim treats it as leverage rather than ordinary rooting.`,
-        `There is an actual board split here, not just a stylistic one. The room is tilted toward ${roomCity}, while your cleaner equity path runs through ${preferredCity}. That is why this matchup feels live even before the game starts moving.`,
+        body: chooseVariant([
+        `Your board and the room are pointed in different directions here, and the branch sim treats that as real leverage rather than a cosmetic disagreement. ${narrativeState.stageSentence} If ${preferredClub} come through, the result moves your expected place by ${Math.abs(placeSwing).toFixed(1)} spots and your pool win probability by ${Math.abs(winSwing).toFixed(1)} points.${swingTag ? ` ${swingTag}` : ""}`,
+        `Your board and the field are not telling the same story. You have more reason to want ${preferredCity}; the room is more comfortable with ${roomCity}. That gives this game real separation value if ${preferredClub} come through.${swingTag ? ` ${swingTag}` : ""}`,
+        `This is a true split read. ${preferredCity} is not just your favorite side; it is the side that pushes against the room's lean toward ${roomCity}. That is why the branch sim treats it as leverage rather than ordinary rooting.${swingTag ? ` ${swingTag}` : ""}`,
+        `There is an actual board split here, not just a stylistic one. The room is tilted toward ${roomCity}, while your cleaner equity path runs through ${preferredCity}. That is why this matchup feels live even before the game starts moving.${swingTag ? ` ${swingTag}` : ""}`,
       ], ...narrativeSeed(seriesItem, currentUserId, "opposed-body")),
     };
   }
