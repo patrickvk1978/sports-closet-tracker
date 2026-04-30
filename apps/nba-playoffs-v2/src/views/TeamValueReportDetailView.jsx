@@ -936,14 +936,7 @@ function buildSeriesOutlook(seriesItem, referenceGame = null) {
     };
   }
 
-  const referenceHomePct = readPct(referenceGame.marketHomeWinPct);
-  const referenceAwayPct = readPct(referenceGame.marketAwayWinPct);
-  const homeGamePct =
-    homeId === referenceGame.homeTeamId
-      ? normalizeSeriesModelGamePct(referenceHomePct)
-      : homeId === referenceGame.awayTeamId
-        ? normalizeSeriesModelGamePct(referenceAwayPct)
-        : null;
+  const homeGamePct = resolveSeriesHomeCurrentGamePct(seriesItem, referenceGame);
 
   if (!Number.isFinite(homeGamePct)) {
     return {
@@ -1084,29 +1077,39 @@ function buildRemainingVenueSequence(homeWins, awayWins) {
   return schedule.slice(nextGameIndex);
 }
 
+function resolveSeriesHomeCurrentGamePct(seriesItem, referenceGame = null) {
+  if (!referenceGame) return null;
+  const seriesHomeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const currentGamePct =
+    seriesHomeId === referenceGame.homeTeamId
+      ? readPct(referenceGame.marketHomeWinPct)
+      : seriesHomeId === referenceGame.awayTeamId
+        ? readPct(referenceGame.marketAwayWinPct)
+        : null;
+  return normalizeSeriesModelGamePct(currentGamePct);
+}
+
+function buildSeriesHomeGameProbabilities(seriesItem, homeWins, awayWins, referenceGame = null) {
+  const seriesHomeCurrentGamePct = resolveSeriesHomeCurrentGamePct(seriesItem, referenceGame);
+  if (!Number.isFinite(seriesHomeCurrentGamePct)) return null;
+
+  const seriesHomeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
+  const seriesHomeIsCurrentVenueHome = seriesHomeId === referenceGame.homeTeamId;
+  const homeCourtLogitEdge = 0.4;
+  const currentLogit = probabilityToLogit(seriesHomeCurrentGamePct);
+  const neutralLogit = currentLogit - (seriesHomeIsCurrentVenueHome ? homeCourtLogitEdge : -homeCourtLogitEdge);
+  const remainingVenueSequence = buildRemainingVenueSequence(homeWins, awayWins);
+
+  return remainingVenueSequence.map((seriesHomeVenue) =>
+    logitToProbability(neutralLogit + (seriesHomeVenue ? homeCourtLogitEdge : -homeCourtLogitEdge))
+  );
+}
+
 function computeSeriesWinProbabilityFromSchedule(seriesItem, homeWins, awayWins, referenceGame = null) {
   if (homeWins >= 4) return 100;
   if (awayWins >= 4) return 0;
-  if (!referenceGame) return null;
-
-  const seriesHomeId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
-  const marketSeriesHomePct =
-    seriesHomeId === referenceGame.homeTeamId
-      ? normalizeSeriesModelGamePct(referenceGame.marketHomeWinPct)
-      : seriesHomeId === referenceGame.awayTeamId
-        ? normalizeSeriesModelGamePct(referenceGame.marketAwayWinPct)
-        : null;
-
-  if (!Number.isFinite(marketSeriesHomePct)) return null;
-
-  const seriesHomeIsCurrentVenueHome = seriesHomeId === referenceGame.homeTeamId;
-  const homeCourtLogitEdge = 0.4;
-  const currentLogit = probabilityToLogit(marketSeriesHomePct);
-  const neutralLogit = currentLogit - (seriesHomeIsCurrentVenueHome ? homeCourtLogitEdge : -homeCourtLogitEdge);
-  const remainingVenueSequence = buildRemainingVenueSequence(homeWins, awayWins);
-  const homeGameProbabilities = remainingVenueSequence.map((seriesHomeVenue) =>
-    logitToProbability(neutralLogit + (seriesHomeVenue ? homeCourtLogitEdge : -homeCourtLogitEdge))
-  );
+  const homeGameProbabilities = buildSeriesHomeGameProbabilities(seriesItem, homeWins, awayWins, referenceGame);
+  if (!homeGameProbabilities?.length) return null;
 
   return Math.max(
     0,
