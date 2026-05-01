@@ -4,17 +4,28 @@ import { useAuth } from "../hooks/useAuth";
 import { usePool } from "../hooks/usePool";
 import { usePlayoffData } from "../hooks/usePlayoffData.jsx";
 import { useTeamValueBoard } from "../hooks/useTeamValueBoard";
-import { useEspnTodayGames } from "../hooks/useEspnTodayGames";
+import { useEspnTodayGames, useEspnYesterdayGames } from "../hooks/useEspnTodayGames";
 import {
   buildTeamValueStandingsWithMonteCarlo,
   getRoundOneTeamsFromData,
 } from "../lib/teamValuePreview";
 import { buildTeamValueReports } from "../lib/teamValueReports";
+import { getClinchingBonus, getDisplayRankFromValue } from "../lib/teamValueGame";
 
 function formatMemberLabel(member, currentUserId) {
   if (!member) return "Unknown";
   const base = member.displayName ?? member.name ?? "Unknown";
   return member.id === currentUserId ? "You" : base;
+}
+
+function buildRankMovement(currentPlace, baselineRank) {
+  if (!Number.isFinite(Number(currentPlace)) || !Number.isFinite(Number(baselineRank))) {
+    return { label: "—", direction: "flat" };
+  }
+  const delta = Number(baselineRank) - Number(currentPlace);
+  if (delta > 0) return { label: `▲${delta}`, direction: "up" };
+  if (delta < 0) return { label: `▼${Math.abs(delta)}`, direction: "down" };
+  return { label: "—", direction: "flat" };
 }
 
 function buildDashboardStandingsRows(standings, currentUserId) {
@@ -147,6 +158,7 @@ function buildOnTapRows(todayGames, boardImplicationRows, series, now) {
 
   return todayGames
     .filter((game) => {
+      if (game.status === "completed") return false;
       if (game.status === "in_progress") return true;
       if (!game.tipAt) return false;
       const tipDate = new Date(game.tipAt);
@@ -186,7 +198,7 @@ function buildOnTapRows(todayGames, boardImplicationRows, series, now) {
             ? `/reports/yesterday-recap?day=today#game-recap-${game.id}`
             : `/reports/board-implications#analysis-${matchingSeries.id}`
           : "/reports/board-implications",
-        analysisLabel: game.status === "completed" ? "Game Recap" : "Detailed Analysis",
+        analysisLabel: game.status === "completed" ? "Recap" : "Read",
         teamIds: [game.homeTeamId, game.awayTeamId],
         matchupLabel: `${game.awayAbbreviation} at ${game.homeAbbreviation}`,
         timeLabel: formatGameTime(pseudoSeries, now),
@@ -200,8 +212,59 @@ function buildOnTapRows(todayGames, boardImplicationRows, series, now) {
         currentLineLabel: game.currentLineLabel ?? "Line TBD",
         favoriteLabel: oddsLabel.display,
         boardLean: implication?.preferredTeam ?? "Balanced",
+        oddsSource: oddsLabel.source,
       };
     });
+}
+
+function buildCompletedImpactRows(games, allAssignmentsByUser, currentUserId, series) {
+  const assignments = allAssignmentsByUser?.[currentUserId] ?? {};
+  const seriesByPair = Object.fromEntries(
+    (series ?? []).map((seriesItem) => {
+      const key = [seriesItem.homeTeam?.id ?? seriesItem.homeTeamId, seriesItem.awayTeam?.id ?? seriesItem.awayTeamId]
+        .sort()
+        .join("|");
+      return [key, seriesItem];
+    })
+  );
+  return games
+    .filter((game) => game.status === "completed")
+    .sort((a, b) => new Date(a.tipAt ?? 0) - new Date(b.tipAt ?? 0))
+    .map((game) => {
+      const homeWon = Number(game.homeScore ?? 0) > Number(game.awayScore ?? 0);
+      const winnerTeamId = homeWon ? game.homeTeamId : game.awayTeamId;
+      const loserTeamId = homeWon ? game.awayTeamId : game.homeTeamId;
+      const winnerAbbreviation = homeWon ? game.homeAbbreviation : game.awayAbbreviation;
+      const loserAbbreviation = homeWon ? game.awayAbbreviation : game.homeAbbreviation;
+      const winnerScore = homeWon ? game.homeScore : game.awayScore;
+      const loserScore = homeWon ? game.awayScore : game.homeScore;
+      const winnerLogo = homeWon ? game.homeTeamLogo : game.awayTeamLogo;
+      const loserLogo = homeWon ? game.awayTeamLogo : game.homeTeamLogo;
+      const teamValue = Number(assignments?.[winnerTeamId] ?? 0);
+      const displayRank = getDisplayRankFromValue(teamValue);
+      const pairKey = [game.homeTeamId, game.awayTeamId].sort().join("|");
+      const matchingSeries = seriesByPair[pairKey] ?? null;
+      const clinchedSeries = matchingSeries?.status === "completed" && matchingSeries?.winnerTeamId === winnerTeamId;
+      const clinchingBonus = clinchedSeries ? getClinchingBonus(teamValue, matchingSeries.roundKey) : 0;
+      const recapPath = `/reports/yesterday-recap?day=today#game-recap-${game.id}`;
+
+      return {
+        id: `${game.id}-impact`,
+        winnerAbbreviation,
+        loserAbbreviation,
+        winnerScore,
+        loserScore,
+        winnerLogo,
+        loserLogo,
+        displayRank,
+        pointsPerWin: teamValue,
+        pointsGained: teamValue + clinchingBonus,
+        clinchingBonus,
+        gameLabel: game.statusNote ?? "Final",
+        recapPath,
+      };
+    })
+    .filter((row) => row.pointsPerWin > 0);
 }
 
 function buildFuturePressureRows(assetRows, todayRows) {
@@ -213,8 +276,8 @@ function buildFuturePressureRows(assetRows, todayRows) {
     .slice(0, 3)
     .map((row) => ({
       id: row.id,
-      title: `${row.teamLabel} still looms beyond today`,
-      body: `${row.teamLabel} is carrying ${row.yourValue} of your board, with ${row.expectedPoints} expected points still available from here.`,
+      title: row.teamLabel,
+      body: `${row.expectedPoints} expected points left.`,
       chip: `${row.yourValue} pts on your board`,
     }));
 
@@ -235,21 +298,26 @@ function buildCurrentImplicationRows(todayRows) {
     return [
       {
         id: "no-games-today",
-        title: "Nothing urgent is landing today",
-        body: "With no games on the slate, this lane becomes a quiet room-read rather than a rooting guide. The useful move is checking which teams could matter most once the next window opens.",
-        chip: "Off day",
+        eyebrow: "Off day",
+        title: "Nothing urgent lands today",
+        body: "The room stays mostly in place until the next slate tips.",
       },
     ];
   }
 
   return todayRows.slice(0, 3).map((row, index) => ({
     id: row.id,
+    eyebrow: row.matchupLabel,
     title:
-      index === 0
-        ? `${row.matchupLabel} is the first place today can move`
-        : `${row.matchupLabel} stays on the live board today`,
-    body: `${row.seriesStatus}. ${row.boardLean === "Balanced" ? "Your board is relatively balanced here, so this is more room texture than a true rooting order." : `${row.boardLean} is your current board lean in this matchup.`}`,
-    chip: row.boardLean === "Balanced" ? row.matchupLabel : `${row.boardLean} lean`,
+      row.boardLean === "Balanced"
+        ? "Mostly even"
+        : `${row.boardLean} lean`,
+    body:
+      row.boardLean === "Balanced"
+        ? "More watch than root-for."
+        : index === 0
+          ? "Best swing on the board right now."
+          : "Still a live swing for your board.",
   }));
 }
 
@@ -258,6 +326,7 @@ export default function TeamValueDashboardView() {
   const { memberList } = usePool();
   const { seriesByRound, teamsById, series } = usePlayoffData();
   const { games: todayGames } = useEspnTodayGames();
+  const { games: yesterdayGames } = useEspnYesterdayGames();
   const playoffTeams = useMemo(() => getRoundOneTeamsFromData(seriesByRound, teamsById), [seriesByRound, teamsById]);
   const {
     allAssignmentsByUser,
@@ -284,12 +353,34 @@ export default function TeamValueDashboardView() {
   const boardImplicationRows = reportState.reports["board-implications"]?.rows ?? [];
   const assetRows = reportState.reports.assets?.rows ?? [];
   const now = useMemo(() => new Date(), []);
+  const recentCompletedGames = useMemo(() => {
+    const combined = [...(yesterdayGames ?? []), ...(todayGames ?? [])];
+    const byId = new Map();
+    combined.forEach((game) => {
+      if (!game?.id) return;
+      byId.set(game.id, game);
+    });
+    return [...byId.values()];
+  }, [todayGames, yesterdayGames]);
+  const completedImpactRows = useMemo(
+    () => buildCompletedImpactRows(recentCompletedGames, allAssignmentsByUser, currentUserId, series),
+    [allAssignmentsByUser, currentUserId, recentCompletedGames, series]
+  );
   const onTapRows = useMemo(() => buildOnTapRows(todayGames, boardImplicationRows, series, now), [boardImplicationRows, now, series, todayGames]);
   const currentImplicationRows = useMemo(() => buildCurrentImplicationRows(onTapRows), [onTapRows]);
   const futurePressureRows = useMemo(() => buildFuturePressureRows(assetRows, onTapRows), [assetRows, onTapRows]);
   const dashboardStandingsRows = useMemo(
     () => buildDashboardStandingsRows(standings, currentUserId),
     [currentUserId, standings]
+  );
+  const baselineRankById = useMemo(
+    () =>
+      Object.fromEntries(
+        [...dashboardStandingsRows]
+          .sort((a, b) => (b.baselineWinProbability ?? 0) - (a.baselineWinProbability ?? 0))
+          .map((member, index) => [member.id, index + 1])
+      ),
+    [dashboardStandingsRows]
   );
   const currentRoundLabel = series.find((item) => item.status === "in_progress") ? "Current-round implications" : "Where the first-round pressure sits";
   const implicationReportPath = reportState.visibleReportKeys.includes("board-implications")
@@ -302,68 +393,56 @@ export default function TeamValueDashboardView() {
       <section className="panel">
         <div className="nba-dashboard-main-layout">
           <div className="nba-dashboard-primary-column">
-            <article className="detail-card inset-card nba-dashboard-on-tap-card">
-              <div className="nba-dashboard-card-head">
-                <div>
-                  <h3>What’s On Tap</h3>
+            {completedImpactRows.length ? (
+              <article className="detail-card inset-card nba-dashboard-impact-card">
+                <div className="nba-dashboard-card-head">
+                  <span className="micro-label">Recent score impact</span>
                 </div>
-                <Link className="secondary-button" to={implicationReportPath}>
-                  Open Today's Briefing
-                </Link>
-              </div>
-
-              {onTapRows.length ? (
-                <div className="nba-dashboard-on-tap-list">
-                  {onTapRows.map((row) => (
-                    <article className="nba-dashboard-on-tap-row" key={row.id}>
-                      <div className="nba-dashboard-on-tap-time">
-                        {row.status === "in_progress" ? (
-                          <span className="nba-dashboard-live-chip">Live</span>
-                        ) : row.status === "completed" ? (
-                          <span>Final</span>
-                        ) : (
-                          <strong>{row.timeLabel}</strong>
-                        )}
+                <div className="nba-dashboard-impact-grid">
+                  {completedImpactRows.map((row) => (
+                    <article className="nba-dashboard-impact-row" key={row.id}>
+                      <div className="nba-dashboard-impact-topline">
+                        <span className="nba-dashboard-impact-final">{row.gameLabel}</span>
                       </div>
-                      <div className="nba-dashboard-on-tap-copy">
-                        <strong>{row.status === "scheduled" ? row.matchupLabel : row.scoreLabel}</strong>
-                        {row.status !== "scheduled" ? (
-                          <span className="nba-dashboard-on-tap-live-status">{row.statusNote ?? (row.status === "completed" ? "Final" : "Live")}</span>
-                        ) : null}
-                        <p>{row.seriesStatus}</p>
-                        {row.status === "scheduled" ? (
-                          <div className="nba-dashboard-on-tap-meta">
-                            <span><strong>Line:</strong> {row.currentLineLabel}</span>
-                            <span><strong>Predictor:</strong> {row.favoriteLabel}</span>
-                            <span><strong>Board lean:</strong> {row.boardLean}</span>
-                          </div>
-                        ) : null}
+                      <div className="nba-dashboard-impact-scoreline">
+                        <div className="nba-dashboard-impact-team">
+                          {row.winnerLogo ? <img alt={`${row.winnerAbbreviation} logo`} src={row.winnerLogo} /> : null}
+                          <strong>{row.winnerAbbreviation}</strong>
+                        </div>
+                        <strong className="nba-dashboard-impact-score">{row.winnerScore}</strong>
+                        <span className="nba-dashboard-impact-def">def.</span>
+                        <strong className="nba-dashboard-impact-score">{row.loserScore}</strong>
+                        <div className="nba-dashboard-impact-team is-loser">
+                          {row.loserLogo ? <img alt={`${row.loserAbbreviation} logo`} src={row.loserLogo} /> : null}
+                          <strong>{row.loserAbbreviation}</strong>
+                        </div>
                       </div>
-                      <div className="nba-dashboard-on-tap-action">
-                        <Link className="secondary-button full" to={row.analysisPath}>
-                          {row.analysisLabel}
-                        </Link>
+                      <div className="nba-dashboard-impact-meta">
+                        <span>
+                          <small>Your rank</small>
+                          <strong>{row.displayRank ? `#${row.displayRank}` : "—"}</strong>
+                        </span>
+                        <span>
+                          <small>Points per win</small>
+                          <strong>{row.pointsPerWin}</strong>
+                        </span>
                       </div>
+                      {row.clinchingBonus > 0 ? (
+                        <div className="nba-dashboard-impact-bonus">Includes +{row.clinchingBonus} series bonus</div>
+                      ) : null}
+                      <div className="nba-dashboard-impact-points">+{row.pointsGained}</div>
+                      <Link className="secondary-button full nba-dashboard-impact-button" to={row.recapPath}>
+                        Recap
+                      </Link>
                     </article>
                   ))}
                 </div>
-              ) : (
-                <div className="nba-dashboard-empty-state">
-                  <strong>No games tip today.</strong>
-                  <p>The next useful move is checking where your board is most exposed before the next live swing arrives.</p>
-                </div>
-              )}
-            </article>
+              </article>
+            ) : null}
 
             <article className="detail-card inset-card nba-dashboard-live-standings-card">
               <div className="nba-dashboard-card-head">
-                <div>
-                  <span className="micro-label">Room right now</span>
-                  <h3>Live standings snapshot</h3>
-                </div>
-                <Link className="secondary-button" to="/standings">
-                  Full standings
-                </Link>
+                <h3>Standings</h3>
               </div>
               {!hasLoadedInitialBoardState ? (
                 <div className="nba-dashboard-empty-state">
@@ -373,14 +452,16 @@ export default function TeamValueDashboardView() {
               ) : canTrustStandings ? (
                 <>
                   <div className="leaderboard-table nba-dashboard-leaderboard-table">
-                    <div className="leaderboard-head nba-dashboard-leaderboard-head">
-                      <span>Player</span>
-                      <span>Pts</span>
-                      <span>Back</span>
-                      <span>Win%</span>
-                      <span>Top Team</span>
-                    </div>
-                    {dashboardStandingsRows.map((member) => (
+                      <div className="leaderboard-head nba-dashboard-leaderboard-head">
+                        <span>Player</span>
+                        <span>Pts</span>
+                        <span>Back</span>
+                        <span>Move</span>
+                        <span>Win%</span>
+                      </div>
+                    {dashboardStandingsRows.map((member) => {
+                      const movement = buildRankMovement(member.place, baselineRankById[member.id]);
+                      return (
                       <div
                         className={`leaderboard-row nba-dashboard-leaderboard-row ${member.id === currentUserId ? "is-current" : ""}`}
                         key={member.id}
@@ -391,14 +472,10 @@ export default function TeamValueDashboardView() {
                         </div>
                         <span>{member.summary.totalPoints}</span>
                         <span>{member.pointsBack}</span>
+                        <span className={`nba-dashboard-move-indicator is-${movement.direction}`}>{movement.label}</span>
                         <span>{member.winProbability}%</span>
-                        <span>
-                          {member.bestRemainingAsset
-                            ? `${playoffTeams.find((team) => team.id === member.bestRemainingAsset.teamId)?.abbreviation ?? member.bestRemainingAsset.teamId?.toUpperCase?.() ?? "Team"} (${member.bestRemainingAsset.value})`
-                            : "Out"}
-                        </span>
                       </div>
-                    ))}
+                    )})}
                   </div>
                   {currentStanding ? (
                     <p className="nba-dashboard-standings-note">
@@ -416,58 +493,57 @@ export default function TeamValueDashboardView() {
           </div>
 
           <aside className="nba-dashboard-side-rail">
+            <article className="detail-card inset-card nba-dashboard-on-tap-card nba-dashboard-on-tap-side-card">
+              <div className="nba-dashboard-card-head">
+                <h3>What’s On Tap</h3>
+                <Link className="secondary-button" to={implicationReportPath}>
+                  Today's Briefing
+                </Link>
+              </div>
+
+              {onTapRows.length ? (
+                <div className="nba-dashboard-on-tap-compact-grid">
+                  {onTapRows.map((row) => (
+                    <article className="nba-dashboard-on-tap-compact-card" key={row.id}>
+                      <div className="nba-dashboard-on-tap-compact-top">
+                        {row.status === "in_progress" ? (
+                          <span className="nba-dashboard-live-chip">Live</span>
+                        ) : (
+                          <span className="nba-dashboard-on-tap-compact-time">{row.timeLabel}</span>
+                        )}
+                        {row.status !== "scheduled" ? (
+                          <span className="nba-dashboard-on-tap-live-status">{row.statusNote ?? (row.status === "completed" ? "Final" : "Live")}</span>
+                        ) : null}
+                      </div>
+                      <strong className="nba-dashboard-on-tap-compact-title">
+                        {row.status === "scheduled" ? row.matchupLabel : row.scoreLabel}
+                      </strong>
+                      <p className="nba-dashboard-on-tap-compact-series">{row.seriesStatus}</p>
+                      {row.status === "scheduled" ? (
+                        <div className="nba-dashboard-on-tap-compact-meta">
+                          <span>{row.currentLineLabel}</span>
+                          <span>{row.boardLean === "Balanced" ? "Even board read" : `${row.boardLean} board lean`}</span>
+                        </div>
+                      ) : null}
+                      <Link className="secondary-button full" to={row.analysisPath}>
+                        {row.analysisLabel}
+                      </Link>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="nba-dashboard-empty-state">
+                  <strong>No games tip today.</strong>
+                  <p>The next useful move is checking where your board is most exposed before the next live swing arrives.</p>
+                </div>
+              )}
+            </article>
+
             <article className="detail-card inset-card nba-dashboard-link-card nba-dashboard-yesterday-card">
               <span className="micro-label">Yesterday's Recap</span>
-              <strong>See how the room moved</strong>
+              <strong>See how the pool moved</strong>
               <Link className="secondary-button full" to="/reports/yesterday-recap">
                 Yesterday's Recap
-              </Link>
-            </article>
-
-            <article className="detail-card inset-card nba-dashboard-link-card is-primary-link">
-              <span className="micro-label">{currentRoundLabel}</span>
-              <strong>Where today can help you fastest</strong>
-              <div className="nba-dashboard-implication-stack">
-                {currentImplicationRows.map((item) => (
-                  <div className="nba-dashboard-implication-row" key={item.id}>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <p>{item.body}</p>
-                    </div>
-                    <span className="chip subtle-chip">{item.chip}</span>
-                  </div>
-                ))}
-              </div>
-              <Link className="secondary-button full" to={implicationReportPath}>
-                Open Board Implications
-              </Link>
-            </article>
-
-            <article className="detail-card inset-card nba-dashboard-link-card is-secondary-link">
-              <span className="micro-label">Potential future implications</span>
-              <strong>What could become more important after tonight</strong>
-              <div className="nba-dashboard-implication-stack">
-                {futurePressureRows.map((item) => (
-                  <div className="nba-dashboard-implication-row" key={item.id}>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <p>{item.body}</p>
-                    </div>
-                    <span className="chip subtle-chip">{item.chip}</span>
-                  </div>
-                ))}
-              </div>
-              <Link className="secondary-button full" to="/reports/assets">
-                Open Biggest Assets
-              </Link>
-            </article>
-
-            <article className="detail-card inset-card nba-dashboard-link-card is-neutral-link">
-              <span className="micro-label">Deep reads</span>
-              <strong>Compare the room once today’s scores land</strong>
-              <p>Use Board Matrix for the full room view, then compare any two boards to see exactly where the rankings split.</p>
-              <Link className="secondary-button full" to="/board-matrix">
-                Open Board Matrix
               </Link>
             </article>
           </aside>

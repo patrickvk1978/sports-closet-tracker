@@ -131,6 +131,10 @@ function buildBaselineAuditRows(standings, allAssignmentsByUser, playoffTeams) {
     .sort((a, b) => (b.baselineWinProbability ?? 0) - (a.baselineWinProbability ?? 0));
 }
 
+function formatMemberLabel(member) {
+  return member?.isCurrentUser ? "You" : member?.displayName ?? member?.name ?? "—";
+}
+
 export default function TeamValueStandingsView() {
   const { memberList, pool, settingsForPool } = usePool();
   const { seriesByRound, teamsById, series } = usePlayoffData();
@@ -207,6 +211,19 @@ export default function TeamValueStandingsView() {
   );
   const currentUserAudit = baselineAuditRows.find((member) => member.isCurrentUser) ?? null;
   const hasSyncedBoards = syncedBoardCount >= 2;
+  const leader = sortedStandings[0] ?? null;
+  const biggestRiser = useMemo(
+    () => [...baselineAuditRows].sort((a, b) => (b.winProbabilityDelta ?? 0) - (a.winProbabilityDelta ?? 0))[0] ?? null,
+    [baselineAuditRows]
+  );
+  const biggestFaller = useMemo(
+    () => [...baselineAuditRows].sort((a, b) => (a.winProbabilityDelta ?? 0) - (b.winProbabilityDelta ?? 0))[0] ?? null,
+    [baselineAuditRows]
+  );
+  const liveContenders = useMemo(
+    () => sortedStandings.filter((member) => Number(member.winProbability ?? 0) >= 5),
+    [sortedStandings]
+  );
 
   function handleSort(nextKey) {
     if (sortKey === nextKey) {
@@ -308,6 +325,45 @@ export default function TeamValueStandingsView() {
         <section className="panel">
           {hasSyncedBoards ? (
             <>
+              <div className="nba-standings-snapshot-grid">
+                <article className="detail-card inset-card nba-standings-snapshot-card nba-standings-snapshot-card-dark">
+                  <span className="micro-label">Race snapshot</span>
+                  <h3>{leader ? `${formatMemberLabel(leader)} leads the room at ${leader.winProbability}%` : "Room race is loading"}</h3>
+                  <p>
+                    {currentUserAudit
+                      ? `You are ${currentUserAudit.pointsBack} points back with a ${currentUserAudit.winProbability}% chance to win the pool.`
+                      : "The race read will settle in as live boards sync."}
+                  </p>
+                </article>
+                <article className="detail-card inset-card nba-standings-snapshot-card">
+                  <span className="micro-label">Biggest rise</span>
+                  <h3>{biggestRiser ? `${formatMemberLabel(biggestRiser)} ${formatSigned(biggestRiser.winProbabilityDelta)} pts` : "—"}</h3>
+                  <p>
+                    {biggestRiser
+                      ? `${formatMemberLabel(biggestRiser)} started at ${biggestRiser.baselineWinProbability}% and is now at ${biggestRiser.winProbability}%.`
+                      : "No movement read yet."}
+                  </p>
+                </article>
+                <article className="detail-card inset-card nba-standings-snapshot-card">
+                  <span className="micro-label">Biggest drop</span>
+                  <h3>{biggestFaller ? `${formatMemberLabel(biggestFaller)} ${formatSigned(biggestFaller.winProbabilityDelta)} pts` : "—"}</h3>
+                  <p>
+                    {biggestFaller
+                      ? `${formatMemberLabel(biggestFaller)} has taken the biggest hit versus lock.`
+                      : "No movement read yet."}
+                  </p>
+                </article>
+                <article className="detail-card inset-card nba-standings-snapshot-card">
+                  <span className="micro-label">Live contenders</span>
+                  <h3>{liveContenders.length} boards are still 5%+ live</h3>
+                  <p>
+                    {liveContenders.length
+                      ? liveContenders.slice(0, 4).map((member) => `${formatMemberLabel(member)} ${member.winProbability}%`).join(" · ")
+                      : "The field is compressed below the 5% line right now."}
+                  </p>
+                </article>
+              </div>
+
               <div className="nba-standings-table-shell">
                 <table className="nba-standings-table-expanded">
                   <thead>

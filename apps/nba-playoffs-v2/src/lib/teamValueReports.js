@@ -61,17 +61,17 @@ function buildSummary(currentStanding, slotFitRows, fragilityRows) {
         "Get the whole board set first; then this page becomes much more useful.",
       ], "summary-empty-head"),
       body: `${coachLine([
-        "Once every slot is assigned, this page can explain where your value is concentrated, where you differ from the room, and which results matter most.",
+        "Once every slot is assigned, this page can explain where your value is concentrated, where you differ from the rest of the pool, and which results matter most.",
         "Once the board is complete, this page can stop being a reminder and start acting like a real decision desk.",
-        "Right now the best coaching note is simple: finish the board. After that, the asset, leverage, and rooting reads get sharper fast.",
+        "Right now the best coaching note is simple: finish the board. After that, the key-team, comparison, and rooting reads get sharper fast.",
       ], "summary-empty-body")} ${colorLine([
         "No board, no orchestra.",
-        "The chalkboard still needs chalk.",
+        "The full board will make the picture clearer.",
         "Hard to run the offense without all five on the floor.",
       ], "summary-empty-color")}`,
       stats: [
         { label: "Current points", value: 0 },
-        { label: "Live value", value: 0 },
+        { label: "Points still in play", value: 0 },
         { label: "Win probability", value: "0%" },
       ],
     };
@@ -86,9 +86,9 @@ function buildSummary(currentStanding, slotFitRows, fragilityRows) {
       `Your board is still being defined by the way you slotted ${topFit?.teamLabel ?? "the top end"}`,
     ], topFit?.teamLabel, topFragility?.teamLabel, currentStanding.place, "summary-head"),
     body: `${boothLine([
-      `From ${ordinal(currentStanding.place)}, your board still has ${currentStanding.liveValueRemaining} live value. The biggest question is whether your highest slots are in the right teams and whether ${topFragility?.teamLabel ?? "your top exposures"} are sturdier than they look.`,
-      `From ${ordinal(currentStanding.place)}, you still have ${currentStanding.liveValueRemaining} live value working for you. The interesting tension is whether your premium slots are on the right teams and whether ${topFragility?.teamLabel ?? "the thinner exposures"} can really hold up.`,
-      `There is still ${currentStanding.liveValueRemaining} live value on your side from ${ordinal(currentStanding.place)}. What matters now is whether your highest slots are asking too much and whether ${topFragility?.teamLabel ?? "the shakier names"} can keep collecting wins long enough to justify the assignment.`,
+      `From ${ordinal(currentStanding.place)}, your board still has ${currentStanding.liveValueRemaining} points still in play. The biggest question is whether your highest slots are in the right teams and whether ${topFragility?.teamLabel ?? "your top exposures"} are sturdier than they look.`,
+      `From ${ordinal(currentStanding.place)}, you still have ${currentStanding.liveValueRemaining} points still in play. The interesting tension is whether your premium slots are on the right teams and whether ${topFragility?.teamLabel ?? "the shakier picks"} can really hold up.`,
+      `There are still ${currentStanding.liveValueRemaining} points still in play for your board from ${ordinal(currentStanding.place)}. What matters now is whether your highest slots are asking too much and whether ${topFragility?.teamLabel ?? "the shakier names"} can keep collecting wins long enough to justify the assignment.`,
     ], topFit?.teamLabel, topFragility?.teamLabel, currentStanding.place, "summary-body")} ${colorLine([
       `This is where the board stops being a spreadsheet and starts becoming a mood.`,
       `Some boards feel sturdy. Some feel spicy. This one is still deciding which it wants to be.`,
@@ -96,7 +96,7 @@ function buildSummary(currentStanding, slotFitRows, fragilityRows) {
     ], topFit?.teamLabel, topFragility?.teamLabel, currentStanding.place, "summary-color")}`,
     stats: [
       { label: "Current points", value: currentStanding.summary.totalPoints },
-      { label: "Live value", value: currentStanding.liveValueRemaining },
+      { label: "Points still in play", value: currentStanding.liveValueRemaining },
       { label: "Win probability", value: `${currentStanding.winProbability}%` },
     ],
   };
@@ -119,7 +119,7 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
       const gapSize = Math.abs(slotDelta);
       let fitType = "clean";
       let headline = `${team.abbreviation} already sits in a clean slot`;
-      let body = `You already have ${team.abbreviation} in the range the board expects, with ${expectedPoints} expected points and ${poolEv} pool EV.`;
+      let body = `You already have ${team.abbreviation} in the range the board expects, with ${expectedPoints} expected points and a board value score of ${poolEv}.`;
 
       if (slotDelta >= 3.5) {
         fitType = "over";
@@ -161,7 +161,7 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
           `${team.abbreviation} is not far off, though the slot is leaning high`,
         ], team.abbreviation, slotDelta, "slot-soft-over-head");
         body = `${coachLine([
-          `${team.abbreviation} is only slightly above the board's fair slot, so the real question is whether ${expectedPoints} expected points and ${poolEv} pool EV justify the extra spend.`,
+          `${team.abbreviation} is only slightly above the board's fair slot, so the real question is whether ${expectedPoints} expected points and a board value score of ${poolEv} justify the extra spend.`,
           `This is more of a pricing nudge than a full red flag, but the board still wants to know whether ${expectedPoints} expected points are enough to warrant ${yourValue}.`,
           `${team.abbreviation} is within range. The only real issue is whether this slot is buying enough payoff for the cost.`,
         ], team.abbreviation, slotDelta, "slot-soft-over-body")} ${colorLine([
@@ -181,7 +181,7 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
           `This is more than a small discount. ${team.abbreviation} is being carried materially lighter than the board would normally place it.`,
           `If this team hangs around, the board gets more from the slot than the current assignment is implying.`,
         ], team.abbreviation, slotDelta, yourValue, "slot-hard-under-body")} ${boothLine([
-          `This is how a board finds room to breathe.`,
+          `This is how a board finds breathing space.`,
           `This is one of the cleaner ways to buy ceiling without paying full freight.`,
           `These are the discounts that make the harder top-end calls easier to live with.`,
         ], team.abbreviation, slotDelta, "slot-hard-under-booth")}`;
@@ -225,7 +225,7 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
         ], team.abbreviation, "slot-very-clean-head");
         body = `${coachLine([
           `${team.abbreviation} is essentially where the board would put them already.`,
-          `This is one of the spots where the slot, expected points, and pool EV are all telling a very similar story.`,
+          `This is one of the spots where the slot, expected points, and board value score are all telling a very similar story.`,
           `There is not much daylight here between your slot and the board's preferred slot.`,
         ], team.abbreviation, "slot-very-clean-body")} ${colorLine([
           `Probably not where today's board gains or loses the most.`,
@@ -239,8 +239,8 @@ function buildSlotFitRows(selectionRows, currentAssignments) {
           `${team.abbreviation} is one of the steadier assignments on your board`,
         ], team.abbreviation, "slot-clean-head");
         body = `${coachLine([
-          `You already have ${team.abbreviation} in the range the board expects, with ${expectedPoints} expected points and ${poolEv} pool EV.`,
-          `${team.abbreviation} is not really asking for a move right now. The slot, expected points, and pool EV are mostly telling the same story.`,
+          `You already have ${team.abbreviation} in the range the board expects, with ${expectedPoints} expected points and a board value score of ${poolEv}.`,
+          `${team.abbreviation} is not really asking for a move right now. The slot, expected points, and board value score are mostly telling the same story.`,
           `This is one of the calmer assignments on the page: the board is not throwing a flag on the slot.`,
         ], team.abbreviation, "slot-clean-body")} ${colorLine([
           `No emergency here.`,
@@ -279,32 +279,32 @@ function buildOverweightRows(exposures, selectionRows) {
         teamLabel: `${row.city} ${row.name}`,
         headline: isOver
           ? colorLine([
-              `You are above the room on ${row.abbreviation}`,
-              `${row.abbreviation} is one of the places you are leaning harder than the room`,
-              `${row.abbreviation} is carrying more of your conviction than the room's`,
+              `You are above the pool on ${row.abbreviation}`,
+              `${row.abbreviation} is one of the places you are leaning harder than the rest of the pool`,
+              `${row.abbreviation} is carrying more of your conviction than the pool average`,
             ], row.abbreviation, row.leverage, "overweight-head")
           : colorLine([
-              `You are lighter than the room on ${row.abbreviation}`,
-              `${row.abbreviation} is one of the spots where the room is heavier than you are`,
-              `${row.abbreviation} is a place where you are giving the room more credit`,
+              `You are lighter than the pool on ${row.abbreviation}`,
+              `${row.abbreviation} is one of the spots where the rest of the pool is heavier than you are`,
+              `${row.abbreviation} is a place where you are giving the pool more credit`,
             ], row.abbreviation, row.leverage, "underweight-head"),
         body: isOver
           ? `${boothLine([
-              `You assigned ${row.yourValue} while the room average is ${row.avgValue}. That gives you more lift if ${row.abbreviation} runs, but also more exposure if they bust.`,
-              `${row.abbreviation} is carrying more of your board than it is carrying for the average room card. If they run, you feel it faster; if they wobble, you feel that too.`,
-              `At ${row.yourValue} against a room average of ${row.avgValue}, ${row.abbreviation} is one of the places your board is leaning harder into the ceiling case.`,
+              `You assigned ${row.yourValue} while the pool average is ${row.avgValue}. That gives you more lift if ${row.abbreviation} runs, but also more exposure if they bust.`,
+              `${row.abbreviation} is carrying more of your board than it is carrying for the average pool board. If they run, you feel it faster; if they wobble, you feel that too.`,
+              `At ${row.yourValue} against a pool average of ${row.avgValue}, ${row.abbreviation} is one of the places your board is leaning harder into the ceiling case.`,
             ], row.abbreviation, row.leverage, "overweight-body")} ${colorLine([
               `This is where your board either looks sharp or starts explaining itself.`,
               `Useful when it hits. Loud when it misses.`,
               `This is the sort of exposure that can make you feel clever by Monday or defensive by Tuesday.`,
             ], row.abbreviation, row.leverage, "overweight-color")}`
           : `${boothLine([
-              `You assigned ${row.yourValue} while the room average is ${row.avgValue}. That means a longer ${row.abbreviation} stay in the bracket helps the room more than it helps you.`,
-              `${row.abbreviation} is carrying less weight on your board than it is across the room, so every extra win is doing more collective good than personal good.`,
-              `With ${row.yourValue} against a room average of ${row.avgValue}, ${row.abbreviation} is one of the clearer spots where the field is holding more of the win-by-win scoring upside than you are.`,
+              `You assigned ${row.yourValue} while the pool average is ${row.avgValue}. That means a longer ${row.abbreviation} stay in the bracket helps the pool more than it helps you.`,
+              `${row.abbreviation} is carrying less weight on your board than it is across the pool, so every extra win is doing more collective good than personal good.`,
+              `With ${row.yourValue} against a pool average of ${row.avgValue}, ${row.abbreviation} is one of the clearer spots where the field is holding more of the win-by-win scoring upside than you are.`,
             ], row.abbreviation, row.leverage, "underweight-body")} ${colorLine([
               `If they go cold, you will feel smart. If they get hot, you will hear about it.`,
-              `This is one of those spots where the room can start celebrating before you are ready to join in.`,
+              `This is one of those spots where the pool can start celebrating before you are ready to join in.`,
               `There is some “hope they cool off” energy baked into this one.`,
             ], row.abbreviation, row.leverage, "underweight-color")}`,
         leverage: row.leverage,
@@ -329,12 +329,12 @@ function buildBiggestAssetsRows(selectionRows, currentAssignments) {
           `${team.abbreviation} is one of the names carrying your fate`,
         ], team.abbreviation, yourValue, "assets-head"),
         body: `${boothLine([
-          `${team.abbreviation} is carrying ${yourValue} of your board, with ${team.expectedPoints} expected points and ${team.poolEv} pool EV from here.`,
+          `${team.abbreviation} is carrying ${yourValue} of your board, with ${team.expectedPoints} expected points and a board value score of ${team.poolEv} from here.`,
           `${yourValue} points are tied to ${team.abbreviation}, which is exactly why they sit near the center of your board's future path.`,
           `${team.abbreviation} is not just alive on your board. It is one of the teams actually driving the return case from here.`,
         ], team.abbreviation, yourValue, "assets-body")} ${colorLine([
           `If this one runs, the board breathes easier.`,
-          `This is one of the chips that can still move the whole room for you.`,
+          `This is one of the chips that can still move the whole pool for you.`,
           `This is the sort of team that makes you check the bracket before you check your messages.`,
         ], team.abbreviation, yourValue, "assets-color")}`,
         yourValue,
@@ -398,7 +398,7 @@ function buildRootingRows(selectionRows, seriesByRound, currentAssignments) {
               `${preferred?.abbreviation ?? seriesItem.homeTeam.abbreviation} is simply worth more to your board right now, and that is enough to make this series matter.`,
             ], seriesItem.id, preferred?.abbreviation, "rooting-lean-body")} ${colorLine([
               `This is where your rooting card starts to get loud.`,
-              `If you are going to pace the room, this is a good candidate.`,
+              `If you are going to pace the pool, this is a good candidate.`,
               `This one has “check the score twice during dinner” energy.`,
             ], seriesItem.id, preferred?.abbreviation, "rooting-lean-color")}`,
       gap,
@@ -491,12 +491,12 @@ function buildFragilityRows(selectionRows, currentAssignments) {
           ? coachLine([
               `${team.abbreviation} is one of your shakier high slots`,
               `${team.abbreviation} is one of the thinner parts of your board`,
-              `${team.abbreviation} is carrying more fragility than you might like`,
+              `${team.abbreviation} carries more risk than you might like`,
             ], team.abbreviation, yourValue, "fragility-head-high")
           : fragilityBand === "medium"
             ? coachLine([
                 `${team.abbreviation} is solid enough, but not bulletproof`,
-                `${team.abbreviation} is carrying some quiet fragility`,
+                `${team.abbreviation} is carrying some quiet risk`,
                 `${team.abbreviation} is not a red-alert slot, but it is not especially sturdy either`,
               ], team.abbreviation, yourValue, "fragility-head-medium")
             : coachLine([
@@ -506,9 +506,9 @@ function buildFragilityRows(selectionRows, currentAssignments) {
               ], team.abbreviation, yourValue, "fragility-head-light"),
         body: fragilityBand === "high"
           ? `${coachLine([
-              `${team.abbreviation} is carrying ${yourValue} points on your board, but only ${team.marketLean}% Round 1 market confidence and ${team.titleOddsPct}% title equity.`,
-              `${yourValue} points are sitting on a team with only ${team.marketLean}% Round 1 market confidence and ${team.titleOddsPct}% title equity, which is why this slot reads thinner than it looks.`,
-              `${team.abbreviation} has real upside, but the market/title profile is light enough that this slot can make the board feel shallower than it first appears.`,
+              `${team.abbreviation} is carrying ${yourValue} points on your board, but only ${team.marketLean}% Round 1 market confidence and ${team.titleOddsPct}% championship odds.`,
+              `${yourValue} points are sitting on a team with only ${team.marketLean}% Round 1 market confidence and ${team.titleOddsPct}% championship odds, which is why this slot reads thinner than it looks.`,
+              `${team.abbreviation} has real upside, but the market and championship-odds profile are light enough that this slot can make the board feel shallower than it first appears.`,
             ], team.abbreviation, yourValue, "fragility-body-high")} ${colorLine([
               `Every board has some spice. The trick is not mistaking spice for structure.`,
               `You can carry one or two of these. You just do not want to build a whole porch out of them.`,
@@ -730,7 +730,7 @@ export function buildTeamValueReports({
       key: "slot-fits",
       label: "Best slot fits",
       title: "Where does each team really belong on your board?",
-      description: "This compares your assignments to a fair-value slot built from expected points, title equity, and the current playoff path.",
+      description: "This compares your assignments to a fair-value slot built from expected points, championship odds, and the current playoff path.",
       rows: slotFits,
       stage: "always",
     },
@@ -753,16 +753,16 @@ export function buildTeamValueReports({
     rooting: {
       key: "rooting",
       label: "Rooting guide",
-      title: "What outcomes cash your portfolio fastest?",
-      description: "This is the first-round leverage board: the series where the teams you valued most can start returning wins and points quickly.",
+      title: "Which outcomes help your board the fastest?",
+      description: "This is the first-round rooting guide: the series where the teams you valued most can start returning wins and points quickly.",
       rows: rootingGuide,
       stage: "always",
     },
     fragility: {
       key: "fragility",
-      label: "Fragility",
+      label: "Risk check",
       title: "Where is your board stronger or shakier than it seems?",
-      description: "Not all high slots are created equal. This looks for places where heavy value is sitting on thinner market or title footing.",
+      description: "Not all high slots are created equal. This looks for places where heavy value is sitting on shakier market or championship footing.",
       rows: fragility,
       stage: "always",
     },
@@ -785,7 +785,7 @@ export function buildTeamValueReports({
     overweight: {
       key: "overweight",
       label: "Overweight / underweight",
-      title: "Where are you above or below the room?",
+      title: "Where are you above or below the rest of the pool?",
       description: "This only becomes available after lock, once board comparisons inside the pool are fair game.",
       rows: overweight,
       stage: "post_lock",

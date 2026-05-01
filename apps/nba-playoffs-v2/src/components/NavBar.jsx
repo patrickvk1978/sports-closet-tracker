@@ -13,7 +13,6 @@ export default function NavBar() {
   const isSettings  = location.pathname === "/pool-settings";
   const isDashboard = location.pathname === "/dashboard";
   const isTeams = location.pathname === "/teams";
-  const isStandings = location.pathname === "/standings";
   const isBoardMatrix = location.pathname === "/board-matrix";
   const phase = getTeamValuePhase(settingsForPool(pool));
   const isPostLock = phase === "post_lock";
@@ -59,12 +58,6 @@ export default function NavBar() {
         {!isPostLock ? (
           <a className={isTeams ? "nav-button active" : "nav-button"} href="/teams" aria-label="My board">
             My Board
-          </a>
-        ) : null}
-
-        {isPostLock ? (
-          <a className={isStandings ? "nav-button active" : "nav-button"} href="/standings" aria-label="Standings">
-            Standings
           </a>
         ) : null}
 

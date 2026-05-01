@@ -45,7 +45,7 @@ const SORT_OPTIONS = {
     compare: (a, b) => (a.expectedPoints ?? 0) - (b.expectedPoints ?? 0),
   },
   poolEv: {
-    label: "Pool EV",
+    label: "Board value",
     compare: (a, b) => (a.poolEv ?? 0) - (b.poolEv ?? 0),
   },
   value: {
@@ -55,11 +55,11 @@ const SORT_OPTIONS = {
 };
 
 const TERM_HELP = {
-  market: "Round 1 market is the outside expectation for who advances from the first series. It still matters most, but teams can now bank points along the way too.",
-  expectedPoints: "Expected points is the first-pass estimate of how many points this team-slot pairing could return from game wins and rank-scaled advancement bonuses.",
-  poolEv: "Pool EV is the rough value score for this team at this rank after blending expected points, path, and how well the slot captures both win volume and advancement upside.",
-  title: "Championship is the long-run ceiling view. It matters more in the top ranks than the bottom ones.",
-  model: "Model is the internal forecast read for this team’s first-round path. It helps you compare our projection with the outside market.",
+  market: "Round 1 market is the outside expectation for who advances from the first series. It is our best quick read of how the wider basketball world sees the matchup.",
+  expectedPoints: "Expected points is our estimate of how many points this team-slot pairing could score from game wins and round bonuses.",
+  poolEv: "Board value score is our overall read on how useful this team is at this rank after combining expected points, path, and upside.",
+  title: "Championship odds show the team's long-term ceiling. They matter more near the top of your board than near the bottom.",
+  model: "Model is our in-house forecast for this team's first-round path. It helps you compare our read with the outside market.",
   value: "Rank is where you place the team on your board. Rank 1 is your strongest slot and rank 16 is your lowest.",
 };
 
@@ -529,7 +529,7 @@ export default function TeamsBoardView() {
                       </span>
                       <span>
                         <strong>{team.poolEv}</strong>
-                        <small>Pool EV</small>
+                        <small>Board value</small>
                       </span>
                     </div>
                   </div>
