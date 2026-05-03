@@ -12,9 +12,9 @@
  *   callFinalize () => void — call this when your timer hits 0
  *
  * Tier logic:
- *   calm   = you're locked AND everyone else is locked
- *   active = you're locked but others aren't (or >5s left)
- *   urgent = <5s left AND at least one member still unlocked
+ *   calm   = everyone has submitted a manual card
+ *   active = at least one member has not submitted
+ *   urgent = <5s left AND at least one member still has not submitted
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -23,8 +23,8 @@ const WINDOW_SECONDS = 20;
 
 export function useSubmitWindow({
   draftFeed,       // from useDraftFeed — includes pick_is_in_at, current_status, current_pick_number
-  currentLocked,   // bool — is the current user locked for this pick?
-  poolState,       // [{ locked, isCurrentUser }] — full pool lock state
+  currentSubmitted, // bool — has the current user submitted a manual card?
+  poolState,        // [{ submitted, isCurrentUser }] — full pool submit state
   poolId,          // uuid — current pool
 }) {
   const [secondsLeft, setSecondsLeft] = useState(null);
@@ -86,11 +86,11 @@ export function useSubmitWindow({
     return { secondsLeft: null, tier: null, isActive: false, callFinalize };
   }
 
-  const anyoneUnlocked = poolState.some((m) => !m.locked && !m.isCurrentUser);
+  const anyoneUnsubmitted = poolState.some((m) => !m.submitted && !m.isCurrentUser);
 
   const tier =
-    secondsLeft <= 5 && anyoneUnlocked ? "urgent" :
-    !currentLocked || anyoneUnlocked    ? "active" : "calm";
+    secondsLeft <= 5 && anyoneUnsubmitted ? "urgent" :
+    !currentSubmitted || anyoneUnsubmitted ? "active" : "calm";
 
   return { secondsLeft, tier, isActive: true, callFinalize };
 }

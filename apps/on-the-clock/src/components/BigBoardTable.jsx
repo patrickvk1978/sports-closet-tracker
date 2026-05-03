@@ -47,6 +47,8 @@ export default function BigBoardTable({
   onSetPrediction,          // (pickNumber, prospectId) => void
   onAddToWatchlist,         // (teamCode, prospectId) => void
   onRemoveFromWatchlist,    // (teamCode, prospectId) => void
+  hideTaken = true,
+  onToggleHideTaken,
 }) {
   const rowPickerEnabled = Boolean(onSetPrediction || onAddToWatchlist);
   const { prospects, picks, teams, getProspectById, loading: refLoading } = useReferenceData();
@@ -72,20 +74,22 @@ export default function BigBoardTable({
     const filtered = base.filter(p => {
       const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
       const matchPos = positionFilter === "ALL" || p.position.includes(positionFilter);
-      return matchSearch && matchPos;
+      const matchTaken = !hideTaken || !draftedIds.has(p.id);
+      return matchSearch && matchPos && matchTaken;
     });
     const sourceFiltered = rankSourceCfg?.field
       ? filtered.filter(p => p[rankSourceCfg.field] != null)
       : filtered;
     return sortRankings(sourceFiltered, boardIds, rankSource);
-  }, [boardIds, positionFilter, search, rankSource, rankSourceCfg, getProspectById]);
+  }, [boardIds, positionFilter, search, rankSource, rankSourceCfg, getProspectById, hideTaken, draftedIds]);
 
   const mockProspects = useMemo(() => {
     if (!mockSourceCfg?.field || !prospects.length) return [];
     return prospects
       .filter(p => p[mockSourceCfg.field] != null)
+      .filter(p => !hideTaken || !draftedIds.has(p.id))
       .sort((a, b) => a[mockSourceCfg.field] - b[mockSourceCfg.field]);
-  }, [prospects, mockSourceCfg]);
+  }, [prospects, mockSourceCfg, hideTaken, draftedIds]);
 
   const selectedProspect = selectedProspectId ? getProspectById(selectedProspectId) : null;
   const assignedCount = Object.keys(mappedPickByProspectId).length;
@@ -176,6 +180,15 @@ export default function BigBoardTable({
             {MOCK_SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         )}
+        {onToggleHideTaken ? (
+          <button
+            type="button"
+            className={`small-button board-hide-taken ${hideTaken ? "active" : ""}`}
+            onClick={onToggleHideTaken}
+          >
+            {hideTaken ? "Taken hidden" : "Show taken"}
+          </button>
+        ) : null}
       </div>
 
       {/* Player select + assign — hidden when per-row picker is active */}
@@ -269,20 +282,22 @@ export default function BigBoardTable({
                   <span className="board-row-actions" style={{ position: "relative" }}>
                     <button className="small-button" type="button" onClick={(e) => { e.stopPropagation(); onMove(prospect.id, "up"); }}>↑</button>
                     <button className="small-button" type="button" onClick={(e) => { e.stopPropagation(); onMove(prospect.id, "down"); }}>↓</button>
-                    {rowPickerEnabled ? (
-                      <button
-                        className="small-button"
-                        type="button"
-                        style={{ width: "auto", padding: "0 10px" }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAssignAnchorEl(e.currentTarget);
-                          setAssignOpenFor((cur) => (cur === prospect.id ? null : prospect.id));
-                        }}
-                      >
-                        Assign
-                      </button>
-                    ) : null}
+	                    {rowPickerEnabled ? (
+	                      <button
+	                        className="small-button"
+	                        type="button"
+	                        disabled={drafted}
+	                        style={{ width: "auto", padding: "0 10px" }}
+	                        onClick={(e) => {
+	                          e.stopPropagation();
+	                          if (drafted) return;
+	                          setAssignAnchorEl(e.currentTarget);
+	                          setAssignOpenFor((cur) => (cur === prospect.id ? null : prospect.id));
+	                        }}
+	                      >
+	                        {drafted ? "Taken" : "Assign"}
+	                      </button>
+	                    ) : null}
                   </span>
                 </div>
               );
@@ -332,20 +347,22 @@ export default function BigBoardTable({
                   <span>{prospect.position}</span>
                   <span>{prospect.school}</span>
                   <span className="board-row-actions" style={{ position: "relative" }}>
-                    {rowPickerEnabled ? (
-                      <button
-                        className="small-button"
-                        type="button"
-                        style={{ width: "auto", padding: "0 10px" }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAssignAnchorEl(e.currentTarget);
-                          setAssignOpenFor((cur) => (cur === prospect.id ? null : prospect.id));
-                        }}
-                      >
-                        Assign
-                      </button>
-                    ) : null}
+	                    {rowPickerEnabled ? (
+	                      <button
+	                        className="small-button"
+	                        type="button"
+	                        disabled={drafted}
+	                        style={{ width: "auto", padding: "0 10px" }}
+	                        onClick={(e) => {
+	                          e.stopPropagation();
+	                          if (drafted) return;
+	                          setAssignAnchorEl(e.currentTarget);
+	                          setAssignOpenFor((cur) => (cur === prospect.id ? null : prospect.id));
+	                        }}
+	                      >
+	                        {drafted ? "Taken" : "Assign"}
+	                      </button>
+	                    ) : null}
                   </span>
                 </div>
               );

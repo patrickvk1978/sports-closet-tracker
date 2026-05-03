@@ -123,6 +123,7 @@ export function PoolProvider({ children }) {
       .from('pools')
       .insert({
         name,
+        game_type: 'nfl_draft',
         admin_id: session.user.id,
         invite_code: inviteCode,
         game_mode: gameMode,

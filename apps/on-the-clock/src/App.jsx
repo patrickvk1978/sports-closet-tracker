@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { Component, useEffect } from "react";
 import { AuthProvider } from "@sports/shared/auth";
 import { supabase } from "./lib/supabase";
 
@@ -30,6 +30,36 @@ import LiveDraftView from "./views/LiveDraftView";
 import MockChallengeView from "./views/MockChallengeView";
 import { usePool } from "./hooks/usePool";
 
+class AppErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="app-error-shell">
+          <div className="app-error-card">
+            <span className="label">Runtime error</span>
+            <h1>On the Clock could not render this view.</h1>
+            <p>{this.state.error.message}</p>
+            <button type="button" onClick={() => window.location.reload()}>
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 function AppChrome() {
   return (
     <>
@@ -53,37 +83,39 @@ function PoolHomeRedirect() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthRedirectHandler />
-      <AuthProvider>
-        <ReferenceDataProvider>
-        <DraftFeedProvider>
-        <PoolProvider>
-          <div className="app-shell app-shell-routed">
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <AuthRedirectHandler />
+        <AuthProvider>
+          <ReferenceDataProvider>
+          <DraftFeedProvider>
+          <PoolProvider>
+            <div className="app-shell app-shell-routed">
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-              <Route element={<ProtectedRoute />}>
-                <Route element={<AppChrome />}>
-                  <Route path="/join" element={<JoinPoolPage />} />
-                  <Route path="/create-pool" element={<CreatePoolPage />} />
-                  <Route path="/admin" element={<AdminPage />} />
-                  <Route element={<PoolGuard />}>
-                    <Route path="/" element={<PoolHomeRedirect />} />
-                    <Route path="/draft" element={<LiveDraftView />} />
-                    <Route path="/mock" element={<MockChallengeView />} />
-                    <Route path="/pool-settings" element={<PoolSettingsPage />} />
-                    <Route path="/pool-members" element={<PoolMembersPage />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<AppChrome />}>
+                    <Route path="/join" element={<JoinPoolPage />} />
+                    <Route path="/create-pool" element={<CreatePoolPage />} />
+                    <Route path="/admin" element={<AdminPage />} />
+                    <Route element={<PoolGuard />}>
+                      <Route path="/" element={<PoolHomeRedirect />} />
+                      <Route path="/draft" element={<LiveDraftView />} />
+                      <Route path="/mock" element={<MockChallengeView />} />
+                      <Route path="/pool-settings" element={<PoolSettingsPage />} />
+                      <Route path="/pool-members" element={<PoolMembersPage />} />
+                    </Route>
                   </Route>
                 </Route>
-              </Route>
-            </Routes>
-          </div>
-        </PoolProvider>
-        </DraftFeedProvider>
-        </ReferenceDataProvider>
-      </AuthProvider>
-    </BrowserRouter>
+              </Routes>
+            </div>
+          </PoolProvider>
+          </DraftFeedProvider>
+          </ReferenceDataProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </AppErrorBoundary>
   );
 }

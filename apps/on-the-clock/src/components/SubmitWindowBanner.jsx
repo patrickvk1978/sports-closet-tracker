@@ -3,29 +3,29 @@
  *
  * Three tiers driven by useSubmitWindow:
  *
- *  calm   you're locked, pool is locked
- *         → small quiet badge in header area, barely noticeable
+ *  calm   everyone has submitted
+ *         → small quiet badge in header area, timer still runs
  *
- *  active you're locked but others aren't, OR you're unlocked with time remaining
+ *  active you're submitted but others aren't, OR you're unsubmitted with time remaining
  *         → medium amber bar above stage, "X seconds to lock in"
  *
- *  urgent <5s left AND someone's still unlocked
+ *  urgent <5s left AND someone still has not submitted
  *         → full-width red bar, large pulsing countdown, "FALLBACK IN Xs"
  *
  * Rendered null when window is inactive (on_clock or revealed).
  */
-export default function SubmitWindowBanner({ secondsLeft, tier, currentLocked, poolState }) {
+export default function SubmitWindowBanner({ secondsLeft, tier, currentSubmitted, poolState }) {
   if (tier === null || secondsLeft === null) return null;
 
-  const anyoneUnlocked = poolState.some((m) => !m.locked && !m.isCurrentUser);
-  const unlockedNames = poolState
-    .filter((m) => !m.locked && !m.isCurrentUser)
+  const anyoneUnsubmitted = poolState.some((m) => !m.submitted && !m.isCurrentUser);
+  const unsubmittedNames = poolState
+    .filter((m) => !m.submitted && !m.isCurrentUser)
     .map((m) => m.name);
 
   if (tier === "calm") {
     return (
       <div className="swb swb-calm">
-        <span className="swb-calm-text">Pool ready</span>
+        <span className="swb-calm-text">All picks submitted</span>
         <span className="swb-calm-timer">{secondsLeft}s</span>
       </div>
     );
@@ -37,11 +37,11 @@ export default function SubmitWindowBanner({ secondsLeft, tier, currentLocked, p
         <div className="swb-urgent-inner">
           <div className="swb-urgent-label">FALLBACK IN</div>
           <div className="swb-urgent-count">{secondsLeft}</div>
-          {anyoneUnlocked && (
+          {anyoneUnsubmitted && (
             <div className="swb-urgent-who">
-              {unlockedNames.length === 1
-                ? `${unlockedNames[0]} hasn't locked`
-                : `${unlockedNames.length} members haven't locked`}
+              {unsubmittedNames.length === 1
+                ? `${unsubmittedNames[0]} has not submitted`
+                : `${unsubmittedNames.length} members have not submitted`}
             </div>
           )}
         </div>
@@ -51,20 +51,20 @@ export default function SubmitWindowBanner({ secondsLeft, tier, currentLocked, p
 
   // active tier
   return (
-    <div className={`swb swb-active ${!currentLocked ? "you-unlocked" : ""}`}>
+    <div className={`swb swb-active ${!currentSubmitted ? "you-unlocked" : ""}`}>
       <div className="swb-active-left">
-        {!currentLocked ? (
+        {!currentSubmitted ? (
           <>
             <span className="swb-active-icon">⚡</span>
-            <span className="swb-active-msg">Lock in your pick</span>
+            <span className="swb-active-msg">Submit before fallback</span>
           </>
         ) : (
           <>
             <span className="swb-active-icon">✓</span>
             <span className="swb-active-msg">
-              {unlockedNames.length === 1
-                ? `Waiting on ${unlockedNames[0]}`
-                : `Waiting on ${unlockedNames.length} members`}
+              {unsubmittedNames.length === 1
+                ? `Waiting on ${unsubmittedNames[0]}`
+                : `Waiting on ${unsubmittedNames.length} members`}
             </span>
           </>
         )}

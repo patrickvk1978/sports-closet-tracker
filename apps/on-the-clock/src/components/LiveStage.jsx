@@ -31,6 +31,7 @@ export default function LiveStage({
   activeTeamCode = null,
   currentStatus,
   currentLocked,
+  currentSubmitted = false,
   currentSelection,
   suggestedProspect,
   countdownLabel,
@@ -51,6 +52,9 @@ export default function LiveStage({
   activeWatchlistIds = [],
   onAddToWatchlist,
   onRemoveFromWatchlist,
+  hideTaken = true,
+  onToggleHideTaken,
+  previousTeamPicks = [],
 }) {
   const [filterValue, setFilterValue] = useState("ALL");
 
@@ -63,8 +67,8 @@ export default function LiveStage({
       ? "reveal"
       : isAwaitingReveal
         ? "awaiting_reveal"
-        : currentLocked
-          ? "locked"
+        : currentLocked || currentSubmitted
+          ? "submitted"
           : "on_clock";
 
   const timerSeconds = (() => {
@@ -116,7 +120,7 @@ export default function LiveStage({
 
   const tableRows = useMemo(() => {
     const rows = prospects
-      .filter((prospect) => !draftedIds.has(prospect.id))
+      .filter((prospect) => !hideTaken || !draftedIds.has(prospect.id))
       .filter((prospect) => {
         if (filterValue === "ALL") return true;
         if (filterValue === "WATCHLIST") return watchlistIdSet.has(prospect.id);
@@ -144,6 +148,7 @@ export default function LiveStage({
 
         return {
           prospect,
+          drafted: draftedIds.has(prospect.id),
           rank: rankIndex === 9999 ? "—" : rankIndex + 1,
           badges,
           mappedCopy: mappedCopyForProspect(prospect.id),
@@ -151,7 +156,7 @@ export default function LiveStage({
       });
 
     return rows;
-  }, [prospects, draftedIds, filterValue, watchlistIdSet, boardIds, activePickNumber, mappedPickByProspectId, isPredraft]);
+  }, [prospects, draftedIds, hideTaken, filterValue, watchlistIdSet, boardIds, activePickNumber, mappedPickByProspectId, isPredraft]);
 
   const highlightedProspectId = explicitSelectionId ?? tableRows[0]?.prospect?.id ?? null;
 
@@ -239,11 +244,14 @@ export default function LiveStage({
   const projectedHitRanks = useMemo(() => {
     const map = new Map();
     poolState.forEach((member) => {
-      const currentPoints = preRevealScores.find((entry) => entry.id === member.id)?.points ?? 0;
-      const gain = revealGainById.get(member.id) ?? 0;
-      const projected = preRevealScores.map((entry) =>
-        entry.id === member.id ? { ...entry, points: currentPoints + gain } : entry
-      );
+      const targetProspectId = member.prospect?.id ?? null;
+      const projected = preRevealScores.map((entry) => {
+        const poolMember = poolState.find((candidate) => candidate.id === entry.id);
+        const gainsWithTarget = targetProspectId && poolMember?.prospect?.id === targetProspectId;
+        return gainsWithTarget
+          ? { ...entry, points: entry.points + (revealGainById.get(entry.id) ?? 0) }
+          : entry;
+      });
       const ranked = rankScores(projected);
       map.set(member.id, ranked.findIndex((entry) => entry.id === member.id) + 1);
     });
@@ -310,6 +318,15 @@ export default function LiveStage({
               ×
             </button>
           ) : null}
+          {onToggleHideTaken ? (
+            <button
+              className={`ls-hide-taken-btn ${hideTaken ? "active" : ""}`}
+              type="button"
+              onClick={onToggleHideTaken}
+            >
+              {hideTaken ? "Taken hidden" : "Show taken"}
+            </button>
+          ) : null}
         </div>
         {isLiveControls ? renderBadgeLegend() : null}
       </>
@@ -322,13 +339,32 @@ export default function LiveStage({
         <div className={`ls-header ${isPredraft ? "predraft" : ""} ${stage === "on_clock" && !isPredraft && timerUrgency === "critical" ? "critical" : ""}`}>
           <div className="ls-team-block">
             <div className="ls-pick-label">
-              Pick {currentPick?.number} · {isPredraft ? "Prediction editor" : stage === "locked" ? "Card submitted — waiting on announcement" : "Now Selecting"}
+              Pick {currentPick?.number} · {isPredraft ? "Prediction editor" : stage === "submitted" ? "Card submitted — edits open" : "Now Selecting"}
             </div>
             <div className="ls-team-name">{currentTeam?.name ?? "—"}</div>
             {isPredraft && stage === "on_clock" ? renderBadgeLegend() : null}
             {stage !== "locked" && currentTeam?.needs?.length ? (
               <div className="ls-needs">
-                {currentTeam.needs.map((n) => <span key={n} className="ls-need-tag">{n}</span>)}
+                {currentTeam.needs.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    className={`ls-need-tag ${filterValue === n ? "active" : ""}`}
+                    onClick={() => setFilterValue((current) => current === n ? "ALL" : n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {previousTeamPicks.length ? (
+              <div className="ls-prior-picks">
+                <span className="ls-prior-label">Previous picks</span>
+                {previousTeamPicks.map((item) => (
+                  <span key={`${item.pickNumber}-${item.prospect.id}`} className="ls-prior-chip">
+                    {item.pickNumber}. {item.prospect.position}
+                  </span>
+                ))}
               </div>
             ) : null}
           </div>
@@ -345,9 +381,9 @@ export default function LiveStage({
             ) : stage === "reveal" ? null : (
               <div className="ls-header-actions live">
                 <div className="ls-live-header-timer">
-                  <span className={`ls-timer-label ${stage === "locked" ? "locked" : timerUrgency}`}>
-                    {stage === "locked"
-                      ? "Card Locked"
+                  <span className={`ls-timer-label ${stage === "submitted" ? "locked" : timerUrgency}`}>
+                    {stage === "submitted"
+                      ? "Submitted"
                       : countdownLabel
                         ? (countdownPrefix ?? "On the clock")
                         : currentStatus === "pick_is_in"
@@ -355,7 +391,7 @@ export default function LiveStage({
                           : "On the clock"}
                   </span>
                   {countdownLabel ? (
-                    <span className={`ls-timer-val ${stage === "locked" ? "locked" : timerUrgency}`}>
+                    <span className={`ls-timer-val ${stage === "submitted" ? "locked" : timerUrgency}`}>
                       {countdownLabel}
                     </span>
                   ) : null}
@@ -378,14 +414,15 @@ export default function LiveStage({
                 <span>Rank</span>
               </div>
               <div className="ls-table-body">
-                {tableRows.map(({ prospect, rank, badges, mappedCopy }) => {
+                {tableRows.map(({ prospect, drafted, rank, badges, mappedCopy }) => {
                   const isCurrentPick = highlightedProspectId === prospect.id;
                   return (
                     <button
                       key={prospect.id}
                       type="button"
-                      className={`ls-player-row ${isPredraft ? "predraft" : "live"} ${isCurrentPick ? "current" : ""}`}
+                      className={`ls-player-row ${isPredraft ? "predraft" : "live"} ${isCurrentPick ? "current" : ""} ${drafted ? "drafted" : ""}`}
                       style={mappedCopy ? { opacity: 0.55 } : undefined}
+                      disabled={drafted}
                       onClick={() => onLockIn(prospect.id)}
                     >
                       <div className="ls-player-main">
@@ -409,7 +446,7 @@ export default function LiveStage({
                           </div>
                           <div className="ls-player-meta-row">
                             <span className="ls-player-school">
-                              {prospect.school}{mappedCopy ? ` · ${mappedCopy}` : ""}
+                              {prospect.school}{drafted ? " · drafted" : mappedCopy ? ` · ${mappedCopy}` : ""}
                             </span>
                             {badges.length > 0 ? (
                               <span className="ls-badge-row">
@@ -446,7 +483,7 @@ export default function LiveStage({
         </>
       )}
 
-      {stage === "locked" && (
+      {stage === "submitted" && (
         <>
           <div className="ls-locked-card">
             <ProspectAvatar

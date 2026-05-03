@@ -43,6 +43,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
   const [allMemberPredictions, setAllMemberPredictions] = useState({}) // { `userId:pickNumber`: prospectId }
   const [allMemberBoards, setAllMemberBoards] = useState({}) // { userId: boardOrder[] }
   const [allFinalizedPicks, setAllFinalizedPicks] = useState({}) // { `userId:pickNumber`: { prospectId, source, teamCode } }
+  const [invalidQueueNotice, setInvalidQueueNotice] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const poolId = pool?.id
@@ -271,7 +272,11 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
 
     const predictionId = allowSlotSources ? (allMemberPredictions[cardKey] ?? null) : null
     const boardIds = allMemberBoards[targetUserId] ?? defaultBigBoardIds
-    const draftedIds = new Set(Object.values(draftFeed?.actual_picks ?? {}))
+    const draftedIds = new Set(
+      Object.entries(draftFeed?.actual_picks ?? {})
+        .filter(([actualPickNumber]) => Number(actualPickNumber) !== Number(pickNumber))
+        .map(([, prospectId]) => prospectId)
+    )
     const fallback = buildFallback({
       boardIds,
       teamCode: teamCodeForPick(pickNumber),
@@ -318,6 +323,10 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
       return
     }
 
+    if (Object.values(draftFeed?.actual_picks ?? {}).includes(prospectId)) {
+      return { error: 'Player already drafted' }
+    }
+
     // Find if this prospect is already assigned to another pick and clear it
     const existingPickNum = Object.entries(livePredictions).find(
       ([num, id]) => id === prospectId && Number(num) !== pickNumber
@@ -347,14 +356,52 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
         .eq('pick_number', Number(existingPickNum))
     }
 
-    await draftDb.from('queues').upsert({
+    const result = await draftDb.from('queues').upsert({
       pool_id: poolId,
       user_id: userId,
       pick_number: pickNumber,
       prospect_id: prospectId,
       updated_at: new Date().toISOString(),
     })
+    return result
   }
+
+  useEffect(() => {
+    if (!poolId || !userId) return
+    const draftedIds = new Set(Object.values(draftFeed?.actual_picks ?? {}))
+    if (draftedIds.size === 0) return
+    const currentPickNumber = draftFeed?.current_pick_number ?? 0
+    const invalidPickNumbers = Object.entries(livePredictions)
+      .filter(([pickNumber, prospectId]) => Number(pickNumber) > currentPickNumber && draftedIds.has(prospectId))
+      .map(([pickNumber]) => Number(pickNumber))
+
+    if (invalidPickNumbers.length === 0) return
+
+    setInvalidQueueNotice({
+      count: invalidPickNumbers.length,
+      pickNumbers: invalidPickNumbers,
+      createdAt: Date.now(),
+    })
+
+    setLivePredictions(prev => {
+      const next = { ...prev }
+      invalidPickNumbers.forEach(pickNumber => { delete next[pickNumber] })
+      return next
+    })
+    setAllMemberPredictions(prev => {
+      const next = { ...prev }
+      invalidPickNumbers.forEach(pickNumber => { delete next[`${userId}:${pickNumber}`] })
+      return next
+    })
+
+    invalidPickNumbers.forEach((pickNumber) => {
+      void draftDb.from('queues')
+        .delete()
+        .eq('pool_id', poolId)
+        .eq('user_id', userId)
+        .eq('pick_number', pickNumber)
+    })
+  }, [poolId, userId, draftFeed?.actual_picks, draftFeed?.current_pick_number, livePredictions])
 
   function setLiveCurrentSelection(pickNumber, prospectId) {
     setLiveSelections(prev => ({ ...prev, [pickNumber]: prospectId }))
@@ -395,9 +442,10 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
       })?.prospect?.id ??
       null
 
-    if (!selectedProspectId) return null
+	    if (!selectedProspectId) return null
+	    if (draftedIds.has(selectedProspectId)) return null
 
-    // Optimistic update
+	    // Optimistic update
     setLiveCards(prev => ({ ...prev, [pickNumber]: selectedProspectId }))
     setAllMemberCards(prev => ({ ...prev, [`${userId}:${pickNumber}`]: selectedProspectId }))
     setLiveSelections(prev => ({ ...prev, [pickNumber]: selectedProspectId }))
@@ -458,7 +506,9 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
   const currentLivePoolState = useMemo(() => {
     if (!pool || !memberList.length) return []
     const currentPickNum = draftFeed.current_pick_number
+    const currentStatus = draftFeed?.current_status ?? 'on_clock'
     const actualProspectId = draftFeed?.actual_picks?.[currentPickNum] ?? null
+    const isFinalizedPhase = ['awaiting_reveal', 'revealed'].includes(currentStatus)
 
     // Prior picks in order — used to compute each member's streak entering this pick
     const priorPickNums = Object.keys(draftFeed?.actual_picks ?? {})
@@ -476,22 +526,25 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
         else streak = 0
       }
 
-      const finalized = getFinalizedEntry(member.id, currentPickNum)
-      const lockedProspectId = finalized?.prospectId ?? (allMemberCards[`${member.id}:${currentPickNum}`] ?? null)
-      const effectiveProspectId = finalized?.prospectId ?? resolveLivePickForUser(member.id, currentPickNum)
+      const finalized = isFinalizedPhase ? getFinalizedEntry(member.id, currentPickNum) : null
+      const cardId = allMemberCards[`${member.id}:${currentPickNum}`] ?? null
+      const effectiveProspectId = isFinalizedPhase
+        ? finalized?.prospectId ?? null
+        : cardId
       const result = liveResultForPick(effectiveProspectId, actualProspectId)
       return {
         id: member.id,
         name: member.name,
         isCurrentUser: member.isCurrentUser,
-        locked: Boolean(lockedProspectId),
+        submitted: Boolean(cardId),
+        locked: Boolean(finalized?.prospectId),
         prospect: getProspectById(effectiveProspectId),
         resolutionSource: finalized?.source ?? null,
         result,
         streakCount: streak, // consecutive exact hits BEFORE this pick
       }
     })
-  }, [draftFeed?.actual_picks, draftFeed?.current_pick_number, memberList, allMemberCards, allMemberPredictions, allMemberBoards, allFinalizedPicks, pool, picks, teamCodeForPick])
+  }, [draftFeed?.actual_picks, draftFeed?.current_pick_number, draftFeed?.current_status, memberList, allMemberCards, allMemberPredictions, allMemberBoards, allFinalizedPicks, pool, picks, teamCodeForPick])
 
   const scoringConfig = draftFeed?.scoring_config ?? DEFAULT_SCORING
 
@@ -502,6 +555,7 @@ export function useLiveDraft({ draftFeed, teamCodeForPick }) {
     liveStandings,
     currentLivePoolState,
     allFinalizedPicks,
+    invalidQueueNotice,
     scoringConfig,
     loading,
     saveLivePrediction,

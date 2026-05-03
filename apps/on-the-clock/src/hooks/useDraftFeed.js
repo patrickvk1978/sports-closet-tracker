@@ -210,6 +210,13 @@ export function DraftFeedProvider({ children }) {
       pick_number: pickNumber,
       prospect_id: prospectId,
     })
+    // Backup pass for admin/manual reveals and missed realtime timer calls.
+    // The RPC is idempotent and should not overwrite existing finalized rows.
+    try {
+      await supabase.rpc('finalize_pick', { p_pick_number: pickNumber })
+    } catch (err) {
+      console.warn('revealCurrentPick finalize_pick backup:', err?.message)
+    }
     await draftDb.from('feed').update({
       current_status: 'revealed',
       provider_expires_at: null,
