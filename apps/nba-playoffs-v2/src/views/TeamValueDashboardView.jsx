@@ -28,6 +28,16 @@ function buildRankMovement(currentPlace, baselineRank) {
   return { label: "—", direction: "flat" };
 }
 
+function formatWinProbabilityDelta(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return { label: "—", direction: "flat" };
+  if (Math.abs(numeric) < 0.05) return { label: "Even", direction: "flat" };
+  return {
+    label: `${numeric > 0 ? "+" : ""}${numeric.toFixed(1)}`,
+    direction: numeric > 0 ? "up" : "down",
+  };
+}
+
 function buildDashboardStandingsRows(standings, currentUserId) {
   return standings;
 }
@@ -73,7 +83,16 @@ function buildFavoriteLabel(seriesItem) {
 
 function formatSeriesStatus(seriesItem) {
   const conference = seriesItem.conference === "west" ? "West" : "East";
-  const roundLabel = seriesItem.roundKey === "round_1" ? "1st Round" : "Playoff";
+  const roundLabel =
+    seriesItem.roundKey === "round_1"
+      ? "1st Round"
+      : seriesItem.roundKey === "semifinals"
+        ? "Conference Semifinals"
+        : seriesItem.roundKey === "conference_finals"
+          ? "Conference Finals"
+          : seriesItem.roundKey === "finals"
+            ? "Finals"
+            : "Playoff";
   const homeWins = Number(seriesItem.wins?.home ?? 0);
   const awayWins = Number(seriesItem.wins?.away ?? 0);
   const nextGameNumber = Math.min(homeWins + awayWins + 1, 7);
@@ -91,7 +110,7 @@ function formatSeriesStatus(seriesItem) {
 }
 
 function buildUpdatedSeriesStatus(seriesItem, game) {
-  if (!seriesItem) return "Playoff game";
+  if (!seriesItem) return "NBA Playoffs";
   if (game?.status !== "completed") return formatSeriesStatus(seriesItem);
 
   const homeTeamId = seriesItem.homeTeam?.id ?? seriesItem.homeTeamId;
@@ -145,6 +164,14 @@ function splitOddsLabel(label) {
     display: label,
     source: null,
   };
+}
+
+function buildDisplayLine(game, oddsLabel) {
+  if (game?.currentLineLabel) return game.currentLineLabel;
+  if (game?.status === "in_progress" && oddsLabel?.source === "predictor" && oddsLabel?.display) {
+    return `ESPN Win Probability: ${oddsLabel.display}`;
+  }
+  return "Odds soon";
 }
 
 function buildOnTapRows(todayGames, boardImplicationRows, series, now) {
@@ -208,11 +235,18 @@ function buildOnTapRows(todayGames, boardImplicationRows, series, now) {
           game.status === "scheduled"
             ? null
             : `${game.awayAbbreviation} ${game.awayScore} · ${game.homeAbbreviation} ${game.homeScore}`,
-        seriesStatus: matchingSeries ? buildUpdatedSeriesStatus(matchingSeries, game) : "Playoff game",
-        currentLineLabel: game.currentLineLabel ?? "Line TBD",
+        seriesStatus: matchingSeries ? buildUpdatedSeriesStatus(matchingSeries, game) : "NBA Playoffs",
+        currentLineLabel: buildDisplayLine(game, oddsLabel),
         favoriteLabel: oddsLabel.display,
         boardLean: implication?.preferredTeam ?? "Balanced",
         oddsSource: oddsLabel.source,
+        awayAbbreviation: game.awayAbbreviation,
+        homeAbbreviation: game.homeAbbreviation,
+        awayLogo: game.awayTeamLogo,
+        homeLogo: game.homeTeamLogo,
+        awayScore: game.awayScore,
+        homeScore: game.homeScore,
+        rawTipAt: game.tipAt ?? null,
       };
     });
 }
@@ -247,6 +281,13 @@ function buildCompletedImpactRows(games, allAssignmentsByUser, currentUserId, se
       const clinchedSeries = matchingSeries?.status === "completed" && matchingSeries?.winnerTeamId === winnerTeamId;
       const clinchingBonus = clinchedSeries ? getClinchingBonus(teamValue, matchingSeries.roundKey) : 0;
       const recapPath = `/reports/yesterday-recap?day=today#game-recap-${game.id}`;
+      const updatedHomeWins = Number(matchingSeries?.wins?.home ?? 0) + (homeWon ? 1 : 0);
+      const updatedAwayWins = Number(matchingSeries?.wins?.away ?? 0) + (homeWon ? 0 : 1);
+      const seriesSummary = clinchedSeries
+        ? `${winnerAbbreviation} wins series ${Math.max(updatedHomeWins, updatedAwayWins)}-${Math.min(updatedHomeWins, updatedAwayWins)}`
+        : matchingSeries
+          ? buildUpdatedSeriesStatus(matchingSeries, game)
+          : "Final";
 
       return {
         id: `${game.id}-impact`,
@@ -262,6 +303,7 @@ function buildCompletedImpactRows(games, allAssignmentsByUser, currentUserId, se
         clinchingBonus,
         gameLabel: game.statusNote ?? "Final",
         recapPath,
+        seriesSummary,
       };
     })
     .filter((row) => row.pointsPerWin > 0);
@@ -367,6 +409,21 @@ export default function TeamValueDashboardView() {
     [allAssignmentsByUser, currentUserId, recentCompletedGames, series]
   );
   const onTapRows = useMemo(() => buildOnTapRows(todayGames, boardImplicationRows, series, now), [boardImplicationRows, now, series, todayGames]);
+  const hasLiveGames = onTapRows.some((row) => row.status === "in_progress");
+  const firstTipAt = useMemo(() => {
+    const tips = onTapRows
+      .map((row) => row.rawTipAt)
+      .filter(Boolean)
+      .map((tipAt) => new Date(tipAt))
+      .filter((tipDate) => !Number.isNaN(tipDate.getTime()))
+      .sort((left, right) => left.getTime() - right.getTime());
+    return tips[0] ?? null;
+  }, [onTapRows]);
+  const showTodayFrontAndCenter = useMemo(() => {
+    if (hasLiveGames) return true;
+    if (!firstTipAt) return false;
+    return now.getTime() >= firstTipAt.getTime() - 4 * 60 * 60 * 1000;
+  }, [firstTipAt, hasLiveGames, now]);
   const currentImplicationRows = useMemo(() => buildCurrentImplicationRows(onTapRows), [onTapRows]);
   const futurePressureRows = useMemo(() => buildFuturePressureRows(assetRows, onTapRows), [assetRows, onTapRows]);
   const dashboardStandingsRows = useMemo(
@@ -393,7 +450,67 @@ export default function TeamValueDashboardView() {
       <section className="panel">
         <div className="nba-dashboard-main-layout">
           <div className="nba-dashboard-primary-column">
-            {completedImpactRows.length ? (
+            {showTodayFrontAndCenter ? (
+              <article className="detail-card inset-card nba-dashboard-impact-card">
+                <div className="nba-dashboard-card-head">
+                  <span className="micro-label">What’s On Tap</span>
+                </div>
+                <div className="nba-dashboard-impact-grid">
+                  {onTapRows.map((row) => (
+                    <article className="nba-dashboard-impact-row nba-dashboard-live-game-row" key={row.id}>
+                      <div className="nba-dashboard-impact-topline">
+                        {row.status === "in_progress" ? (
+                          <span className="nba-dashboard-live-chip">Live</span>
+                        ) : (
+                          <span className="nba-dashboard-impact-final is-tipoff">{row.timeLabel}</span>
+                        )}
+                        <span className="nba-dashboard-impact-clock">{row.status === "in_progress" ? row.statusNote ?? "Live" : row.seriesStatus.split("·")[1]?.trim() ?? row.seriesStatus}</span>
+                      </div>
+                      {row.status === "scheduled" ? (
+                        <>
+                          <div className="nba-dashboard-impact-previewline">
+                            <div className="nba-dashboard-impact-team">
+                              {row.awayLogo ? <img alt={`${row.awayAbbreviation} logo`} src={row.awayLogo} /> : null}
+                              <strong>{row.awayAbbreviation}</strong>
+                            </div>
+                            <span className="nba-dashboard-impact-def">vs</span>
+                            <div className="nba-dashboard-impact-team is-loser">
+                              {row.homeLogo ? <img alt={`${row.homeAbbreviation} logo`} src={row.homeLogo} /> : null}
+                              <strong>{row.homeAbbreviation}</strong>
+                            </div>
+                          </div>
+                          <div className="nba-dashboard-impact-bonus">{row.seriesStatus}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="nba-dashboard-impact-scoreline">
+                            <div className="nba-dashboard-impact-team">
+                              {row.awayLogo ? <img alt={`${row.awayAbbreviation} logo`} src={row.awayLogo} /> : null}
+                              <strong>{row.awayAbbreviation}</strong>
+                            </div>
+                            <strong className="nba-dashboard-impact-score">{row.awayScore}</strong>
+                            <span className="nba-dashboard-impact-def">·</span>
+                            <strong className="nba-dashboard-impact-score">{row.homeScore}</strong>
+                            <div className="nba-dashboard-impact-team is-loser">
+                              {row.homeLogo ? <img alt={`${row.homeAbbreviation} logo`} src={row.homeLogo} /> : null}
+                              <strong>{row.homeAbbreviation}</strong>
+                            </div>
+                          </div>
+                          <div className="nba-dashboard-impact-bonus">{row.seriesStatus}</div>
+                        </>
+                      )}
+                      <div className="nba-dashboard-on-tap-impact-meta">
+                        <span>{row.currentLineLabel}</span>
+                        <span>{row.boardLean === "Balanced" ? "Even board read" : `${row.boardLean} board lean`}</span>
+                      </div>
+                      <Link className="secondary-button full nba-dashboard-impact-button" to={row.analysisPath}>
+                        {row.analysisLabel}
+                      </Link>
+                    </article>
+                  ))}
+                </div>
+              </article>
+            ) : completedImpactRows.length ? (
               <article className="detail-card inset-card nba-dashboard-impact-card">
                 <div className="nba-dashboard-card-head">
                   <span className="micro-label">Recent score impact</span>
@@ -458,9 +575,11 @@ export default function TeamValueDashboardView() {
                         <span>Back</span>
                         <span>Move</span>
                         <span>Win%</span>
+                        <span>Trend</span>
                       </div>
                     {dashboardStandingsRows.map((member) => {
                       const movement = buildRankMovement(member.place, baselineRankById[member.id]);
+                      const winProbabilityDelta = formatWinProbabilityDelta(member.winProbabilityDelta);
                       return (
                       <div
                         className={`leaderboard-row nba-dashboard-leaderboard-row ${member.id === currentUserId ? "is-current" : ""}`}
@@ -470,18 +589,22 @@ export default function TeamValueDashboardView() {
                           <strong>{member.place}</strong>
                           <span>{formatMemberLabel(member, currentUserId)}</span>
                         </div>
-                        <span>{member.summary.totalPoints}</span>
-                        <span>{member.pointsBack}</span>
+                        <span className="nba-dashboard-points-cell">{member.summary.totalPoints}</span>
+                        <span className="nba-dashboard-back-cell">{member.pointsBack}</span>
                         <span className={`nba-dashboard-move-indicator is-${movement.direction}`}>{movement.label}</span>
-                        <span>{member.winProbability}%</span>
+                        <span className="nba-dashboard-winprob-cell">{member.winProbability}%</span>
+                        <span className={`nba-dashboard-trend-delta is-${winProbabilityDelta.direction}`}>{winProbabilityDelta.label}</span>
                       </div>
                     )})}
                   </div>
                   {currentStanding ? (
                     <p className="nba-dashboard-standings-note">
-                      You are currently in <strong>{currentStanding.place}</strong> with <strong>{currentStanding.winProbability}%</strong> win probability.
+                      The last column shows how each board’s title odds have moved since lock. You are currently in <strong>{currentStanding.place}</strong> with <strong>{currentStanding.winProbability}%</strong> win probability.
                     </p>
                   ) : null}
+                  <Link className="nba-dashboard-standings-link" to="/scoring">
+                    How scoring works
+                  </Link>
                 </>
               ) : (
                 <div className="nba-dashboard-empty-state">
@@ -495,41 +618,57 @@ export default function TeamValueDashboardView() {
           <aside className="nba-dashboard-side-rail">
             <article className="detail-card inset-card nba-dashboard-on-tap-card nba-dashboard-on-tap-side-card">
               <div className="nba-dashboard-card-head">
-                <h3>What’s On Tap</h3>
+                <h3>{showTodayFrontAndCenter ? "Recent finals" : "What’s On Tap"}</h3>
                 <Link className="secondary-button" to={implicationReportPath}>
                   Today's Briefing
                 </Link>
               </div>
 
-              {onTapRows.length ? (
+              {(showTodayFrontAndCenter ? completedImpactRows : onTapRows).length ? (
                 <div className="nba-dashboard-on-tap-compact-grid">
-                  {onTapRows.map((row) => (
-                    <article className="nba-dashboard-on-tap-compact-card" key={row.id}>
-                      <div className="nba-dashboard-on-tap-compact-top">
-                        {row.status === "in_progress" ? (
-                          <span className="nba-dashboard-live-chip">Live</span>
-                        ) : (
-                          <span className="nba-dashboard-on-tap-compact-time">{row.timeLabel}</span>
-                        )}
-                        {row.status !== "scheduled" ? (
-                          <span className="nba-dashboard-on-tap-live-status">{row.statusNote ?? (row.status === "completed" ? "Final" : "Live")}</span>
-                        ) : null}
-                      </div>
-                      <strong className="nba-dashboard-on-tap-compact-title">
-                        {row.status === "scheduled" ? row.matchupLabel : row.scoreLabel}
-                      </strong>
-                      <p className="nba-dashboard-on-tap-compact-series">{row.seriesStatus}</p>
-                      {row.status === "scheduled" ? (
-                        <div className="nba-dashboard-on-tap-compact-meta">
-                          <span>{row.currentLineLabel}</span>
-                          <span>{row.boardLean === "Balanced" ? "Even board read" : `${row.boardLean} board lean`}</span>
+                  {(showTodayFrontAndCenter ? completedImpactRows : onTapRows).map((row) =>
+                    showTodayFrontAndCenter ? (
+                      <article className="nba-dashboard-on-tap-compact-card" key={row.id}>
+                        <div className="nba-dashboard-on-tap-compact-top">
+                          <span className="nba-dashboard-on-tap-live-status">Final</span>
                         </div>
-                      ) : null}
-                      <Link className="secondary-button full" to={row.analysisPath}>
-                        {row.analysisLabel}
-                      </Link>
-                    </article>
-                  ))}
+                        <strong className="nba-dashboard-on-tap-compact-title">
+                          {row.winnerAbbreviation} {row.winnerScore} · {row.loserAbbreviation} {row.loserScore}
+                        </strong>
+                        <p className="nba-dashboard-on-tap-compact-series">{row.gameLabel}</p>
+                        <div className="nba-dashboard-on-tap-compact-summary">{row.seriesSummary}</div>
+                        <Link className="secondary-button full" to={row.recapPath}>
+                          Recap
+                        </Link>
+                      </article>
+                    ) : (
+                      <article className="nba-dashboard-on-tap-compact-card" key={row.id}>
+                        <div className="nba-dashboard-on-tap-compact-top">
+                          {row.status === "in_progress" ? (
+                            <span className="nba-dashboard-live-chip">Live</span>
+                          ) : (
+                            <span className="nba-dashboard-on-tap-compact-time">{row.timeLabel}</span>
+                          )}
+                          {row.status !== "scheduled" ? (
+                            <span className="nba-dashboard-on-tap-live-status">{row.statusNote ?? (row.status === "completed" ? "Final" : "Live")}</span>
+                          ) : null}
+                        </div>
+                        <strong className="nba-dashboard-on-tap-compact-title">
+                          {row.status === "scheduled" ? row.matchupLabel : row.scoreLabel}
+                        </strong>
+                        <p className="nba-dashboard-on-tap-compact-series">{row.seriesStatus}</p>
+                        {row.status === "scheduled" ? (
+                          <div className="nba-dashboard-on-tap-compact-meta">
+                            <span>{row.currentLineLabel}</span>
+                            <span>{row.boardLean === "Balanced" ? "Even board read" : `${row.boardLean} board lean`}</span>
+                          </div>
+                        ) : null}
+                        <Link className="secondary-button full" to={row.analysisPath}>
+                          {row.analysisLabel}
+                        </Link>
+                      </article>
+                    )
+                  )}
                 </div>
               ) : (
                 <div className="nba-dashboard-empty-state">

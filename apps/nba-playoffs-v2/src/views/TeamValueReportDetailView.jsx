@@ -843,13 +843,13 @@ function impactLabel(value) {
 function buildSwingNarrativeTag(value) {
   const magnitude = Math.abs(Number(value ?? 0));
   if (magnitude >= 20) {
-    return "This is a watershed result: the kind that can bury a meaningful slice of the pool and open real daylight for the few boards holding the right side.";
+    return "This is a true swing game. The right result can knock a chunk of the pool off the board and give a real edge to the few entries that are lined up the right way.";
   }
   if (magnitude >= 12) {
-    return "This is not a routine swing. It is big enough to create real separation and leave a cluster of boards scrambling to recover.";
+    return "This is a big one. It can open noticeable space in the standings and leave a lot of boards trying to make that ground back later.";
   }
   if (magnitude >= 8) {
-    return "This is a loud result in pool terms, not just a normal nudge in the standings.";
+    return "This is more than a small standings move. The result here could change how the pool feels tomorrow morning.";
   }
   return "";
 }
@@ -1507,16 +1507,16 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
       const swingTag = buildSwingNarrativeTag(Math.abs(winSwing));
       return {
         title: chooseVariant([
-          `${preferredCity} helps you, but it is still a relative game`,
-          `${preferredCity} is consensus-friendly, with a little extra juice for you`,
-          `${preferredCity} helps the pool too, but your board is louder there`,
-          `${preferredCity} is a shared side, but you are carrying the bigger version`,
+          `${preferredCity} is good for you, and even better if you want to gain ground`,
+          `${preferredCity} helps most of the pool, but it matters a little more to you`,
+          `${preferredCity} is a solid result for your board, with a little extra upside`,
+          `${preferredCity} is the obvious root, but you have more at stake than most`,
         ], ...narrativeSeed(seriesItem, currentUserId, "aligned-user-heavy-title")),
         body: chooseVariant([
-          `${preferredCity} is not a secret side for the pool, but your board is carrying more of it than the average entry. ${narrativeState.stageSentence} That means a win by ${preferredClub} helps you a little more than it helps most people, while a win by ${lighterClub} cuts more directly against your board than it does against the field.${swingTag ? ` ${swingTag}` : ""}`,
-          `This is not an against-the-grain play, but it is not neutral either. The field is with ${preferredCity}, and you are even more invested than the field. That makes a win by ${preferredClub} useful, while a ${teamResultPhrase(lighterSide, seriesItem)} stings your board more than it stings the average entry.${swingTag ? ` ${swingTag}` : ""}`,
-          `${preferredCity} is a shared rooting side, but your board has more weight there than the pool average. That means this result is partly protection and partly upside; not a full breakaway, but not empty agreement either.${swingTag ? ` ${swingTag}` : ""}`,
-          `The pool and your board are lined up on ${preferredCity}, but you are leaning further into it than most entries are. That makes the result helpful in two ways: it protects a side you already like, and it nudges you a bit ahead of the people who are lighter there.${swingTag ? ` ${swingTag}` : ""}`,
+          `Most of the pool will also be happy if ${preferredClub} win, but your board has a little more riding on them than most. ${narrativeState.stageSentence} So a ${preferredCity} win helps you keep pace and gives you a little extra on top of that, while a ${teamResultPhrase(lighterSide, seriesItem)} hurts your board more directly.${swingTag ? ` ${swingTag}` : ""}`,
+          `${preferredCity} are not some hidden angle here. Plenty of people need them. The difference is that you need them a bit more than the average entry does, which gives this game a little more juice for you than for the rest of the pool.${swingTag ? ` ${swingTag}` : ""}`,
+          `If ${preferredClub} win, you are not the only person smiling, but you should still do a little better than most of the field. If ${lighterClub} steal it, the damage lands harder on your board than it does on a typical entry.${swingTag ? ` ${swingTag}` : ""}`,
+          `This is a game where your board lines up with the crowd, just a little more strongly. A ${preferredCity} win is good news for you either way, and it also gives you a better shot to edge past entries that were not quite as high on them.${swingTag ? ` ${swingTag}` : ""}`,
         ], ...narrativeSeed(seriesItem, currentUserId, "aligned-user-heavy-body")),
       };
     }
@@ -1524,32 +1524,32 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
     if (roomGap > yourGap + 1) {
       return {
         title: chooseVariant([
-          `${preferredCity} is more defensive than explosive for you`,
-          `${preferredCity} is mostly a hold-serve result for your board`,
-          `${preferredCity} keeps you aligned, but does not create much daylight`,
-          `${preferredCity} is good for you, just not especially loud for you`,
+          `${preferredCity} helps you, but it helps the rest of the pool even more`,
+          `${preferredCity} is fine for your board, just not a big separator`,
+          `${preferredCity} keeps you in step with the pool more than it moves you ahead`,
+          `${preferredCity} is the safe result, not the big opportunity`,
         ], ...narrativeSeed(seriesItem, currentUserId, "aligned-room-heavy-title")),
         body: chooseVariant([
-          `You and the pool are on the same side, but the pool is leaning harder into ${preferredCity} than you are. ${narrativeState.stageSentence} That means a win by ${preferredClub} is more about staying in line with the field than creating separation, while ${lighterClub} winning would damage the pool a little more than it damages your board.`,
-          `The field has more riding on ${preferredCity} than you do. So while a win by ${preferredClub} still helps your points, it is not the cleanest way to gain ground. The upset path would clip the pool a bit harder than it clips your board.`,
-          `This is a defensive lean. You do want ${preferredCity}, but mostly because the pool wants them too. The more interesting twist is that ${lighterClub} winning would be messier for the field than for your specific board.`,
-          `${preferredCity} still cashes for you, but it is doing more public work than private work. The pool has the heavier exposure there, so your real edge is that the wrong result would bruise the field a little more than it bruises you.`,
+          `You want ${preferredClub} too, but the rest of the pool has more tied up in them than you do. ${narrativeState.stageSentence} So a ${preferredCity} win is more about keeping up than pulling away, while a ${teamResultPhrase(lighterSide, seriesItem)} would ding the field a little harder than it dings you.`,
+          `${preferredCity} still help your board, just not in a dramatic way. A lot of other entries are even more exposed there, so the bigger swing would come if ${lighterClub} surprise them and the standings scramble a bit.${swingTag ? ` ${swingTag}` : ""}`,
+          `This is not your cleanest chance to make a move. You do want ${preferredCity}, but a win by ${preferredClub} mostly keeps the order in place. The more interesting result, for pool purposes, is the upset.`,
+          `${preferredCity} are still the side you would choose, but they are doing more to protect your night than to create a jump. If ${lighterClub} win instead, the fallout is likely to hit the pool a touch harder than it hits you.`,
         ], ...narrativeSeed(seriesItem, currentUserId, "aligned-room-heavy-body")),
       };
     }
 
     return {
       title: chooseVariant([
-        `${preferredCity} is the pool lean, but not a big separation game`,
-        `${preferredCity} is the clean side, not the loud side`,
-        `${preferredCity} keeps the board orderly more than it breaks it open`,
-        `${preferredCity} matters here more as maintenance than as a chance to gain ground`,
+        `${preferredCity} are the right side, but this is not a huge swing game`,
+        `${preferredCity} matter here, just not in a dramatic way`,
+        `${preferredCity} keep things steady more than they shake up the pool`,
+        `${preferredCity} are the straightforward root, not a major turning point`,
       ], ...narrativeSeed(seriesItem, currentUserId, "aligned-even-title")),
       body: chooseVariant([
-        `You and the pool are mostly aligned here, and your exposure is close to the pool average. ${narrativeState.stageSentence} That means the main value today is not a giant standings swing; it is avoiding an upset that would scramble the next layer of the bracket and create new pressure elsewhere.`,
-        `This is one of those games where the correct side can still be a quiet side. ${preferredCity} helps you, but it helps enough of the pool that the bigger value is keeping the board from getting weird.`,
-        `There is not much hidden edge here. Your board and the field are priced similarly, so this matchup is more about keeping the bracket stable than springing a surprise in the standings.`,
-        `Nothing about this setup screams separation. Your board and the pool are carrying nearly the same shape, so the practical value is preserving bracket order more than inventing a jump in the standings.`,
+        `Your board and the rest of the pool see this game about the same way. ${narrativeState.stageSentence} So the main value is simple: get the expected result and keep the bracket from getting strange.`,
+        `There is not a lot of hidden edge here. ${preferredCity} help you, but they help plenty of other people too, so this game is more about keeping the standings calm than making a big move.`,
+        `This matchup matters, but it is not the place where the pool is likely to split open. Most entries are reading it about the same way, so the cleaner result is mostly about keeping order.`,
+        `You are not looking at a huge leverage spot here. ${preferredCity} are still the better result for your board, but this one is more likely to hold the standings together than tear them apart.`,
       ], ...narrativeSeed(seriesItem, currentUserId, "aligned-even-body")),
     };
   }
@@ -1562,16 +1562,16 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
     const swingTag = buildSwingNarrativeTag(Math.abs(winSwing));
     return {
       title: chooseVariant([
-        `${preferredCity} is a real edge for your board`,
-        `${preferredCity} is where your board splits from the pool`,
-        `${preferredCity} gives you a cleaner chance to gain ground`,
-        `${preferredCity} is the result that actually creates daylight for you`,
+        `${preferredCity} are where your board really separates from the pool`,
+        `${preferredCity} give you a real shot to gain ground tonight`,
+        `${preferredCity} are the side that can change your place in this pool`,
+        `${preferredCity} are not just your pick — they are your opening`,
       ], ...narrativeSeed(seriesItem, currentUserId, "opposed-title")),
         body: chooseVariant([
-        `Your board and the pool are pointed in different directions here, and the model treats that as a meaningful split rather than a cosmetic disagreement. ${narrativeState.stageSentence} If ${preferredClub} come through, the result moves your expected place by ${Math.abs(placeSwing).toFixed(1)} spots and your chance to win the pool by ${Math.abs(winSwing).toFixed(1)} points.${swingTag ? ` ${swingTag}` : ""}`,
-        `Your board and the field are not telling the same story. You have more reason to want ${preferredCity}; the rest of the pool is more comfortable with ${roomCity}. That gives this game real separation value if ${preferredClub} come through.${swingTag ? ` ${swingTag}` : ""}`,
-        `This is a true split read. ${preferredCity} is not just your favorite side; it is the side that pushes against the pool's lean toward ${roomCity}. That is why the model treats it as a meaningful edge rather than ordinary rooting.${swingTag ? ` ${swingTag}` : ""}`,
-        `There is an actual board split here, not just a stylistic one. The pool is tilted toward ${roomCity}, while your cleaner path runs through ${preferredCity}. That is why this matchup feels live even before the game starts moving.${swingTag ? ` ${swingTag}` : ""}`,
+        `You and the rest of the pool are not lined up here. Most people would rather see ${roomClub} win, while your board needs ${preferredClub}. ${narrativeState.stageSentence} If ${preferredClub} get it done, this is one of the clearer ways for you to make a real move.${swingTag ? ` ${swingTag}` : ""}`,
+        `This is one of the games where your rooting interest is not the same as the pool's. ${preferredCity} are the side that helps your board most, while a lot of the field is set up for ${roomCity}. That makes this a genuine swing game.${swingTag ? ` ${swingTag}` : ""}`,
+        `This is not just a preference call; it is a real split in the pool. If ${preferredClub} win, your board gets something a lot of other entries do not.${swingTag ? ` ${swingTag}` : ""}`,
+        `Most of the pool is leaning one way, and your board is leaning the other. That is what makes ${preferredCity} so important here. A win by ${preferredClub} would not just help — it would change the shape of the race.${swingTag ? ` ${swingTag}` : ""}`,
       ], ...narrativeSeed(seriesItem, currentUserId, "opposed-body")),
     };
   }
@@ -1581,14 +1581,14 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
     const lighterClub = teamNarrativeName(lighterSide, seriesItem, "club");
     return {
       title: chooseVariant([
-        `${yourPreferred} matters more to you than it does to the pool`,
-        `${yourPreferred} is mostly your story, not the pool's`,
-        `${yourPreferred} is a private board swing more than a public one`,
+        `${yourPreferred} matter more to your board than to the rest of the pool`,
+        `${yourPreferred} are mostly your story, not everyone else's`,
+        `${yourPreferred} are a bigger deal for you than for the field`,
       ], ...narrativeSeed(seriesItem, currentUserId, "user-only-title")),
       body: chooseVariant([
-        `The field is relatively balanced, but your board is not. That makes ${preferredClub} less of a public consensus result and more of a private board result for you. If ${lighterClub} win instead, it does not necessarily wreck the pool, but it hits your own construction more directly than it hits most other boards.`,
-        `This is one of the cleaner examples of a result that matters more inside your board than across the whole pool. The pool is fairly split, but your own setup has more riding on ${preferredClub} than the average entry does.`,
-        `${preferredClub} are doing more personal work than pool-wide work here. If they win, your board benefits in a way the pool at large does not fully share. If ${lighterClub} win, the damage is more concentrated on you than on the field.`,
+        `The rest of the pool is fairly split here, but your own board is not. That makes ${preferredClub} a much bigger deal for you than for everyone else. If ${lighterClub} win instead, the standings may not explode, but your board will feel it.`,
+        `This is one of those games where the personal rooting angle matters more than the pool-wide angle. You have more tied to ${preferredClub} than most people do, so this one hits close to home.`,
+        `${preferredClub} are not doing a ton for the whole pool here, but they matter quite a bit for you. If they win, your board gets a lift that a lot of other entries will not share. If they lose, the pain is more concentrated on your side.`,
       ], ...narrativeSeed(seriesItem, currentUserId, "user-only-body")),
     };
   }
@@ -1596,14 +1596,14 @@ function buildRootingContextNote(seriesItem, allAssignmentsByUser, currentUserId
   const roomClub = teamNarrativeName(roomPreferred ?? homeAbbr, seriesItem, "club");
   return {
     title: chooseVariant([
-      `${roomPreferred ?? homeAbbr} is the pool's clearer side, but you are more balanced`,
-      `${roomPreferred ?? homeAbbr} matters more to the field than it does to you`,
-      `${roomPreferred ?? homeAbbr} is the public side, while your board stays lighter`,
+      `${roomPreferred ?? homeAbbr} matter more to the rest of the pool than to you`,
+      `${roomPreferred ?? homeAbbr} are the side the pool cares about most`,
+      `${roomPreferred ?? homeAbbr} are more important to the field than to your board`,
     ], ...narrativeSeed(seriesItem, currentUserId, "room-only-title")),
     body: chooseVariant([
-      `Your board is relatively even here, which means this matchup is less about cashing your own heavy exposure and more about understanding what helps the field. If ${roomClub} win, the average board benefits more than yours does. If the other side wins, it does more to disrupt the field than to damage your own setup.`,
-      `This is more of a pool-reading game than a personal rooting game. The field has a clearer preference than your board does, so the important question is not what you are protecting, but what outcome pushes the average entry around.`,
-      `You are relatively balanced in a matchup where the pool is not. That makes ${roomClub} the public side and leaves you in the more observational seat: the wrong result does not hammer your card first, but it can still reshape the pool around you.`,
+      `Your board is pretty balanced here, so this game is less about protecting one of your own teams and more about watching what helps everyone else. If ${roomClub} win, the average entry benefits more than you do. If they lose, the standings around you could get shaken up.`,
+      `This is more about reading the pool than sweating your own board. The field has a much stronger opinion here than you do, which means the biggest question is how much the result moves everyone else.`,
+      `You are more neutral here than the rest of the pool is. That makes ${roomClub} the side to watch, because a win helps the field more than it helps you, while the other result would cause more chaos around you than damage to your own board.`,
     ], ...narrativeSeed(seriesItem, currentUserId, "room-only-body")),
   };
 }

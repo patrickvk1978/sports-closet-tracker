@@ -652,25 +652,66 @@ function winnerAbbrForTeam(teamId, homeId, homeAbbr, awayAbbr) {
 function buildRecapNarratives(movementRows, currentUserId, isTodayRecap = false) {
   const userRow = movementRows.find((row) => row.id === currentUserId);
   const biggestClimber = [...movementRows].sort((a, b) => b.placeDelta - a.placeDelta || b.pointsDelta - a.pointsDelta)[0];
-  const biggestWinProb = [...movementRows].sort((a, b) => b.winDelta - a.winDelta)[0];
+  const biggestWinProb = [...movementRows].sort((a, b) => b.winDelta - a.winDelta || b.pointsDelta - a.pointsDelta)[0];
+  const biggestDrop = [...movementRows].sort((a, b) => a.winDelta - b.winDelta || a.placeDelta - b.placeDelta)[0];
+  const leader = [...movementRows].sort((a, b) => Number(b.winProbability ?? 0) - Number(a.winProbability ?? 0))[0] ?? null;
+  const runnerUp = [...movementRows].sort((a, b) => Number(b.winProbability ?? 0) - Number(a.winProbability ?? 0))[1] ?? null;
+  const eliminatedRows = movementRows.filter((row) => Number(row.winProbability ?? 0) <= 0 && Number(row.winDelta ?? 0) < 0);
   const dayLabel = isTodayRecap ? "today" : "yesterday";
-  const finishedLabel = isTodayRecap ? "so far today" : "yesterday";
+  const finishedLabel = isTodayRecap ? "so far today" : "last night";
+  const leaderMargin = leader && runnerUp
+    ? Number((Number(leader.winProbability ?? 0) - Number(runnerUp.winProbability ?? 0)).toFixed(1))
+    : 0;
+
+  const userSummary = userRow
+    ? (() => {
+        if (userRow.winDelta >= 8) {
+          return `${finishedLabel} was a big one for you. You finished ${ordinal(userRow.currentPlace)} and picked up ${signedNumber(userRow.pointsDelta, " pts")} along with ${signedNumber(userRow.winDelta, " win% points")}.`;
+        }
+        if (userRow.winDelta <= -8) {
+          return `${finishedLabel} was rough on your board. You finished ${ordinal(userRow.currentPlace)} after ${signedNumber(userRow.pointsDelta, " pts")} on the scoreboard, but your title odds slid ${signedNumber(userRow.winDelta, " win% points")}.`;
+        }
+        if (userRow.placeDelta > 0) {
+          return `You came out of ${finishedLabel} in ${ordinal(userRow.currentPlace)}, climbing ${userRow.placeDelta} spot${userRow.placeDelta === 1 ? "" : "s"} while adding ${signedNumber(userRow.pointsDelta, " pts")}. Your win odds moved ${signedNumber(userRow.winDelta, " points")}, so the night helped even if it was not a full breakout.`;
+        }
+        if (userRow.placeDelta < 0) {
+          return `You landed ${ordinal(userRow.currentPlace)} after ${finishedLabel}, dropping ${Math.abs(userRow.placeDelta)} spot${Math.abs(userRow.placeDelta) === 1 ? "" : "s"}. The points were ${signedNumber(userRow.pointsDelta, " pts")}, but the bigger story was your ${signedNumber(userRow.winDelta, " win% points")} swing in the model.`;
+        }
+        return `You finished ${ordinal(userRow.currentPlace)} after ${finishedLabel}, with ${signedNumber(userRow.pointsDelta, " pts")} and a ${signedNumber(userRow.winDelta, " win% points")} change in your title odds. Your place held, but the odds still moved.`;
+      })()
+    : "Your board is not synced into this pool read yet, so the recap can summarize the pool but cannot give you a reliable personal read.";
+
+  const poolSummary = biggestWinProb
+    ? (() => {
+        const parts = [];
+        if (biggestWinProb.winDelta >= 8) {
+          parts.push(`${biggestWinProb.name} had a huge night, gaining ${biggestWinProb.winDelta.toFixed(1)} win% points${biggestWinProb.placeDelta > 0 ? ` and moving up to ${ordinal(biggestWinProb.currentPlace)}` : ""}.`);
+        } else {
+          parts.push(`${biggestWinProb.name} came away with the best night in the pool, adding ${biggestWinProb.winDelta.toFixed(1)} win% points${biggestWinProb.placeDelta > 0 ? ` and climbing to ${ordinal(biggestWinProb.currentPlace)}` : ""}.`);
+        }
+        if (leader) {
+          if (leaderMargin >= 10) {
+            parts.push(`The model now has ${leader.name} in control at ${leader.winProbability.toFixed(1)}% to win the pool, a cushion of ${leaderMargin.toFixed(1)} points over the next board.`);
+          } else if (leaderMargin >= 4) {
+            parts.push(`${leader.name} leaves the night in front at ${leader.winProbability.toFixed(1)}%, but the race is still very much alive behind ${subjectPronoun(leader.name)}.`);
+          } else {
+            parts.push(`No one has really broken away yet. ${leader.name} leads the pool at ${leader.winProbability.toFixed(1)}%, but the margin is still thin.`);
+          }
+        }
+        if (biggestDrop && biggestDrop.winDelta <= -8) {
+          parts.push(`${biggestDrop.name} took the hardest hit, dropping ${Math.abs(biggestDrop.winDelta).toFixed(1)} win% points.`);
+        }
+        if (eliminatedRows.length) {
+          const eliminated = eliminatedRows[0];
+          parts.push(`${eliminated.name} ${isTodayRecap ? "is now" : "became"} the first board at 0.0% to win the pool. ${subjectPronoun(eliminated.name) === "you" ? "Your" : `${eliminated.name}'s`} last path finally closed ${isTodayRecap ? "today" : "last night"}.`);
+        }
+        return parts.join(" ");
+      })()
+    : `The pool did not separate much ${finishedLabel}, so the bigger story is still how the next set of games will reorder the race.`;
 
   return {
-    user: userRow
-      ? chooseVariant([
-        `You ${isTodayRecap ? "are sitting" : "finished the day"} ${ordinal(userRow.currentPlace)}, with ${signedNumber(userRow.pointsDelta, " pts")} from ${dayLabel}'s completed games and ${signedNumber(userRow.winDelta, " pts")} of pool-win movement. The simpler read: ${finishedLabel} ${userRow.placeDelta > 0 ? "moved you up the board" : userRow.placeDelta < 0 ? "cost you position" : "mostly held your position"}, though the simulation shift still says more than the raw place line does.`,
-        `${isTodayRecap ? "Right now you sit" : "You closed the day"} ${ordinal(userRow.currentPlace)}, after ${signedNumber(userRow.pointsDelta, " pts")} from ${dayLabel}'s finals and ${signedNumber(userRow.winDelta, " pts")} of pool-equity movement. In plain terms, ${finishedLabel} ${userRow.placeDelta > 0 ? "helped you climb" : userRow.placeDelta < 0 ? "nudged you backward" : "left your spot mostly unchanged"}, even if the deeper simulation signal matters more than the raw standings line.`,
-        `${isTodayRecap ? "At the moment you are" : "You ended the slate"} ${ordinal(userRow.currentPlace)}, with ${signedNumber(userRow.pointsDelta, " pts")} on the board and ${signedNumber(userRow.winDelta, " pts")} of win-probability movement. The scoreboard view says ${finishedLabel} ${userRow.placeDelta > 0 ? "was a gain" : userRow.placeDelta < 0 ? "cost you ground" : "was mostly steady"}; the simulation view explains whether that movement really changed your outlook.`,
-      ], currentUserId, dayLabel, "recap-user")
-      : "Your board is not synced into this pool read yet, so the recap can summarize the room but cannot give a reliable personal movement read.",
-    pool: biggestClimber
-      ? chooseVariant([
-        `${biggestClimber.name} had the clearest standings move, while ${biggestWinProb?.name ?? biggestClimber.name} gained the most pool equity. The room shifted less like a simple leaderboard shuffle and more like a leverage map: the same final scores helped some boards bank points while opening or closing future paths for others.`,
-        `${biggestClimber.name} made the clearest visible climb, and ${biggestWinProb?.name ?? biggestClimber.name} picked up the biggest win-probability bump. The broader room story was not just points; it was which boards turned those finals into future leverage.`,
-        `The cleanest room mover was ${biggestClimber.name}, while ${biggestWinProb?.name ?? biggestClimber.name} saw the strongest equity gain. More than anything, ${dayLabel}'s results reshaped the pool unevenly: some entries banked safe points, others quietly improved their long-range paths.`,
-      ], biggestClimber.id, biggestWinProb?.id, dayLabel, "recap-pool")
-      : "Yesterday did not create enough movement to separate the room in a meaningful way.",
+    user: userSummary,
+    pool: poolSummary,
   };
 }
 
