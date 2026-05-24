@@ -11,6 +11,7 @@ function parseArgs(argv) {
     interval: 0,
     outDir: OUTPUT_DIR,
     once: true,
+    saveRaw: process.env.SAVE_RAW === "1" || process.env.SAVE_RAW === "true",
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -32,6 +33,11 @@ function parseArgs(argv) {
     if (arg === "--out-dir" && argv[index + 1]) {
       options.outDir = path.resolve(process.cwd(), argv[index + 1]);
       index += 1;
+      continue;
+    }
+
+    if (arg === "--save-raw") {
+      options.saveRaw = true;
       continue;
     }
   }
@@ -178,28 +184,32 @@ export async function fetchDraftcastPage(url) {
   return response.text();
 }
 
-export async function writeSnapshot(outDir, payload) {
+export async function writeSnapshot(outDir, payload, { saveRaw = false } = {}) {
   await fs.mkdir(outDir, { recursive: true });
 
   const stamp = nowStamp();
   const baseName = safeSlug(payload.summary.shortDisplayName ?? payload.summary.displayName ?? "draftcast");
-  const rawPath = path.join(outDir, `${baseName}-${stamp}.raw.json`);
   const summaryPath = path.join(outDir, `${baseName}-${stamp}.summary.json`);
   const latestPath = path.join(outDir, `${baseName}-latest.summary.json`);
 
-  await fs.writeFile(rawPath, JSON.stringify(payload.raw, null, 2));
   await fs.writeFile(summaryPath, JSON.stringify(payload.summary, null, 2));
   await fs.writeFile(latestPath, JSON.stringify(payload.summary, null, 2));
+
+  let rawPath = null;
+  if (saveRaw) {
+    rawPath = path.join(outDir, `${baseName}-${stamp}.raw.json`);
+    await fs.writeFile(rawPath, JSON.stringify(payload.raw, null, 2));
+  }
 
   return { rawPath, summaryPath, latestPath };
 }
 
-export async function takeSnapshot(url, outDir, previousSummary) {
+export async function takeSnapshot(url, outDir, previousSummary, { saveRaw = false } = {}) {
   const html = await fetchDraftcastPage(url);
   const jsonText = extractDraftcastJson(html);
   const raw = JSON.parse(jsonText);
   const summary = buildSummary(raw, url);
-  const files = await writeSnapshot(outDir, { raw, summary });
+  const files = await writeSnapshot(outDir, { raw, summary }, { saveRaw });
   const changes = summarizeDiff(previousSummary, summary);
 
   return { raw, summary, files, changes };
@@ -210,7 +220,7 @@ async function main() {
   let previousSummary = null;
 
   async function runOnce() {
-    const snapshot = await takeSnapshot(options.url, options.outDir, previousSummary);
+    const snapshot = await takeSnapshot(options.url, options.outDir, previousSummary, { saveRaw: options.saveRaw });
     previousSummary = snapshot.summary;
 
     console.log("");
