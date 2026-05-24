@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePool } from "./usePool";
 import { useAuth } from "./useAuth";
 import { supabase } from "../lib/supabase";
@@ -81,6 +81,18 @@ export function useSeriesPickem(series) {
   const [saveState, setSaveState] = useState("idle");
   const [lastSavedAt, setLastSavedAt] = useState(null);
 
+  // Hold latest series in a ref so the Supabase effect can read it without
+  // re-subscribing every time ESPN's live state ticks (which would otherwise
+  // trigger a full picks refetch every 60 seconds per user).
+  const seriesRef = useRef(series);
+  useEffect(() => {
+    seriesRef.current = series;
+  }, [series]);
+  const memberListRef = useRef(memberList);
+  useEffect(() => {
+    memberListRef.current = memberList;
+  }, [memberList]);
+
   useEffect(() => {
     if (!pool?.id || !session?.user?.id) {
       setPicksBySeriesId({});
@@ -89,6 +101,7 @@ export function useSeriesPickem(series) {
     }
 
     let cancelled = false;
+    const currentUserId = session.user.id;
 
     async function loadPicks() {
       setLoading(true);
@@ -99,15 +112,18 @@ export function useSeriesPickem(series) {
 
       if (cancelled) return;
 
+      const currentSeries = seriesRef.current;
+      const currentMembers = memberListRef.current;
+
       if (error) {
         const raw = typeof window !== "undefined" ? window.localStorage.getItem(storageKey(pool.id)) : null;
-        const fallback = sanitizePicksForSeries(raw ? JSON.parse(raw) : {}, series);
+        const fallback = sanitizePicksForSeries(raw ? JSON.parse(raw) : {}, currentSeries);
         const latestSavedAt = Object.values(fallback).reduce((latest, pick) => {
           if (!pick?.updatedAt) return latest;
           return !latest || pick.updatedAt > latest ? pick.updatedAt : latest;
         }, null);
         setPicksBySeriesId(fallback);
-        const nextAll = addPreviewPicks(session.user.id ? { [session.user.id]: fallback } : {}, memberList, series, session.user.id);
+        const nextAll = addPreviewPicks(currentUserId ? { [currentUserId]: fallback } : {}, currentMembers, currentSeries, currentUserId);
         setAllPicksByUser(nextAll);
         setPersistenceMode("local");
         setSaveState("idle");
@@ -127,15 +143,62 @@ export function useSeriesPickem(series) {
         };
       });
       const sanitizedAll = Object.fromEntries(
-        Object.entries(nextAll).map(([userId, userPicks]) => [userId, sanitizePicksForSeries(userPicks, series)])
+        Object.entries(nextAll).map(([userId, userPicks]) => [userId, sanitizePicksForSeries(userPicks, currentSeries)])
       );
 
-      const nextAllWithPreview = addPreviewPicks(sanitizedAll, memberList, series, session.user.id);
+      const nextAllWithPreview = addPreviewPicks(sanitizedAll, currentMembers, currentSeries, currentUserId);
       setAllPicksByUser(nextAllWithPreview);
-      setPicksBySeriesId(nextAllWithPreview[session.user.id] ?? {});
+      setPicksBySeriesId(nextAllWithPreview[currentUserId] ?? {});
       setPersistenceMode("supabase");
       setSaveState("idle");
       setLoading(false);
+    }
+
+    // Apply a single Realtime row change directly into local state instead of
+    // refetching every pick in the pool. Cuts egress dramatically when many
+    // users are picking concurrently.
+    function applyPickDelta(payload) {
+      const eventType = payload.eventType;
+      const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+      if (!row?.user_id || !row?.series_id) return;
+      const userId = row.user_id;
+      const seriesId = row.series_id;
+
+      if (eventType === "DELETE") {
+        setAllPicksByUser((current) => {
+          if (!current[userId]) return current;
+          const userPicks = { ...current[userId] };
+          delete userPicks[seriesId];
+          return { ...current, [userId]: userPicks };
+        });
+        if (userId === currentUserId) {
+          setPicksBySeriesId((current) => {
+            if (!current[seriesId]) return current;
+            const next = { ...current };
+            delete next[seriesId];
+            return next;
+          });
+        }
+        return;
+      }
+
+      const nextPick = {
+        winnerTeamId: row.winner_team_id,
+        games: row.predicted_games,
+        roundKey: row.round_key,
+        updatedAt: row.updated_at,
+      };
+
+      setAllPicksByUser((current) => ({
+        ...current,
+        [userId]: {
+          ...(current[userId] ?? {}),
+          [seriesId]: nextPick,
+        },
+      }));
+      if (userId === currentUserId) {
+        setPicksBySeriesId((current) => ({ ...current, [seriesId]: nextPick }));
+      }
     }
 
     loadPicks();
@@ -145,7 +208,7 @@ export function useSeriesPickem(series) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "nba_series_picks", filter: `pool_id=eq.${pool.id}` },
-        () => loadPicks()
+        applyPickDelta,
       )
       .subscribe();
 
@@ -153,7 +216,7 @@ export function useSeriesPickem(series) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [memberList, pool?.id, series, session?.user?.id]);
+  }, [pool?.id, session?.user?.id]);
 
   const pickedSeriesCount = useMemo(
     () => series.filter((item) => picksBySeriesId[item.id]?.winnerTeamId).length,

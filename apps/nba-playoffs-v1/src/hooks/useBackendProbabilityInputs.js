@@ -83,6 +83,49 @@ export function useBackendProbabilityInputs({ productKey, entityIds = [], entity
 
     fetchProbabilities();
 
+    // Apply Realtime row changes in-place instead of refetching the full slice
+    // every time a single row updates. Cuts egress significantly when many
+    // series are tracked.
+    const acceptedEntityTypes = new Set(
+      includeExactResults ? [entityType, `${entityType}_exact_result`] : [entityType]
+    );
+    function applyProbabilityDelta(payload) {
+      const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+      if (!row?.entity_id) return;
+      if (!acceptedEntityTypes.has(row.entity_type)) return;
+      if (!stableEntityIds.includes(row.entity_id)) return;
+      const sourceType = row.source_type === "model" ? "model" : row.source_type === "market" ? "market" : null;
+      if (!sourceType) return;
+      const isExact = row.entity_type === `${entityType}_exact_result`;
+      const targetKey = isExact ? (sourceType === "market" ? "marketExact" : "modelExact") : sourceType;
+
+      setProbabilityMap((current) => {
+        const existing = current[row.entity_id] ?? { market: null, model: null, marketExact: null, modelExact: null };
+        if (payload.eventType === "DELETE") {
+          return {
+            ...current,
+            [row.entity_id]: { ...existing, [targetKey]: null },
+          };
+        }
+        const nextValue = isExact
+          ? {
+              sourceName: row.source_name ?? "unknown_source",
+              exactResults: row.probabilities ?? {},
+              capturedAt: row.captured_at ?? null,
+            }
+          : {
+              sourceName: row.source_name ?? "unknown_source",
+              homeWinPct: row.probabilities?.home_win_pct ?? row.probabilities?.homeWinPct ?? 50,
+              awayWinPct: row.probabilities?.away_win_pct ?? row.probabilities?.awayWinPct ?? 50,
+              capturedAt: row.captured_at ?? null,
+            };
+        return {
+          ...current,
+          [row.entity_id]: { ...existing, [targetKey]: nextValue },
+        };
+      });
+    }
+
     const channel = supabase
       .channel(channelName)
       .on(
@@ -93,7 +136,7 @@ export function useBackendProbabilityInputs({ productKey, entityIds = [], entity
           table: "probability_inputs",
           filter: `product_key=eq.${productKey}`,
         },
-        () => fetchProbabilities()
+        applyProbabilityDelta,
       )
       .subscribe();
 

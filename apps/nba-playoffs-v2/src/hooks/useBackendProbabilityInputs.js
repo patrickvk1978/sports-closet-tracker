@@ -65,6 +65,40 @@ export function useBackendProbabilityInputs({ productKey, entityIds = [], entity
 
     fetchProbabilities();
 
+    // Apply Realtime row changes in-place instead of refetching every row in
+    // the slice. Probability inputs change rarely, so a delta keeps egress at
+    // the size of a single row instead of every series at once.
+    function applyProbabilityDelta(payload) {
+      const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+      if (!row?.entity_id) return;
+      if (row.entity_type !== entityType) return;
+      if (!stableEntityIds.includes(row.entity_id)) return;
+      const sourceType = row.source_type === "model" ? "model" : row.source_type === "market" ? "market" : null;
+      if (!sourceType) return;
+
+      setProbabilityMap((current) => {
+        const existing = current[row.entity_id] ?? { market: null, model: null };
+        if (payload.eventType === "DELETE") {
+          return {
+            ...current,
+            [row.entity_id]: { ...existing, [sourceType]: null },
+          };
+        }
+        return {
+          ...current,
+          [row.entity_id]: {
+            ...existing,
+            [sourceType]: {
+              sourceName: row.source_name ?? "unknown_source",
+              homeWinPct: row.probabilities?.home_win_pct ?? row.probabilities?.homeWinPct ?? 50,
+              awayWinPct: row.probabilities?.away_win_pct ?? row.probabilities?.awayWinPct ?? 50,
+              capturedAt: row.captured_at ?? null,
+            },
+          },
+        };
+      });
+    }
+
     const channel = supabase
       .channel(channelName)
       .on(
@@ -75,7 +109,7 @@ export function useBackendProbabilityInputs({ productKey, entityIds = [], entity
           table: "probability_inputs",
           filter: `product_key=eq.${productKey}`,
         },
-        () => fetchProbabilities()
+        applyProbabilityDelta,
       )
       .subscribe();
 

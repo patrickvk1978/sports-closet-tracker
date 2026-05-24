@@ -124,7 +124,7 @@ export function PoolProvider({ children }) {
     const poolIds = memberships.map(m => m.pool_id)
     const { data: pools } = await supabase
       .from('pools')
-      .select('*')
+      .select('id, name, admin_id, invite_code, scoring_config, settings, game_mode, locked, created_at')
       .in('id', poolIds)
       .order('created_at', { ascending: false })
 

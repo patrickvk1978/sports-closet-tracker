@@ -12,9 +12,15 @@ export function ReferenceDataProvider({ children }) {
   async function load() {
     setLoading(true);
     const [teamsResult, prospectsResult, picksResult] = await Promise.all([
-      supabase.from("nfl_teams").select("*"),
-      supabase.from("prospects").select("*").order("consensus_rank", { ascending: true, nullsFirst: false }),
-      supabase.from("round_1_picks").select("*").order("pick_number", { ascending: true }),
+      supabase.from("nfl_teams").select("code, name, needs"),
+      supabase
+        .from("prospects")
+        .select("id, name, position, school, consensus_rank, athletic_rank, espn_rank, pff_rank, ringer_rank")
+        .order("consensus_rank", { ascending: true, nullsFirst: false }),
+      supabase
+        .from("round_1_picks")
+        .select("pick_number, original_team, current_team")
+        .order("pick_number", { ascending: true }),
     ]);
 
     if (teamsResult.data) {
