@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { signIn, signInWithGoogle, signUp, resetPassword } = useAuth();
+  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
   const [tab, setTab] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,7 +12,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -61,11 +60,14 @@ export default function LoginPage() {
   async function handleGoogleSignIn() {
     setError("");
     setInfo("");
-    setOauthLoading(true);
-    const { error: oauthError } = await signInWithGoogle();
-    if (oauthError) {
-      setError(oauthError.message ?? "Google sign-in failed");
-      setOauthLoading(false);
+    setLoading(true);
+    try {
+      const { error: oauthError } = await signInWithGoogle();
+      if (oauthError) {
+        setError(oauthError.message ?? "Unable to sign in with Google");
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -80,7 +82,7 @@ export default function LoginPage() {
       <div className="auth-card fade-in">
         <div className="auth-brand">
           <div className="brand-mark large">NBA</div>
-          <h1>Playoff Bracket Challenge</h1>
+          <h1>NBA Playoff Predictor</h1>
           <p>Join a playoff pool, build your bracket, and track every series with friends.</p>
         </div>
 
@@ -103,18 +105,25 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {tab === "signin" ? (
-          <button
-            className="secondary-button full"
-            type="button"
-            onClick={handleGoogleSignIn}
-            disabled={loading || oauthLoading}
-          >
-            {oauthLoading ? "Redirecting to Google..." : "Continue with Google"}
-          </button>
-        ) : null}
-
         <form onSubmit={handleSubmit} className="form-stack">
+          {tab === "signin" ? (
+            <button
+              className="primary-button full"
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              style={{ background: "#fff", color: "#111", border: "1px solid #d1d5db" }}
+            >
+              {loading ? "Redirecting…" : "Continue with Google"}
+            </button>
+          ) : null}
+
+          {tab === "signin" ? (
+            <div className="subtle" style={{ textAlign: "center", marginTop: "-6px", marginBottom: "-2px" }}>
+              or use email and password
+            </div>
+          ) : null}
+
           {tab === "signup" ? (
             <label className="field">
               <span>Username</span>
